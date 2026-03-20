@@ -224,7 +224,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
                       <div>
                         <h3 className="text-lg font-semibold text-night-silver">{contact.role}</h3>
                         <p className="text-night-dark-gray text-sm">{contact.name}</p>
-                        {contact.company && <p className="text-night-dark-gray text-xs mt-1">{contact.company}</p>}
+                        {'company' in contact && contact.company && <p className="text-night-dark-gray text-xs mt-1">{contact.company}</p>}
                       </div>
                     </div>
 
