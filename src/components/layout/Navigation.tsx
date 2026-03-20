@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   Music,
   Calendar,
-  PlaylistIcon,
+  ListIcon,
   CheckSquare,
   DollarSign,
   Settings,
@@ -27,7 +27,7 @@ export function Navigation() {
     {
       title: 'PREP',
       items: [
-        { label: 'Playlists', href: '/prep/playlists', icon: PlaylistIcon },
+        { label: 'Playlists', href: '/prep/playlists', icon: ListIcon },
         { label: 'Tasks', href: '/prep/tasks', icon: CheckSquare },
       ],
     },
