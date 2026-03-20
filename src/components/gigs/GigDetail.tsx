@@ -229,37 +229,37 @@ export function GigDetail({ gigId }: GigDetailProps) {
                     </div>
 
                     <div className="space-y-2 text-sm">
-                      {contact.email && (
+                      {'email' in contact && contact.email && (
                         <div className="flex items-center gap-2 text-night-dark-gray hover:text-night-silver transition-colors cursor-pointer">
                           <Mail className="w-4 h-4 text-night-silver" />
                           <a href={`mailto:${contact.email}`} className="hover:underline">{contact.email}</a>
                         </div>
                       )}
-                      {contact.mobile && (
+                      {'mobile' in contact && contact.mobile && (
                         <div className="flex items-center gap-2 text-night-dark-gray hover:text-night-silver transition-colors">
                           <Phone className="w-4 h-4 text-night-silver" />
                           <a href={`tel:${contact.mobile}`} className="hover:underline">{contact.mobile}</a>
                         </div>
                       )}
-                      {contact.phone && (
+                      {'phone' in contact && contact.phone && (
                         <div className="flex items-center gap-2 text-night-dark-gray hover:text-night-silver transition-colors">
                           <Building className="w-4 h-4 text-night-silver" />
                           <a href={`tel:${contact.phone}`} className="hover:underline">{contact.phone}</a>
                         </div>
                       )}
-                      {contact.office && (
+                      {'office' in contact && contact.office && (
                         <div className="flex items-center gap-2 text-night-dark-gray">
                           <Building className="w-4 h-4 text-night-silver" />
                           <span>{contact.office}</span>
                         </div>
                       )}
-                      {contact.fax && (
+                      {'fax' in contact && contact.fax && (
                         <div className="flex items-center gap-2 text-night-dark-gray text-xs">
                           <FileText className="w-4 h-4 text-night-silver" />
                           <span>Fax: {contact.fax}</span>
                         </div>
                       )}
-                      {contact.agency && (
+                      {'agency' in contact && contact.agency && (
                         <div className="flex items-center gap-2 text-night-dark-gray text-xs mt-2 pt-2 border-t border-night-dark-gray">
                           <Building className="w-4 h-4 text-night-silver" />
                           <span>{contact.agency}</span>
