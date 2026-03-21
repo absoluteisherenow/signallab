@@ -101,7 +101,7 @@ export function BroadcastLab() {
   const [trendCaptions, setTrendCaptions] = useState<Record<number, string>>({})
   const [loadingTrends, setLoadingTrends] = useState(false)
   const [generatingWeek, setGeneratingWeek] = useState(false)
-  const [postFormat, setPostFormat] = useState<'post' | 'story' | 'reel'>('post')
+  const [postFormat, setPostFormat] = useState<'post' | 'carousel' | 'story' | 'reel'>('post')
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -424,7 +424,7 @@ export function BroadcastLab() {
           </div>
         </div>
         <div className="flex gap-2 mb-3">
-          {(['post','story','reel'] as const).map(f => (
+          {(['post','carousel','story','reel'] as const).map(f => (
             <button key={f} onClick={() => setPostFormat(f)}
               className={`text-[8.5px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${postFormat===f ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
               {f}
