@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
 
 interface ArtistProfile {
   name: string
@@ -136,7 +137,22 @@ export function BroadcastLab() {
     toastTimer.current = setTimeout(() => setToast(null), 3400)
   }
 
+
+  async function loadArtists() {
+    const { data } = await supabase.from('artist_profiles').select('*')
+    if (data && data.length > 0) setArtists(data as ArtistProfile[])
+  }
+
+  async function saveArtist(artist: ArtistProfile) {
+    await supabase.from('artist_profiles').upsert(artist, { onConflict: 'name' })
+  }
+
+  async function removeArtistFromDb(name: string) {
+    await supabase.from('artist_profiles').delete().eq('name', name)
+  }
+
   useEffect(() => {
+    loadArtists()
     setTimeout(() => loadTrendCaptions(), 800)
     setTimeout(() => generateCaptions(), 1200)
   }, [])
@@ -297,7 +313,7 @@ export function BroadcastLab() {
           {artists.map(artist => (
             <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-5 relative group hover:border-white/13 transition-colors">
               {scanningArtist === artist.name && <div className="absolute top-0 left-0 right-0 h-px bg-[#b08d57] animate-pulse" />}
-              <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); showToast(`${artist.name} removed`, 'Research') }}
+              <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
                 className="absolute top-3 right-3 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none">x</button>
               <div className="flex items-start justify-between mb-4">
                 <div>
