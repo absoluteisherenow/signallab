@@ -101,6 +101,25 @@ export function BroadcastLab() {
   const [trendCaptions, setTrendCaptions] = useState<Record<number, string>>({})
   const [loadingTrends, setLoadingTrends] = useState(false)
   const [generatingWeek, setGeneratingWeek] = useState(false)
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function uploadMedia(file: File) {
+    setUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: form })
+      const data = await res.json()
+      if (data.url) { setMediaUrl(data.url); showToast('Media uploaded', 'Done') }
+      else throw new Error(data.error || 'Upload failed')
+    } catch (err: any) {
+      showToast('Upload failed: ' + err.message, 'Error')
+    } finally {
+      setUploading(false)
+    }
+  }
   const [toast, setToast] = useState<{ msg: string; tag: string } | null>(null)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
@@ -184,7 +203,7 @@ export function BroadcastLab() {
     }
   }
 
-  async function scheduleToBuffer(text: string, selectedPlatform: string) {
+  async function scheduleToBuffer(text: string, selectedPlatform: string, media?: string | null) {
     if (!text) { showToast('No caption to schedule', 'Error'); return }
     const channelMap: Record<string, string> = {
       'Instagram': 'instagram',
@@ -196,7 +215,7 @@ export function BroadcastLab() {
       const res = await fetch('/api/buffer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, channels: [channel] }),
+        body: JSON.stringify({ text, channels: [channel], ...(media && { media_url: media }) }),
       })
       const data = await res.json()
       if (data.error) throw new Error(JSON.stringify(data.error))
@@ -404,6 +423,25 @@ export function BroadcastLab() {
           </div>
         </div>
         <div className="flex gap-2 mb-5">
+          <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) uploadMedia(f) }} />
+          <div className="flex items-center gap-3 mb-5 p-3 border border-white/7 bg-[#1a1917]">
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+              className="text-[8.5px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-4 py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex items-center gap-2 flex-shrink-0">
+              {uploading && <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
+              {uploading ? 'Uploading...' : 'Upload media'}
+            </button>
+            {mediaUrl ? (
+              <div className="flex items-center gap-2 flex-1">
+                <img src={mediaUrl} className="w-10 h-10 object-cover" alt="preview" />
+                <span className="text-[9px] tracking-[.1em] text-[#3d6b4a] flex-1 truncate">Media ready — will attach to post</span>
+                <button onClick={() => setMediaUrl(null)} className="text-[#8a8780] hover:text-red-400 text-xs">x</button>
+              </div>
+            ) : (
+              <span className="text-[9px] tracking-[.08em] text-[#2e2c29] uppercase tracking-widest">No media — Instagram requires image or video</span>
+            )}
+          </div>
+
           {['Instagram','TikTok','X / Twitter'].map(p => (
             <button key={p} onClick={() => {setPlatform(p);setTimeout(generateCaptions,100)}}
               className={`text-[8.5px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${platform===p?'border-[#b08d57] text-[#b08d57]':'border-white/13 text-[#8a8780] hover:border-white/20'}`}>{p}</button>
@@ -429,7 +467,7 @@ export function BroadcastLab() {
                     <div className="text-[12px] tracking-[.05em] leading-7 min-h-[72px]">{v?.text||''}</div>
                     <div className="text-[9px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{fontFamily:'Georgia,serif'}}>{v?.reasoning||''}</div>
                     <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
-                      <button onClick={e=>{e.stopPropagation();scheduleToBuffer(v?.text||'',platform)}}
+                      <button onClick={e=>{e.stopPropagation();scheduleToBuffer(v?.text||'',platform,mediaUrl)}}
                         className="text-[8.5px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">Schedule -&gt;</button>
                       <div className="text-[9px] text-[#8a8780]">Est. <span className={v&&v.score>1600?'text-[#3d6b4a]':v&&v.score>1200?'text-[#b08d57]':'text-[#8a8780]'}>{v?formatScore(v.score):'...'}</span></div>
                     </div>
@@ -450,7 +488,7 @@ export function BroadcastLab() {
               {generatingCaptions&&<div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
               {generatingCaptions?'Generating...':'Regenerate'}
             </button>
-            <button onClick={() => scheduleToBuffer(captions?.[selectedVariant]?.text||'', platform)}
+            <button onClick={() => scheduleToBuffer(captions?.[selectedVariant]?.text||'', platform, mediaUrl)}
               className="text-[9px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors">
               Schedule best -&gt;
             </button>
