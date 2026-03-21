@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'Buffer token not configured' }, { status: 500 })
 
   try {
-    const { text, media_url, scheduled_at, channels } = await req.json()
+    const { text, media_url, channels } = await req.json()
 
     const channelMap: Record<string, string> = {
       instagram: '69beea2d7be9f8b1717e1de8',
@@ -16,10 +16,14 @@ export async function POST(req: NextRequest) {
     const channelIds = (channels || ['instagram']).map((c: string) => channelMap[c]).filter(Boolean)
 
     const mutation = `
-      mutation CreatePost($input: PostInput!) {
+      mutation CreatePost($input: CreatePostInput!) {
         createPost(input: $input) {
-          post { id status }
-          errors { message }
+          ... on PostActionSuccess {
+            posts { id }
+          }
+          ... on PostActionError {
+            error { message }
+          }
         }
       }
     `
@@ -31,7 +35,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (media_url) input.assets = [{ url: media_url, type: 'IMAGE' }]
-    if (scheduled_at) input.scheduledAt = scheduled_at
 
     const res = await fetch('https://api.buffer.com/graphql', {
       method: 'POST',
