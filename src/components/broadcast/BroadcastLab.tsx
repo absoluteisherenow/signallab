@@ -438,7 +438,7 @@ export function BroadcastLab() {
         </div>
 
         <div className="flex gap-2 mb-5">
-          <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden"
+          <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden"
             onChange={e => { if (e.target.files?.length) uploadMedia(e.target.files) }} />
           <div className="flex items-center gap-3 mb-5 p-3 border border-white/7 bg-[#1a1917]">
             <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
