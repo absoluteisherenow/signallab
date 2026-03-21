@@ -101,6 +101,7 @@ export function BroadcastLab() {
   const [trendCaptions, setTrendCaptions] = useState<Record<number, string>>({})
   const [loadingTrends, setLoadingTrends] = useState(false)
   const [generatingWeek, setGeneratingWeek] = useState(false)
+  const [postFormat, setPostFormat] = useState<'post' | 'story' | 'reel'>('post')
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -215,7 +216,7 @@ export function BroadcastLab() {
       const res = await fetch('/api/buffer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, channels: [channel], ...(media && { media_url: media }) }),
+        body: JSON.stringify({ text, channels: [channel], post_format: postFormat, ...(media && { media_url: media }) }),
       })
       const data = await res.json()
       if (data.error) throw new Error(JSON.stringify(data.error))

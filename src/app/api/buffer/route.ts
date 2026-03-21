@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'Buffer token not configured' }, { status: 500 })
 
   try {
-    const { text, media_url, channels } = await req.json()
+    const { text, media_url, channels, post_format } = await req.json()
 
     const channelMap: Record<string, string> = {
       instagram: '69beea2d7be9f8b1717e1de8',
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (media_url) input.assets = { images: [{ url: media_url }] }
-    input.metadata = { instagram: { type: 'post', shouldShareToFeed: true } }
+    input.metadata = { instagram: { type: post_format || 'post', shouldShareToFeed: post_format !== 'story' } }
 
     const res = await fetch('https://api.buffer.com/graphql', {
       method: 'POST',
