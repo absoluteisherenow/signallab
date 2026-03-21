@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Calendar, MapPin, Clock, Plus } from 'lucide-react'
 import { Header } from '@/components/dashboard/Header'
 
@@ -64,8 +65,7 @@ const gigs: Gig[] = [
 ]
 
 export function GigsList() {
-  const totalFees = gigs.reduce((sum, gig) => sum + gig.fee, 0)
-  const confirmedCount = gigs.filter(g => g.status === 'confirmed').length
+  const router = useRouter()
 
   return (
     <div className="min-h-screen bg-night-black">
@@ -73,22 +73,6 @@ export function GigsList() {
 
       <div className="p-8">
         <div className="max-w-6xl mx-auto">
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-              <p className="text-night-dark-gray text-sm mb-2">Total Bookings</p>
-              <p className="text-3xl font-bold text-night-silver">{gigs.length}</p>
-            </div>
-            <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-              <p className="text-night-dark-gray text-sm mb-2">Confirmed</p>
-              <p className="text-3xl font-bold text-green-400">{confirmedCount}</p>
-            </div>
-            <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-              <p className="text-night-dark-gray text-sm mb-2">Total Income</p>
-              <p className="text-3xl font-bold text-night-silver">€{totalFees.toLocaleString()}</p>
-            </div>
-          </div>
-
           {/* Add Gig Button */}
           <button className="mb-8 flex items-center gap-2 px-6 py-3 bg-night-silver text-night-black rounded-lg font-semibold hover:bg-night-light transition-colors">
             <Plus className="w-5 h-5" />
@@ -114,11 +98,14 @@ export function GigsList() {
                   {gigs.map((gig) => (
                     <tr
                       key={gig.id}
-                      className="border-b border-night-dark-gray hover:bg-night-dark-gray transition-colors"
+                      className="border-b border-night-dark-gray hover:bg-night-dark-gray transition-colors cursor-pointer group"
+                      onClick={() => {
+                        router.push(`/gigs/${gig.id}`)
+                      }}
                     >
                       <td className="py-4 px-6">
                         <div>
-                          <p className="text-night-light font-semibold">{gig.title}</p>
+                          <p className="text-night-light font-semibold group-hover:text-night-silver transition-colors">{gig.title}</p>
                           <p className="text-night-dark-gray text-xs mt-1">{gig.venue}</p>
                         </div>
                       </td>
@@ -159,6 +146,7 @@ export function GigsList() {
                         <Link
                           href={`/gigs/${gig.id}`}
                           className="text-night-silver hover:text-night-light transition-colors font-semibold"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           View
                         </Link>

@@ -122,26 +122,6 @@ export function Dashboard() {
             </Link>
           ))}
         </div>
-
-        {/* Quick Stats Section */}
-        <div className="mt-12 grid grid-cols-3 gap-4 max-w-6xl">
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-            <p className="text-night-dark-gray text-sm mb-2">Total Upcoming Shows</p>
-            <p className="text-3xl font-bold text-night-silver">{upcomingShows.length}</p>
-          </div>
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-            <p className="text-night-dark-gray text-sm mb-2">Total Expected Audience</p>
-            <p className="text-3xl font-bold text-night-silver">
-              {upcomingShows.reduce((sum, s) => sum + s.audience, 0).toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-            <p className="text-night-dark-gray text-sm mb-2">Confirmed Events</p>
-            <p className="text-3xl font-bold text-night-silver">
-              {upcomingShows.filter(s => s.status === 'confirmed').length}
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   )

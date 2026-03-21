@@ -269,9 +269,9 @@ export function GigDetail({ gigId }: GigDetailProps) {
       {/* Header with back link */}
       <div className="border-b border-night-dark-gray bg-night-gray">
         <div className="p-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-night-light hover:text-night-silver transition-colors mb-4">
+          <Link href="/gigs" className="inline-flex items-center gap-2 text-night-light hover:text-night-silver transition-colors mb-4">
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Shows</span>
+            <span>Back to Gigs</span>
           </Link>
           <h1 className="text-5xl font-bold text-night-silver tracking-tight">{gig.title}</h1>
           <p className="text-night-light mt-3 text-lg">{gig.venue}, {gig.location}</p>
