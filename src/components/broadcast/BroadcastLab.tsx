@@ -184,6 +184,28 @@ export function BroadcastLab() {
     }
   }
 
+  async function scheduleToBuffer(text: string, selectedPlatform: string) {
+    if (!text) { showToast('No caption to schedule', 'Error'); return }
+    const channelMap: Record<string, string> = {
+      'Instagram': 'instagram',
+      'TikTok': 'tiktok',
+      'X / Twitter': 'threads',
+    }
+    const channel = channelMap[selectedPlatform] || 'instagram'
+    try {
+      const res = await fetch('/api/buffer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, channels: [channel] }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(JSON.stringify(data.error))
+      showToast('Queued in Buffer for ' + selectedPlatform, 'Scheduled')
+    } catch (err: any) {
+      showToast('Buffer: ' + err.message, 'Error')
+    }
+  }
+
   async function generateFullWeek() {
     setGeneratingWeek(true)
     try {
@@ -407,7 +429,7 @@ export function BroadcastLab() {
                     <div className="text-[12px] tracking-[.05em] leading-7 min-h-[72px]">{v?.text||''}</div>
                     <div className="text-[9px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{fontFamily:'Georgia,serif'}}>{v?.reasoning||''}</div>
                     <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
-                      <button onClick={e=>{e.stopPropagation();showToast(`Scheduled on ${platform} — Tuesday 10pm`,'Scheduled')}}
+                      <button onClick={e=>{e.stopPropagation();scheduleToBuffer(v?.text||'',platform)}}
                         className="text-[8.5px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">Schedule -&gt;</button>
                       <div className="text-[9px] text-[#8a8780]">Est. <span className={v&&v.score>1600?'text-[#3d6b4a]':v&&v.score>1200?'text-[#b08d57]':'text-[#8a8780]'}>{v?formatScore(v.score):'...'}</span></div>
                     </div>
@@ -428,7 +450,7 @@ export function BroadcastLab() {
               {generatingCaptions&&<div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
               {generatingCaptions?'Generating...':'Regenerate'}
             </button>
-            <button onClick={() => showToast(`Scheduled on ${platform} — Tuesday 10pm`,'Scheduled')}
+            <button onClick={() => scheduleToBuffer(captions?.[selectedVariant]?.text||'', platform)}
               className="text-[9px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors">
               Schedule best -&gt;
             </button>
