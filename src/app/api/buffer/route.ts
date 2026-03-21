@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (media_url) input.assets = { images: [{ url: media_url }] }
+    input.metadata = { instagram: { type: 'post' } }
 
     const res = await fetch('https://api.buffer.com/graphql', {
       method: 'POST',
