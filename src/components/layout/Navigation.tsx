@@ -2,16 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  Music,
-  Calendar,
-  ListIcon,
-  CheckSquare,
-  DollarSign,
-  Settings,
-  Radio,
-  Disc3,
-} from 'lucide-react'
+import { Calendar, ListIcon, CheckSquare, DollarSign, Settings, Disc3, Music } from 'lucide-react'
 
 export function Navigation() {
   const pathname = usePathname()
@@ -46,43 +37,30 @@ export function Navigation() {
   }
 
   return (
-    <nav className="w-64 bg-night-gray border-r border-night-dark-gray flex flex-col">
-      {/* Header */}
-      <div className="p-6 border-b border-night-dark-gray">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 bg-night-silver rounded-lg flex items-center justify-center">
-            <Radio className="w-6 h-6 text-night-black" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-night-silver">NIGHT</h1>
-            <p className="text-xs text-night-dark-gray">MANOEUVRES</p>
-          </div>
+    <nav className="w-52 bg-[#070706] border-r border-white/7 flex flex-col" style={{fontFamily:'DM Mono, monospace'}}>
+      <div className="p-6 border-b border-white/7">
+        <div className="mb-1">
+          <div style={{fontFamily:'Unbounded, sans-serif'}} className="text-sm font-light tracking-widest text-[#f0ebe2]">NIGHT</div>
+          <div style={{fontFamily:'Unbounded, sans-serif'}} className="text-sm font-light tracking-widest text-[#b08d57]">MANOEUVRES</div>
         </div>
-        <p className="text-xs text-night-dark-gray mt-3">Signal Lab Dashboard</p>
+        <div className="text-[9px] tracking-[.18em] uppercase text-[#8a8780] mt-3">Signal Lab</div>
       </div>
 
-      {/* Navigation Sections */}
       <div className="flex-1 overflow-y-auto py-6">
         {navSections.map((section) => (
-          <div key={section.title} className="mb-8 px-4">
-            <h2 className="text-xs font-semibold text-night-silver uppercase tracking-wider mb-3 px-2">
-              {section.title}
-            </h2>
-            <ul className="space-y-1">
+          <div key={section.title} className="mb-7 px-4">
+            <div className="text-[8px] font-light tracking-[.22em] text-[#8a8780] uppercase mb-2 px-2">{section.title}</div>
+            <ul className="space-y-0.5">
               {section.items.map((item) => {
                 const Icon = item.icon
                 const active = isActive(item.href)
                 return (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                        active
-                          ? 'bg-night-dark-gray text-night-silver'
-                          : 'text-night-dark-gray hover:text-night-light hover:bg-night-dark-gray/50'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
+                    <Link href={item.href}
+                      className={`flex items-center gap-3 px-3 py-2 text-[10.5px] tracking-[.08em] transition-colors ${
+                        active ? 'bg-white/7 text-[#f0ebe2]' : 'text-[#8a8780] hover:text-[#f0ebe2] hover:bg-white/4'
+                      }`}>
+                      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                       <span>{item.label}</span>
                     </Link>
                   </li>
@@ -93,21 +71,18 @@ export function Navigation() {
         ))}
       </div>
 
-      {/* Footer Links */}
-      <div className="border-t border-night-dark-gray p-4 space-y-2">
-        <a
-          href="/broadcast"
-          className="flex items-center gap-2 px-3 py-2 text-xs text-night-dark-gray hover:text-night-silver transition-colors rounded hover:bg-night-dark-gray/50"
-        >
-          <Disc3 className="w-4 h-4" />
-          Broadcast Lab
-        </a>
-        <a
-          href="#sonix"
-          className="flex items-center gap-2 px-3 py-2 text-xs text-night-dark-gray hover:text-night-silver transition-colors rounded hover:bg-night-dark-gray/50"
-        >
-          <Music className="w-4 h-4" />
-          SONIX
+      <div className="border-t border-white/7 p-4 space-y-0.5">
+        <Link href="/broadcast"
+          className={`flex items-center gap-3 px-3 py-2 text-[10.5px] tracking-[.08em] transition-colors ${
+            pathname.startsWith('/broadcast') ? 'bg-white/7 text-[#b08d57]' : 'text-[#8a8780] hover:text-[#b08d57] hover:bg-white/4'
+          }`}>
+          <Disc3 className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>Broadcast Lab</span>
+        </Link>
+        <a href="#sonix"
+          className="flex items-center gap-3 px-3 py-2 text-[10.5px] tracking-[.08em] text-[#8a8780] hover:text-[#8a8780] transition-colors">
+          <Music className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>Sonix Lab</span>
         </a>
       </div>
     </nav>

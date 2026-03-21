@@ -9,19 +9,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        'night-black': '#0F0E0C',
-        'night-silver': '#C0C0C0',
-        'night-gray': '#1A1815',
-        'night-dark-gray': '#2D2924',
-        'night-light': '#E8E8E8',
+        'night-black': '#070706',
+        'night-silver': '#f0ebe2',
+        'night-gray': '#0e0d0b',
+        'night-dark-gray': '#2e2c29',
+        'night-light': '#f0ebe2',
+        'night-gold': '#b08d57',
+        'night-dim': '#52504c',
       },
       fontFamily: {
-        sans: ['system-ui', 'sans-serif'],
-        mono: ['Fira Code', 'monospace'],
+        sans: ['DM Mono', 'monospace'],
+        mono: ['DM Mono', 'monospace'],
+        display: ['Unbounded', 'sans-serif'],
+        serif: ['Libre Baskerville', 'Georgia', 'serif'],
       },
-      spacing: {
-        '18': '4.5rem',
-      },
+      spacing: { '18': '4.5rem' },
     },
   },
   plugins: [],
