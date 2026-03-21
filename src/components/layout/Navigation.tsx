@@ -96,7 +96,7 @@ export function Navigation() {
       {/* Footer Links */}
       <div className="border-t border-night-dark-gray p-4 space-y-2">
         <a
-          href="#broadcast-lab"
+          href="/broadcast"
           className="flex items-center gap-2 px-3 py-2 text-xs text-night-dark-gray hover:text-night-silver transition-colors rounded hover:bg-night-dark-gray/50"
         >
           <Disc3 className="w-4 h-4" />
