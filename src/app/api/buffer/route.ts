@@ -13,28 +13,26 @@ export async function POST(req: NextRequest) {
       tiktok: '69bef72e7be9f8b1717e55e2',
     }
 
-    const channelIds = (channels || ['instagram']).map((c: string) => channelMap[c]).filter(Boolean)
+    const channel = channels?.[0] || 'instagram'
+    const channelId = channelMap[channel] || channelMap['instagram']
 
     const mutation = `
       mutation CreatePost($input: CreatePostInput!) {
         createPost(input: $input) {
-          ... on PostActionSuccess {
-            posts { id }
-          }
-          ... on PostActionError {
-            error { message }
-          }
+          __typename
+          ... on UnexpectedError { message }
         }
       }
     `
 
     const input: any = {
-      channelIds,
+      channelId,
       text,
-      organizationId: '69bee780f2367be07c0390d7',
+      schedulingType: 'automatic',
+      mode: 'addToQueue',
     }
 
-    if (media_url) input.assets = [{ url: media_url, type: 'IMAGE' }]
+    if (media_url) input.assets = { images: [{ url: media_url }] }
 
     const res = await fetch('https://api.buffer.com/graphql', {
       method: 'POST',
@@ -47,7 +45,11 @@ export async function POST(req: NextRequest) {
 
     const data = await res.json()
     if (data.errors) return NextResponse.json({ error: data.errors }, { status: 400 })
-    return NextResponse.json(data.data)
+    const result = data.data?.createPost
+    if (result?.__typename === 'UnexpectedError') {
+      return NextResponse.json({ error: result.message }, { status: 400 })
+    }
+    return NextResponse.json({ success: true, result })
 
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
