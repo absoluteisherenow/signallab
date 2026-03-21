@@ -143,7 +143,13 @@ export function GigsList() {
                         €{gig.fee.toLocaleString()}
                       </td>
                       <td className="py-4 px-6 text-center">
-                        <Link
+                       <Link
+  href={`/broadcast?gig=${gig.id}&venue=${encodeURIComponent(gig.venue)}&location=${encodeURIComponent(gig.location)}&title=${encodeURIComponent(gig.title)}&date=${gig.date}`}
+  className="text-[#b08d57] hover:text-[#c9a46e] transition-colors font-semibold mr-3 text-xs"
+  onClick={(e) => e.stopPropagation()}
+>
+  Post
+</Link> <Link
                           href={`/gigs/${gig.id}`}
                           className="text-night-silver hover:text-night-light transition-colors font-semibold"
                           onClick={(e) => e.stopPropagation()}

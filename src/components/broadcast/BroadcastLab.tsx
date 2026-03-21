@@ -75,6 +75,20 @@ export function BroadcastLab() {
   const [scanningArtist, setScanningArtist] = useState<string | null>(null)
   const [platform, setPlatform] = useState('Instagram')
   const [context, setContext] = useState('Pitch Festival — Saturday night show in Melbourne')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const title = params.get('title')
+      const venue = params.get('venue')
+      const location = params.get('location')
+      const date = params.get('date')
+      if (title && venue) {
+        const dateStr = date ? new Date(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) : ''
+        setContext(title + ' at ' + venue + ', ' + location + (dateStr ? ' — ' + dateStr : ''))
+      }
+    }
+  }, [])
   const [media, setMedia] = useState('Crowd clip (video)')
   const [captions, setCaptions] = useState<Captions | null>({
     safe: { text: 'pitch festival. still not sure what happened to saturday night.', reasoning: 'Observational, lowercase, slightly unresolved — matches lane tone.', score: 1400 },
