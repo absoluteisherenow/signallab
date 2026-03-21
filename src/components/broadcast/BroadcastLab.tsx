@@ -423,6 +423,15 @@ export function BroadcastLab() {
             </select>
           </div>
         </div>
+        <div className="flex gap-2 mb-3">
+          {(['post','story','reel'] as const).map(f => (
+            <button key={f} onClick={() => setPostFormat(f)}
+              className={`text-[8.5px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${postFormat===f ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
+              {f}
+            </button>
+          ))}
+        </div>
+
         <div className="flex gap-2 mb-5">
           <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) uploadMedia(f) }} />
