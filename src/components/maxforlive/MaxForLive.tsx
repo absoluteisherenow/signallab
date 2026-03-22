@@ -106,7 +106,7 @@ export function MaxForLive() {
           </div>
           <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.1em' }}>3 devices · Live 11/12 · M4L required</div>
         </div>
-        <button onClick={() => showToast('Download starting — check your downloads folder')} style={{
+        <button onClick={() => window.location.href = '/api/download'} style={{
           background: 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
           border: `1px solid ${s.gold}`,
           color: s.gold,

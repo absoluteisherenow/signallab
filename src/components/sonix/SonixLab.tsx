@@ -17,6 +17,27 @@ async function callClaude(system: string, userPrompt: string, maxTokens = 800): 
   return data.content?.[0]?.text || ''
 }
 
+const STOCK_CHAINS: Record<string, string> = {
+  'Vocal — Warmth': 'EQ Eight (high shelf +2dB @ 8kHz) → Compressor (4:1, soft knee) → Saturator (warm tube) → Reverb (small room)',
+  'Vocal — Presence': 'EQ Eight (mid boost 2-4kHz) → Glue Compressor (2:1) → Echo (short pre-delay) → Utility (width)',
+  'Vocal — Intimate': 'Channel EQ (low cut 80Hz) → Compressor (8:1 fast) → Saturator (light) → Reverb (med room)',
+  'Vocal — Radio': 'EQ Eight (telephone filter) → Compressor (limiting) → Saturator (hard clip) → Utility',
+  'Vocal — Depth': 'EQ Eight → Compressor → Echo (ping pong) → Reverb (large hall) → Utility (wide)',
+  'Vocal — Dark': 'EQ Eight (high shelf -4dB) → Multiband Dynamics → Reverb (long tail)',
+  'Vocal — Airy': 'EQ Eight (air shelf +3dB @ 16kHz) → Compressor (2:1) → Reverb (bright room)',
+  'Vocal — Electronic': 'Redux (light bit crush) → Saturator → Auto Filter (band pass) → Echo',
+  'Bass — Sub': 'EQ Eight (high cut 80Hz, low shelf boost) → Compressor (fast, 8:1) → Utility (mono)',
+  'Bass — Midrange': 'EQ Eight (upper harmonics +3dB) → Glue Compressor → Saturator (light)',
+  'Bass — Reese': 'Auto Filter (slow LFO) → Saturator → EQ Eight → Compressor',
+  'Bass — Punch': 'Compressor (fast attack/release) → EQ Eight → Saturator (transient)',
+  'Synth — Pad': 'EQ Eight → Compressor (slow) → Reverb (large) → Utility (wide) → Auto Pan',
+  'Synth — Lead': 'EQ Eight (mid focus) → Compressor → Saturator → Echo (short)',
+  'Synth — Texture': 'Redux → Reverb → Echo → Utility',
+  'Drum — Room': 'Glue Compressor (parallel) → EQ Eight → Reverb (room) → Utility',
+  'Drum — Electronic': 'Compressor (fast) → EQ Eight → Saturator → Utility (mono low)',
+  'Reference': 'Multiband Dynamics (gentle) → EQ Eight (matching) → Limiter (-0.3dB)',
+}
+
 const CHAINS = [
   { name: 'Vocal — Warmth', type: 'vocal', desc: 'Vintage compression, harmonic saturation, air shelf' },
   { name: 'Vocal — Presence', type: 'vocal', desc: 'Forward mid push, de-ess, bright reverb tail' },
