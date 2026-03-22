@@ -247,14 +247,19 @@ export function BroadcastLab() {
       })
       const data = await res.json()
       if (data.error) throw new Error(JSON.stringify(data.error))
-      showToast('Queued in Buffer for ' + selectedPlatform, 'Scheduled')
-      supabase.from('post_performance').insert({
+      
+      // Save to Supabase scheduled_posts table
+      const bufferPostId = data.posts?.[0]?.id || null
+      await supabase.from('scheduled_posts').insert({
         platform: selectedPlatform,
         caption: text,
         format: postFormat,
-        context: context,
-        estimated_score: captions?.[selectedVariant]?.score || 0,
+        scheduled_at: new Date().toISOString(),
+        status: 'scheduled',
+        buffer_post_id: bufferPostId,
       })
+      
+      showToast('Queued in Buffer for ' + selectedPlatform, 'Scheduled')
     } catch (err: any) {
       showToast('Buffer: ' + err.message, 'Error')
     }
@@ -350,7 +355,7 @@ export function BroadcastLab() {
               </div>
               <div className="flex flex-wrap gap-1">
                 {artist.chips.map((chip, i) => (
-                  <span key={chip} className={`text-[8px] tracking-[.1em] uppercase px-2 py-1 border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/35 text-[#b08d57]' : 'border-white/13 text-[#8a8780]'}`}>{chip}</span>
+                  <span key={chip} className={`text-[10px] tracking-[.1em] uppercase px-2 py-1 border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/35 text-[#b08d57]' : 'border-white/13 text-[#8a8780]'}`}>{chip}</span>
                 ))}
               </div>
             </div>
@@ -374,24 +379,24 @@ export function BroadcastLab() {
 
       {/* TONE PROFILE */}
       <div className="bg-[#0e0d0b] border border-white/7 p-8">
-        <div className="flex items-center gap-2 mb-6 text-[8.5px] tracking-[.22em] uppercase text-[#b08d57]">
+        <div className="flex items-center gap-2 mb-6 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
           Live tone profile — NIGHT manoeuvres<div className="flex-1 h-px bg-white/10" />
         </div>
         <div className="grid grid-cols-3 gap-6 mb-7">
           {[{l:'Lowercase',v:'92%',p:92,s:'Lane avg: 93%'},{l:'Under 8 words',v:'74%',p:74,s:'Lane avg: 77%'},{l:'No hashtags',v:'83%',p:83,s:'Lane avg: 91% — reduce yours',t:true},{l:'Video over photo',v:'2.3x',p:65,s:'Lane avg: 2.6x'},{l:'No caption explanation',v:'88%',p:88,s:'Caption never explains photo',t:true},{l:'Tone register',v:'Raw',p:79,s:'Detached · observational'}].map(m => (
             <div key={m.l}>
               <div className="flex justify-between items-baseline mb-1">
-                <span className="text-[9.5px] tracking-[.1em] text-[#8a8780]">{m.l}</span>
+                <span className="text-[11px] tracking-[.1em] text-[#8a8780]">{m.l}</span>
                 <span className="text-xl font-light text-[#b08d57]">{m.v}</span>
               </div>
               <Bar value={m.p} teal={m.t} />
-              <div className="text-[9px] tracking-[.08em] text-[#2e2c29] mt-1">{m.s}</div>
+              <div className="text-[11px] tracking-[.08em] text-[#2e2c29] mt-1">{m.s}</div>
             </div>
           ))}
         </div>
         <div className="border-t border-white/7 pt-5 flex flex-col">
           {['Clips with no talking perform 38% better than talking-to-camera in this lane','Posts within 6 hours of a show outperform studio posts by 2.1x on saves','Captions under 8 words get 34% more saves across all reference artists','Tuesday and Thursday 10pm are peak windows — Sunday underperforms consistently','Your hashtag use is above your lane average — reducing will improve tone alignment'].map((ins,i) => (
-            <div key={i} className="flex gap-3 py-3 border-b border-white/7 last:border-0 text-[10.5px] tracking-[.07em] text-[#8a8780] leading-relaxed hover:text-white/60 hover:pl-1 transition-all cursor-default">
+            <div key={i} className="flex gap-3 py-3 border-b border-white/7 last:border-0 text-[12px] tracking-[.07em] text-[#8a8780] leading-relaxed hover:text-white/60 hover:pl-1 transition-all cursor-default">
               <span className="text-[#b08d57] opacity-70 flex-shrink-0">-&gt;</span>{ins}
             </div>
           ))}

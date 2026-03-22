@@ -74,7 +74,7 @@ export function GigsList() {
       <div className="p-8">
         <div className="max-w-6xl mx-auto">
           {/* Add Gig Button */}
-          <button className="mb-8 flex items-center gap-2 px-6 py-3 bg-night-silver text-night-black rounded-lg font-semibold hover:bg-night-light transition-colors">
+          <button onClick={() => router.push('/gigs/new')} className="mb-8 flex items-center gap-2 px-6 py-3 bg-night-silver text-night-black rounded-lg font-semibold hover:bg-night-light transition-colors">
             <Plus className="w-5 h-5" />
             Add New Gig
           </button>
@@ -82,16 +82,16 @@ export function GigsList() {
           {/* Gigs Table */}
           <div className="bg-night-gray border border-night-dark-gray rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full" style={{ fontSize: '14px' }}>
                 <thead className="border-b border-night-dark-gray bg-night-dark-gray">
                   <tr className="text-night-dark-gray">
-                    <th className="text-left py-4 px-6 font-semibold">Event</th>
-                    <th className="text-left py-4 px-6 font-semibold">Date & Time</th>
-                    <th className="text-left py-4 px-6 font-semibold">Location</th>
-                    <th className="text-center py-4 px-6 font-semibold">Status</th>
-                    <th className="text-right py-4 px-6 font-semibold">Audience</th>
-                    <th className="text-right py-4 px-6 font-semibold">Fee</th>
-                    <th className="text-center py-4 px-6 font-semibold">Action</th>
+                    <th className="text-left py-4 px-6 font-semibold" style={{ fontSize: '12px', letterSpacing: '0.1em' }}>Event</th>
+                    <th className="text-left py-4 px-6 font-semibold" style={{ fontSize: '12px', letterSpacing: '0.1em' }}>Date & Time</th>
+                    <th className="text-left py-4 px-6 font-semibold" style={{ fontSize: '12px', letterSpacing: '0.1em' }}>Location</th>
+                    <th className="text-center py-4 px-6 font-semibold" style={{ fontSize: '12px', letterSpacing: '0.1em' }}>Status</th>
+                    <th className="text-right py-4 px-6 font-semibold" style={{ fontSize: '12px', letterSpacing: '0.1em' }}>Audience</th>
+                    <th className="text-right py-4 px-6 font-semibold" style={{ fontSize: '12px', letterSpacing: '0.1em' }}>Fee</th>
+                    <th className="text-center py-4 px-6 font-semibold" style={{ fontSize: '12px', letterSpacing: '0.1em' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>

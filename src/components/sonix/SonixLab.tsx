@@ -410,7 +410,7 @@ Give me:
               padding: '24px 28px',
               boxShadow: 'inset 0 1px 0 rgba(255,200,100,0.05)',
             }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #2a2010' }}>
+              <div style={{ fontSize: '11px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #2a2010' }}>
                 Harmonic parameters
               </div>
               <div className="grid grid-cols-4 gap-6">
@@ -420,14 +420,14 @@ Give me:
                   { label: 'Emotional feel', value: feel, onChange: setFeel, options: ['Melancholic', 'Euphoric', 'Tense', 'Dreamy', 'Aggressive', 'Soulful', 'Minimal', 'Epic', 'Intimate', 'Hypnotic'] },
                 ].map(field => (
                   <div key={field.label}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>{field.label}</div>
+                    <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>{field.label}</div>
                     <select value={field.value} onChange={e => field.onChange(e.target.value)} style={{
                       width: '100%',
                       background: '#0e0b06',
                       border: '1px solid #3a2e1c',
                       color: '#e8dcc8',
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: '13px',
+                      fontSize: '14px',
                       padding: '8px 12px',
                       outline: 'none',
                     }}>
@@ -436,7 +436,7 @@ Give me:
                   </div>
                 ))}
                 <div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Actions</div>
+                  <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Actions</div>
                   <div className="flex gap-2">
                     <button onClick={generateChords} disabled={generatingChords} style={{
                       flex: 1,
@@ -444,7 +444,7 @@ Give me:
                       border: '1px solid #6a4e28',
                       color: '#c9a46e',
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: '10px',
+                      fontSize: '11px',
                       letterSpacing: '0.15em',
                       textTransform: 'uppercase',
                       padding: '8px',
@@ -459,7 +459,7 @@ Give me:
                       border: '1px solid #4a6a38',
                       color: '#8aba68',
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: '10px',
+                      fontSize: '11px',
                       letterSpacing: '0.15em',
                       textTransform: 'uppercase',
                       padding: '8px',
@@ -497,28 +497,24 @@ Give me:
             </div>
 
             {/* RESULTS */}
-            {(chordResult || melodyResult) && (
-              <div className="grid grid-cols-2 gap-6">
-                {chordResult && (
-                  <div style={{ background: '#0e0b06', border: '1px solid #3a2e1c', padding: '24px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #2a2010' }}>
-                      Chord analysis
-                    </div>
-                    <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                      {chordResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
-                    </div>
-                  </div>
-                )}
-                {melodyResult && (
-                  <div style={{ background: '#0e0b06', border: '1px solid #2a3020', padding: '24px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#8aba68', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #1a2010' }}>
-                      Melody ideas
-                    </div>
-                    <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                      {melodyResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
-                    </div>
-                  </div>
-                )}
+            {chordResult && (
+              <div style={{ background: '#0e0b06', border: '1px solid #3a2e1c', padding: '24px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #2a2010' }}>
+                  Chord analysis
+                </div>
+                <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                  {chordResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
+                </div>
+              </div>
+            )}
+            {melodyResult && (
+              <div style={{ background: '#0e0b06', border: '1px solid #2a3020', padding: '24px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#8aba68', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #1a2010' }}>
+                  Melody ideas
+                </div>
+                <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                  {melodyResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
+                </div>
               </div>
             )}
           </div>
