@@ -84,6 +84,13 @@ export function Navigation() {
           <Music className="w-3.5 h-3.5 flex-shrink-0" />
           <span>Sonix Lab</span>
         </a>
+        <Link href="/setlab"
+          className={`flex items-center gap-3 px-3 py-2 text-[10.5px] tracking-[.08em] transition-colors ${
+            pathname === '/setlab' ? 'bg-white/7 text-[#b08d57]' : 'text-[#52504c] hover:text-[#b08d57] hover:bg-white/4'
+          }`}>
+          <Disc3 className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>SetLab</span>
+        </Link>
       </div>
     </nav>
   )
