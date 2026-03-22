@@ -140,7 +140,11 @@ export function BroadcastLab() {
 
   async function loadArtists() {
     const { data } = await supabase.from('artist_profiles').select('*')
-    if (data && data.length > 0) setArtists(data as ArtistProfile[])
+    if (data && data.length > 0) {
+      setArtists(data as ArtistProfile[])
+    } else {
+      await Promise.all(DEFAULT_ARTISTS.map(a => saveArtist(a)))
+    }
   }
 
   async function saveArtist(artist: ArtistProfile) {
