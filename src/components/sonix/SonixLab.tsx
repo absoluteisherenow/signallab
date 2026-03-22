@@ -1,4 +1,5 @@
 'use client'
+import { TrackUploader } from './TrackUploader'
 
 import { useState, useEffect, useRef } from 'react'
 
