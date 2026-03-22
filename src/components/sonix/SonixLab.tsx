@@ -484,7 +484,7 @@ Give me:
                       Chord analysis
                     </div>
                     <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                      {chordResult}
+                      {chordResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
                     </div>
                   </div>
                 )}
@@ -494,7 +494,7 @@ Give me:
                       Melody ideas
                     </div>
                     <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                      {melodyResult}
+                      {melodyResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
                     </div>
                   </div>
                 )}
@@ -696,7 +696,7 @@ Give me:
                 {chainResult && (
                   <div style={{ background: '#0e0b06', border: '1px solid #2a2010', padding: '20px' }}>
                     <div style={{ fontSize: '13px', lineHeight: '1.85', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                      {chainResult}
+                      {chainResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
                     </div>
                   </div>
                 )}

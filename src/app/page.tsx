@@ -74,7 +74,7 @@ const PRICING = [
   },
   {
     name: 'Agency',
-    price: '£149',
+    price: '£99',
     period: '/month',
     desc: 'For management companies and booking agents',
     features: [
@@ -89,11 +89,20 @@ const PRICING = [
     cta: 'Talk to us',
     highlight: false,
   },
+  {
+    name: 'Management',
+    price: '£249',
+    period: '/mo',
+    desc: 'For agencies and management companies',
+    features: ['Everything in Agency', 'Up to 10 artist profiles', 'Roster analytics dashboard', 'Branded advance forms', 'Dedicated onboarding call'],
+    cta: 'Talk to us',
+    highlight: false,
+  },
 ]
 
 const STATS = [
-  { value: '£150', label: 'saved per show vs Advancers' },
-  { value: '4h', label: 'saved on advance admin per gig' },
+  { value: '4', label: 'modules in one subscription' },
+  { value: '£59', label: 'per month all-in' },
   { value: '3×', label: 'more content posted by Pro users' },
   { value: '18', label: 'mixdown chains in Sonix Lab' },
 ]
@@ -226,7 +235,7 @@ export default function LandingPage() {
 
       {/* STATS */}
       <div style={{ padding: '80px 48px', borderTop: `1px solid ${s.border}`, borderBottom: `1px solid ${s.border}` }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0' }}>
           {STATS.map((stat, i) => (
             <div key={stat.label} style={{ padding: '0 40px', borderRight: i < 3 ? `1px solid ${s.border}` : 'none', textAlign: 'center' }}>
               <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '40px', fontWeight: 200, color: s.gold, letterSpacing: '0.05em', marginBottom: '8px' }}>{stat.value}</div>
