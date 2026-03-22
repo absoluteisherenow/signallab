@@ -1,5 +1,5 @@
-import { MediaLibrary } from '@/components/broadcast/MediaLibrary'
+import { MediaScanner } from '@/components/broadcast/MediaScanner'
 
 export default function MediaPage() {
-  return <MediaLibrary />
+  return <MediaScanner />
 }
