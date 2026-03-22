@@ -149,7 +149,28 @@ export function GigsList() {
   onClick={(e) => e.stopPropagation()}
 >
   Post
-</Link> <Link
+</Link> <button
+  onClick={async (e) => {
+    e.stopPropagation()
+    const res = await fetch('/api/advance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gigId: gig.id,
+        gigTitle: gig.title,
+        venue: gig.venue,
+        date: gig.date,
+        promoterEmail: 'absoluteishere@gmail.com',
+      }),
+    })
+    const data = await res.json()
+    if (data.success) alert('Advance request sent!')
+    else alert('Error: ' + data.error)
+  }}
+  className="text-[#3d6b4a] hover:text-[#4a8a5a] transition-colors font-semibold mr-3 text-xs"
+>
+  Advance
+</button> <Link
                           href={`/gigs/${gig.id}`}
                           className="text-night-silver hover:text-night-light transition-colors font-semibold"
                           onClick={(e) => e.stopPropagation()}
