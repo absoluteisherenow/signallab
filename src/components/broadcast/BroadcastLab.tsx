@@ -248,6 +248,13 @@ export function BroadcastLab() {
       const data = await res.json()
       if (data.error) throw new Error(JSON.stringify(data.error))
       showToast('Queued in Buffer for ' + selectedPlatform, 'Scheduled')
+      supabase.from('post_performance').insert({
+        platform: selectedPlatform,
+        caption: text,
+        format: postFormat,
+        context: context,
+        estimated_score: captions?.[selectedVariant]?.score || 0,
+      })
     } catch (err: any) {
       showToast('Buffer: ' + err.message, 'Error')
     }
