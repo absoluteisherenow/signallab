@@ -79,7 +79,7 @@ export function Navigation() {
           <Disc3 className="w-3.5 h-3.5 flex-shrink-0" />
           <span>Broadcast Lab</span>
         </Link>
-        <a href="#sonix"
+        <a href="/sonix"
           className="flex items-center gap-3 px-3 py-2 text-[10.5px] tracking-[.08em] text-[#8a8780] hover:text-[#8a8780] transition-colors">
           <Music className="w-3.5 h-3.5 flex-shrink-0" />
           <span>Sonix Lab</span>
