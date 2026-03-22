@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 const MODULES = [
   { label: 'Signal Lab', href: '/dashboard', color: '#b08d57', sub: [
     { label: 'Gigs', href: '/gigs' },
-    { label: 'Logistics', href: '/gigs' },
+    { label: 'Logistics', href: '/gigs/logistics' },
     { label: 'Finances', href: '/business/finances' },
     { label: 'Settings', href: '/business/settings' },
   ]},
@@ -17,13 +17,13 @@ const MODULES = [
     { label: 'Scanner', href: '/broadcast/media' },
   ]},
   { label: 'Sonix Lab', href: '/sonix', color: '#6a7a9a', sub: [
-    { label: 'Compose', href: '/sonix' },
-    { label: 'Arrange', href: '/sonix' },
-    { label: 'Mixdown', href: '/sonix' },
+    { label: 'Compose', href: '/sonix#compose' },
+    { label: 'Arrange', href: '/sonix#arrange' },
+    { label: 'Mixdown', href: '/sonix#mixdown' },
   ]},
   { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [
     { label: 'Library', href: '/setlab' },
-    { label: 'Builder', href: '/setlab' },
+    { label: 'Builder', href: '/setlab#builder' },
     { label: 'Rekordbox', href: '/setlab/rekordbox' },
   ]},
   { label: 'Max for Live', href: '/maxforlive', color: '#7a5a8a', sub: [] },
@@ -32,7 +32,7 @@ const MODULES = [
 export function Navigation() {
   const pathname = usePathname()
 
-  const isActive = (href: string) => pathname === href
+  const isActive = (href: string) => pathname === href.split('#')[0]
 
   const moduleActive = (mod: typeof MODULES[0]) => {
     if (mod.href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
