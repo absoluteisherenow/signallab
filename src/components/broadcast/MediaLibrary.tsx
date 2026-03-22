@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
-interface Blob {
+interface MediaItem {
   url: string
   pathname: string
   size: number
@@ -11,139 +10,94 @@ interface Blob {
 }
 
 export function MediaLibrary() {
-  const [blobs, setBlobs] = useState<Blob[]>([])
-  const [selected, setSelected] = useState<string[]>([])
+  const [items, setItems] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
-  const [toast, setToast] = useState<{msg:string,tag:string}|null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  const showToast = (msg: string, tag = 'Info') => {
-    setToast({msg,tag})
-    setTimeout(() => setToast(null), 3400)
+  useEffect(() => {
+    fetch('/api/media')
+      .then(r => r.json())
+      .then(d => setItems(d.blobs || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const s = {
+    bg: '#070706', panel: '#0e0d0b', border: '#1a1917',
+    gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c',
+    font: "'DM Mono', monospace",
   }
 
-  useEffect(() => { fetchMedia() }, [])
-
-  async function fetchMedia() {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/media')
-      const data = await res.json()
-      setBlobs(data.blobs || [])
-    } catch { showToast('Failed to load media', 'Error') }
-    finally { setLoading(false) }
-  }
-
-  async function uploadFiles(files: FileList) {
-    setUploading(true)
-    try {
-      await Promise.all(Array.from(files).map(async file => {
-        const form = new FormData()
-        form.append('file', file)
-        await fetch('/api/upload', { method: 'POST', body: form })
-      }))
-      showToast(`${files.length} file${files.length>1?'s':''} uploaded`, 'Done')
-      fetchMedia()
-    } catch { showToast('Upload failed', 'Error') }
-    finally { setUploading(false) }
-  }
-
-  function toggleSelect(url: string) {
-    setSelected(prev => prev.includes(url) ? prev.filter(u => u !== url) : [...prev, url])
-  }
-
-  function useInPost() {
-    if (!selected.length) { showToast('Select at least one image', 'Error'); return }
-    const params = new URLSearchParams()
-    selected.forEach(url => params.append('media', url))
-    if (selected.length > 1) params.set('format', 'carousel')
-    router.push('/broadcast?' + params.toString())
+  function toggle(url: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(url) ? next.delete(url) : next.add(url)
+      return next
+    })
   }
 
   return (
-    <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono p-8">
-      <div className="flex items-end justify-between mb-8">
-        <div>
-          <div className="text-[9px] tracking-[.3em] uppercase text-[#b08d57] flex items-center gap-3 mb-3">
-            <span className="block w-7 h-px bg-[#b08d57]" />
-            Broadcast Lab — Media Library
-          </div>
-          <div className="text-3xl tracking-[.04em] font-light">
-            Media <span className="italic text-[#b08d57]" style={{fontFamily:'Georgia,serif'}}>library</span>
-          </div>
+    <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '40px 48px' }}>
+      <div style={{ marginBottom: '40px' }}>
+        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
+          Broadcast Lab — Media Library
         </div>
-        <div className="flex items-center gap-3">
-          {selected.length > 0 && (
-            <div className="text-[9px] tracking-[.1em] uppercase text-[#8a8780]">
-              {selected.length} selected{selected.length > 1 ? ' — carousel' : ''}
-            </div>
-          )}
-          {selected.length > 0 && (
-            <button onClick={useInPost}
-              className="text-[9px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors">
-              Use in post{selected.length > 1 ? ' (carousel)' : ''} -&gt;
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 200 }}>Media library</div>
+            <div style={{ fontSize: '13px', color: s.dimmer, marginTop: '6px' }}>{items.length} items</div>
+          </div>
+          {selected.size > 0 && (
+            <button onClick={() => window.location.href = '/broadcast'} style={{
+              background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+              border: '1px solid #b08d57', color: '#b08d57',
+              fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
+              textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
+            }}>
+              Use {selected.size} in post →
             </button>
           )}
-          <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden"
-            onChange={e => { if (e.target.files?.length) uploadFiles(e.target.files) }} />
-          <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-            className="text-[9px] tracking-[.18em] uppercase border border-white/13 text-[#8a8780] px-5 py-2.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex items-center gap-2">
-            {uploading && <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
-            {uploading ? 'Uploading...' : 'Upload media'}
-          </button>
-          <button onClick={fetchMedia} className="text-[9px] tracking-[.18em] uppercase border border-white/13 text-[#8a8780] px-4 py-2.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">
-            Refresh
-          </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-4 gap-3">
-          {[...Array(8)].map((_,i) => (
-            <div key={i} className="aspect-square bg-[#0e0d0b] border border-white/7 animate-pulse" />
-          ))}
-        </div>
-      ) : blobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-32 gap-4">
-          <div className="text-[#2e2c29] text-4xl">+</div>
-          <div className="text-[9px] tracking-[.2em] uppercase text-[#2e2c29]">No media yet — upload your first file</div>
-          <button onClick={() => fileInputRef.current?.click()}
-            className="text-[9px] tracking-[.18em] uppercase border border-white/13 text-[#8a8780] px-5 py-2.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors mt-4">
-            Upload media
-          </button>
+        <div style={{ fontSize: '13px', color: s.dimmer, padding: '40px 0' }}>Loading media...</div>
+      ) : items.length === 0 ? (
+        <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '60px', textAlign: 'center' }}>
+          <div style={{ fontSize: '14px', color: s.dim, marginBottom: '8px' }}>No media uploaded yet</div>
+          <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '24px' }}>Upload photos and videos in Broadcast Lab</div>
+          <a href="/broadcast" style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: s.gold, textDecoration: 'none', border: `1px solid ${s.gold}40`, padding: '12px 24px' }}>
+            Go to Broadcast Lab →
+          </a>
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-3">
-          {blobs.map((blob, i) => {
-            const isSelected = selected.includes(blob.url)
-            const selIdx = selected.indexOf(blob.url)
-            return (
-              <div key={i} onClick={() => toggleSelect(blob.url)}
-                className={`relative aspect-square cursor-pointer group overflow-hidden border-2 transition-all ${isSelected ? 'border-[#b08d57]' : 'border-transparent hover:border-white/20'}`}>
-                <img src={blob.url} alt="" className="w-full h-full object-cover" />
-                <div className={`absolute inset-0 transition-opacity ${isSelected ? 'bg-[#b08d57]/20' : 'bg-black/0 group-hover:bg-black/20'}`} />
-                {isSelected && (
-                  <div className="absolute top-2 right-2 w-6 h-6 bg-[#b08d57] flex items-center justify-center text-[#070706] text-[10px] font-bold">
-                    {selIdx + 1}
-                  </div>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="text-[8px] tracking-[.08em] text-[#8a8780] truncate">
-                    {new Date(blob.uploadedAt).toLocaleDateString('en-GB')}
-                  </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+          {items.filter(item => !item.pathname.includes('error') && !item.pathname.includes('screenshot')).map(item => (
+            <div key={item.url} onClick={() => toggle(item.url)} style={{
+              background: s.panel,
+              border: `1px solid ${selected.has(item.url) ? s.gold : s.border}`,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              position: 'relative',
+            }}>
+              <div style={{ aspectRatio: '1', overflow: 'hidden', background: '#1a1917' }}>
+                <img src={item.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  onError={e => { (e.target as HTMLImageElement).src = '' }} />
+              </div>
+              {selected.has(item.url) && (
+                <div style={{ position: 'absolute', top: '8px', right: '8px', width: '22px', height: '22px', background: s.gold, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#070706', fontWeight: 600 }}>✓</div>
+              )}
+              <div style={{ padding: '10px 12px' }}>
+                <div style={{ fontSize: '10px', color: s.dimmer, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.pathname.split('/').pop()}
+                </div>
+                <div style={{ fontSize: '9px', color: '#2e2c29', marginTop: '3px' }}>
+                  {(item.size / 1024).toFixed(0)} KB
                 </div>
               </div>
-            )
-          })}
-        </div>
-      )}
-
-      {toast && (
-        <div className="fixed bottom-7 right-7 bg-[#0e0d0b]/96 border border-white/13 px-5 py-3.5 text-[11px] tracking-[.07em] text-[#f0ebe2] z-50 max-w-xs leading-relaxed backdrop-blur-md">
-          <div className="text-[8px] tracking-[.2em] uppercase text-[#b08d57] mb-1">{toast.tag}</div>
-          {toast.msg}
+            </div>
+          ))}
         </div>
       )}
     </div>
