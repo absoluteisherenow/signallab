@@ -15,29 +15,20 @@ const MODULES = [
     { label: 'Media Library', href: '/broadcast/media' },
     { label: 'Scanner', href: '/broadcast/scanner' },
   ]},
-  { label: 'Sonix Lab', href: '/sonix', color: '#6a7a9a', sub: [
-    { label: 'Compose', href: '/sonix/compose' },
-    { label: 'Arrange', href: '/sonix/arrange' },
-    { label: 'Mixdown', href: '/sonix/mixdown' },
-  ]},
+  { label: 'Sonix Lab', href: '/sonix', color: '#6a7a9a', sub: [] },
   { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [
-    { label: 'Library', href: '/setlab/library' },
-    { label: 'Builder', href: '/setlab/builder' },
-    { label: 'Rekordbox', href: '/setlab/rekordbox' },
+    { label: 'Rekordbox import', href: '/setlab/rekordbox' },
   ]},
   { label: 'Max for Live', href: '/maxforlive', color: '#7a5a8a', sub: [] },
 ]
 
 export function Navigation() {
   const pathname = usePathname()
-
   const isActive = (href: string) => pathname === href
-
   const moduleActive = (mod: typeof MODULES[0]) => {
     if (mod.href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
     return pathname === mod.href || mod.sub.some(s => pathname === s.href)
   }
-
   return (
     <nav style={{ width: '200px', background: '#070706', borderRight: '1px solid #1a1917', display: 'flex', flexDirection: 'column', fontFamily: "'DM Mono', monospace", flexShrink: 0, overflowY: 'auto' }}>
       <div style={{ padding: '20px 18px 18px', borderBottom: '1px solid #1a1917' }}>
