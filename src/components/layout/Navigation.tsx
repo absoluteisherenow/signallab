@@ -21,7 +21,7 @@ const MODULES = [
     { label: 'Arrange', href: '/sonix' },
     { label: 'Mixdown', href: '/sonix' },
   ]},
-  { label: 'SetLab', href: '/setlab', color: '#9a6a5a', sub: [
+  { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [
     { label: 'Library', href: '/setlab' },
     { label: 'Builder', href: '/setlab' },
     { label: 'Rekordbox', href: '/setlab/rekordbox' },
@@ -32,34 +32,36 @@ const MODULES = [
 export function Navigation() {
   const pathname = usePathname()
 
-  const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
-    return pathname.startsWith(href)
+  const isActive = (href: string) => pathname === href
+
+  const moduleActive = (mod: typeof MODULES[0]) => {
+    if (mod.href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
+    return pathname.startsWith(mod.href)
   }
 
   return (
     <nav style={{ width: '200px', background: '#070706', borderRight: '1px solid #1a1917', display: 'flex', flexDirection: 'column', fontFamily: "'DM Mono', monospace", flexShrink: 0, overflowY: 'auto' }}>
       <div style={{ padding: '20px 18px 18px', borderBottom: '1px solid #1a1917' }}>
-        <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+        <Link href='/dashboard' style={{ textDecoration: 'none' }}>
           <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 200, letterSpacing: '0.22em', color: '#b08d57', lineHeight: 1.3 }}>NIGHT</div>
           <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 200, letterSpacing: '0.22em', color: '#b08d57', lineHeight: 1.3 }}>MANOEUVRES</div>
         </Link>
         <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: '#2e2c29', marginTop: '6px', textTransform: 'uppercase' }}>The Modular Suite</div>
       </div>
-      <div style={{ flex: 1, padding: '12px 0' }}>
+      <div style={{ flex: 1, padding: '16px 0' }}>
         {MODULES.map(mod => {
-          const active = isActive(mod.href)
-          const anySub = mod.sub.some(s => pathname.startsWith(s.href))
-          const expanded = active || anySub
+          const active = moduleActive(mod)
           return (
-            <div key={mod.href} style={{ marginBottom: '2px' }}>
-              <Link href={mod.href} style={{ display: 'flex', alignItems: 'center', padding: '10px 18px', fontSize: '12px', letterSpacing: '0.08em', textDecoration: 'none', color: expanded ? mod.color : '#52504c', borderLeft: expanded ? '2px solid ' + mod.color : '2px solid transparent', transition: 'all 0.15s' }}>
-                {mod.label}
-              </Link>
-              {expanded && mod.sub.map(s => (
-                <Link key={s.href + s.label} href={s.href} style={{ display: 'block', padding: '7px 18px 7px 28px', fontSize: '11px', letterSpacing: '0.06em', textDecoration: 'none', color: pathname === s.href ? mod.color : '#3a3835', transition: 'color 0.15s' }}>
-                  {s.label}
-                </Link>
+            <div key={mod.href} style={{ marginBottom: '16px' }}>
+              <Link href={mod.href} style={{ display: 'block', padding: '6px 18px', fontSize: '12px', letterSpacing: '0.08em', textDecoration: 'none', color: active ? mod.color : '#52504c', transition: 'color 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.color = mod.color }}
+                onMouseLeave={e => { e.currentTarget.style.color = active ? mod.color : '#52504c' }}
+              >{mod.label}</Link>
+              {mod.sub.map(s => (
+                <Link key={s.href + s.label} href={s.href} style={{ display: 'block', padding: '5px 18px 5px 28px', fontSize: '11px', letterSpacing: '0.06em', textDecoration: 'none', color: isActive(s.href) ? mod.color : '#2e2c29', transition: 'color 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = mod.color }}
+                  onMouseLeave={e => { e.currentTarget.style.color = isActive(s.href) ? mod.color : '#2e2c29' }}
+                >{s.label}</Link>
               ))}
             </div>
           )
