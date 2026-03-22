@@ -49,6 +49,9 @@ const CHORD_PROGRESSIONS = [
 export function SonixLab() {
   const [activeTab, setActiveTab] = useState<'compose' | 'arrange' | 'mixdown'>('compose')
   const [toast, setToast] = useState<{ msg: string; tag: string } | null>(null)
+  const [reference, setReference] = useState('')
+  const [referenceAnalysis, setReferenceAnalysis] = useState('')
+  const [analysingReference, setAnalysingReference] = useState(false)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
 
   // COMPOSE state
@@ -80,6 +83,21 @@ export function SonixLab() {
     setToast({ msg, tag })
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), 3400)
+  }
+
+  async function analyseReference() {
+    if (!reference.trim()) { showToast('Enter a reference track first', 'Error'); return }
+    setAnalysingReference(true)
+    setReferenceAnalysis('')
+    try {
+      const raw = await callClaude('You are an expert music analyst. Be specific and practical.', 'Analyse this reference track for a producer wanting a similar style: ' + reference + '. Cover: key, BPM, arrangement structure, harmonic character, mix profile, energy arc, three defining production techniques.', 700)
+      setReferenceAnalysis(raw)
+      showToast('Reference analysed', 'Done')
+    } catch (err) {
+      showToast('Analysis failed', 'Error')
+    } finally {
+      setAnalysingReference(false)
+    }
   }
 
   // Animate VU meters
@@ -256,7 +274,7 @@ Give me:
               color: '#c9a46e',
               textShadow: '0 0 20px rgba(201,164,110,0.4)',
             }}>SONIX <span style={{ color: '#8a6a3a' }}>LAB</span></div>
-            <div style={{ fontSize: '8px', letterSpacing: '0.3em', color: '#5a4428', marginTop: '2px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: '#5a4428', marginTop: '2px' }}>
               MODULAR CREATIVE SUITE — MK.I
             </div>
           </div>
@@ -276,7 +294,7 @@ Give me:
             ))}
           </div>
 
-          <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: '#3a2e20', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#3a2e20', textTransform: 'uppercase' }}>
             Input level
           </div>
         </div>
@@ -286,7 +304,7 @@ Give me:
           {(['compose', 'arrange', 'mixdown'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               fontFamily: "'DM Mono', monospace",
-              fontSize: '9px',
+              fontSize: '13px',
               letterSpacing: '0.2em',
               textTransform: 'uppercase',
               padding: '8px 20px',
@@ -306,12 +324,58 @@ Give me:
           ))}
         </div>
 
-        <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: '#3a2e20' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: '#3a2e20' }}>
           SIGNAL LAB — THE MODULAR SUITE
         </div>
       </div>
 
       <div className="p-8">
+
+        {/* REFERENCE IMPORTER */}
+        <div style={{
+          background: 'linear-gradient(180deg, #2a2018 0%, #1e1710 100%)',
+          border: '1px solid #5a4428',
+          padding: '20px 28px',
+          marginBottom: '24px',
+          boxShadow: '0 0 20px rgba(201,164,110,0.05)',
+        }}>
+          <div style={{ fontSize: '13px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ display: 'block', width: '20px', height: '1px', background: '#c9a46e' }} />
+            Reference track analyser — the starting point
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <input value={reference} onChange={e => setReference(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') analyseReference() }}
+                placeholder="Artist — Track name (e.g. Bicep — Glue, Four Tet — Baby)"
+                style={{ width: '100%', background: '#0e0b06', border: '1px solid #5a4428', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+            </div>
+            <button onClick={analyseReference} disabled={analysingReference} style={{
+              background: analysingReference ? '#1a1208' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
+              border: '1px solid #c9a46e',
+              color: '#c9a46e',
+              fontFamily: "'DM Mono', monospace",
+              fontSize: '10px',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              padding: '12px 28px',
+              cursor: 'pointer',
+              opacity: analysingReference ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: '0 0 12px rgba(201,164,110,0.15)',
+            }}>
+              {analysingReference && <div style={{ width: '10px', height: '10px', border: '1px solid #c9a46e', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+              {analysingReference ? 'Analysing...' : 'Analyse reference'}
+            </button>
+          </div>
+          {referenceAnalysis && (
+            <div style={{ marginTop: '16px', background: '#0e0b06', border: '1px solid #3a2e1c', padding: '16px 20px', maxHeight: '180px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '14px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{referenceAnalysis}</div>
+            </div>
+          )}
+        </div>
 
         {/* ═══ COMPOSE TAB ═══ */}
         {activeTab === 'compose' && (
@@ -324,7 +388,7 @@ Give me:
               padding: '24px 28px',
               boxShadow: 'inset 0 1px 0 rgba(255,200,100,0.05)',
             }}>
-              <div style={{ fontSize: '8px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #2a2010' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #2a2010' }}>
                 Harmonic parameters
               </div>
               <div className="grid grid-cols-4 gap-6">
@@ -334,14 +398,14 @@ Give me:
                   { label: 'Emotional feel', value: feel, onChange: setFeel, options: ['Melancholic', 'Euphoric', 'Tense', 'Dreamy', 'Aggressive', 'Soulful', 'Minimal', 'Epic', 'Intimate', 'Hypnotic'] },
                 ].map(field => (
                   <div key={field.label}>
-                    <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>{field.label}</div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>{field.label}</div>
                     <select value={field.value} onChange={e => field.onChange(e.target.value)} style={{
                       width: '100%',
                       background: '#0e0b06',
                       border: '1px solid #3a2e1c',
                       color: '#e8dcc8',
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: '11px',
+                      fontSize: '13px',
                       padding: '8px 12px',
                       outline: 'none',
                     }}>
@@ -350,7 +414,7 @@ Give me:
                   </div>
                 ))}
                 <div>
-                  <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Actions</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Actions</div>
                   <div className="flex gap-2">
                     <button onClick={generateChords} disabled={generatingChords} style={{
                       flex: 1,
@@ -358,7 +422,7 @@ Give me:
                       border: '1px solid #6a4e28',
                       color: '#c9a46e',
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: '8px',
+                      fontSize: '10px',
                       letterSpacing: '0.15em',
                       textTransform: 'uppercase',
                       padding: '8px',
@@ -373,7 +437,7 @@ Give me:
                       border: '1px solid #4a6a38',
                       color: '#8aba68',
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: '8px',
+                      fontSize: '10px',
                       letterSpacing: '0.15em',
                       textTransform: 'uppercase',
                       padding: '8px',
@@ -389,7 +453,7 @@ Give me:
 
             {/* PROGRESSIONS */}
             <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-              <div style={{ fontSize: '8px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '16px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '16px' }}>
                 Chord progressions — {key}
               </div>
               <div className="grid grid-cols-3 gap-3">
@@ -402,9 +466,9 @@ Give me:
                     transition: 'all 0.15s',
                     boxShadow: selectedProgression === i ? '0 0 12px rgba(201,164,110,0.1)' : 'none',
                   }}>
-                    <div style={{ fontSize: '12px', letterSpacing: '0.05em', color: selectedProgression === i ? '#c9a46e' : '#8a7a5a', marginBottom: '6px', fontWeight: '400' }}>{prog.name}</div>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.1em', color: '#5a4428', marginBottom: '3px' }}>{prog.genre}</div>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.08em', color: '#4a3e28', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{prog.feel}</div>
+                    <div style={{ fontSize: '14px', letterSpacing: '0.05em', color: selectedProgression === i ? '#c9a46e' : '#8a7a5a', marginBottom: '6px', fontWeight: '400' }}>{prog.name}</div>
+                    <div style={{ fontSize: '13px', letterSpacing: '0.1em', color: '#5a4428', marginBottom: '3px' }}>{prog.genre}</div>
+                    <div style={{ fontSize: '13px', letterSpacing: '0.08em', color: '#4a3e28', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{prog.feel}</div>
                   </div>
                 ))}
               </div>
@@ -415,20 +479,20 @@ Give me:
               <div className="grid grid-cols-2 gap-6">
                 {chordResult && (
                   <div style={{ background: '#0e0b06', border: '1px solid #3a2e1c', padding: '24px' }}>
-                    <div style={{ fontSize: '8px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #2a2010' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #2a2010' }}>
                       Chord analysis
                     </div>
-                    <div style={{ fontSize: '11px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                    <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
                       {chordResult}
                     </div>
                   </div>
                 )}
                 {melodyResult && (
                   <div style={{ background: '#0e0b06', border: '1px solid #2a3020', padding: '24px' }}>
-                    <div style={{ fontSize: '8px', letterSpacing: '0.25em', color: '#8aba68', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #1a2010' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#8aba68', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #1a2010' }}>
                       Melody ideas
                     </div>
-                    <div style={{ fontSize: '11px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                    <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
                       {melodyResult}
                     </div>
                   </div>
@@ -443,21 +507,21 @@ Give me:
           <div className="flex flex-col gap-6">
 
             <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-              <div style={{ fontSize: '8px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #2a2010' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #2a2010' }}>
                 Track parameters
               </div>
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>
-                  <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
                   <input value={trackContext} onChange={e => setTrackContext(e.target.value)}
                     placeholder="128 BPM techno, dark and driving, 6 min DJ tool..."
-                    style={{ width: '100%', background: '#0e0b06', border: '1px solid #3a2e1c', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '11px', padding: '10px 12px', outline: 'none' }} />
+                    style={{ width: '100%', background: '#0e0b06', border: '1px solid #3a2e1c', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Reference track</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Reference track</div>
                   <input value={referenceTrack} onChange={e => setReferenceTrack(e.target.value)}
                     placeholder="Artist — Track name"
-                    style={{ width: '100%', background: '#0e0b06', border: '1px solid #3a2e1c', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '11px', padding: '10px 12px', outline: 'none' }} />
+                    style={{ width: '100%', background: '#0e0b06', border: '1px solid #3a2e1c', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
                 </div>
               </div>
               <button onClick={generateArrangement} disabled={generatingArrange} style={{
@@ -465,7 +529,7 @@ Give me:
                 border: '1px solid #6a4e28',
                 color: '#c9a46e',
                 fontFamily: "'DM Mono', monospace",
-                fontSize: '9px',
+                fontSize: '13px',
                 letterSpacing: '0.2em',
                 textTransform: 'uppercase',
                 padding: '12px 28px',
@@ -483,7 +547,7 @@ Give me:
             {/* ENERGY ARC VISUALISER */}
             {energyArc.length > 0 && (
               <div style={{ background: '#0e0b06', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-                <div style={{ fontSize: '8px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '20px' }}>
                   Energy arc
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '80px' }}>
@@ -505,10 +569,10 @@ Give me:
             {/* ARRANGEMENT RESULT */}
             {arrangeResult && (
               <div style={{ background: '#0e0b06', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-                <div style={{ fontSize: '8px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #2a2010' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #2a2010' }}>
                   Arrangement map
                 </div>
-                <div style={{ fontSize: '11px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
                   {(() => {
                     try {
                       const d = JSON.parse(arrangeResult.replace(/```json|```/g, '').trim())
@@ -517,18 +581,18 @@ Give me:
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '24px' }}>
                             {d.sections?.map((s: any, i: number) => (
                               <div key={i} style={{ background: '#1a1208', border: '1px solid #2a2010', padding: '12px' }}>
-                                <div style={{ fontSize: '9px', letterSpacing: '0.15em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '6px' }}>{s.name}</div>
+                                <div style={{ fontSize: '13px', letterSpacing: '0.15em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '6px' }}>{s.name}</div>
                                 <div style={{ fontSize: '10px', color: '#6a5a3a', marginBottom: '4px' }}>{s.bars} bars · E:{s.energy}/10</div>
                                 <div style={{ fontSize: '10px', color: '#8a7a5a', lineHeight: '1.5' }}>{s.elements}</div>
-                                {s.notes && <div style={{ fontSize: '9px', color: '#5a4a28', marginTop: '6px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{s.notes}</div>}
+                                {s.notes && <div style={{ fontSize: '13px', color: '#5a4a28', marginTop: '6px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{s.notes}</div>}
                               </div>
                             ))}
                           </div>
                           {d.production_tips && (
                             <div>
-                              <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '10px' }}>Production tips</div>
+                              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '10px' }}>Production tips</div>
                               {d.production_tips.map((tip: string, i: number) => (
-                                <div key={i} style={{ display: 'flex', gap: '10px', padding: '8px 0', borderBottom: '1px solid #1a1208', fontSize: '11px', color: '#8a7a5a' }}>
+                                <div key={i} style={{ display: 'flex', gap: '10px', padding: '8px 0', borderBottom: '1px solid #1a1208', fontSize: '13px', color: '#8a7a5a' }}>
                                   <span style={{ color: '#c9a46e', opacity: 0.6 }}>→</span>{tip}
                                 </div>
                               ))}
@@ -552,14 +616,14 @@ Give me:
 
             {/* CHAIN TYPE FILTER */}
             <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid #3a2e1c', padding: '20px 28px' }}>
-              <div style={{ fontSize: '8px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '16px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '16px' }}>
                 18 production chains
               </div>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
                 {['all', 'vocal', 'bass', 'synth', 'drum', 'ref'].map(t => (
                   <button key={t} onClick={() => setActiveType(t)} style={{
                     fontFamily: "'DM Mono', monospace",
-                    fontSize: '8px',
+                    fontSize: '10px',
                     letterSpacing: '0.15em',
                     textTransform: 'uppercase',
                     padding: '6px 14px',
@@ -583,10 +647,10 @@ Give me:
                       transition: 'all 0.15s',
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                        <div style={{ fontSize: '11px', letterSpacing: '0.06em', color: selectedChain === realIdx ? '#e8dcc8' : '#8a7a5a' }}>{chain.name}</div>
-                        <div style={{ fontSize: '8px', letterSpacing: '0.1em', color: typeColors[chain.type] || '#5a4428', textTransform: 'uppercase', flexShrink: 0, marginLeft: '8px' }}>{chain.type}</div>
+                        <div style={{ fontSize: '13px', letterSpacing: '0.06em', color: selectedChain === realIdx ? '#e8dcc8' : '#8a7a5a' }}>{chain.name}</div>
+                        <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: typeColors[chain.type] || '#5a4428', textTransform: 'uppercase', flexShrink: 0, marginLeft: '8px' }}>{chain.type}</div>
                       </div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.06em', color: '#4a3e28', fontStyle: 'italic', fontFamily: 'Georgia, serif', lineHeight: '1.4' }}>{chain.desc}</div>
+                      <div style={{ fontSize: '13px', letterSpacing: '0.06em', color: '#4a3e28', fontStyle: 'italic', fontFamily: 'Georgia, serif', lineHeight: '1.4' }}>{chain.desc}</div>
                     </div>
                   )
                 })}
@@ -596,15 +660,15 @@ Give me:
             {/* CHAIN CONTEXT + GENERATE */}
             {selectedChain !== null && (
               <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-                <div style={{ fontSize: '8px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px' }}>
                   {CHAINS[selectedChain].name} — chain detail
                 </div>
                 <div className="grid grid-cols-2 gap-6 mb-6">
                   <div>
-                    <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
                     <input value={chainContext} onChange={e => setChainContext(e.target.value)}
                       placeholder="What are you mixing? Genre, style, BPM..."
-                      style={{ width: '100%', background: '#0e0b06', border: '1px solid #3a2e1c', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '11px', padding: '10px 12px', outline: 'none' }} />
+                      style={{ width: '100%', background: '#0e0b06', border: '1px solid #3a2e1c', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                     <button onClick={generateChainAdvice} disabled={generatingChain} style={{
@@ -612,7 +676,7 @@ Give me:
                       border: '1px solid #6a4e28',
                       color: '#c9a46e',
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: '9px',
+                      fontSize: '13px',
                       letterSpacing: '0.2em',
                       textTransform: 'uppercase',
                       padding: '12px 28px',
@@ -630,7 +694,7 @@ Give me:
 
                 {chainResult && (
                   <div style={{ background: '#0e0b06', border: '1px solid #2a2010', padding: '20px' }}>
-                    <div style={{ fontSize: '11px', lineHeight: '1.85', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                    <div style={{ fontSize: '13px', lineHeight: '1.85', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
                       {chainResult}
                     </div>
                   </div>
@@ -649,14 +713,14 @@ Give me:
           background: 'rgba(20,16,8,0.96)',
           border: '1px solid #3a2e1c',
           padding: '14px 20px',
-          fontSize: '11px', letterSpacing: '0.07em',
+          fontSize: '13px', letterSpacing: '0.07em',
           color: '#e8dcc8',
           zIndex: 50,
           maxWidth: '280px',
           lineHeight: '1.55',
           backdropFilter: 'blur(12px)',
         }}>
-          <div style={{ fontSize: '8px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#c9a46e', marginBottom: '4px' }}>{toast.tag}</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#c9a46e', marginBottom: '4px' }}>{toast.tag}</div>
           {toast.msg}
         </div>
       )}
