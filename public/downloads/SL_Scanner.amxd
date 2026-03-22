@@ -1,0 +1,189 @@
+{
+  "patcher": {
+    "fileversion": 1,
+    "appversion": {
+      "major": 8,
+      "minor": 6,
+      "bugfix": 4,
+      "architecture": "x64",
+      "modernui": 1
+    },
+    "classnamespace": "ableton",
+    "rect": [
+      0,
+      0,
+      600,
+      300
+    ],
+    "openinpresentation": 1,
+    "boxes": [
+      {
+        "box": {
+          "id": "obj-1",
+          "maxclass": "newobj",
+          "text": "js signallab_scanner.js",
+          "patching_rect": [
+            30,
+            120,
+            200,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "obj-2",
+          "maxclass": "comment",
+          "text": "SL SCANNER \u2014 Signal Lab VST Library",
+          "patching_rect": [
+            30,
+            20,
+            280,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            30,
+            20,
+            280,
+            22
+          ],
+          "fontsize": 13,
+          "fontface": 1
+        }
+      },
+      {
+        "box": {
+          "id": "obj-3",
+          "maxclass": "live.text",
+          "text": "Scan VST Folder",
+          "patching_rect": [
+            30,
+            80,
+            130,
+            28
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            30,
+            80,
+            130,
+            28
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "obj-4",
+          "maxclass": "live.text",
+          "text": "Sync to Signal Lab",
+          "patching_rect": [
+            175,
+            80,
+            145,
+            28
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            175,
+            80,
+            145,
+            28
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "obj-5",
+          "maxclass": "textfield",
+          "text": "",
+          "patching_rect": [
+            30,
+            50,
+            280,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            30,
+            50,
+            280,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "obj-6",
+          "maxclass": "comment",
+          "text": "API Key",
+          "patching_rect": [
+            320,
+            50,
+            60,
+            22
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            320,
+            50,
+            60,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "obj-7",
+          "maxclass": "newobj",
+          "text": "print",
+          "patching_rect": [
+            30,
+            180,
+            50,
+            22
+          ]
+        }
+      }
+    ],
+    "lines": [
+      {
+        "patchline": {
+          "source": [
+            "obj-3",
+            0
+          ],
+          "destination": [
+            "obj-1",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-4",
+            0
+          ],
+          "destination": [
+            "obj-1",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-1",
+            0
+          ],
+          "destination": [
+            "obj-7",
+            0
+          ]
+        }
+      }
+    ],
+    "dependency_cache": []
+  }
+}

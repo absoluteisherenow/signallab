@@ -5,8 +5,8 @@ import { join } from 'path'
 export async function GET(req: NextRequest) {
   try {
     const files = [
-      'SL_Chord_Engine.maxpat',
-      'SL_Scanner.maxpat',
+      'SL_Chord_Engine.amxd',
+      'SL_Scanner.amxd',
       'signallab_chord.js',
       'signallab_scanner.js',
     ]
