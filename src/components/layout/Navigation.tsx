@@ -32,7 +32,7 @@ const MODULES = [
 export function Navigation() {
   const pathname = usePathname()
 
-  const isActive = (href: string) => pathname === href.split('#')[0]
+  const isActive = (href: string) => pathname === href.split('#')[0].split('#')[0]
 
   const moduleActive = (mod: typeof MODULES[0]) => {
     if (mod.href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
