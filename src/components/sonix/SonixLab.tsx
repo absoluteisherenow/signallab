@@ -726,6 +726,8 @@ Give me:
         </div>
       )}
 
+      <TrackUploader />
+
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         select option { background: #1a1208; }

@@ -79,6 +79,20 @@ export function Navigation() {
           <Disc3 className="w-3.5 h-3.5 flex-shrink-0" />
           <span>Broadcast Lab</span>
         </Link>
+        <Link href="/broadcast/calendar"
+          className={`flex items-center gap-3 px-3 py-2 pl-8 text-[10px] tracking-[.08em] transition-colors ${
+            pathname === '/broadcast/calendar' ? 'bg-white/7 text-[#b08d57]' : 'text-[#52504c] hover:text-[#b08d57] hover:bg-white/4'
+          }`}>
+          <Calendar className="w-3 h-3 flex-shrink-0" />
+          <span>Calendar</span>
+        </Link>
+        <Link href="/broadcast/media"
+          className={`flex items-center gap-3 px-3 py-2 pl-8 text-[10px] tracking-[.08em] transition-colors ${
+            pathname === '/broadcast/media' ? 'bg-white/7 text-[#b08d57]' : 'text-[#52504c] hover:text-[#b08d57] hover:bg-white/4'
+          }`}>
+          <ListIcon className="w-3 h-3 flex-shrink-0" />
+          <span>Media library</span>
+        </Link>
         <a href="/sonix"
           className="flex items-center gap-3 px-3 py-2 text-[10.5px] tracking-[.08em] text-[#8a8780] hover:text-[#8a8780] transition-colors">
           <Music className="w-3.5 h-3.5 flex-shrink-0" />
