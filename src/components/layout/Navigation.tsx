@@ -2,140 +2,113 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Calendar, ListIcon, CheckSquare, DollarSign, Settings, Disc3, Music, Zap } from 'lucide-react'
 
-const NAV = [
-  {
-    title: 'TOURING',
-    items: [
-      { label: 'Dashboard', href: '/', icon: Zap },
-      { label: 'Gigs', href: '/gigs', icon: Calendar },
-    ],
-  },
-  {
-    title: 'PREP',
-    items: [
-      { label: 'Playlists', href: '/prep/playlists', icon: ListIcon },
-      { label: 'Tasks', href: '/prep/tasks', icon: CheckSquare },
-    ],
-  },
-  {
-    title: 'BUSINESS',
-    items: [
-      { label: 'Finances', href: '/business/finances', icon: DollarSign },
-      { label: 'Settings', href: '/business/settings', icon: Settings },
-    ],
-  },
-]
-
-const MODULES = [
+const LABS = [
   {
     label: 'Broadcast Lab',
     href: '/broadcast',
-    icon: Disc3,
+    color: '#3d6b4a',
     sub: [
       { label: 'Calendar', href: '/broadcast/calendar' },
       { label: 'Media library', href: '/broadcast/media' },
     ],
   },
-  { label: 'Sonix Lab', href: '/sonix', icon: Music, sub: [] },
-  { label: 'SetLab', href: '/setlab', icon: ListIcon, sub: [] },
-  { label: 'Max for Live', href: '/maxforlive', icon: Zap, sub: [] },
+  {
+    label: 'Sonix Lab',
+    href: '/sonix',
+    color: '#6a7a9a',
+    sub: [],
+  },
+  {
+    label: 'SetLab',
+    href: '/setlab',
+    color: '#9a6a5a',
+    sub: [
+      { label: 'Rekordbox import', href: '/setlab/rekordbox' },
+    ],
+  },
+  {
+    label: 'Max for Live',
+    href: '/maxforlive',
+    color: '#7a6a9a',
+    sub: [],
+  },
+]
+
+const SIGNAL = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Gigs', href: '/gigs' },
+  { label: 'Finances', href: '/business/finances' },
+  { label: 'Settings', href: '/business/settings' },
 ]
 
 export function Navigation() {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === '/'
+    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
     return pathname.startsWith(href)
   }
 
   return (
     <nav style={{
-      width: '200px',
+      width: '196px',
       background: '#070706',
       borderRight: '1px solid #1a1917',
       display: 'flex',
       flexDirection: 'column',
       fontFamily: "'DM Mono', monospace",
       flexShrink: 0,
+      overflowY: 'auto',
     }}>
 
       {/* LOGO */}
-      <div style={{ padding: '24px 20px', borderBottom: '1px solid #1a1917' }}>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.2em', color: '#b08d57', lineHeight: 1.2 }}>NIGHT</div>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.2em', color: '#b08d57', lineHeight: 1.2 }}>MANOEUVRES</div>
-        <div style={{ fontSize: '8px', letterSpacing: '0.22em', color: '#3a3835', marginTop: '6px', textTransform: 'uppercase' }}>Signal Lab</div>
+      <div style={{ padding: '20px 18px 16px', borderBottom: '1px solid #1a1917' }}>
+        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 200, letterSpacing: '0.22em', color: '#b08d57', lineHeight: 1.3 }}>NIGHT</div>
+        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 200, letterSpacing: '0.22em', color: '#b08d57', lineHeight: 1.3 }}>MANOEUVRES</div>
+        <div style={{ fontSize: '8px', letterSpacing: '0.22em', color: '#2e2c29', marginTop: '5px', textTransform: 'uppercase' }}>The Modular Suite</div>
       </div>
 
-      {/* MAIN NAV */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 0' }}>
-        {NAV.map(section => (
-          <div key={section.title} style={{ marginBottom: '24px' }}>
-            <div style={{ fontSize: '8px', letterSpacing: '0.22em', color: '#3a3835', textTransform: 'uppercase', padding: '0 16px', marginBottom: '6px' }}>{section.title}</div>
-            {section.items.map(item => {
-              const Icon = item.icon
-              const active = isActive(item.href)
-              return (
-                <Link key={item.href} href={item.href} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '9px 16px',
-                  fontSize: '11px',
-                  letterSpacing: '0.08em',
-                  textDecoration: 'none',
-                  color: active ? '#f0ebe2' : '#52504c',
-                  background: active ? '#1a1917' : 'transparent',
-                  borderLeft: active ? '2px solid #b08d57' : '2px solid transparent',
-                  transition: 'all 0.15s',
-                }}>
-                  <Icon style={{ width: '13px', height: '13px', flexShrink: 0 }} />
-                  {item.label}
-                </Link>
-              )
-            })}
-          </div>
-        ))}
-      </div>
-
-      {/* MODULES */}
-      <div style={{ borderTop: '1px solid #1a1917', padding: '16px 0 8px' }}>
-        <div style={{ fontSize: '8px', letterSpacing: '0.22em', color: '#3a3835', textTransform: 'uppercase', padding: '0 16px', marginBottom: '8px' }}>LABS</div>
-        {MODULES.map(mod => {
-          const Icon = mod.icon
-          const active = isActive(mod.href)
+      {/* LABS — top, prominent */}
+      <div style={{ padding: '14px 0 8px' }}>
+        <div style={{ fontSize: '8px', letterSpacing: '0.22em', color: '#2e2c29', textTransform: 'uppercase', padding: '0 18px', marginBottom: '6px' }}>Labs</div>
+        {LABS.map(lab => {
+          const active = isActive(lab.href)
           return (
-            <div key={mod.href}>
-              <Link href={mod.href} style={{
+            <div key={lab.href}>
+              <Link href={lab.href} style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px',
-                padding: '9px 16px',
-                fontSize: '11px',
-                letterSpacing: '0.08em',
+                justifyContent: 'space-between',
+                padding: '9px 18px',
+                fontSize: '12px',
+                letterSpacing: '0.07em',
                 textDecoration: 'none',
-                color: active ? '#b08d57' : '#52504c',
-                background: active ? '#1a1917' : 'transparent',
-                borderLeft: active ? '2px solid #b08d57' : '2px solid transparent',
+                color: active ? lab.color : '#52504c',
+                background: active ? '#0e0d0b' : 'transparent',
+                borderLeft: active ? `2px solid ${lab.color}` : '2px solid transparent',
                 transition: 'all 0.15s',
-              }}>
-                <Icon style={{ width: '13px', height: '13px', flexShrink: 0 }} />
-                {mod.label}
+              }}
+                onMouseEnter={e => { if (!active) { e.currentTarget.style.color = '#8a8780'; e.currentTarget.style.borderLeftColor = '#2e2c29' } }}
+                onMouseLeave={e => { if (!active) { e.currentTarget.style.color = '#52504c'; e.currentTarget.style.borderLeftColor = 'transparent' } }}
+              >
+                <span>{lab.label}</span>
+                {active && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: lab.color, flexShrink: 0 }} />}
               </Link>
-              {mod.sub.map(s => (
+              {lab.sub.map(s => (
                 <Link key={s.href} href={s.href} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '7px 16px 7px 39px',
+                  display: 'block',
+                  padding: '6px 18px 6px 30px',
                   fontSize: '10px',
-                  letterSpacing: '0.07em',
+                  letterSpacing: '0.06em',
                   textDecoration: 'none',
-                  color: pathname === s.href ? '#b08d57' : '#3a3835',
-                  background: pathname === s.href ? '#1a1917' : 'transparent',
+                  color: pathname === s.href ? lab.color : '#3a3835',
+                  background: pathname === s.href ? '#0e0d0b' : 'transparent',
                   transition: 'all 0.15s',
-                }}>
+                }}
+                  onMouseEnter={e => { if (pathname !== s.href) e.currentTarget.style.color = '#52504c' }}
+                  onMouseLeave={e => { if (pathname !== s.href) e.currentTarget.style.color = '#3a3835' }}
+                >
                   {s.label}
                 </Link>
               ))}
@@ -144,9 +117,38 @@ export function Navigation() {
         })}
       </div>
 
+      {/* DIVIDER */}
+      <div style={{ height: '1px', background: '#1a1917', margin: '4px 18px' }} />
+
+      {/* SIGNAL LAB */}
+      <div style={{ padding: '10px 0 16px' }}>
+        <div style={{ fontSize: '8px', letterSpacing: '0.22em', color: '#2e2c29', textTransform: 'uppercase', padding: '0 18px', marginBottom: '6px' }}>Signal Lab</div>
+        {SIGNAL.map(item => {
+          const active = isActive(item.href)
+          return (
+            <Link key={item.href} href={item.href} style={{
+              display: 'block',
+              padding: '8px 18px',
+              fontSize: '11px',
+              letterSpacing: '0.07em',
+              textDecoration: 'none',
+              color: active ? '#f0ebe2' : '#52504c',
+              background: active ? '#0e0d0b' : 'transparent',
+              borderLeft: active ? '2px solid #b08d57' : '2px solid transparent',
+              transition: 'all 0.15s',
+            }}
+              onMouseEnter={e => { if (!active) { e.currentTarget.style.color = '#8a8780'; e.currentTarget.style.borderLeftColor = '#2e2c29' } }}
+              onMouseLeave={e => { if (!active) { e.currentTarget.style.color = '#52504c'; e.currentTarget.style.borderLeftColor = 'transparent' } }}
+            >
+              {item.label}
+            </Link>
+          )
+        })}
+      </div>
+
       {/* VERSION */}
-      <div style={{ padding: '12px 16px', borderTop: '1px solid #1a1917' }}>
-        <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: '#2e2c29' }}>Private beta · v0.1</div>
+      <div style={{ marginTop: 'auto', padding: '12px 18px', borderTop: '1px solid #1a1917' }}>
+        <div style={{ fontSize: '8px', letterSpacing: '0.12em', color: '#1a1917' }}>Private beta · v0.1</div>
       </div>
     </nav>
   )
