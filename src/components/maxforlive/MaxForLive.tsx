@@ -124,7 +124,28 @@ export function MaxForLive() {
 
       <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: '24px' }}>
 
-        {/* DEVICE SELECTOR */}
+        {/* DOWNLOAD BANNER */}
+      <a href="/api/download" style={{
+        background: 'linear-gradient(180deg, #2a2010 0%, #1e1608 100%)',
+        border: '1px solid #c9a46e',
+        padding: '24px 32px',
+        marginBottom: '28px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        textDecoration: 'none',
+        boxShadow: '0 0 30px rgba(201,164,110,0.1)',
+      }}>
+        <div>
+          <div style={{ fontSize: '13px', color: '#e8dcc8', marginBottom: '6px', letterSpacing: '0.06em' }}>Signal Lab M4L Suite — 4 devices ready to install</div>
+          <div style={{ fontSize: '11px', color: '#8a7a5a' }}>SL Scanner + SL Chord Engine + SL Mix Chain + SL Energy Arc</div>
+        </div>
+        <div style={{ background: '#c9a46e', color: '#0e0b06', fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '14px 32px', whiteSpace: 'nowrap' }}>
+          Download package
+        </div>
+      </a>
+
+      {/* DEVICE SELECTOR */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Devices</div>
           {DEVICES.map((d, i) => (
