@@ -173,10 +173,12 @@ export function BroadcastLab() {
         200
       )
       const d = JSON.parse(raw.replace(/\`\`\`json|\`\`\`/g, '').trim())
-      setArtists(prev => [...prev, { name, ...d }])
+      setArtists(prev => [...prev, { name, ...d } as ArtistProfile]); saveArtist({ name, ...d } as ArtistProfile)
       showToast(`${name} added — tone profile updated`, 'Done')
     } catch {
-      setArtists(prev => [...prev, { name, handle: `@${name.toLowerCase().replace(/\s/g, '')}`, genre: 'Electronic', lowercase_pct: 84, short_caption_pct: 69, no_hashtags_pct: 77, chips: ['Added', 'Analysed'], highlight_chips: [0] }])
+      const a2 = { name, handle: `@${name.toLowerCase().replace(/\s/g, '')}`, genre: 'Electronic', lowercase_pct: 84, short_caption_pct: 69, no_hashtags_pct: 77, chips: ['Added', 'Analysed'], highlight_chips: [0] } as ArtistProfile
+      setArtists(prev => [...prev, a2])
+      saveArtist(a2)
       showToast(`${name} added to your lane`, 'Done')
     } finally {
       setScanningArtist(null)
