@@ -18,7 +18,7 @@ export default function RootLayout({
       <body style={{ background: "#070706", color: "#f0ebe2" }}>
         <div className="flex" style={{ minHeight: "100vh" }}>
           <Navigation />
-          <main className="flex-1 overflow-auto">
+          <main style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minHeight: "100vh" }}>
             {children}
           </main>
         </div>
