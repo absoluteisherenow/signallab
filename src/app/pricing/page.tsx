@@ -60,6 +60,8 @@ const TIERS = [
       'Multi-artist profiles (up to 10)',
       'Roster analytics dashboard',
       'Label-branded advance forms',
+      'Sonix stems analysis',
+      'Advanced content scanning',
       'Artist onboarding portal',
       'Cross-artist revenue tracking',
       'API access & webhooks',
