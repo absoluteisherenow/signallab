@@ -45,7 +45,7 @@ export default function Login() {
 
   // Demo bypass
   function demoLogin() {
-    router.push('/dashboard')
+    window.location.href = '/broadcast'
   }
 
   return (
