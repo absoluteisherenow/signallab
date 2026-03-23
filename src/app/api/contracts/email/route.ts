@@ -7,7 +7,18 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialize Resend to avoid errors at build time if API key is missing
+let resend: Resend | null = null
+function getResend() {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      console.warn('⚠️ RESEND_API_KEY not configured. Email notifications will be skipped.')
+      return null
+    }
+    resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resend
+}
 
 interface EmailPayload {
   from: string
@@ -197,13 +208,18 @@ Night Manoeuvres
       `.trim()
 
       try {
-        await resend.emails.send({
-          from: 'Signal Lab <bookings@nightmanoeuvres.com>',
-          to: process.env.ARTIST_EMAIL || 'bookings@nightmanoeuvres.com',
-          subject: `New gig confirmed: ${gig.title} on ${gigDate}`,
-          text: notificationEmail,
-        })
-        console.log('✅ Notification email sent')
+        const emailClient = getResend()
+        if (emailClient) {
+          await emailClient.emails.send({
+            from: 'Signal Lab <bookings@nightmanoeuvres.com>',
+            to: process.env.ARTIST_EMAIL || 'bookings@nightmanoeuvres.com',
+            subject: `New gig confirmed: ${gig.title} on ${gigDate}`,
+            text: notificationEmail,
+          })
+          console.log('✅ Notification email sent')
+        } else {
+          console.log('⚠️ Skipping notification email (RESEND_API_KEY not configured)')
+        }
       } catch (emailErr: any) {
         console.error('Failed to send notification email:', emailErr)
         // Don't fail the whole request if email fails
