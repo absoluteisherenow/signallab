@@ -117,7 +117,7 @@ const faqs = [
   },
   {
     q: 'When does team access start?',
-    a: 'At Pro. Creator and Artist stay single-user to keep the upgrade path clean and focused on the solo artist use case.',
+    a: 'At Management. Creator and Artist stay single-user to keep the upgrade path clean and focused on the solo artist use case.',
   },
   {
     q: 'What is the main commercial argument?',
@@ -183,7 +183,7 @@ export default function ModularSuiteLandingPage() {
                 ['System model', '1 core + 4 labs', 'Built to be fully integrated'],
                 ['Main plan', '£59 / month', 'Artist tier'],
                 ['Annual comparison', '£708 vs £3,000', 'At 20 shows / year'],
-                ['Best upgrade gate', 'Team access at Pro', 'Not earlier'],
+                ['Best upgrade gate', 'Team access at Management', 'Not earlier'],
               ].map(([label, value, sub]) => (
                 <div key={label} className="bg-[#0b0a09] p-8">
                   <div className="text-[11px] uppercase tracking-[0.28em] text-[#52504c]">{label}</div>
@@ -304,7 +304,7 @@ export default function ModularSuiteLandingPage() {
                 A clean ladder from solo artist to full operation.
               </h2>
               <p className="mx-auto mt-8 max-w-4xl text-[18px] md:text-[24px] leading-[1.9] text-[#8a8780]">
-                Creator and Artist stay single-user. Team access starts at Pro. Artist is the power middle plan and the clearest commercial choice for touring acts.
+                Creator and Artist stay single-user. Team access starts at Management. Artist is the power middle plan and the clearest commercial choice for touring acts.
               </p>
             </div>
             <div className="mt-16 grid gap-px border border-[#1a1917] bg-[#1a1917] lg:grid-cols-4">
@@ -337,8 +337,8 @@ export default function ModularSuiteLandingPage() {
             </div>
             <div className="mt-16 grid gap-px border border-[#1a1917] bg-[#1a1917] md:grid-cols-3">
               {[
-                ['Traditional advancing', '£150 / show', '20 shows = £3,000 / year'],
-                ['Artist tier', '£59 / month', '12 months = £708 / year'],
+                ['Traditional advancing', '£150 / show', '20 shows ≈ £3,000 / year'],
+                ['Artist tier', '£59 / month', '£708 / year (most popular)'],
                 ['Indicative saving', '£2,292', 'Before content and workflow gains'],
               ].map(([label, value, sub]) => (
                 <div key={label} className="bg-[#0b0a09] p-8 text-center">
