@@ -4,7 +4,7 @@ import { Navigation } from '@/components/layout/Navigation'
 
 export const metadata: Metadata = {
   title: 'Night Manoeuvres - Signal Lab Dashboard',
-  description: 'Professional DJ & Event Management Dashboard',
+  description: 'Electronic Artist OS - Signal Lab',
   viewport: 'width=device-width, initial-scale=1',
 }
 

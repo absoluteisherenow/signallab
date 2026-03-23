@@ -109,8 +109,8 @@ export default function Contracts() {
           {error&&<div style={{fontSize:'12px',color:'#8a4a3a',padding:'12px 16px',border:'1px solid rgba(138, 74, 58, 0.3)',background:'rgba(138, 74, 58, 0.1)'}}>{error}</div>}
           <div className="card" style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px 24px'}}>
             {['Show title & venue','Date, set time & length','Fee + deposit dates','Promoter name/email/phone','Load-in & soundcheck','Doors open time','Hotel name & address','Backline / tech rider','Parking & WiFi','Dressing room & rider','Contract date','Additional notes'].map(i=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'11px',color:s.dim,padding:'5px 0'}}>
-                <span style={{color:'#3d6b4a'}}>✓</span>{i}
+              <div key={i} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'11px',color:'var(--text-dimmer)',padding:'5px 0'}}>
+                <span style={{color:'var(--green)'}}>✓</span>{i}
               </div>
             ))}
           </div>

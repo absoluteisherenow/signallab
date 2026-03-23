@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Night Manoeuvres - Signal Lab Dashboard',
     short_name: 'Night Manoeuvres',
-    description: 'Professional DJ & Event Management Dashboard',
+    description: 'Electronic Artist OS - Signal Lab',
     start_url: '/',
     display: 'standalone',
     background_color: '#0F0E0C',
