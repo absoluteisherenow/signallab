@@ -118,8 +118,8 @@ export default function Contracts() {
       ) : (
         <div style={{maxWidth:'900px'}}>
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:'28px'}}>
-            <div style={{fontSize:'12px',color:'#3d6b4a'}}>Parsed — review and confirm</div>
-            <button onClick={()=>{setExtracted(null);setRawText('')}} style={{background:'transparent',border:`1px solid ${s.border}`,color:s.dimmer,fontFamily:s.font,fontSize:'10px',letterSpacing:'0.15em',textTransform:'uppercase',padding:'8px 18px',cursor:'pointer'}}>← Parse another</button>
+            <div style={{fontSize:'12px',color:'var(--green)'}}>Parsed — review and confirm</div>
+            <button onClick={()=>{setExtracted(null);setRawText('')}} className="btn-secondary" style={{fontSize:'10px',padding:'8px 18px'}}>← Parse another</button>
           </div>
           {[
             {title:'Show details',fields:[
@@ -127,7 +127,7 @@ export default function Contracts() {
               {label:'Location',key:'location',ph:'Berlin, Germany'},{label:'Set time',key:'time',ph:'23:00'},
             ]},
           ].map(sec=>(
-            <div key={sec.title} style={{background:s.panel,border:`1px solid ${s.border}`,padding:'28px',marginBottom:'12px'}}>
+            <div key={sec.title} className="card">
               <Sec label={sec.title}/>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
                 {sec.fields.map(f=><F key={f.key} label={f.label} value={(extracted as any)[f.key]} onChange={v=>update(f.key as keyof Extracted,v)} ph={f.ph}/>)}
@@ -136,7 +136,7 @@ export default function Contracts() {
               </div>
             </div>
           ))}
-          <div style={{background:s.panel,border:`1px solid ${s.border}`,padding:'28px',marginBottom:'12px'}}>
+          <div className="card">
             <Sec label="Financial"/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 80px 1fr 1fr 1fr',gap:'16px'}}>
               <F label="Fee" value={extracted.fee} onChange={v=>update('fee',v)} ph="5000"/>
@@ -146,7 +146,7 @@ export default function Contracts() {
               <div><label style={lStyle}>Balance due</label><input type="date" value={extracted.balance_due} onChange={e=>update('balance_due',e.target.value)} style={iStyle}/></div>
             </div>
           </div>
-          <div style={{background:s.panel,border:`1px solid ${s.border}`,padding:'28px',marginBottom:'12px'}}>
+          <div className="card">
             <Sec label="Promoter"/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'16px'}}>
               <F label="Name" value={extracted.promoter_name} onChange={v=>update('promoter_name',v)} ph="Jane Smith"/>
@@ -154,7 +154,7 @@ export default function Contracts() {
               <F label="Phone" value={extracted.promoter_phone} onChange={v=>update('promoter_phone',v)} ph="+49 30 123456"/>
             </div>
           </div>
-          <div style={{background:s.panel,border:`1px solid ${s.border}`,padding:'28px',marginBottom:'12px'}}>
+          <div className="card">
             <Sec label="Show logistics"/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'16px',marginBottom:'16px'}}>
               <F label="Load-in" value={extracted.load_in} onChange={v=>update('load_in',v)} ph="20:00"/>
@@ -167,7 +167,7 @@ export default function Contracts() {
               <F label="WiFi" value={extracted.wifi} onChange={v=>update('wifi',v)} ph="GreenRoom / pw123"/>
             </div>
           </div>
-          <div style={{background:s.panel,border:`1px solid ${s.border}`,padding:'28px',marginBottom:'12px'}}>
+          <div className="card">
             <Sec label="Hotel & hospitality"/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'}}>
               <F label="Hotel name" value={extracted.hotel_name} onChange={v=>update('hotel_name',v)} ph="Hotel Adlon"/>
@@ -175,24 +175,24 @@ export default function Contracts() {
             </div>
             <div><label style={lStyle}>Hospitality rider</label><textarea value={extracted.hospitality} onChange={e=>update('hospitality',e.target.value)} rows={2} style={{...iStyle,resize:'vertical'}}/></div>
           </div>
-          <div style={{background:s.panel,border:`1px solid ${s.border}`,padding:'28px',marginBottom:'24px'}}>
+          <div className="card" style={{marginBottom:'24px'}}>
             <Sec label="Backline & notes"/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
               <div><label style={lStyle}>Backline / tech rider</label><textarea value={extracted.backline} onChange={e=>update('backline',e.target.value)} rows={3} style={{...iStyle,resize:'vertical'}} placeholder="Pioneer CDJ-3000 x2, DJM-V10..."/></div>
               <div><label style={lStyle}>Notes</label><textarea value={extracted.notes} onChange={e=>update('notes',e.target.value)} rows={3} style={{...iStyle,resize:'vertical'}}/></div>
             </div>
           </div>
-          {error&&<div style={{fontSize:'12px',color:'#8a4a3a',padding:'14px 18px',border:'1px solid #4a2a1a',background:'#1a0a06',marginBottom:'20px'}}>{error}</div>}
+          {error&&<div style={{fontSize:'12px',color:'#8a4a3a',padding:'14px 18px',border:'1px solid rgba(138, 74, 58, 0.3)',background:'rgba(138, 74, 58, 0.1)',marginBottom:'20px'}}>{error}</div>}
           <div style={{display:'flex',gap:'12px'}}>
-            <button onClick={save} disabled={saving} style={{background:saving?s.panel:s.gold,color:saving?s.dimmer:'#070706',border:`1px solid ${saving?s.border:s.gold}`,fontFamily:s.font,fontSize:'11px',letterSpacing:'0.2em',textTransform:'uppercase',padding:'16px 36px',cursor:'pointer',display:'flex',alignItems:'center',gap:'10px'}}>
+            <button onClick={save} disabled={saving} className="btn-primary" style={{fontSize:'11px',padding:'16px 36px',opacity:saving?0.6:1,cursor:saving?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:'10px'}}>
               {saving&&<div style={{width:'10px',height:'10px',border:'1px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>}
               {saving?'Saving...':'Save gig + logistics →'}
             </button>
-            <button onClick={()=>router.push('/logistics')} style={{background:'transparent',color:s.dimmer,border:`1px solid ${s.border}`,fontFamily:s.font,fontSize:'11px',letterSpacing:'0.2em',textTransform:'uppercase',padding:'16px 28px',cursor:'pointer'}}>Cancel</button>
+            <button onClick={()=>router.push('/logistics')} className="btn-secondary" style={{fontSize:'11px',padding:'16px 28px'}}>Cancel</button>
           </div>
         </div>
       )}
-      {toast&&<div style={{position:'fixed',bottom:'28px',right:'28px',background:'rgba(14,13,11,0.96)',border:`1px solid ${s.border}`,padding:'14px 20px',fontSize:'12px',color:s.text,zIndex:50}}><div style={{fontSize:'8px',letterSpacing:'0.2em',color:s.gold,marginBottom:'4px',textTransform:'uppercase'}}>Contracts</div>{toast}</div>}
+      {toast&&<div className="toast"><div className="toast-label">Contracts</div>{toast}</div>}
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )

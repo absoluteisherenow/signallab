@@ -326,7 +326,7 @@ Provide:
                   <div style={{ fontSize: '12px', color: s.gold, fontWeight: 400 }}>{track.camelot}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <div style={{ flex: 1, height: '3px', background: s.border, position: 'relative' }}>
-                      <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? '#c9a46e' : track.energy > 4 ? '#6a8a50' : '#4a5a6a' }} />
+                      <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : track.energy > 4 ? '#3d6b4a' : '#52504c' }} />
                     </div>
                     <span style={{ fontSize: '10px', color: s.textDimmer }}>{track.energy}</span>
                   </div>
@@ -419,7 +419,7 @@ Provide:
                           <div style={{ fontSize: '12px', color: s.gold, display: 'flex', alignItems: 'center' }}>{track.camelot}</div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <div style={{ width: '32px', height: '3px', background: s.border, position: 'relative' }}>
-                              <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : '#6a8a50' }} />
+                              <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : '#3d6b4a' }} />
                             </div>
                             <span style={{ fontSize: '10px', color: s.textDimmer }}>{track.energy}</span>
                           </div>
@@ -431,8 +431,8 @@ Provide:
                           <button onClick={() => removeFromSet(track.id)} style={{ background: 'none', border: 'none', color: s.textDimmer, cursor: 'pointer', fontSize: '14px', padding: '0 8px' }}>×</button>
                         </div>
                         {compat !== null && compat < 85 && (
-                          <div style={{ padding: '6px 20px 6px 48px', background: 'rgba(138,74,58,0.1)', borderBottom: `1px solid ${s.border}`, fontSize: '10px', color: '#8a6a5a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ color: '#8a4a3a' }}>⚠</span>
+                          <div style={{ padding: '6px 20px 6px 48px', background: 'rgba(154,106,90,0.1)', borderBottom: `1px solid ${s.border}`, fontSize: '10px', color: '#9a6a5a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ color: '#9a6a5a' }}>⚠</span>
                             Transition to {next?.title}: {compat}% compatible ({track.camelot} → {next?.camelot})
                             {compat < 50 && ' — consider a different order or a bridge track'}
                           </div>
@@ -456,7 +456,7 @@ Provide:
 
                 {narrative && (
                   <div style={{ marginTop: '16px', borderTop: `1px solid ${s.border}`, paddingTop: '16px' }}>
-                    <div style={{ fontSize: '11px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{narrative}</div>
+                    <div style={{ fontSize: '11px', lineHeight: '1.8', color: s.textDim, whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{narrative}</div>
                   </div>
                 )}
               </div>
