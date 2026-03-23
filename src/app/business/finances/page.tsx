@@ -129,29 +129,23 @@ export default function Finances() {
     a.click()
   }
 
-  const s = {
-    bg: '#070706', panel: '#0e0d0b', border: '#1a1917',
-    gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c',
-    font: "'DM Mono', monospace",
-  }
-
   return (
-    <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '40px 48px' }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh', padding: '40px 48px' }}>
 
       {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px' }}>
         <div>
-          <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
+          <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
             Signal Lab — Finances
           </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 200, letterSpacing: '0.04em' }}>Finances</div>
+          <div className="display" style={{ fontSize: '28px', letterSpacing: '0.04em' }}>Finances</div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={exportCSV} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer' }}>
+          <button onClick={exportCSV} className="btn-secondary" style={{ padding: '10px 20px', fontSize: '10px' }}>
             Export CSV
           </button>
-          <button onClick={() => setShowAdd(!showAdd)} style={{ background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: `1px solid ${s.gold}`, color: s.gold, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer' }}>
+          <button onClick={() => setShowAdd(!showAdd)} className="btn-gold" style={{ padding: '10px 20px', fontSize: '10px' }}>
             + Add invoice
           </button>
         </div>
@@ -165,27 +159,27 @@ export default function Finances() {
           { label: 'Outstanding', value: `€${pending.toLocaleString()}`, sub: `${invoices.filter(i => i.status === 'pending').length} awaiting payment`, alert: true },
           { label: 'This month', value: `€${monthly[monthly.length - 1].amount.toLocaleString()}`, sub: 'April 2026' },
         ].map(stat => (
-          <div key={stat.label} style={{ background: s.panel, border: `1px solid ${stat.alert ? '#8a4a3a40' : s.border}`, padding: '24px 28px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '12px' }}>{stat.label}</div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 200, color: stat.alert ? '#c9a46e' : stat.green ? '#3d6b4a' : s.text, marginBottom: '6px' }}>{stat.value}</div>
-            <div style={{ fontSize: '11px', color: '#3a3835' }}>{stat.sub}</div>
+          <div key={stat.label} style={{ background: 'var(--panel)', border: `1px solid ${stat.alert ? 'rgba(138, 74, 58, 0.25)' : 'var(--border-dim)'}`, padding: '24px 28px' }}>
+            <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>{stat.label}</div>
+            <div className="display" style={{ fontSize: '28px', color: stat.alert ? 'var(--gold-bright)' : stat.green ? 'var(--green)' : 'var(--text)', marginBottom: '6px' }}>{stat.value}</div>
+            <div style={{ fontSize: '11px', color: 'var(--border)' }}>{stat.sub}</div>
           </div>
         ))}
       </div>
 
       {/* CHART */}
-      <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '28px 32px', marginBottom: '24px' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px' }}>Monthly income</div>
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Monthly income</div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '80px' }}>
           {monthly.map((m, i) => (
             <div key={m.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
               <div style={{
                 width: '100%',
                 height: `${maxMonthly > 0 ? (m.amount / maxMonthly) * 72 : 2}px`,
-                background: i >= monthly.length - 2 ? 'linear-gradient(180deg, #b08d57, #7a5a28)' : 'linear-gradient(180deg, #2e2c29, #1a1917)',
+                background: i >= monthly.length - 2 ? 'linear-gradient(180deg, var(--gold), #7a5a28)' : 'linear-gradient(180deg, var(--border), var(--border-dim))',
                 transition: 'height 0.4s ease',
               }} />
-              <div style={{ fontSize: '9px', color: s.dimmer }}>{m.month}</div>
+              <div style={{ fontSize: '9px', color: 'var(--text-dimmer)' }}>{m.month}</div>
             </div>
           ))}
         </div>
@@ -193,8 +187,8 @@ export default function Finances() {
 
       {/* ADD INVOICE FORM */}
       {showAdd && (
-        <div style={{ background: s.panel, border: `1px solid ${s.gold}40`, padding: '24px 28px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px' }}>New invoice</div>
+        <div className="card" style={{ border: '1px solid rgba(176, 141, 87, 0.25)', marginBottom: '24px' }}>
+          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>New invoice</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
             {[
               { label: 'Gig / show', key: 'gig_title', placeholder: 'Electric Nights Festival' },
@@ -202,16 +196,16 @@ export default function Finances() {
               { label: 'Due date', key: 'due_date', placeholder: '2026-04-16' },
             ].map(f => (
               <div key={f.key}>
-                <div style={{ fontSize: '9px', letterSpacing: '0.15em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>{f.label}</div>
+                <div style={{ fontSize: '9px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>{f.label}</div>
                 <input value={newInvoice[f.key as keyof typeof newInvoice]} onChange={e => setNewInvoice(p => ({ ...p, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
-                  style={{ width: '100%', background: '#070706', border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+                  style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
               </div>
             ))}
             <div>
-              <div style={{ fontSize: '9px', letterSpacing: '0.15em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Type</div>
+              <div style={{ fontSize: '9px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Type</div>
               <select value={newInvoice.type} onChange={e => setNewInvoice(p => ({ ...p, type: e.target.value }))}
-                style={{ width: '100%', background: '#070706', border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '10px 14px', outline: 'none' }}>
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none' }}>
                 <option value="deposit">Deposit</option>
                 <option value="balance">Balance</option>
                 <option value="full">Full fee</option>
@@ -219,43 +213,43 @@ export default function Finances() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={addInvoice} style={{ background: s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 24px', cursor: 'pointer' }}>Save invoice</button>
-            <button onClick={() => setShowAdd(false)} style={{ background: 'transparent', color: s.dimmer, border: `1px solid ${s.border}`, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 24px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={addInvoice} className="btn-primary" style={{ padding: '12px 24px', fontSize: '10px' }}>Save invoice</button>
+            <button onClick={() => setShowAdd(false)} className="btn-secondary" style={{ padding: '12px 24px', fontSize: '10px' }}>Cancel</button>
           </div>
         </div>
       )}
 
       {/* INVOICE TABLE */}
-      <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 120px', gap: '0', padding: '12px 24px', borderBottom: `1px solid ${s.border}` }}>
+      <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 120px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
           {['Show', 'Due date', 'Type', 'Amount', 'Status', ''].map(h => (
-            <div key={h} style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase' }}>{h}</div>
+            <div key={h} style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{h}</div>
           ))}
         </div>
         {loading ? (
-          <div style={{ padding: '40px 24px', textAlign: 'center', color: s.dimmer, fontSize: '13px' }}>Loading invoices...</div>
+          <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>Loading invoices...</div>
         ) : invoices.length === 0 ? (
-          <div style={{ padding: '40px 24px', textAlign: 'center', color: s.dimmer, fontSize: '13px' }}>No invoices yet</div>
+          <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>No invoices yet</div>
         ) : (
           invoices.map((inv, i) => (
-            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 120px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? `1px solid ${s.border}` : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
+            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 120px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
               <div>
-                <div style={{ fontSize: '13px', color: s.text }}>{inv.gig_title}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.gig_title}</div>
               </div>
-              <div style={{ fontSize: '12px', color: s.dim }}>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</div>
-              <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: s.dimmer, textTransform: 'uppercase' }}>{inv.type || '—'}</div>
-              <div style={{ fontSize: '14px', color: s.text }}>{inv.currency}€{inv.amount.toLocaleString()}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{inv.type || '—'}</div>
+              <div style={{ fontSize: '14px', color: 'var(--text)' }}>{inv.currency}€{inv.amount.toLocaleString()}</div>
               <div>
                 <span style={{
                   fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase',
-                  color: inv.status === 'paid' ? '#3d6b4a' : '#c9a46e',
-                  background: inv.status === 'paid' ? '#3d6b4a20' : '#c9a46e15',
+                  color: inv.status === 'paid' ? 'var(--green)' : 'var(--gold-bright)',
+                  background: inv.status === 'paid' ? 'rgba(61, 107, 74, 0.125)' : 'rgba(201, 164, 110, 0.1)',
                   padding: '4px 10px',
                 }}>{inv.status}</span>
               </div>
               <div>
                 {inv.status === 'pending' && (
-                  <button onClick={() => markPaid(inv.id)} style={{ background: 'transparent', border: `1px solid #3d6b4a40`, color: '#3d6b4a', fontFamily: s.font, fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                  <button onClick={() => markPaid(inv.id)} style={{ background: 'transparent', border: 'rgba(61, 107, 74, 0.25)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', cursor: 'pointer', transition: 'all 0.15s' }}>
                     Mark paid
                   </button>
                 )}
@@ -266,8 +260,8 @@ export default function Finances() {
       </div>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: '28px', right: '28px', background: 'rgba(14,13,11,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', color: s.text, zIndex: 50, backdropFilter: 'blur(12px)' }}>
-          <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: s.gold, marginBottom: '4px', textTransform: 'uppercase' }}>Finances</div>
+        <div className="toast">
+          <div className="toast-label">Finances</div>
           {toast}
         </div>
       )}

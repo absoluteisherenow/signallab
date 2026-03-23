@@ -22,11 +22,8 @@ const FALLBACK: Gig[] = [
   { id: '4', title: 'Open Air Summer', venue: 'Kaserne', location: 'Basel, Switzerland', date: '2026-05-15', time: '19:00', status: 'confirmed', fee: 7500, promoter_email: '' },
 ]
 
-const s = {
-  bg: '#070706', panel: '#0e0d0b', border: '#1a1917', borderMid: '#2e2c29',
-  gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c', dimmest: '#2e2c29',
-  green: '#3d6b4a', font: "'DM Mono', monospace",
-}
+// CSS variables are used instead of a local styles object
+// See globals.css for the design system
 
 export default function Logistics() {
   const [gigs, setGigs] = useState<Gig[]>([])
@@ -84,29 +81,29 @@ export default function Logistics() {
   const statusLabel = (s: string) => s === 'complete' ? 'Advance complete' : s === 'sent' ? 'Sent — awaiting' : 'Not sent'
 
   return (
-    <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '48px 56px' }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh', padding: '48px 56px' }}>
 
       <div style={{ marginBottom: '40px' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-          <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
+        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+          <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
           Signal Lab — Gigs
         </div>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 200, letterSpacing: '0.03em', marginBottom: '8px' }}>
+        <div className="display" style={{ fontSize: '36px', letterSpacing: '0.03em', marginBottom: '8px' }}>
           Gigs
         </div>
-        <div style={{ fontSize: '14px', color: s.dimmer }}>All shows, advance requests and logistics</div>
+        <div style={{ fontSize: '14px', color: 'var(--text-dimmer)' }}>All shows, advance requests and logistics</div>
       </div>
 
       {/* ADVANCE STATUS SUMMARY */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '32px' }}>
         {[
-          { label: 'Advances complete', value: Object.values(advanceStatus).filter(v => v === 'complete').length, color: s.green },
-          { label: 'Awaiting response', value: Object.values(advanceStatus).filter(v => v === 'sent').length, color: s.gold },
-          { label: 'Not yet sent', value: gigs.length - Object.keys(advanceStatus).length, color: s.dimmer },
+          { label: 'Advances complete', value: Object.values(advanceStatus).filter(v => v === 'complete').length, color: 'var(--green)' },
+          { label: 'Awaiting response', value: Object.values(advanceStatus).filter(v => v === 'sent').length, color: 'var(--gold)' },
+          { label: 'Not yet sent', value: gigs.length - Object.keys(advanceStatus).length, color: 'var(--text-dimmer)' },
         ].map(stat => (
-          <div key={stat.label} style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '32px', fontWeight: 200, color: stat.color }}>{stat.value}</div>
+          <div key={stat.label} className="card">
+            <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
+            <div className="display" style={{ fontSize: '32px', color: stat.color }}>{stat.value}</div>
           </div>
         ))}
       </div>
@@ -123,8 +120,8 @@ export default function Logistics() {
             <div key={gig.id}>
               {/* ROW */}
               <div onClick={() => setSelected(isOpen ? null : gig.id)} style={{
-                background: isOpen ? '#141310' : s.panel,
-                border: `1px solid ${isOpen ? s.gold + '40' : s.border}`,
+                background: isOpen ? '#141310' : 'var(--panel)',
+                border: `1px solid ${isOpen ? 'rgba(176, 141, 87, 0.25)' : 'var(--border-dim)'}`,
                 padding: '20px 28px',
                 cursor: 'pointer',
                 display: 'grid',
@@ -133,14 +130,14 @@ export default function Logistics() {
                 transition: 'all 0.15s',
               }}>
                 <div>
-                  <div style={{ fontSize: '15px', color: s.text, marginBottom: '3px' }}>{gig.title}</div>
-                  <div style={{ fontSize: '12px', color: s.dimmer }}>{gig.venue} · {gig.location}</div>
+                  <div style={{ fontSize: '15px', color: 'var(--text)', marginBottom: '3px' }}>{gig.title}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-dimmer)' }}>{gig.venue} · {gig.location}</div>
                 </div>
-                <div style={{ fontSize: '13px', color: s.dim }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
                   {gigDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {gig.time}
                 </div>
                 <div>
-                  <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: gig.status === 'confirmed' ? s.green : '#8a6a3a', background: gig.status === 'confirmed' ? '#3d6b4a18' : '#8a6a3a18', padding: '4px 10px' }}>
+                  <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: gig.status === 'confirmed' ? 'var(--green)' : '#8a6a3a', background: gig.status === 'confirmed' ? 'rgba(61, 107, 74, 0.1)' : 'rgba(138, 106, 58, 0.1)', padding: '4px 10px' }}>
                     {gig.status}
                   </span>
                 </div>
@@ -148,19 +145,19 @@ export default function Logistics() {
                   <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor(advStatus), flexShrink: 0 }} />
                   <span style={{ fontSize: '12px', color: statusColor(advStatus) }}>{statusLabel(advStatus)}</span>
                 </div>
-                <div style={{ fontSize: '12px', color: s.dimmer, textAlign: 'right' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', textAlign: 'right' }}>
                   {daysTo > 0 ? `${daysTo}d →` : 'Past'}
                 </div>
               </div>
 
               {/* EXPANDED */}
               {isOpen && (
-                <div style={{ background: '#0a0906', border: `1px solid ${s.gold + '20'}`, borderTop: 'none', padding: '32px 28px' }}>
+                <div style={{ background: '#0a0906', border: 'rgba(176, 141, 87, 0.125)', borderTop: 'none', padding: '32px 28px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '32px' }}>
 
                     {/* SHOW DETAILS */}
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Show details</div>
+                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Show details</div>
                       {[
                         { l: 'Venue', v: gig.venue },
                         { l: 'Location', v: gig.location },
@@ -169,21 +166,21 @@ export default function Logistics() {
                         { l: 'Fee', v: `€${gig.fee?.toLocaleString()}` },
                         { l: 'Status', v: gig.status },
                       ].map(f => (
-                        <div key={f.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${s.border}`, fontSize: '12px' }}>
-                          <span style={{ color: s.dimmer }}>{f.l}</span>
-                          <span style={{ color: s.dim }}>{f.v}</span>
+                        <div key={f.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid var(--border-dim)', fontSize: '12px' }}>
+                          <span style={{ color: 'var(--text-dimmer)' }}>{f.l}</span>
+                          <span style={{ color: 'var(--text-dim)' }}>{f.v}</span>
                         </div>
                       ))}
                     </div>
 
                     {/* ADVANCE */}
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Advance request</div>
+                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Advance request</div>
 
                       {advStatus === 'complete' && (
                         <div>
-                          <div style={{ fontSize: '13px', color: s.green, marginBottom: '16px' }}>✓ Advance received from promoter</div>
-                          <Link href={`/advance/${gig.id}`} target="_blank" style={{ fontSize: '10px', letterSpacing: '0.12em', color: s.gold, textDecoration: 'none', textTransform: 'uppercase', border: `1px solid ${s.gold}40`, padding: '10px 18px', display: 'inline-block' }}>
+                          <div style={{ fontSize: '13px', color: 'var(--green)', marginBottom: '16px' }}>✓ Advance received from promoter</div>
+                          <Link href={`/advance/${gig.id}`} target="_blank" style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--gold)', textDecoration: 'none', textTransform: 'uppercase', border: 'rgba(176, 141, 87, 0.25)', padding: '10px 18px', display: 'inline-block' }}>
                             View advance sheet →
                           </Link>
                         </div>
@@ -191,9 +188,9 @@ export default function Logistics() {
 
                       {advStatus === 'sent' && (
                         <div>
-                          <div style={{ fontSize: '13px', color: s.gold, marginBottom: '12px' }}>Sent — awaiting promoter response</div>
-                          <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '16px' }}>The promoter has been sent the advance form link</div>
-                          <button onClick={() => setShowEmailInput(showEmailInput === gig.id ? null : gig.id)} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, fontFamily: s.font, fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer' }}>
+                          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '12px' }}>Sent — awaiting promoter response</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '16px' }}>The promoter has been sent the advance form link</div>
+                          <button onClick={() => setShowEmailInput(showEmailInput === gig.id ? null : gig.id)} className="btn-secondary" style={{ fontSize: '9px', padding: '8px 16px' }}>
                             Resend
                           </button>
                         </div>
@@ -201,38 +198,31 @@ export default function Logistics() {
 
                       {advStatus === 'not_sent' && (
                         <div>
-                          <div style={{ fontSize: '13px', color: s.dimmer, marginBottom: '16px' }}>No advance sent yet</div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginBottom: '16px' }}>No advance sent yet</div>
                           {showEmailInput === gig.id ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                               <input
                                 value={promoterEmail}
                                 onChange={e => setPromoterEmail(e.target.value)}
                                 placeholder="promoter@venue.com"
-                                style={{ background: s.bg, border: `1px solid ${s.borderMid}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '10px 14px', outline: 'none' }}
+                                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none' }}
                               />
                               <div style={{ display: 'flex', gap: '8px' }}>
-                                <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} style={{
-                                  background: promoterEmail ? s.gold : 'transparent',
-                                  color: promoterEmail ? '#070706' : s.dimmer,
-                                  border: `1px solid ${promoterEmail ? s.gold : s.border}`,
-                                  fontFamily: s.font, fontSize: '9px', letterSpacing: '0.15em',
-                                  textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
+                                <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} className="btn-primary" style={{
+                                  fontSize: '9px', padding: '10px 20px', opacity: !promoterEmail ? 0.4 : 1, cursor: !promoterEmail ? 'not-allowed' : 'pointer',
                                   display: 'flex', alignItems: 'center', gap: '8px',
                                 }}>
-                                  {sending === gig.id && <div style={{ width: '8px', height: '8px', border: '1px solid #070706', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+                                  {sending === gig.id && <div style={{ width: '8px', height: '8px', border: '1px solid var(--bg)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
                                   {sending === gig.id ? 'Sending...' : 'Send →'}
                                 </button>
-                                <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} style={{ background: 'transparent', color: s.dimmer, border: `1px solid ${s.border}`, fontFamily: s.font, fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 16px', cursor: 'pointer' }}>
+                                <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} className="btn-secondary" style={{ fontSize: '9px', padding: '10px 16px' }}>
                                   Cancel
                                 </button>
                               </div>
                             </div>
                           ) : (
-                            <button onClick={() => setShowEmailInput(gig.id)} style={{
-                              background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-                              border: `1px solid ${s.gold}`, color: s.gold,
-                              fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
-                              textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer',
+                            <button onClick={() => setShowEmailInput(gig.id)} className="btn-gold" style={{
+                              fontSize: '10px', padding: '12px 22px',
                             }}>
                               Send advance request →
                             </button>
@@ -243,18 +233,18 @@ export default function Logistics() {
 
                     {/* QUICK ACTIONS */}
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Quick actions</div>
+                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Quick actions</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <Link href={`/broadcast?gig=${gig.id}&title=${encodeURIComponent(gig.title)}&venue=${encodeURIComponent(gig.venue)}&location=${encodeURIComponent(gig.location)}&date=${gig.date}`}
-                          style={{ fontSize: '12px', color: s.green, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${s.green}30`, display: 'block', transition: 'all 0.15s' }}>
+                          style={{ fontSize: '12px', color: 'var(--green)', textDecoration: 'none', padding: '12px 16px', border: 'rgba(61, 107, 74, 0.19)', display: 'block', transition: 'all 0.15s' }}>
                           Create post →
                         </Link>
                         <Link href="/contracts"
-                          style={{ fontSize: '12px', color: s.gold, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${s.gold}30`, display: 'block', transition: 'all 0.15s' }}>
+                          style={{ fontSize: '12px', color: 'var(--gold)', textDecoration: 'none', padding: '12px 16px', border: 'rgba(176, 141, 87, 0.19)', display: 'block', transition: 'all 0.15s' }}>
                           Upload contract →
                         </Link>
                         <Link href="/business/finances"
-                          style={{ fontSize: '12px', color: s.dimmer, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${s.border}`, display: 'block', transition: 'all 0.15s' }}>
+                          style={{ fontSize: '12px', color: 'var(--text-dimmer)', textDecoration: 'none', padding: '12px 16px', border: '1px solid var(--border-dim)', display: 'block', transition: 'all 0.15s' }}>
                           View invoices →
                         </Link>
                       </div>
@@ -269,19 +259,19 @@ export default function Logistics() {
         {/* NET TOTAL ROW */}
         {gigs.length > 0 && (
           <div style={{
-            background: s.panel,
-            border: `1px solid ${s.gold}40`,
+            background: 'var(--panel)',
+            border: 'rgba(176, 141, 87, 0.25)',
             padding: '20px 28px',
             display: 'grid',
             gridTemplateColumns: '2fr 140px 100px 180px 80px',
             alignItems: 'center',
             marginTop: '8px',
           }}>
-            <div style={{ fontSize: '15px', fontWeight: '600', color: s.gold }}>NET TOTAL — Confirmed fees</div>
+            <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--gold)' }}>NET TOTAL — Confirmed fees</div>
             <div></div>
             <div></div>
             <div></div>
-            <div style={{ fontSize: '14px', color: s.gold, textAlign: 'right', fontWeight: '600' }}>
+            <div style={{ fontSize: '14px', color: 'var(--gold)', textAlign: 'right', fontWeight: '600' }}>
               €{gigs.filter(g => g.status === 'confirmed').reduce((sum, g) => sum + (g.fee || 0), 0).toLocaleString()}
             </div>
           </div>
@@ -289,8 +279,8 @@ export default function Logistics() {
       </div>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: '32px', right: '32px', background: 'rgba(14,13,11,0.97)', border: `1px solid ${s.border}`, padding: '16px 24px', fontSize: '13px', color: s.text, zIndex: 9999, backdropFilter: 'blur(16px)' }}>
-          <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: s.gold, marginBottom: '5px', textTransform: 'uppercase' }}>Gigs</div>
+        <div className="toast">
+          <div className="toast-label">Gigs</div>
           {toast}
         </div>
       )}
