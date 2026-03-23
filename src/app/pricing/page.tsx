@@ -82,7 +82,6 @@ const TIERS = [
       'White-label options',
       'Bulk operations & automation',
       'Dedicated account manager',
-      '24/7 priority support',
     ],
   },
 ]
