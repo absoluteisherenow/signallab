@@ -80,6 +80,14 @@ export default function Contracts() {
         <div style={{fontSize:'13px',color:s.dimmer,marginTop:'8px'}}>Paste a booking email or contract — extracts venue, times, hotel, backline, fee, deposits</div>
       </div>
 
+      {/* EMAIL WORKFLOW BANNER */}
+      <div style={{background:s.gold+'10',border:`1px solid ${s.gold}40`,padding:'20px 24px',marginBottom:'32px',borderRadius:'4px'}}>
+        <div style={{fontSize:'10px',letterSpacing:'0.15em',color:s.gold,textTransform:'uppercase',marginBottom:'8px'}}>💌 Faster way</div>
+        <div style={{fontSize:'12px',color:s.text,lineHeight:'1.6'}}>
+          Forward booking emails to <strong>advancingabsolute@gmail.com</strong> — they'll be automatically parsed and create gigs in Signal Lab. No copy/paste needed.
+        </div>
+      </div>
+
       {!extracted ? (
         <div style={{maxWidth:'800px'}}>
           <div style={{background:s.panel,border:`1px solid ${s.border}`,padding:'32px',marginBottom:'16px'}}>
