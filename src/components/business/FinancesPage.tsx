@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { BarChart3, DollarSign, TrendingUp, Calendar } from 'lucide-react'
 import { Header } from '@/components/dashboard/Header'
 
@@ -10,6 +11,18 @@ interface FinancialEntry {
   income: number
   expenses: number
   profit: number
+}
+
+interface Invoice {
+  id: string
+  gig_id?: string
+  gig_title: string
+  amount: number
+  currency: string
+  type: string
+  status: string
+  due_date?: string
+  created_at?: string
 }
 
 const financialData: FinancialEntry[] = [
@@ -40,10 +53,23 @@ const financialData: FinancialEntry[] = [
 ]
 
 export function FinancesPage() {
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  
+  useEffect(() => {
+    fetch('/api/invoices')
+      .then(r => r.json())
+      .then(d => { if (d.invoices) setInvoices(d.invoices) })
+      .catch(() => {})
+  }, [])
   const totalIncome = financialData.reduce((sum, entry) => sum + entry.income, 0)
   const totalExpenses = financialData.reduce((sum, entry) => sum + entry.expenses, 0)
   const totalProfit = financialData.reduce((sum, entry) => sum + entry.profit, 0)
   const avgProfit = Math.round(totalProfit / financialData.length)
+  
+  const isOverdue = (dueDate?: string, status?: string) => {
+    if (!dueDate || status !== 'pending') return false
+    return new Date(dueDate) < new Date()
+  }
 
   return (
     <div className="min-h-screen bg-night-black">
@@ -114,7 +140,7 @@ export function FinancesPage() {
           </div>
 
           {/* Transaction History */}
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
+          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 mb-8">
             <h3 className="text-lg font-semibold text-night-silver mb-4">Recent Events & Finances</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -148,6 +174,67 @@ export function FinancesPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Invoices */}
+          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-night-silver mb-4 flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Invoices
+            </h3>
+            {invoices.length === 0 ? (
+              <p className="text-night-dark-gray text-sm">No invoices yet</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-night-dark-gray">
+                    <tr className="text-night-dark-gray">
+                      <th className="text-left py-3 px-4 font-semibold">Gig Title</th>
+                      <th className="text-right py-3 px-4 font-semibold">Amount</th>
+                      <th className="text-left py-3 px-4 font-semibold">Due Date</th>
+                      <th className="text-left py-3 px-4 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map((invoice) => {
+                      const overdue = isOverdue(invoice.due_date, invoice.status)
+                      return (
+                        <tr
+                          key={invoice.id}
+                          className={`border-b border-night-dark-gray hover:bg-night-dark-gray/50 transition-colors ${
+                            overdue ? 'bg-red-500/10' : ''
+                          }`}
+                        >
+                          <td className={`py-3 px-4 ${overdue ? 'text-red-400' : 'text-night-light'}`}>
+                            {invoice.gig_title}
+                          </td>
+                          <td className={`py-3 px-4 text-right font-semibold ${overdue ? 'text-red-400' : 'text-green-400'}`}>
+                            {invoice.currency}
+                            {invoice.amount.toLocaleString()}
+                          </td>
+                          <td className={`py-3 px-4 ${overdue ? 'text-red-400 font-semibold' : 'text-night-dark-gray'}`}>
+                            {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-GB') : '—'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-semibold ${
+                                overdue
+                                  ? 'bg-red-500/20 text-red-400'
+                                  : invoice.status === 'paid'
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : 'bg-yellow-500/20 text-yellow-400'
+                              }`}
+                            >
+                              {overdue ? 'OVERDUE' : invoice.status.toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>
