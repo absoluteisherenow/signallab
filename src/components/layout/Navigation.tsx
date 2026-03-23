@@ -4,16 +4,16 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const MODULES = [
-  { label: 'Tour Lab', href: '/dashboard', color: '#b08d57', sub: [
-    { label: 'Gigs', href: '/logistics' },
-    { label: 'Finances', href: '/business/finances' },
-      { label: 'Contracts', href: '/contracts' },
-  ]},
-  { label: 'Broadcast Lab', href: '/broadcast', color: '#3d6b4a', sub: [
+  { label: 'Signal Lab', href: '/broadcast', color: '#3d6b4a', sub: [
     { label: 'Tone Intelligence', href: '/broadcast' },
     { label: 'Calendar', href: '/broadcast/calendar' },
     { label: 'Media Library', href: '/broadcast/media' },
     { label: 'Scanner', href: '/broadcast/scanner' },
+  ]},
+  { label: 'Tour Lab', href: '/dashboard', color: '#b08d57', sub: [
+    { label: 'Gigs', href: '/logistics' },
+    { label: 'Finances', href: '/business/finances' },
+      { label: 'Contracts', href: '/contracts' },
   ]},
   { label: 'Sonix Lab', href: '/sonix', color: '#6a7a9a', sub: [] },
   { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [
