@@ -27,6 +27,12 @@
   --blue: #6a7a9a;
   --red-brown: #9a6a5a;
   --purple: #7a5a8a;
+  /* ADDITIONAL ACCENT COLORS */
+  --accent-green: #3d6b4a;
+  --accent-red: #8a4a3a;
+  --accent-yellow: #8a6a3a;
+  --text-warm: #a89878;
+  --bg-input: #0e0b06;
   --font-mono: 'DM Mono', monospace;
   --font-display: 'Unbounded', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
@@ -81,7 +87,8 @@ select {
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: var(--gold-dim);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.1);
 }
 
 input::placeholder, textarea::placeholder {
@@ -246,7 +253,7 @@ a { color: inherit; }
 .badge-green { color: var(--green); background: #3d6b4a18; }
 .badge-gold { color: var(--gold); background: #b08d5718; }
 .badge-dim { color: var(--text-dimmer); background: #52504c18; }
-.badge-red { color: #8a4a3a; background: #8a4a3a18; }
+.badge-red { color: var(--red-brown); background: rgba(138, 74, 58, 0.1); }
 
 /* SECTION DIVIDER */
 .section-divider {
@@ -383,4 +390,33 @@ a { color: inherit; }
 
 .btn-gold:hover {
   box-shadow: 0 0 28px rgba(176, 141, 87, 0.16);
+}
+
+/* BUTTON FOCUS STATES */
+.btn-primary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.2);
+}
+
+.btn-secondary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.btn-gold:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.25);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* LINK FOCUS */
+a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }

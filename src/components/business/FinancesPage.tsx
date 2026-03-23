@@ -217,12 +217,12 @@ export function FinancesPage() {
                           </td>
                           <td className="py-3 px-4">
                             <span
-                              className={`px-2 py-1 rounded text-xs font-semibold ${
+                              className={`badge ${
                                 overdue
-                                  ? 'bg-red-500/20 text-red-400'
+                                  ? 'badge-red'
                                   : invoice.status === 'paid'
-                                  ? 'bg-green-500/20 text-green-400'
-                                  : 'bg-yellow-500/20 text-yellow-400'
+                                  ? 'badge-green'
+                                  : 'badge-gold'
                               }`}
                             >
                               {overdue ? 'OVERDUE' : invoice.status.toUpperCase()}

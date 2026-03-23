@@ -95,10 +95,10 @@ export function Dashboard() {
 
                     {/* Status Badge */}
                     <div>
-                      <span className={`inline-block px-3 py-1 rounded text-xs font-semibold uppercase tracking-wide ${
+                      <span className={`badge ${
                         show.status === 'confirmed'
-                          ? 'bg-green-900/30 text-green-400'
-                          : 'bg-yellow-900/30 text-yellow-400'
+                          ? 'badge-green'
+                          : 'badge-gold'
                       }`}>
                         {show.status}
                       </span>

@@ -293,9 +293,9 @@ Give me:
               fontSize: '18px',
               fontWeight: '300',
               letterSpacing: '0.2em',
-              color: '#c9a46e',
+              color: 'var(--gold-bright)',
               textShadow: '0 0 20px rgba(201,164,110,0.4)',
-            }}>SONIX <span style={{ color: '#8a6a3a' }}>LAB</span></div>
+            }}>SONIX <span style={{ color: 'var(--text-dimmer)' }}>LAB</span></div>
             <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: '#5a4428', marginTop: '2px' }}>
               MODULAR CREATIVE SUITE — MK.I
             </div>
@@ -316,7 +316,7 @@ Give me:
             ))}
           </div>
 
-          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#3a2e20', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmest)', textTransform: 'uppercase' }}>
             Input level
           </div>
         </div>
@@ -334,7 +334,7 @@ Give me:
                 ? 'linear-gradient(180deg, #3a2e1c 0%, #2a2010 100%)'
                 : 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)',
               border: activeTab === tab ? '1px solid #7a5a28' : '1px solid #2a2010',
-              color: activeTab === tab ? '#c9a46e' : '#4a3e28',
+              color: activeTab === tab ? 'var(--gold-bright)' : '#4a3e28',
               boxShadow: activeTab === tab
                 ? 'inset 0 1px 0 rgba(255,200,100,0.15), 0 0 10px rgba(201,164,110,0.1)'
                 : 'inset 0 1px 0 rgba(0,0,0,0.3)',
@@ -361,8 +361,8 @@ Give me:
           marginBottom: '24px',
           boxShadow: '0 0 20px rgba(201,164,110,0.05)',
         }}>
-          <div style={{ fontSize: '13px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ display: 'block', width: '20px', height: '1px', background: '#c9a46e' }} />
+          <div style={{ fontSize: '13px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
             Reference track analyser — the starting point
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
@@ -370,12 +370,12 @@ Give me:
               <input value={reference} onChange={e => setReference(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') analyseReference() }}
                 placeholder="Artist — Track name (e.g. Bicep — Glue, Four Tet — Baby)"
-                style={{ width: '100%', background: '#0e0b06', border: '1px solid #5a4428', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
             </div>
             <button onClick={analyseReference} disabled={analysingReference} style={{
-              background: analysingReference ? '#1a1208' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
-              border: '1px solid #c9a46e',
-              color: '#c9a46e',
+              background: analysingReference ? 'var(--bg)' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
+              border: '1px solid var(--gold-bright)',
+              color: 'var(--gold-bright)',
               fontFamily: "'DM Mono', monospace",
               fontSize: '10px',
               letterSpacing: '0.2em',
@@ -388,13 +388,13 @@ Give me:
               gap: '10px',
               boxShadow: '0 0 12px rgba(201,164,110,0.15)',
             }}>
-              {analysingReference && <div style={{ width: '10px', height: '10px', border: '1px solid #c9a46e', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+              {analysingReference && <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
               {analysingReference ? 'Analysing...' : 'Analyse reference'}
             </button>
           </div>
           {referenceAnalysis && (
-            <div style={{ marginTop: '16px', background: '#0e0b06', border: '1px solid #3a2e1c', padding: '16px 20px', maxHeight: '180px', overflowY: 'auto' }}>
-              <div style={{ fontSize: '14px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{referenceAnalysis}</div>
+            <div style={{ marginTop: '16px', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '16px 20px', maxHeight: '180px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '14px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{referenceAnalysis}</div>
             </div>
           )}
         </div>
@@ -410,7 +410,7 @@ Give me:
               padding: '24px 28px',
               boxShadow: 'inset 0 1px 0 rgba(255,200,100,0.05)',
             }}>
-              <div style={{ fontSize: '11px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #2a2010' }}>
+              <div style={{ fontSize: '11px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-dim)' }}>
                 Harmonic parameters
               </div>
               <div className="grid grid-cols-4 gap-6">
@@ -420,12 +420,12 @@ Give me:
                   { label: 'Emotional feel', value: feel, onChange: setFeel, options: ['Melancholic', 'Euphoric', 'Tense', 'Dreamy', 'Aggressive', 'Soulful', 'Minimal', 'Epic', 'Intimate', 'Hypnotic'] },
                 ].map(field => (
                   <div key={field.label}>
-                    <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>{field.label}</div>
+                    <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>{field.label}</div>
                     <select value={field.value} onChange={e => field.onChange(e.target.value)} style={{
                       width: '100%',
-                      background: '#0e0b06',
-                      border: '1px solid #3a2e1c',
-                      color: '#e8dcc8',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-dim)',
+                      color: 'var(--text)',
                       fontFamily: "'DM Mono', monospace",
                       fontSize: '14px',
                       padding: '8px 12px',
@@ -436,13 +436,13 @@ Give me:
                   </div>
                 ))}
                 <div>
-                  <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Actions</div>
+                  <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Actions</div>
                   <div className="flex gap-2">
                     <button onClick={generateChords} disabled={generatingChords} style={{
                       flex: 1,
-                      background: generatingChords ? '#1a1208' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-                      border: '1px solid #6a4e28',
-                      color: '#c9a46e',
+                      background: generatingChords ? 'var(--bg)' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+                      border: '1px solid var(--gold-dim)',
+                      color: 'var(--gold-bright)',
                       fontFamily: "'DM Mono', monospace",
                       fontSize: '11px',
                       letterSpacing: '0.15em',
@@ -455,9 +455,9 @@ Give me:
                     </button>
                     <button onClick={generateMelody} disabled={generatingMelody} style={{
                       flex: 1,
-                      background: generatingMelody ? '#1a1208' : 'linear-gradient(180deg, #2a3020 0%, #1a2010 100%)',
-                      border: '1px solid #4a6a38',
-                      color: '#8aba68',
+                      background: generatingMelody ? 'var(--bg)' : 'linear-gradient(180deg, #2a3020 0%, #1a2010 100%)',
+                      border: '1px solid var(--accent-green)',
+                      color: 'var(--accent-green)',
                       fontFamily: "'DM Mono', monospace",
                       fontSize: '11px',
                       letterSpacing: '0.15em',
@@ -474,23 +474,23 @@ Give me:
             </div>
 
             {/* PROGRESSIONS */}
-            <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '16px' }}>
+            <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '16px' }}>
                 Chord progressions — {key}
               </div>
               <div className="grid grid-cols-3 gap-3">
                 {CHORD_PROGRESSIONS.map((prog, i) => (
                   <div key={i} onClick={() => setSelectedProgression(i)} style={{
-                    background: selectedProgression === i ? 'linear-gradient(180deg, #2e2416 0%, #1e1508 100%)' : '#0e0b06',
-                    border: selectedProgression === i ? '1px solid #7a5a28' : '1px solid #2a2010',
+                    background: selectedProgression === i ? 'linear-gradient(180deg, #2e2416 0%, #1e1508 100%)' : 'var(--bg-input)',
+                    border: selectedProgression === i ? '1px solid var(--gold)' : '1px solid var(--border-dim)',
                     padding: '14px 16px',
                     cursor: 'pointer',
                     transition: 'all 0.15s',
                     boxShadow: selectedProgression === i ? '0 0 12px rgba(201,164,110,0.1)' : 'none',
                   }}>
-                    <div style={{ fontSize: '14px', letterSpacing: '0.05em', color: selectedProgression === i ? '#c9a46e' : '#8a7a5a', marginBottom: '6px', fontWeight: '400' }}>{prog.name}</div>
-                    <div style={{ fontSize: '13px', letterSpacing: '0.1em', color: '#5a4428', marginBottom: '3px' }}>{prog.genre}</div>
-                    <div style={{ fontSize: '13px', letterSpacing: '0.08em', color: '#4a3e28', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{prog.feel}</div>
+                    <div style={{ fontSize: '14px', letterSpacing: '0.05em', color: selectedProgression === i ? 'var(--gold-bright)' : 'var(--text-dim)', marginBottom: '6px', fontWeight: '400' }}>{prog.name}</div>
+                    <div style={{ fontSize: '13px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', marginBottom: '3px' }}>{prog.genre}</div>
+                    <div style={{ fontSize: '13px', letterSpacing: '0.08em', color: 'var(--text-dimmest)', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{prog.feel}</div>
                   </div>
                 ))}
               </div>
@@ -498,21 +498,21 @@ Give me:
 
             {/* RESULTS */}
             {chordResult && (
-              <div style={{ background: '#0e0b06', border: '1px solid #3a2e1c', padding: '24px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #2a2010' }}>
+              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '24px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--border-dim)' }}>
                   Chord analysis
                 </div>
-                <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
                   {chordResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
                 </div>
               </div>
             )}
             {melodyResult && (
-              <div style={{ background: '#0e0b06', border: '1px solid #2a3020', padding: '24px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#8aba68', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #1a2010' }}>
+              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--accent-green)', padding: '24px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--accent-green)', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--accent-green)' }}>
                   Melody ideas
                 </div>
-                <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
                   {melodyResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
                 </div>
               </div>
@@ -524,28 +524,28 @@ Give me:
         {activeTab === 'arrange' && (
           <div className="flex flex-col gap-6">
 
-            <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #2a2010' }}>
+            <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-dim)' }}>
                 Track parameters
               </div>
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
                   <input value={trackContext} onChange={e => setTrackContext(e.target.value)}
                     placeholder="128 BPM techno, dark and driving, 6 min DJ tool..."
-                    style={{ width: '100%', background: '#0e0b06', border: '1px solid #3a2e1c', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
+                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Reference track</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Reference track</div>
                   <input value={referenceTrack} onChange={e => setReferenceTrack(e.target.value)}
                     placeholder="Artist — Track name"
-                    style={{ width: '100%', background: '#0e0b06', border: '1px solid #3a2e1c', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
+                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
                 </div>
               </div>
               <button onClick={generateArrangement} disabled={generatingArrange} style={{
-                background: generatingArrange ? '#1a1208' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-                border: '1px solid #6a4e28',
-                color: '#c9a46e',
+                background: generatingArrange ? 'var(--bg)' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+                border: '1px solid var(--gold-dim)',
+                color: 'var(--gold-bright)',
                 fontFamily: "'DM Mono', monospace",
                 fontSize: '13px',
                 letterSpacing: '0.2em',
@@ -557,15 +557,15 @@ Give me:
                 alignItems: 'center',
                 gap: '10px',
               }}>
-                {generatingArrange && <div style={{ width: '10px', height: '10px', border: '1px solid #c9a46e', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+                {generatingArrange && <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
                 {generatingArrange ? 'Analysing structure...' : 'Generate arrangement'}
               </button>
             </div>
 
             {/* ENERGY ARC VISUALISER */}
             {energyArc.length > 0 && (
-              <div style={{ background: '#0e0b06', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '20px' }}>
+              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '20px' }}>
                   Energy arc
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '80px' }}>
@@ -586,11 +586,11 @@ Give me:
 
             {/* ARRANGEMENT RESULT */}
             {arrangeResult && (
-              <div style={{ background: '#0e0b06', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid #2a2010' }}>
+              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--border-dim)' }}>
                   Arrangement map
                 </div>
-                <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
                   {(() => {
                     try {
                       const d = JSON.parse(arrangeResult.replace(/```json|```/g, '').trim())
@@ -633,8 +633,8 @@ Give me:
           <div className="flex flex-col gap-6">
 
             {/* CHAIN TYPE FILTER */}
-            <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid #3a2e1c', padding: '20px 28px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '16px' }}>
+            <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid var(--border-dim)', padding: '20px 28px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '16px' }}>
                 18 production chains
               </div>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
@@ -645,9 +645,9 @@ Give me:
                     letterSpacing: '0.15em',
                     textTransform: 'uppercase',
                     padding: '6px 14px',
-                    background: activeType === t ? 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)' : '#0e0b06',
-                    border: activeType === t ? `1px solid ${typeColors[t] || '#6a4e28'}` : '1px solid #2a2010',
-                    color: activeType === t ? (typeColors[t] || '#c9a46e') : '#4a3e28',
+                    background: activeType === t ? 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)' : 'var(--bg-input)',
+                    border: activeType === t ? `1px solid ${typeColors[t] || 'var(--gold-dim)'}` : '1px solid var(--border-dim)',
+                    color: activeType === t ? (typeColors[t] || 'var(--gold-bright)') : 'var(--text-dimmest)',
                     cursor: 'pointer',
                   }}>{t}</button>
                 ))}
@@ -658,17 +658,17 @@ Give me:
                   const realIdx = CHAINS.indexOf(chain)
                   return (
                     <div key={realIdx} onClick={() => setSelectedChain(realIdx)} style={{
-                      background: selectedChain === realIdx ? 'linear-gradient(180deg, #2e2416 0%, #1e1508 100%)' : '#0e0b06',
-                      border: selectedChain === realIdx ? `1px solid ${typeColors[chain.type] || '#6a4e28'}` : '1px solid #2a2010',
+                      background: selectedChain === realIdx ? 'linear-gradient(180deg, #2e2416 0%, #1e1508 100%)' : 'var(--bg-input)',
+                      border: selectedChain === realIdx ? `1px solid ${typeColors[chain.type] || 'var(--gold-dim)'}` : '1px solid var(--border-dim)',
                       padding: '14px 16px',
                       cursor: 'pointer',
                       transition: 'all 0.15s',
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                        <div style={{ fontSize: '13px', letterSpacing: '0.06em', color: selectedChain === realIdx ? '#e8dcc8' : '#8a7a5a' }}>{chain.name}</div>
-                        <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: typeColors[chain.type] || '#5a4428', textTransform: 'uppercase', flexShrink: 0, marginLeft: '8px' }}>{chain.type}</div>
+                        <div style={{ fontSize: '13px', letterSpacing: '0.06em', color: selectedChain === realIdx ? 'var(--text)' : 'var(--text-dim)' }}>{chain.name}</div>
+                        <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: typeColors[chain.type] || 'var(--text-dimmer)', textTransform: 'uppercase', flexShrink: 0, marginLeft: '8px' }}>{chain.type}</div>
                       </div>
-                      <div style={{ fontSize: '13px', letterSpacing: '0.06em', color: '#4a3e28', fontStyle: 'italic', fontFamily: 'Georgia, serif', lineHeight: '1.4' }}>{chain.desc}</div>
+                      <div style={{ fontSize: '13px', letterSpacing: '0.06em', color: 'var(--text-dimmest)', fontStyle: 'italic', fontFamily: 'Georgia, serif', lineHeight: '1.4' }}>{chain.desc}</div>
                     </div>
                   )
                 })}
@@ -677,22 +677,22 @@ Give me:
 
             {/* CHAIN CONTEXT + GENERATE */}
             {selectedChain !== null && (
-              <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid #3a2e1c', padding: '24px 28px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '16px' }}>
+              <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '16px' }}>
                   {CHAINS[selectedChain].name} — chain detail
                 </div>
                 <div className="grid grid-cols-2 gap-6 mb-6">
                   <div>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
                     <input value={chainContext} onChange={e => setChainContext(e.target.value)}
                       placeholder="What are you mixing? Genre, style, BPM..."
-                      style={{ width: '100%', background: '#0e0b06', border: '1px solid #3a2e1c', color: '#e8dcc8', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
+                      style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                     <button onClick={generateChainAdvice} disabled={generatingChain} style={{
-                      background: generatingChain ? '#1a1208' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-                      border: '1px solid #6a4e28',
-                      color: '#c9a46e',
+                      background: generatingChain ? 'var(--bg)' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+                      border: '1px solid var(--gold-dim)',
+                      color: 'var(--gold-bright)',
                       fontFamily: "'DM Mono', monospace",
                       fontSize: '13px',
                       letterSpacing: '0.2em',
@@ -711,8 +711,8 @@ Give me:
                 </div>
 
                 {chainResult && (
-                  <div style={{ background: '#0e0b06', border: '1px solid #2a2010', padding: '20px' }}>
-                    <div style={{ fontSize: '13px', lineHeight: '1.85', color: '#a89878', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                  <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '20px' }}>
+                    <div style={{ fontSize: '13px', lineHeight: '1.85', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
                       {chainResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
                     </div>
                   </div>
@@ -729,16 +729,16 @@ Give me:
         <div style={{
           position: 'fixed', bottom: '28px', right: '28px',
           background: 'rgba(20,16,8,0.96)',
-          border: '1px solid #3a2e1c',
+          border: '1px solid var(--border-dim)',
           padding: '14px 20px',
           fontSize: '13px', letterSpacing: '0.07em',
-          color: '#e8dcc8',
+          color: 'var(--text)',
           zIndex: 50,
           maxWidth: '280px',
           lineHeight: '1.55',
           backdropFilter: 'blur(12px)',
         }}>
-          <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#c9a46e', marginBottom: '4px' }}>{toast.tag}</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold-bright)', marginBottom: '4px' }}>{toast.tag}</div>
           {toast.msg}
         </div>
       )}

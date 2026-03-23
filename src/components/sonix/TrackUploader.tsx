@@ -39,15 +39,15 @@ export function TrackUploader() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const s = {
-    bg: '#1a1410',
+    bg: 'var(--bg)',
     panel: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)',
-    border: '#3a2e1c',
-    gold: '#c9a46e',
-    goldDim: '#6a4e28',
-    text: '#e8dcc8',
-    textDim: '#8a7a5a',
-    textDimmer: '#5a4428',
-    black: '#0e0b06',
+    border: 'var(--border-dim)',
+    gold: 'var(--gold-bright)',
+    goldDim: 'var(--gold-dim)',
+    text: 'var(--text)',
+    textDim: 'var(--text-dim)',
+    textDimmer: 'var(--text-dimmer)',
+    black: 'var(--bg-input)',
     font: "'DM Mono', monospace",
   }
 
@@ -186,7 +186,7 @@ Return JSON:
           {analysing && <div style={{ width: '10px', height: '10px', border: `1px solid ${s.gold}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
           {analysing ? 'Analysing...' : 'Analyse track'}
         </button>
-        {error && <div style={{ fontSize: '11px', color: '#8a4a3a' }}>{error}</div>}
+        {error && <div style={{ fontSize: '11px', color: 'var(--red-brown)' }}>{error}</div>}
       </div>
 
       {/* ANALYSIS RESULT */}
@@ -199,8 +199,8 @@ Return JSON:
             </div>
             <button onClick={sendToSetLab} style={{
               background: 'linear-gradient(180deg, #2a3020 0%, #1a2010 100%)',
-              border: '1px solid #4a6a38',
-              color: '#8aba68',
+              border: '1px solid var(--accent-green)',
+              color: 'var(--accent-green)',
               fontFamily: s.font,
               fontSize: '9px',
               letterSpacing: '0.14em',

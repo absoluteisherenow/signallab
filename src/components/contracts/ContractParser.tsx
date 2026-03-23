@@ -33,8 +33,8 @@ export default function ContractParser() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const s = {
-    bg: '#070706', panel: '#0e0d0b', border: '#1a1917',
-    gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c',
+    bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
+    gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)',
     font: "'DM Mono', monospace",
   }
 
@@ -247,7 +247,7 @@ If any field is not found, use null for strings and 0 for numbers.`
             )}
           </div>
 
-          {error && <div style={{ fontSize: '12px', color: '#8a4a3a', padding: '14px', border: '1px solid #4a2a1a', background: '#1a0a06', marginBottom: '16px' }}>{error}</div>}
+          {error && <div style={{ fontSize: '12px', color: 'var(--red-brown)', padding: '14px', border: '1px solid var(--accent-red)', background: 'rgba(138, 74, 58, 0.1)', marginBottom: '16px' }}>{error}</div>}
 
           <button onClick={parseContract} disabled={!file || parsing} style={{
             background: file && !parsing ? s.gold : 'transparent',
@@ -337,7 +337,7 @@ If any field is not found, use null for strings and 0 for numbers.`
             </div>
           </div>
 
-          {error && <div style={{ fontSize: '12px', color: '#8a4a3a', padding: '14px', border: '1px solid #4a2a1a', background: '#1a0a06', marginBottom: '16px' }}>{error}</div>}
+          {error && <div style={{ fontSize: '12px', color: 'var(--red-brown)', padding: '14px', border: '1px solid var(--accent-red)', background: 'rgba(138, 74, 58, 0.1)', marginBottom: '16px' }}>{error}</div>}
 
           <div style={{ display: 'flex', gap: '12px' }}>
             <button onClick={createFromContract} disabled={creating} style={{
