@@ -55,21 +55,6 @@ export default function Dashboard() {
       </div>
 
       <div style={{ padding: '44px 56px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', marginBottom: '44px' }}>
-          {[
-            { label: 'Next show', value: next ? `${daysTo}d` : '—', sub: next ? `${next.venue}` : 'No upcoming shows' },
-            { label: 'Confirmed income', value: `€${totalFees.toLocaleString()}`, sub: `${confirmed.length} shows` },
-            { label: 'Total audience', value: gigs.reduce((a, g) => a + (g.audience || 0), 0).toLocaleString(), sub: 'All upcoming' },
-            { label: 'Needs attention', value: '3', sub: 'Actions required', alert: true },
-          ].map(stat => (
-            <div key={stat.label} style={{ background: f.panel, border: `1px solid ${stat.alert ? '#8a4a3a30' : f.border}`, padding: '28px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: f.dimmer, textTransform: 'uppercase', marginBottom: '14px' }}>{stat.label}</div>
-              <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '38px', fontWeight: 200, color: stat.alert ? f.gold : f.text, lineHeight: 1, marginBottom: '8px' }}>{stat.value}</div>
-              <div style={{ fontSize: '11px', color: f.dimmest }}>{stat.sub}</div>
-            </div>
-          ))}
-        </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '44px' }}>
           {next && (
             <div style={{ background: f.panel, border: `1px solid ${f.mid}`, padding: '32px' }}>
@@ -146,13 +131,28 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', marginBottom: '44px' }}>
           {QUICK.map(a => (
             <Link key={a.label} href={a.href} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: f.panel, border: `1px solid ${f.border}`, padding: '20px 24px', textDecoration: 'none', fontSize: '12px', color: a.color, transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#141310'; e.currentTarget.style.borderColor = a.color + '40' }}
               onMouseLeave={e => { e.currentTarget.style.background = f.panel; e.currentTarget.style.borderColor = f.border }}>
               {a.label}<span style={{ opacity: 0.4 }}>→</span>
             </Link>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px' }}>
+          {[
+            { label: 'Next show', value: next ? `${daysTo}d` : '—', sub: next ? `${next.venue}` : 'No upcoming shows' },
+            { label: 'Confirmed income', value: `€${totalFees.toLocaleString()}`, sub: `${confirmed.length} shows` },
+            { label: 'Total audience', value: gigs.reduce((a, g) => a + (g.audience || 0), 0).toLocaleString(), sub: 'All upcoming' },
+            { label: 'Needs attention', value: '3', sub: 'Actions required', alert: true },
+          ].map(stat => (
+            <div key={stat.label} style={{ background: f.panel, border: `1px solid ${stat.alert ? '#8a4a3a30' : f.border}`, padding: '28px' }}>
+              <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: f.dimmer, textTransform: 'uppercase', marginBottom: '14px' }}>{stat.label}</div>
+              <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '38px', fontWeight: 200, color: stat.alert ? f.gold : f.text, lineHeight: 1, marginBottom: '8px' }}>{stat.value}</div>
+              <div style={{ fontSize: '11px', color: f.dimmest }}>{stat.sub}</div>
+            </div>
           ))}
         </div>
       </div>
