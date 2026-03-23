@@ -124,11 +124,9 @@ export default function HomePage() {
       {/* NAV */}
       <nav
         style={{
-          position: 'fixed',
+          position: 'sticky',
           top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
+          zIndex: 50,
           background: scrollY > 50 ? `rgba(7,7,6,0.92)` : 'transparent',
           borderBottom: scrollY > 50 ? `1px solid ${COLORS.border}` : 'none',
           padding: '20px 48px',
