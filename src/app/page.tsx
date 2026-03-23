@@ -25,7 +25,7 @@ const plans = [
     tagline: "You're touring. The system runs the business around the music.",
     accent: 'text-[#b08d57]',
     featured: true,
-    button: 'Join Artist waitlist',
+    button: 'Start Artist plan',
     features: [
       'Everything in Creator',
       'Unlimited captions',
@@ -46,9 +46,6 @@ const plans = [
     button: 'Talk to us',
     features: [
       'Everything in Artist',
-      'First team tier - multi-user access',
-      'Shared dashboards + permission roles',
-      'Multi-artist profiles',
       'Roster analytics dashboard',
       'Advanced content scanning',
       'Artist tone intelligence',
@@ -57,13 +54,15 @@ const plans = [
     ],
   },
   {
-    name: 'Agency',
+    name: 'Management',
     price: '£249',
     tagline: "You're running the operation. Advanced tools, full control.",
     accent: 'text-[#3d6b4a]',
     button: 'Book a demo',
     features: [
       'Everything in Pro',
+      'Multi-user team access',
+      'Shared dashboards + permission roles',
       'Capped at 10 artist profiles',
       'Advanced team permissions',
       'White-label advancing emails',
@@ -164,10 +163,10 @@ export default function ModularSuiteLandingPage() {
                 <span>The operating system for electronic artists</span>
               </div>
               <h1 className="display-font text-[56px] leading-[0.94] md:text-[110px] md:leading-[0.92] font-[200] tracking-[-0.05em] text-[#f0ebe2] max-w-6xl">
-                One integrated system for touring, content, production, and DJ workflow.
+                The operating system for electronic artists.
               </h1>
               <p className="mt-10 max-w-4xl text-[18px] md:text-[28px] leading-[1.9] text-[#8a8780]">
-                Artist OS brings Signal Lab, Broadcast Lab, Sonix Lab, and SetLab into one connected layer so serious electronic artists can run the entire operation without context switching.
+                Artist OS brings Signal Lab, Broadcast Lab, Sonix Lab, and SetLab into one connected layer so artists can run touring, releases, content, and DJ workflow from a single operating layer without context switching.
               </p>
               <div className="mt-12 flex flex-col gap-4 sm:flex-row">
                 <a href="#pricing" className="border border-[#b08d57] bg-[#b08d57] px-8 py-4 text-[13px] uppercase tracking-[0.28em] text-[#070706] transition hover:opacity-90">
