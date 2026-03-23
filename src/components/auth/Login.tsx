@@ -45,7 +45,7 @@ export default function Login() {
 
   // Demo bypass
   function demoLogin() {
-    window.location.href = '/broadcast'
+    window.location.href = '/dashboard'
   }
 
   return (
