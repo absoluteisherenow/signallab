@@ -2,12 +2,12 @@ import type { Metadata } from 'next'
 import '../globals.css'
 
 export const metadata: Metadata = {
-  title: 'Night Manoeuvres - The Modular Suite',
-  description: 'The operating system for electronic music artists',
+  title: 'Pricing - The Modular Suite',
+  description: 'Simple, honest pricing for electronic music artists',
   viewport: 'width=device-width, initial-scale=1',
 }
 
-export default function LandingLayout({
+export default function PricingLayout({
   children,
 }: {
   children: React.ReactNode

@@ -312,7 +312,7 @@ export default function HomePage() {
               e.currentTarget.style.borderColor = COLORS.border
             }}
           >
-            View Pricing →
+            Pricing & Sales →
           </Link>
         </div>
 
