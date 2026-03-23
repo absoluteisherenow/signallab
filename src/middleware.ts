@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/', '/login', '/onboarding', '/advance', '/dashboard', '/broadcast', '/logistics', '/business', '/sonix', '/setlab']
+const PUBLIC_PATHS = ['/', '/login', '/onboarding', '/advance', '/dashboard', '/broadcast', '/logistics', '/business', '/sonix', '/setlab', '/contracts', '/maxforlive']
 
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
   
-  // Check if path is public or API
-  const isPublic = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/api') || pathname.startsWith('/_next')
+  // Check if path is public or API (includes subroutes)
+  const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/')) || pathname.startsWith('/api') || pathname.startsWith('/_next')
   
   if (isPublic) {
     return NextResponse.next()
