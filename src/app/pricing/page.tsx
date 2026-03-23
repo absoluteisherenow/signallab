@@ -17,7 +17,7 @@ const COLORS = {
 
 const TIERS = [
   {
-    name: 'Solo',
+    name: 'Creator',
     price: '£29',
     period: '/month',
     desc: 'You\'re making music. No context switching.',
@@ -33,14 +33,14 @@ const TIERS = [
     ],
   },
   {
-    name: 'Touring',
+    name: 'Artist',
     price: '£59',
     period: '/month',
     desc: 'You\'re on the road. Your crew needs access.',
     color: COLORS.gold,
     highlight: true,
     features: [
-      'Everything in Solo',
+      'Everything in Creator',
       'Sonix Lab — Max for Live',
       'Broadcast Lab — unlimited captions',
       'Multi-user team access',
@@ -50,13 +50,13 @@ const TIERS = [
     ],
   },
   {
-    name: 'Label',
+    name: 'Pro',
     price: '£99',
     period: '/month',
     desc: 'You\'re managing artists. One command center.',
     color: '#6a8a7a',
     features: [
-      'Everything in Touring',
+      'Everything in Artist',
       'Multi-artist profiles (up to 10)',
       'Roster analytics dashboard',
       'Label-branded advance forms',
@@ -67,13 +67,13 @@ const TIERS = [
     ],
   },
   {
-    name: 'Collective',
+    name: 'Agency',
     price: '£249',
     period: '/month',
     desc: 'You\'re running the operation. Advanced tools, full control.',
     color: '#7a8a6a',
     features: [
-      'Everything in Label',
+      'Everything in Pro',
       'Unlimited artist profiles',
       'Advanced team permissions',
       'Custom integrations',
@@ -117,9 +117,9 @@ export default function PricingPage() {
 
       {/* HERO */}
       <section style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 48px 80px', textAlign: 'center', borderBottom: `1px solid ${COLORS.border}` }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>From Solo to Collective</div>
+        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>Creator to Agency</div>
         <h1 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', fontWeight: 200, letterSpacing: '0.04em', lineHeight: 1.1, marginBottom: '20px', maxWidth: '900px' }}>One system for every stage of your career.</h1>
-        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>Solo bedroom producer to touring collective. All tiers include music production, content, DJ tools, and tour management. No hidden fees. No feature gates.</p>
+        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>From Creator to Agency. All tiers include music production, content, DJ tools, and tour management. No hidden fees. No feature gates.</p>
       </section>
 
       {/* PRICING TIERS */}
@@ -153,7 +153,7 @@ export default function PricingPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: COLORS.textDimmer }}>vs</div>
               <div><div style={{ fontSize: '28px', fontWeight: 'bold', color: COLORS.green, marginBottom: '6px' }}>£59</div><div style={{ fontSize: '11px', color: COLORS.textDim }}>Pro tier/month</div></div>
             </div>
-            <p style={{ fontSize: '12px', color: COLORS.textDim, lineHeight: '1.7', maxWidth: '550px', margin: '0 auto' }}>At 20 shows/year on Touring: <strong style={{ color: COLORS.text }}>£3,000 vs £708.</strong> Break even at 4 shows. Everything else is profit. All tiers include Sonix, content, and DJ tools.</p>
+            <p style={{ fontSize: '12px', color: COLORS.textDim, lineHeight: '1.7', maxWidth: '550px', margin: '0 auto' }}>At 20 shows/year on Artist: <strong style={{ color: COLORS.text }}>£3,000 vs £708.</strong> Break even at 4 shows. Everything else is profit. All tiers include Sonix, content, and DJ tools.</p>
           </div>
         </div>
       </section>
@@ -210,7 +210,7 @@ export default function PricingPage() {
               </tbody>
             </table>
           </div>
-          <div style={{ fontSize: '9px', color: COLORS.textDimmer, marginTop: '16px', textAlign: 'center' }}>*at 20 shows/year on Touring tier (£59/mo)</div>
+          <div style={{ fontSize: '9px', color: COLORS.textDimmer, marginTop: '16px', textAlign: 'center' }}>*at 20 shows/year on Artist tier (£59/mo)</div>
         </div>
       </section>
 
