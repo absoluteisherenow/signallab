@@ -17,7 +17,7 @@ const COLORS = {
 
 const TIERS = [
   {
-    name: 'Producer',
+    name: 'Creator',
     price: '£29',
     period: '/month',
     desc: 'You\'re making music. No context switching.',
@@ -40,7 +40,7 @@ const TIERS = [
     color: COLORS.gold,
     highlight: true,
     features: [
-      'Everything in Producer',
+      'Everything in Creator',
       'Sonix Lab — Max for Live',
       'Broadcast Lab — unlimited captions',
       'Multi-user team access',
@@ -117,9 +117,9 @@ export default function PricingPage() {
 
       {/* HERO */}
       <section style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 48px 80px', textAlign: 'center', borderBottom: `1px solid ${COLORS.border}` }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>Producer to Agency</div>
+        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>Creator to Agency</div>
         <h1 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', fontWeight: 200, letterSpacing: '0.04em', lineHeight: 1.1, marginBottom: '20px', maxWidth: '900px' }}>One system for every stage of your career.</h1>
-        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>From Producer to Agency. All tiers include music production, content, DJ tools, and tour management. No hidden fees. No feature gates.</p>
+        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>From Creator to Agency. All tiers include music production, content, DJ tools, and tour management. No hidden fees. No feature gates.</p>
       </section>
 
       {/* PRICING TIERS */}
