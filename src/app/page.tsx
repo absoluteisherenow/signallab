@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 const plans = [
   {
     name: 'Creator',
@@ -130,6 +132,58 @@ const faqs = [
 ]
 
 export default function ModularSuiteLandingPage() {
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [message, setMessage] = useState('')
+
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!email.trim()) {
+      setStatus('error')
+      setMessage('Please enter your email.')
+      return
+    }
+
+    try {
+      setStatus('loading')
+      setMessage('')
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/waitlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({
+          email,
+          source: 'signal-lab-landing',
+        }),
+      })
+
+      if (res.ok) {
+        setStatus('success')
+        setMessage('✅ You\'re on the waitlist!')
+        setEmail('')
+        return
+      }
+
+      if (res.status === 409) {
+        setStatus('success')
+        setMessage('✅ You\'re already on the waitlist.')
+        return
+      }
+
+      setStatus('error')
+      setMessage('❌ Something went wrong. Please try again.')
+    } catch {
+      setStatus('error')
+      setMessage('❌ Something went wrong. Please try again.')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono">
       <style>{`
@@ -166,7 +220,7 @@ export default function ModularSuiteLandingPage() {
                 The operating system for electronic artists.
               </h1>
               <p className="mt-10 max-w-4xl text-[18px] md:text-[28px] leading-[1.9] text-[#8a8780]">
-                Artist OS brings Signal Lab, Broadcast Lab, Sonix Lab, and SetLab into one connected layer so artists can run touring, releases, content, and DJ workflow from a single operating layer without context switching.
+                Artist OS brings Signal Lab, Tour Lab, SONIX Lab, and Set Lab into one connected layer so artists can run touring, releases, content, and DJ workflow from a single operating layer without context switching.
               </p>
               <div className="mt-12 flex flex-col gap-4 sm:flex-row">
                 <a href="#pricing" className="border border-[#b08d57] bg-[#b08d57] px-8 py-4 text-[13px] uppercase tracking-[0.28em] text-[#070706] transition hover:opacity-90">
@@ -361,13 +415,29 @@ export default function ModularSuiteLandingPage() {
             <p className="mx-auto mt-8 max-w-3xl text-[18px] md:text-[24px] leading-[1.9] text-[#8a8780]">
               Built for artists first. Then teams. Then agencies. Early access is for people who want the full operating layer, not another disconnected app.
             </p>
-            <form className="mx-auto mt-12 max-w-3xl">
+            <form onSubmit={handleWaitlistSubmit} className="mx-auto mt-12 max-w-3xl">
               <div className="flex flex-col border border-[#1a1917] bg-[#0b0a09] sm:flex-row">
-                <input type="email" placeholder="your@email.com" className="w-full bg-transparent px-7 py-5 text-[16px] text-[#f0ebe2] outline-none placeholder:text-[#52504c]" />
-                <button type="button" className="border-t border-[#1a1917] bg-[#b08d57] px-8 py-5 text-[12px] uppercase tracking-[0.3em] text-[#070706] sm:border-l sm:border-t-0">
-                  Join →
+                <input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={status === 'loading'}
+                  className="w-full bg-transparent px-7 py-5 text-[16px] text-[#f0ebe2] outline-none placeholder:text-[#52504c] disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={status === 'loading'}
+                  className="border-t border-[#1a1917] bg-[#b08d57] px-8 py-5 text-[12px] uppercase tracking-[0.3em] text-[#070706] sm:border-l sm:border-t-0 disabled:opacity-50 transition-opacity"
+                >
+                  {status === 'loading' ? 'Joining...' : 'Join →'}
                 </button>
               </div>
+              {message && (
+                <p className={`mt-4 text-[14px] tracking-[0.1em] text-center ${status === 'success' ? 'text-[#3d6b4a]' : 'text-[#d97706]'}`}>
+                  {message}
+                </p>
+              )}
               <p className="mt-5 text-[13px] tracking-[0.15em] uppercase text-[#52504c]">
                 Private beta / no payment details needed
               </p>
