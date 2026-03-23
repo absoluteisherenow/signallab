@@ -294,6 +294,15 @@ export function BroadcastLab() {
 
   const variantKeys: ('safe' | 'loose' | 'raw')[] = ['safe', 'loose', 'raw']
 
+  async function copyToClipboard(text: string, variantName: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      showToast(`${variantName} caption copied`, 'Copied')
+    } catch {
+      showToast('Copy failed', 'Error')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono p-8 flex flex-col gap-7">
 
@@ -513,7 +522,13 @@ export function BroadcastLab() {
                 </div>
                 {generatingCaptions ? <div className="h-16 bg-white/5 animate-pulse rounded" /> : (
                   <>
-                    <div className="text-[12px] tracking-[.05em] leading-7 min-h-[72px]">{v?.text||''}</div>
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className="text-[12px] tracking-[.05em] leading-7 min-h-[72px] flex-1">{v?.text||''}</div>
+                      <button onClick={e => { e.stopPropagation(); copyToClipboard(v?.text||'', key.charAt(0).toUpperCase()+key.slice(1)) }}
+                        className="text-[8.5px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors flex-shrink-0 whitespace-nowrap mt-1">
+                        Copy
+                      </button>
+                    </div>
                     <div className="text-[9px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{fontFamily:'Georgia,serif'}}>{v?.reasoning||''}</div>
                     <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
                       <button onClick={e=>{e.stopPropagation();scheduleToBuffer(v?.text||'',platform,mediaUrls)}}
