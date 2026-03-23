@@ -7,6 +7,7 @@ const MODULES = [
   { label: 'Signal Lab', href: '/dashboard', color: '#b08d57', sub: [
     { label: 'Gigs', href: '/logistics' },
     { label: 'Finances', href: '/business/finances' },
+      { label: 'Contracts', href: '/contracts' },
   ]},
   { label: 'Broadcast Lab', href: '/broadcast', color: '#3d6b4a', sub: [
     { label: 'Tone Intelligence', href: '/broadcast' },
