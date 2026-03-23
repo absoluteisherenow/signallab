@@ -76,7 +76,6 @@ const TIERS = [
     color: '#7a8a6a',
     features: [
       'Everything in Pro',
-      'Unlimited artist profiles',
       'Advanced team permissions',
       'Custom integrations',
       'White-label options',
