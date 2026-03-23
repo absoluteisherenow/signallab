@@ -163,7 +163,7 @@ export default function Finances() {
           { label: 'Total invoiced', value: `€${total.toLocaleString()}`, sub: 'All time' },
           { label: 'Received', value: `€${paid.toLocaleString()}`, sub: `${invoices.filter(i => i.status === 'paid').length} invoices paid`, green: true },
           { label: 'Outstanding', value: `€${pending.toLocaleString()}`, sub: `${invoices.filter(i => i.status === 'pending').length} awaiting payment`, alert: true },
-          { label: 'This month', value: `€${MONTHLY[MONTHLY.length - 1].amount.toLocaleString()}`, sub: 'April 2026' },
+          { label: 'This month', value: `€${monthly[monthly.length - 1].amount.toLocaleString()}`, sub: 'April 2026' },
         ].map(stat => (
           <div key={stat.label} style={{ background: s.panel, border: `1px solid ${stat.alert ? '#8a4a3a40' : s.border}`, padding: '24px 28px' }}>
             <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '12px' }}>{stat.label}</div>
