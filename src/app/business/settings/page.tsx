@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function Settings() {
   const [profile, setProfile] = useState({ name: 'NIGHT manoeuvres', genre: 'Electronic', country: 'Australia', bio: 'Electronic music artist based in Melbourne.' })
@@ -13,10 +13,49 @@ export default function Settings() {
   const [advance, setAdvance] = useState({ sender_name: 'NIGHT manoeuvres Management', reply_email: 'bookings@nightmanoeuvres.com' })
   const [saved, setSaved] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance'>('profile')
+  const [loading, setLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
-  function save() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  // Load settings from Supabase
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  async function loadSettings() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/settings')
+      const data = await res.json()
+      if (data.settings) {
+        if (data.settings.profile) setProfile(data.settings.profile)
+        if (data.settings.team) setTeam(data.settings.team)
+        if (data.settings.advance) setAdvance(data.settings.advance)
+      }
+    } catch (err) {
+      console.error('Failed to load settings:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function save() {
+    setIsSaving(true)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile, team, advance }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      }
+    } catch (err) {
+      console.error('Failed to save settings:', err)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const s = {
@@ -87,8 +126,8 @@ export default function Settings() {
                 rows={3} style={{ ...inputStyle, resize: 'vertical' as const }} />
             </div>
           </div>
-          <button onClick={save} style={{ marginTop: '24px', background: s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer' }}>
-            {saved ? 'Saved ✓' : 'Save profile'}
+          <button onClick={save} disabled={isSaving} style={{ marginTop: '24px', background: isSaving ? s.dimmer : s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', cursor: isSaving ? 'not-allowed' : 'pointer', opacity: isSaving ? 0.6 : 1 }}>
+            {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save profile'}
           </button>
         </div>
       )}
@@ -117,8 +156,8 @@ export default function Settings() {
               </div>
             </div>
           ))}
-          <button onClick={save} style={{ background: s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer', alignSelf: 'flex-start' }}>
-            {saved ? 'Saved ✓' : 'Save team'}
+          <button onClick={save} disabled={isSaving} style={{ background: isSaving ? s.dimmer : s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', cursor: isSaving ? 'not-allowed' : 'pointer', alignSelf: 'flex-start', opacity: isSaving ? 0.6 : 1 }}>
+            {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save team'}
           </button>
         </div>
       )}
@@ -178,8 +217,8 @@ export default function Settings() {
               <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '6px' }}>Promoters reply to this address</div>
             </div>
           </div>
-          <button onClick={save} style={{ marginTop: '24px', background: s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer' }}>
-            {saved ? 'Saved ✓' : 'Save settings'}
+          <button onClick={save} disabled={isSaving} style={{ marginTop: '24px', background: isSaving ? s.dimmer : s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', cursor: isSaving ? 'not-allowed' : 'pointer', opacity: isSaving ? 0.6 : 1 }}>
+            {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save settings'}
           </button>
         </div>
       )}
