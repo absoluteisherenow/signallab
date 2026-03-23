@@ -92,9 +92,9 @@ export default function Logistics() {
           Signal Lab — Gigs
         </div>
         <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 200, letterSpacing: '0.03em', marginBottom: '8px' }}>
-          Logistics
+          Gigs
         </div>
-        <div style={{ fontSize: '14px', color: s.dimmer }}>Advance requests, show logistics and contacts per gig</div>
+        <div style={{ fontSize: '14px', color: s.dimmer }}>All shows, advance requests and logistics</div>
       </div>
 
       {/* ADVANCE STATUS SUMMARY */}
