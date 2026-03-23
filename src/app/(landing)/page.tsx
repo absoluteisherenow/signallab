@@ -291,7 +291,7 @@ export default function HomePage() {
             Get Access →
           </Link>
           <Link
-            href="/dashboard"
+            href="/pricing"
             style={{
               fontSize: '10px',
               letterSpacing: '0.18em',
@@ -312,7 +312,7 @@ export default function HomePage() {
               e.currentTarget.style.borderColor = COLORS.border
             }}
           >
-            Explore Features →
+            View Pricing →
           </Link>
         </div>
 
