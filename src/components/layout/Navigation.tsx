@@ -33,6 +33,12 @@ export function Navigation() {
     if (mod.href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
     return pathname === mod.href || mod.sub.some(s => pathname === s.href)
   }
+  
+  // Hide nav on pricing page
+  if (pathname === '/pricing') {
+    return null
+  }
+  
   return (
     <nav style={{ width: '200px', background: '#070706', borderRight: '1px solid #1a1917', display: 'flex', flexDirection: 'column', fontFamily: "'DM Mono', monospace", flexShrink: 0, overflowY: 'auto' }}>
       <div style={{ padding: '20px 18px 18px', borderBottom: '1px solid #1a1917' }}>
