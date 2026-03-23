@@ -141,8 +141,8 @@ export default function ModularSuiteLandingPage() {
       <header className="border-b border-[#1a1917] sticky top-0 z-30 bg-[#070706]/90 backdrop-blur">
         <div className="mx-auto max-w-7xl px-6 py-5 flex items-center justify-between">
           <div>
-            <div className="tracking-[0.35em] text-[11px] text-[#b08d57] uppercase">Night Manoeuvres</div>
-            <div className="tracking-[0.28em] text-[10px] text-[#52504c] uppercase mt-1">Artist OS / Modular Suite</div>
+            <div className="tracking-[0.35em] text-[11px] text-[#b08d57] uppercase">Artist OS</div>
+            <div className="tracking-[0.28em] text-[10px] text-[#52504c] uppercase mt-1">By Night Manoeuvres</div>
           </div>
           <nav className="hidden md:flex items-center gap-8 text-[12px] tracking-[0.2em] uppercase text-[#8a8780]">
             <a href="#labs" className="hover:text-[#f0ebe2]">Labs</a>
