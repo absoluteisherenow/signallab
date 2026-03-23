@@ -15,11 +15,15 @@ const MODULES = [
     { label: 'Finances', href: '/business/finances' },
       { label: 'Contracts', href: '/contracts' },
   ]},
-  { label: 'Sonix Lab', href: '/sonix', color: '#6a7a9a', sub: [] },
+  { label: 'Sonix Lab', href: '/sonix', color: '#6a7a9a', sub: [
+    { label: 'Compose', href: '/sonix#compose' },
+    { label: 'Arrange', href: '/sonix#arrange' },
+    { label: 'Mixdown', href: '/sonix#mixdown' },
+    { label: 'Max for Live', href: '/maxforlive' },
+  ]},
   { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [
     { label: 'Rekordbox import', href: '/setlab/rekordbox' },
   ]},
-  { label: 'Max for Live', href: '/maxforlive', color: '#7a5a8a', sub: [] },
 ]
 
 export function Navigation() {
