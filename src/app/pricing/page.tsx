@@ -95,7 +95,7 @@ const TESTIMONIALS = [
     author: 'Touring electronic artist',
   },
   {
-    quote: 'The caption generator alone has 3x'd my content output.',
+    quote: "The caption generator alone has 3x'd my content output.",
     author: 'Festival & club promoter',
   },
 ]
