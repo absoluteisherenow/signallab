@@ -265,6 +265,27 @@ export default function Logistics() {
             </div>
           )
         })}
+        
+        {/* NET TOTAL ROW */}
+        {gigs.length > 0 && (
+          <div style={{
+            background: s.panel,
+            border: `1px solid ${s.gold}40`,
+            padding: '20px 28px',
+            display: 'grid',
+            gridTemplateColumns: '2fr 140px 100px 180px 80px',
+            alignItems: 'center',
+            marginTop: '8px',
+          }}>
+            <div style={{ fontSize: '15px', fontWeight: '600', color: s.gold }}>NET TOTAL — Confirmed fees</div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div style={{ fontSize: '14px', color: s.gold, textAlign: 'right', fontWeight: '600' }}>
+              €{gigs.filter(g => g.status === 'confirmed').reduce((sum, g) => sum + (g.fee || 0), 0).toLocaleString()}
+            </div>
+          </div>
+        )}
       </div>
 
       {toast && (
