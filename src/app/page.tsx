@@ -152,7 +152,22 @@ export default function LandingPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email) return
-    setSubmitted(true)
+    
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSubmitted(true)
+      } else {
+        console.error('Waitlist error:', data.error)
+      }
+    } catch (err) {
+      console.error('Failed to join waitlist:', err)
+    }
   }
 
   const s = {
