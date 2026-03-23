@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const MODULES = [
-  { label: 'Signal Lab', href: '/dashboard', color: '#b08d57', sub: [
+  { label: 'Tour Lab', href: '/dashboard', color: '#b08d57', sub: [
     { label: 'Gigs', href: '/logistics' },
     { label: 'Finances', href: '/business/finances' },
       { label: 'Contracts', href: '/contracts' },
