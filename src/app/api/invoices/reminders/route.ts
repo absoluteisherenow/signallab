@@ -26,7 +26,7 @@ async function handler() {
 
     const { data: invoices, error } = await supabase
       .from('invoices')
-      .select('*')
+      .select('*, gigs(promoter_email, title, venue)')
       .eq('status', 'pending')
 
     if (error) throw error
@@ -81,17 +81,25 @@ Please arrange payment immediately or get in touch to discuss.
 Night Manoeuvres
         `
 
-      // Only send if we have a promoter email (from the linked gig)
-      // For now log — in production fetch gig promoter_email
-      results.push(`Would send to ${invoice.gig_title}: ${subject}`)
-
-      // Uncomment when promoter emails are linked:
-      // await resend.emails.send({
-      //   from: 'bookings@nightmanoeuvres.com',
-      //   to: promoterEmail,
-      //   subject,
-      //   text: body,
-      // })
+      // Get promoter email from linked gig
+      const gig = (invoice as any).gigs
+      const promoterEmail = gig?.promoter_email
+      
+      if (promoterEmail) {
+        try {
+          await resend.emails.send({
+            from: 'bookings@nightmanoeuvres.com',
+            to: promoterEmail,
+            subject,
+            text: body,
+          })
+          results.push(`Sent to ${promoterEmail}: ${subject}`)
+        } catch (emailErr: any) {
+          results.push(`Failed to send to ${promoterEmail}: ${emailErr.message}`)
+        }
+      } else {
+        results.push(`Skipped ${invoice.gig_title}: no promoter email`)
+      }
     }
 
     // Save reminder log to Supabase
