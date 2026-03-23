@@ -119,8 +119,8 @@ export default function Finances() {
   }
 
   function exportCSV() {
-    const rows = ['Gig,Venue,Date,Amount,Currency,Type,Status,Due Date']
-    invoices.forEach(i => rows.push(`${i.gig},${i.venue},${i.date},${i.amount},${i.currency},${i.type},${i.status},${i.due_date}`))
+    const rows = ['Gig,Amount,Currency,Type,Status,Due Date']
+    invoices.forEach(i => rows.push(`${i.gig_title},${i.amount},${i.currency},${i.type || ''},${i.status},${i.due_date || ''}`))
     const blob = new Blob([rows.join('\n')], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
