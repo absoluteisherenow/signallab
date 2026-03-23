@@ -43,10 +43,8 @@ export function Navigation() {
     <nav style={{ width: '200px', background: '#070706', borderRight: '1px solid #1a1917', display: 'flex', flexDirection: 'column', fontFamily: "'DM Mono', monospace", flexShrink: 0, overflowY: 'auto' }}>
       <div style={{ padding: '20px 18px 18px', borderBottom: '1px solid #1a1917' }}>
         <Link href='/dashboard' style={{ textDecoration: 'none' }}>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 200, letterSpacing: '0.22em', color: '#b08d57', lineHeight: 1.3 }}>NIGHT</div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 200, letterSpacing: '0.22em', color: '#b08d57', lineHeight: 1.3 }}>MANOEUVRES</div>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '10px', fontWeight: 200, letterSpacing: '0.15em', color: '#b08d57', lineHeight: 1.3 }}>THE MODULAR SUITE</div>
         </Link>
-        <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: '#2e2c29', marginTop: '6px', textTransform: 'uppercase' }}>The Modular Suite</div>
       </div>
       <div style={{ flex: 1, padding: '16px 0' }}>
         {MODULES.map(mod => {
