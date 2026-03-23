@@ -6,36 +6,36 @@ import { useRouter } from 'next/navigation'
 
 const MODULES = [
   {
-    id: 'broadcast',
+    id: 'signal',
     title: 'Signal Lab',
-    subtitle: 'Broadcast Intelligence',
-    desc: 'AI-powered tone profiles, reference artist analysis, caption generation. Three variants (Safe, Loose, Raw) tuned to your exact voice.',
+    subtitle: 'Content Intelligence',
+    desc: 'AI-powered tone profiles and reference artist analysis. Three caption variants (Safe, Loose, Raw) tuned to your exact voice. Direct publishing to Instagram, TikTok, Threads.',
     href: '/broadcast',
-    icon: '📡',
+    color: '#3d6b4a',
   },
   {
-    id: 'logistics',
+    id: 'tour',
     title: 'Tour Lab',
-    subtitle: 'Gig Management',
-    desc: 'All your shows in one place. Invoicing, contracts, advance requests, logistics briefs. Replaces Advancers + spreadsheets.',
+    subtitle: 'Tour Operations',
+    desc: 'All your shows in one place. Gig management, invoicing, contract tracking, advance requests, and logistics briefs. Replaces spreadsheets + Advancers.',
     href: '/logistics',
-    icon: '🎪',
+    color: '#b08d57',
   },
   {
     id: 'sonix',
     title: 'Sonix Lab',
-    subtitle: 'Music Production',
-    desc: 'Chord engine, arrangement AI, 18 mixdown chains. Connects to Ableton Live via Max for Live devices.',
+    subtitle: 'Music Production AI',
+    desc: 'Chord suggestions, arrangement mapping, 18 professional mixdown chains. Native Max for Live integration with Ableton Live. Track analysis and recommendations.',
     href: '/sonix',
-    icon: '🎛️',
+    color: '#6a7a9a',
   },
   {
-    id: 'setlab',
+    id: 'set',
     title: 'Set Lab',
-    subtitle: 'DJ Intelligence',
-    desc: 'Camelot-aware set builder, energy arc visualizer, AI narrative analysis. Rekordbox sync. Better than Mixed In Key.',
+    subtitle: 'DJ Tools',
+    desc: 'Camelot-aware set builder with energy arc visualization. Rekordbox sync, BPM detection, harmonic flow analysis. Better than Mixed In Key.',
     href: '/setlab',
-    icon: '🎵',
+    color: '#9a6a5a',
   },
 ]
 
@@ -66,14 +66,12 @@ export default function HomePage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Quick check for auth state via API
         const res = await fetch('/api/settings')
         if (res.ok) {
-          // User is authenticated, redirect to dashboard
           router.push('/dashboard')
         }
       } catch (err) {
-        // Not authenticated, show landing page
+        // Not authenticated
       } finally {
         setIsChecking(false)
       }
@@ -102,7 +100,7 @@ export default function HomePage() {
       if (data.success) {
         setSubmitted(true)
         setEmail('')
-        setTimeout(() => setSubmitted(false), 3000)
+        setTimeout(() => setSubmitted(false), 3500)
       }
     } catch (err) {
       console.error('Waitlist error:', err)
@@ -131,10 +129,8 @@ export default function HomePage() {
           left: 0,
           right: 0,
           zIndex: 100,
-          background:
-            scrollY > 50 ? `rgba(7,7,6,0.92)` : 'transparent',
-          borderBottom:
-            scrollY > 50 ? `1px solid ${COLORS.border}` : 'none',
+          background: scrollY > 50 ? `rgba(7,7,6,0.92)` : 'transparent',
+          borderBottom: scrollY > 50 ? `1px solid ${COLORS.border}` : 'none',
           padding: '20px 48px',
           display: 'flex',
           alignItems: 'center',
@@ -147,13 +143,13 @@ export default function HomePage() {
           <div
             style={{
               fontFamily: "'Unbounded', sans-serif",
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: 300,
-              letterSpacing: '0.25em',
+              letterSpacing: '0.2em',
               color: COLORS.gold,
             }}
           >
-            NIGHT MANOEUVRES
+            THE MODULAR SUITE
           </div>
         </div>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
@@ -185,7 +181,7 @@ export default function HomePage() {
               transition: 'all 0.15s',
             }}
           >
-            Get started →
+            Get Access →
           </Link>
         </div>
       </nav>
@@ -223,7 +219,7 @@ export default function HomePage() {
               background: COLORS.gold,
             }}
           />
-          The Creative Business OS
+          Professional tools for artists
           <span
             style={{
               display: 'block',
@@ -245,7 +241,7 @@ export default function HomePage() {
             maxWidth: '900px',
           }}
         >
-          The Modular Suite for Electronic Artists
+          The Operating System for Electronic Music Artists
         </h1>
 
         <p
@@ -259,7 +255,7 @@ export default function HomePage() {
             fontStyle: 'italic',
           }}
         >
-          Touring. Content. Production. All connected.
+          Tour, create, and grow — all in one modular system
         </p>
 
         <p
@@ -267,16 +263,16 @@ export default function HomePage() {
             fontSize: '13px',
             color: COLORS.textDim,
             lineHeight: '1.8',
-            maxWidth: '620px',
+            maxWidth: '640px',
             letterSpacing: '0.04em',
             marginBottom: '48px',
           }}
         >
-          Four integrated modules. One subscription. Everything an independent electronic music artist needs to run a serious career — without context switching.
+          Four professional-grade modules: content intelligence, tour operations, production AI, and DJ tools. Built for electronic artists. Designed for professionals.
         </p>
 
         {/* CTA Buttons */}
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '40px' }}>
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '40px', flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link
             href="/login"
             style={{
@@ -292,7 +288,7 @@ export default function HomePage() {
               cursor: 'pointer',
             }}
           >
-            Get Started →
+            Get Access →
           </Link>
           <Link
             href="/dashboard"
@@ -316,7 +312,7 @@ export default function HomePage() {
               e.currentTarget.style.borderColor = COLORS.border
             }}
           >
-            See Demo →
+            Explore Features →
           </Link>
         </div>
 
@@ -327,11 +323,11 @@ export default function HomePage() {
             letterSpacing: '0.08em',
           }}
         >
-          No credit card required · Private beta
+          Private beta · Limited availability
         </div>
       </section>
 
-      {/* FEATURES GRID */}
+      {/* MODULES GRID */}
       <section
         style={{
           padding: '80px 48px',
@@ -360,7 +356,7 @@ export default function HomePage() {
                 background: COLORS.gold,
               }}
             />
-            The suite
+            Four modules
           </div>
 
           <h2
@@ -373,14 +369,14 @@ export default function HomePage() {
               lineHeight: 1.2,
             }}
           >
-            Four modules. <br />
-            Infinite possibilities.
+            Everything you need <br />
+            in one professional suite
           </h2>
 
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
               gap: '2px',
             }}
           >
@@ -397,33 +393,43 @@ export default function HomePage() {
                   flexDirection: 'column',
                   transition: 'all 0.2s ease',
                   cursor: 'pointer',
+                  position: 'relative',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = '#141310'
-                  e.currentTarget.style.borderColor = COLORS.gold + '40'
+                  e.currentTarget.style.borderColor = module.color + '40'
+                  const top = e.currentTarget.querySelector('[data-accent]') as HTMLElement
+                  if (top) top.style.opacity = '1'
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = COLORS.panel
                   e.currentTarget.style.borderColor = COLORS.border
+                  const top = e.currentTarget.querySelector('[data-accent]') as HTMLElement
+                  if (top) top.style.opacity = '0.3'
                 }}
               >
                 <div
+                  data-accent
                   style={{
-                    fontSize: '32px',
-                    marginBottom: '16px',
-                    lineHeight: 1,
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '2px',
+                    background: module.color,
+                    opacity: 0.3,
+                    transition: 'opacity 0.2s',
                   }}
-                >
-                  {module.icon}
-                </div>
+                />
 
                 <h3
                   style={{
                     fontSize: '14px',
                     fontWeight: 'bold',
-                    color: COLORS.gold,
+                    color: module.color,
                     marginBottom: '4px',
                     letterSpacing: '0.08em',
+                    marginTop: '8px',
                   }}
                 >
                   {module.title}
@@ -458,11 +464,11 @@ export default function HomePage() {
                   style={{
                     fontSize: '10px',
                     letterSpacing: '0.12em',
-                    color: COLORS.gold,
+                    color: module.color,
                     textTransform: 'uppercase',
                   }}
                 >
-                  Explore →
+                  Learn more →
                 </div>
               </Link>
             ))}
@@ -470,7 +476,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* WAITLIST */}
+      {/* EARLY ACCESS */}
       <section style={{ padding: '80px 48px' }}>
         <div
           style={{
@@ -489,7 +495,7 @@ export default function HomePage() {
               lineHeight: 1.2,
             }}
           >
-            Join the waitlist.
+            Join Early Access
           </h2>
 
           <p
@@ -501,7 +507,7 @@ export default function HomePage() {
               letterSpacing: '0.03em',
             }}
           >
-            Early access to all four modules. Current users get priority beta access plus dedicated onboarding.
+            Limited spots available. Early access includes full feature access, dedicated onboarding, and priority support for the next 6 months.
           </p>
 
           {!submitted ? (
@@ -565,7 +571,7 @@ export default function HomePage() {
                 marginBottom: '16px',
               }}
             >
-              ✓ You're on the list — we'll be in touch
+              ✓ Confirmed — you're on the list
             </div>
           )}
 
@@ -576,7 +582,7 @@ export default function HomePage() {
               letterSpacing: '0.1em',
             }}
           >
-            No spam, ever.
+            No spam. We'll notify you when access is available.
           </div>
         </div>
       </section>
@@ -602,7 +608,7 @@ export default function HomePage() {
             color: COLORS.textDimmer,
           }}
         >
-          NIGHT MANOEUVRES
+          THE MODULAR SUITE
         </div>
 
         <div
@@ -613,18 +619,6 @@ export default function HomePage() {
             letterSpacing: '0.1em',
           }}
         >
-          <a
-            href="#pricing"
-            style={{
-              color: COLORS.textDim,
-              textDecoration: 'none',
-              transition: 'color 0.15s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = COLORS.gold)}
-            onMouseLeave={(e) => (e.currentTarget.style.color = COLORS.textDim)}
-          >
-            Pricing
-          </a>
           <a
             href="https://github.com/absoluteisherenow/signallab"
             target="_blank"
@@ -648,7 +642,7 @@ export default function HomePage() {
             letterSpacing: '0.08em',
           }}
         >
-          © 2026 Night Manoeuvres · Private Beta
+          © 2026 · Private Beta
         </div>
       </footer>
     </div>
