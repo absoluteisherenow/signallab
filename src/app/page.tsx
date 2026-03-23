@@ -147,7 +147,7 @@ export default function HomePage() {
               color: COLORS.gold,
             }}
           >
-            THE MODULAR SUITE
+            NIGHT MANOEUVRES
           </div>
         </div>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>

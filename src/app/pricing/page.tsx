@@ -108,7 +108,7 @@ export default function PricingPage() {
     <div style={{ background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Mono', monospace", minHeight: '100vh' }}>
       {/* NAV */}
       <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: `rgba(7,7,6,0.92)`, borderBottom: `1px solid ${COLORS.border}`, padding: '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(8px)' }}>
-        <Link href="/"><div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '11px', fontWeight: 300, letterSpacing: '0.2em', color: COLORS.gold, cursor: 'pointer' }}>NIGHT MANOEUVRES</div></Link>
+        <Link href="/"><div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '11px', fontWeight: 300, letterSpacing: '0.2em', color: COLORS.gold, cursor: 'pointer' }}>THE MODULAR SUITE</div></Link>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
           <Link href="/" style={{ fontSize: '10px', letterSpacing: '0.15em', color: COLORS.textDim, textDecoration: 'none' }}>Back to demo</Link>
           <Link href="/login" style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', background: COLORS.gold, color: COLORS.bg, padding: '10px 20px', textDecoration: 'none', border: `1px solid ${COLORS.gold}` }}>Get Access →</Link>
@@ -226,7 +226,7 @@ export default function PricingPage() {
 
       {/* FOOTER */}
       <footer style={{ padding: '40px 48px', borderTop: `1px solid ${COLORS.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '28px', fontSize: '9px', color: COLORS.textDimmer, letterSpacing: '0.08em' }}>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '10px', fontWeight: 300, letterSpacing: '0.12em' }}>NIGHT MANOEUVRES</div>
+        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '10px', fontWeight: 300, letterSpacing: '0.12em' }}>THE MODULAR SUITE</div>
         <div style={{ display: 'flex', gap: '28px' }}>
           <Link href="/" style={{ color: COLORS.textDim, textDecoration: 'none' }}>Demo</Link>
           <a href="https://github.com/absoluteisherenow" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.textDim, textDecoration: 'none' }}>GitHub</a>
