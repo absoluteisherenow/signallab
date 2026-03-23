@@ -11,7 +11,7 @@ const FALLBACK = [
 ]
 
 const URGENT = [
-  { text: 'Send advance — Electric Nights Festival', href: '/logistics', due: '24d', dot: '#b08d57' },
+  { text: 'Send advance — Electric Nights Festival', href: '/gigs?open=1', due: '24d', dot: '#b08d57' },
   { text: 'Invoice unpaid — Summer Series deposit', href: '/business/finances', due: '8d', dot: '#8a4a3a' },
   { text: 'Contract unsigned — Techno Sessions', href: '/contracts', due: '40d', dot: '#8a6a3a' },
 ]
