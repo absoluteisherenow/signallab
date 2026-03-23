@@ -58,9 +58,9 @@ function getCompatibility(a: string, b: string): number {
 }
 
 function getCompatibilityColor(score: number): string {
-  if (score >= 85) return '#7a9a50'
-  if (score >= 60) return '#c9a46e'
-  return '#8a4a3a'
+  if (score >= 85) return '#3d6b4a'
+  if (score >= 60) return '#b08d57'
+  return '#9a6a5a'
 }
 
 const SAMPLE_LIBRARY: Track[] = [
@@ -215,20 +215,20 @@ Provide:
   useEffect(() => { loadPastSets() }, [])
 
   const s = {
-    bg: '#1a1410',
-    panel: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)',
-    border: '#3a2e1c',
-    borderBright: '#5a4428',
-    gold: '#c9a46e',
+    bg: '#070706',
+    panel: '#0e0d0b',
+    border: '#1a1917',
+    borderBright: '#2e2c29',
+    gold: '#b08d57',
     goldDim: '#6a4e28',
-    text: '#e8dcc8',
-    textDim: '#8a7a5a',
-    textDimmer: '#5a4428',
-    black: '#0e0b06',
+    text: '#f0ebe2',
+    textDim: '#8a8780',
+    textDimmer: '#52504c',
+    black: '#070706',
     font: "'DM Mono', monospace",
   }
 
-  const btn = (color = s.gold, bg = 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)') => ({
+  const btn = (color = s.gold, bg = s.panel) => ({
     fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase' as const,
     padding: '10px 22px', background: bg, border: `1px solid ${color}`, color, cursor: 'pointer',
     display: 'flex', alignItems: 'center', gap: '8px',
@@ -238,10 +238,10 @@ Provide:
     <div style={{ minHeight: '100vh', background: s.bg, color: s.text, fontFamily: s.font }}>
 
       {/* HEADER */}
-      <div style={{ background: 'linear-gradient(180deg, #2a2018 0%, #1e1710 100%)', borderBottom: `2px solid ${s.borderBright}`, padding: '20px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: s.panel, borderBottom: `2px solid ${s.borderBright}`, padding: '20px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div style={{ background: 'linear-gradient(135deg, #2e2416 0%, #1c1508 100%)', border: `1px solid ${s.borderBright}`, padding: '10px 20px' }}>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 300, letterSpacing: '0.2em', color: s.gold, textShadow: '0 0 20px rgba(201,164,110,0.3)' }}>SET<span style={{ color: '#8a6a3a' }}>LAB</span></div>
+          <div style={{ background: s.panel, border: `1px solid ${s.borderBright}`, padding: '10px 20px' }}>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 300, letterSpacing: '0.2em', color: s.gold, textShadow: `0 0 20px rgba(176,141,87,0.2)` }}>SET<span style={{ color: s.goldDim }}>LAB</span></div>
             <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.goldDim, marginTop: '2px' }}>INTELLIGENT DJ COMPANION</div>
           </div>
           <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: s.textDimmer }}>
@@ -252,16 +252,17 @@ Provide:
         <div style={{ display: 'flex', gap: '4px' }}>
           {(['library', 'builder', 'history'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              ...btn(activeTab === tab ? s.gold : s.goldDim, activeTab === tab ? 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)' : 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)'),
+              ...btn(activeTab === tab ? s.gold : s.goldDim, activeTab === tab ? s.gold : 'transparent'),
               fontSize: '9px', padding: '8px 18px',
-              boxShadow: activeTab === tab ? '0 0 10px rgba(201,164,110,0.1)' : 'none',
+              boxShadow: activeTab === tab ? `0 0 10px rgba(${parseInt(s.gold.slice(1, 3), 16)}, ${parseInt(s.gold.slice(3, 5), 16)}, ${parseInt(s.gold.slice(5, 7), 16)}, 0.1)` : 'none',
+              color: activeTab === tab ? s.bg : s.gold,
             }}>{tab}</button>
           ))}
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={saveSet} style={btn(s.gold)}>Save set</button>
-          <button onClick={() => showToast('Rekordbox export coming soon — set will export as crate', 'Export')} style={btn('#6a8a50', 'linear-gradient(180deg, #2a3020 0%, #1a2010 100%)')}>
+          <button onClick={() => showToast('Rekordbox export coming soon — set will export as crate', 'Export')} style={btn('#3d6b4a', s.panel)}>
             Export to rekordbox →
           </button>
         </div>
@@ -316,7 +317,7 @@ Provide:
               </div>
               {filteredLibrary.map(track => (
                 <div key={track.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 80px 80px 80px 60px 1fr 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'default' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#1a1410')}
+                  onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <div style={{ fontSize: '13px', letterSpacing: '0.05em', color: s.text }}>{track.title}</div>
                   <div style={{ fontSize: '12px', color: s.textDim }}>{track.artist}</div>
@@ -384,7 +385,7 @@ Provide:
                         <div style={{
                           width: '100%',
                           height: `${(t.energy / 10) * 52}px`,
-                          background: t.energy > 7 ? 'linear-gradient(180deg, #c9a46e, #8a6030)' : t.energy > 4 ? 'linear-gradient(180deg, #6a8a50, #3a5020)' : 'linear-gradient(180deg, #3a3020, #1a1810)',
+                          background: t.energy > 7 ? s.gold : t.energy > 4 ? '#3d6b4a' : '#52504c',
                           border: '1px solid rgba(201,164,110,0.15)',
                           transition: 'height 0.4s ease',
                         }} />

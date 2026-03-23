@@ -12,15 +12,14 @@ interface Extracted {
   backline:string;deposit_amount:string;deposit_due:string;balance_due:string
 }
 const EMPTY:Extracted={title:'',venue:'',location:'',date:'',time:'',fee:'',currency:'EUR',audience:'',status:'confirmed',promoter_email:'',promoter_name:'',promoter_phone:'',notes:'',load_in:'',soundcheck:'',doors:'',set_length:'',parking:'',wifi:'',dressing_room:'',hospitality:'',hotel_name:'',hotel_address:'',backline:'',deposit_amount:'',deposit_due:'',balance_due:''}
-const s={bg:'#070706',panel:'#0e0d0b',border:'#1a1917',gold:'#b08d57',text:'#f0ebe2',dim:'#8a8780',dimmer:'#52504c',font:"'DM Mono', monospace"}
-const iStyle={width:'100%',background:s.bg,border:`1px solid ${s.border}`,color:s.text,fontFamily:s.font,fontSize:'13px',padding:'10px 14px',outline:'none',boxSizing:'border-box' as const}
-const lStyle={fontSize:'9px',letterSpacing:'0.18em',color:s.dimmer,textTransform:'uppercase' as const,marginBottom:'6px',display:'block'}
+const iStyle={width:'100%',background:'var(--bg)',border:'1px solid var(--border-dim)',color:'var(--text)',fontFamily:'var(--font-mono)',fontSize:'13px',padding:'10px 14px',outline:'none',boxSizing:'border-box' as const}
+const lStyle={fontSize:'9px',letterSpacing:'0.18em',color:'var(--text-dimmer)',textTransform:'uppercase' as const,marginBottom:'6px',display:'block'}
 
 function F({label,value,onChange,ph=''}:{label:string;value:string;onChange:(v:string)=>void;ph?:string}) {
   return <div><label style={lStyle}>{label}</label><input value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} style={iStyle}/></div>
 }
 function Sec({label}:{label:string}) {
-  return <div style={{fontSize:'9px',letterSpacing:'0.22em',color:s.gold,textTransform:'uppercase',marginBottom:'20px',paddingBottom:'10px',borderBottom:`1px solid ${s.border}`}}>{label}</div>
+  return <div style={{fontSize:'9px',letterSpacing:'0.22em',color:'var(--gold)',textTransform:'uppercase',marginBottom:'20px',paddingBottom:'10px',borderBottom:'1px solid var(--border-dim)'}}>{label}</div>
 }
 
 export default function Contracts() {
@@ -71,44 +70,44 @@ export default function Contracts() {
   }
 
   return (
-    <div style={{background:s.bg,color:s.text,fontFamily:s.font,minHeight:'100vh',padding:'40px 48px'}}>
+    <div style={{background:'var(--bg)',color:'var(--text)',fontFamily:'var(--font-mono)',minHeight:'100vh',padding:'40px 48px'}}>
       <div style={{marginBottom:'40px'}}>
-        <div style={{fontSize:'9px',letterSpacing:'0.3em',color:s.gold,textTransform:'uppercase',display:'flex',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
-          <span style={{display:'block',width:'28px',height:'1px',background:s.gold}}/>Signal Lab — Contracts
+        <div style={{fontSize:'9px',letterSpacing:'0.3em',color:'var(--gold)',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
+          <span style={{display:'block',width:'28px',height:'1px',background:'var(--gold)'}}/>Signal Lab — Contracts
         </div>
-        <div style={{fontFamily:"'Unbounded', sans-serif",fontSize:'28px',fontWeight:200}}>Contract parser</div>
-        <div style={{fontSize:'13px',color:s.dimmer,marginTop:'8px'}}>Paste a booking email or contract — extracts venue, times, hotel, backline, fee, deposits</div>
+        <div className="display" style={{fontSize:'28px'}}>Contract parser</div>
+        <div style={{fontSize:'13px',color:'var(--text-dimmer)',marginTop:'8px'}}>Paste a booking email or contract — extracts venue, times, hotel, backline, fee, deposits</div>
       </div>
 
       {/* EMAIL WORKFLOW BANNER */}
-      <div style={{background:s.gold+'10',border:`1px solid ${s.gold}40`,padding:'20px 24px',marginBottom:'32px',borderRadius:'4px'}}>
-        <div style={{fontSize:'10px',letterSpacing:'0.15em',color:s.gold,textTransform:'uppercase',marginBottom:'8px'}}>💌 Faster way</div>
-        <div style={{fontSize:'12px',color:s.text,lineHeight:'1.6'}}>
+      <div style={{background:'rgba(176, 141, 87, 0.06)',border:'1px solid rgba(176, 141, 87, 0.25)',padding:'20px 24px',marginBottom:'32px',borderRadius:'4px'}}>
+        <div style={{fontSize:'10px',letterSpacing:'0.15em',color:'var(--gold)',textTransform:'uppercase',marginBottom:'8px'}}>💌 Faster way</div>
+        <div style={{fontSize:'12px',color:'var(--text)',lineHeight:'1.6'}}>
           Forward booking emails to <strong>advancingabsolute@gmail.com</strong> — they'll be automatically parsed and create gigs in Signal Lab. No copy/paste needed.
         </div>
       </div>
 
       {!extracted ? (
         <div style={{maxWidth:'800px'}}>
-          <div style={{background:s.panel,border:`1px solid ${s.border}`,padding:'32px',marginBottom:'16px'}}>
-            <div style={{fontSize:'9px',letterSpacing:'0.2em',color:s.dimmer,textTransform:'uppercase',marginBottom:'14px'}}>Paste contract, booking email, or rider</div>
+          <div className="card" style={{marginBottom:'16px'}}>
+            <div style={{fontSize:'9px',letterSpacing:'0.2em',color:'var(--text-dimmer)',textTransform:'uppercase',marginBottom:'14px'}}>Paste contract, booking email, or rider</div>
             <textarea value={rawText} onChange={e=>setRawText(e.target.value)} rows={14}
               placeholder={'Paste booking confirmation here...\n\nExample:\nDear Artist, We confirm your booking at Tresor Club, Berlin.\nDate: 15 April 2026, Set time: 23:00-01:00\nFee: EUR 5000 (50% deposit due 1 April)\nLoad-in: 20:00, Soundcheck: 21:30\nHotel: Hotel Adlon, Unter den Linden 77\nBackline: Pioneer CDJ-3000 x2, DJM-V10'}
               style={{...iStyle,resize:'vertical',lineHeight:'1.7',fontSize:'12px'}}/>
             <div style={{marginTop:'20px',display:'flex',alignItems:'center',gap:'16px'}}>
-              <button onClick={()=>extract(rawText)} disabled={extracting||!rawText.trim()} style={{background:extracting||!rawText.trim()?s.panel:s.gold,color:extracting||!rawText.trim()?s.dimmer:'#070706',border:`1px solid ${extracting||!rawText.trim()?s.border:s.gold}`,fontFamily:s.font,fontSize:'10px',letterSpacing:'0.2em',textTransform:'uppercase',padding:'14px 32px',cursor:'pointer',display:'flex',alignItems:'center',gap:'10px'}}>
+              <button onClick={()=>extract(rawText)} disabled={extracting||!rawText.trim()} style={{background:extracting||!rawText.trim()?'var(--panel)':'var(--gold)',color:extracting||!rawText.trim()?'var(--text-dimmer)':'var(--bg)',border:`1px solid ${extracting||!rawText.trim()?'var(--border-dim)':'var(--gold)'}`,fontFamily:'var(--font-mono)',fontSize:'10px',letterSpacing:'0.2em',textTransform:'uppercase',padding:'14px 32px',cursor:'pointer',display:'flex',alignItems:'center',gap:'10px'}}>
                 {extracting&&<div style={{width:'10px',height:'10px',border:'1px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>}
                 {extracting?'Extracting...':'Extract details →'}
               </button>
-              {extracting&&<div style={{fontSize:'11px',color:s.dimmer}}>Claude is reading the contract...</div>}
+              {extracting&&<div style={{fontSize:'11px',color:'var(--text-dimmer)'}}>Claude is reading the contract...</div>}
             </div>
             <div style={{marginTop:'16px'}}>
               <input ref={fileRef} type="file" accept=".pdf,.txt,.doc,.docx" style={{display:'none'}} onChange={e=>{if(e.target.files?.[0])e.target.files[0].text().then(extract).catch(()=>{setError('Could not read file — paste text instead')})}}/>
-              <button onClick={()=>fileRef.current?.click()} style={{background:'transparent',border:`1px solid ${s.border}`,color:s.dimmer,fontFamily:s.font,fontSize:'10px',letterSpacing:'0.15em',textTransform:'uppercase',padding:'10px 20px',cursor:'pointer'}}>or upload file</button>
+              <button onClick={()=>fileRef.current?.click()} className="btn-secondary" style={{fontSize:'10px',padding:'10px 20px'}}>or upload file</button>
             </div>
           </div>
-          {error&&<div style={{fontSize:'12px',color:'#8a4a3a',padding:'12px 16px',border:'1px solid #4a2a1a',background:'#1a0a06'}}>{error}</div>}
-          <div style={{background:s.panel,border:`1px solid ${s.border}`,padding:'24px 28px',display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px 24px'}}>
+          {error&&<div style={{fontSize:'12px',color:'#8a4a3a',padding:'12px 16px',border:'1px solid rgba(138, 74, 58, 0.3)',background:'rgba(138, 74, 58, 0.1)'}}>{error}</div>}
+          <div className="card" style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px 24px'}}>
             {['Show title & venue','Date, set time & length','Fee + deposit dates','Promoter name/email/phone','Load-in & soundcheck','Doors open time','Hotel name & address','Backline / tech rider','Parking & WiFi','Dressing room & rider','Contract date','Additional notes'].map(i=>(
               <div key={i} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'11px',color:s.dim,padding:'5px 0'}}>
                 <span style={{color:'#3d6b4a'}}>✓</span>{i}
