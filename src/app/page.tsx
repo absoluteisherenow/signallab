@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 const MODULES = [
   {
@@ -108,11 +110,32 @@ const STATS = [
 ]
 
 export default function LandingPage() {
+  const router = useRouter()
+  const supabase = createClientComponentClient()
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [activeModule, setActiveModule] = useState(0)
   const [scrollY, setScrollY] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  // Check if user is authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          // Redirect to dashboard if authenticated
+          router.push('/dashboard')
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err)
+      } finally {
+        setIsCheckingAuth(false)
+      }
+    }
+    checkAuth()
+  }, [router, supabase])
 
   useEffect(() => {
     const handle = () => setScrollY(window.scrollY)
@@ -141,6 +164,14 @@ export default function LandingPage() {
     textDim: '#8a8780',
     textDimmer: '#52504c',
     font: "'DM Mono', monospace",
+  }
+
+  if (isCheckingAuth) {
+    return (
+      <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: '13px', color: s.textDim }}>Loading...</div>
+      </div>
+    )
   }
 
   return (
