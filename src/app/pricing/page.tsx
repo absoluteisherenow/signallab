@@ -17,49 +17,70 @@ const COLORS = {
 
 const TIERS = [
   {
-    name: 'Artist',
+    name: 'Solo',
     price: '£29',
     period: '/month',
-    desc: 'For independent artists managing their own career',
+    desc: 'You\'re making music. No context switching.',
     color: '#8a7a6a',
     features: [
       'Signal Lab — unlimited gigs',
       'Broadcast Lab — 30 captions/month',
       'Set Lab — unlimited',
+      'Sonix Lab — all 18 chains',
       'Advance request forms',
       'Buffer publishing',
       'Email support',
     ],
   },
   {
-    name: 'Pro',
+    name: 'Touring',
     price: '£59',
     period: '/month',
-    desc: 'For serious artists and teams',
+    desc: 'You\'re on the road. Your crew needs access.',
     color: COLORS.gold,
     highlight: true,
     features: [
-      'Everything in Artist',
-      'Sonix Lab — unlimited',
-      'Max for Live integration',
-      'Broadcast Lab — unlimited',
+      'Everything in Solo',
+      'Sonix Lab — Max for Live',
+      'Broadcast Lab — unlimited captions',
+      'Multi-user team access',
       'Gmail & API integration',
+      'PDF invoicing & advance sheets',
       'Priority support (1-hour)',
     ],
   },
   {
-    name: 'Agency',
+    name: 'Label',
     price: '£99',
     period: '/month',
-    desc: 'For managers and booking agents',
+    desc: 'You\'re managing artists. One command center.',
     color: '#6a8a7a',
     features: [
-      'Everything in Pro',
-      'Multi-artist (up to 10)',
-      'Roster analytics',
-      'Agency-branded forms',
-      'API access',
+      'Everything in Touring',
+      'Multi-artist profiles (up to 10)',
+      'Roster analytics dashboard',
+      'Label-branded advance forms',
+      'Artist onboarding portal',
+      'Cross-artist revenue tracking',
+      'API access & webhooks',
       'Dedicated support',
+    ],
+  },
+  {
+    name: 'Collective',
+    price: '£249',
+    period: '/month',
+    desc: 'You\'re running the operation. Advanced tools, full control.',
+    color: '#7a8a6a',
+    features: [
+      'Everything in Label',
+      'Unlimited artist profiles',
+      'Advanced team permissions',
+      'Custom integrations',
+      'White-label options',
+      'Bulk operations & automation',
+      'Dedicated account manager',
+      '24/7 priority support',
     ],
   },
 ]
@@ -96,9 +117,9 @@ export default function PricingPage() {
 
       {/* HERO */}
       <section style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 48px 80px', textAlign: 'center', borderBottom: `1px solid ${COLORS.border}` }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>Professional tools. Fair pricing.</div>
-        <h1 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', fontWeight: 200, letterSpacing: '0.04em', lineHeight: 1.1, marginBottom: '20px', maxWidth: '900px' }}>Everything you need to run a touring career.</h1>
-        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>One system. Four modules. Your price. No hidden fees. No feature gates. Professional tools, designed by touring musicians.</p>
+        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>From Solo to Collective</div>
+        <h1 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', fontWeight: 200, letterSpacing: '0.04em', lineHeight: 1.1, marginBottom: '20px', maxWidth: '900px' }}>One system for every stage of your career.</h1>
+        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>Solo bedroom producer to touring collective. All tiers include music production, content, DJ tools, and tour management. No hidden fees. No feature gates.</p>
       </section>
 
       {/* PRICING TIERS */}
@@ -132,7 +153,7 @@ export default function PricingPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: COLORS.textDimmer }}>vs</div>
               <div><div style={{ fontSize: '28px', fontWeight: 'bold', color: COLORS.green, marginBottom: '6px' }}>£59</div><div style={{ fontSize: '11px', color: COLORS.textDim }}>Pro tier/month</div></div>
             </div>
-            <p style={{ fontSize: '12px', color: COLORS.textDim, lineHeight: '1.7', maxWidth: '550px', margin: '0 auto' }}>At 20 shows/year: <strong style={{ color: COLORS.text }}>£3,000 vs £708.</strong> Break even at 4 shows. Everything else is profit. Plus touring, content, production, and DJ tools.</p>
+            <p style={{ fontSize: '12px', color: COLORS.textDim, lineHeight: '1.7', maxWidth: '550px', margin: '0 auto' }}>At 20 shows/year on Touring: <strong style={{ color: COLORS.text }}>£3,000 vs £708.</strong> Break even at 4 shows. Everything else is profit. All tiers include Sonix, content, and DJ tools.</p>
           </div>
         </div>
       </section>
@@ -162,9 +183,9 @@ export default function PricingPage() {
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                   <th style={{ textAlign: 'left', padding: '16px 0', fontWeight: 'bold', color: COLORS.text }}>Feature</th>
-                  <th style={{ textAlign: 'center', padding: '16px 0', fontWeight: 'bold', color: COLORS.gold }}>The Modular Suite</th>
+                  <th style={{ textAlign: 'center', padding: '16px 0', fontWeight: 'bold', color: COLORS.gold }}>Modular Suite</th>
                   <th style={{ textAlign: 'center', padding: '16px 0', fontWeight: 'bold', color: COLORS.textDimmer }}>Advancers</th>
-                  <th style={{ textAlign: 'center', padding: '16px 0', fontWeight: 'bold', color: COLORS.textDimmer }}>Spreadsheets</th>
+                  <th style={{ textAlign: 'center', padding: '16px 0', fontWeight: 'bold', color: COLORS.textDimmer }}>Sheets</th>
                 </tr>
               </thead>
               <tbody>
@@ -174,13 +195,14 @@ export default function PricingPage() {
                   ['Invoicing', '✓', '✗', '✗'],
                   ['Content scheduling', '✓', '✗', '✗'],
                   ['AI captions', '✓', '✗', '✗'],
-                  ['Music production', '✓', '✗', '✗'],
+                  ['Music production (Sonix)', '✓', '✗', '✗'],
                   ['DJ tools', '✓', '✗', '✗'],
-                  ['Price per show', '£2.95*', '£150', '—'],
+                  ['Multi-artist mgmt', '✓ (Label+)', '✗', '✗'],
+                  ['Cost per show*', '£2.95', '£150', '—'],
                 ].map((row, idx) => (
                   <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                     <td style={{ padding: '12px 0', color: COLORS.text }}>{row[0]}</td>
-                    <td style={{ textAlign: 'center', padding: '12px 0', color: row[1] === '✓' ? COLORS.green : COLORS.textDimmer }}>{row[1]}</td>
+                    <td style={{ textAlign: 'center', padding: '12px 0', color: row[1] === '✓' || row[1].includes('✓') ? COLORS.green : COLORS.textDimmer }}>{row[1]}</td>
                     <td style={{ textAlign: 'center', padding: '12px 0' }}>{row[2]}</td>
                     <td style={{ textAlign: 'center', padding: '12px 0' }}>{row[3]}</td>
                   </tr>
@@ -188,7 +210,7 @@ export default function PricingPage() {
               </tbody>
             </table>
           </div>
-          <div style={{ fontSize: '9px', color: COLORS.textDimmer, marginTop: '16px', textAlign: 'center' }}>*at 20 shows/year on Pro tier</div>
+          <div style={{ fontSize: '9px', color: COLORS.textDimmer, marginTop: '16px', textAlign: 'center' }}>*at 20 shows/year on Touring tier (£59/mo)</div>
         </div>
       </section>
 
