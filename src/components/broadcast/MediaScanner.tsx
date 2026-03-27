@@ -10,6 +10,13 @@ interface MediaMoment {
   thumbnail?: string
 }
 
+interface ContentScore {
+  engagement: number       // 0-100: predicted saves/shares potential
+  brand_alignment: number  // 0-100: how well it fits the artist's tone lane
+  virality: number         // 0-100: likelihood of organic reach
+  reasoning: string
+}
+
 interface ScanResult {
   best_moment: MediaMoment
   moments: MediaMoment[]
@@ -18,11 +25,19 @@ interface ScanResult {
   best_clip_end: number
   caption_context: string
   post_recommendation: string
+  content_score: ContentScore
+  tags: string[]           // auto-generated post tags (club, photographer, etc.)
+  tone_match: string       // which reference artist this content aligns with most
   platform_cuts: {
     instagram: string
     tiktok: string
     story: string
   }
+  platform_ranking: {
+    platform: string
+    score: number
+    reason: string
+  }[]
 }
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 600): Promise<string> {
@@ -136,13 +151,14 @@ export function MediaScanner() {
       setProgressLabel('Identifying peak moments...')
 
       const raw = await callClaude(
-        'You are an expert video editor and social media strategist for electronic music artists. Analyse video content and identify the most engaging moments. Return ONLY valid JSON.',
+        'You are an expert video editor and social media strategist for electronic music artists like Bicep, Floating Points, fred again.., and Four Tet. You understand what content performs well in this space — raw, unpolished, observational. No corporate energy. Analyse video content and score it for engagement potential and brand alignment. Return ONLY valid JSON.',
         `Analyse this show video for social media content:
 File: ${file.name}
 Duration: approx ${extractedFrames[extractedFrames.length - 1]?.timestamp.toFixed(0)}s
 Frames extracted at: ${frameDescriptions}
 
-Based on typical show footage patterns, identify the best moments.
+Based on typical show footage patterns and what performs well for electronic artists on social media, identify the best moments and score the content.
+
 Return JSON:
 {
   "best_moment": { "timestamp": number, "score": 95, "reason": "Peak crowd energy with strong lighting", "type": "crowd" },
@@ -151,18 +167,31 @@ Return JSON:
     { "timestamp": number, "score": number, "reason": "description", "type": "peak|crowd|lighting|transition" },
     { "timestamp": number, "score": number, "reason": "description", "type": "peak|crowd|lighting|transition" }
   ],
-  "overall_energy": number,
+  "overall_energy": number 1-10,
   "best_clip_start": number,
   "best_clip_end": number,
   "caption_context": "one sentence describing what happened — for caption generation",
   "post_recommendation": "one sentence on why this is the best moment to post",
+  "content_score": {
+    "engagement": number 0-100 (predicted saves/shares — raw unpolished content scores higher than overproduced),
+    "brand_alignment": number 0-100 (how well this fits the understated electronic artist aesthetic — blurry > polished, crowd > selfie, dark > bright),
+    "virality": number 0-100 (organic reach potential — silent crowd clips and behind-decks content trend highest),
+    "reasoning": "one sentence explaining the scores"
+  },
+  "tags": ["venue name from filename if detectable", "photographer: [credit placeholder]"],
+  "tone_match": "which reference artist (Bicep/Floating Points/fred again../Four Tet) this content aligns with most and why in one sentence",
   "platform_cuts": {
     "instagram": "0:00 – 0:30 (best crowd moment)",
     "tiktok": "0:15 – 0:45 (peak energy section)",
     "story": "0:00 – 0:15 (strong opening)"
-  }
+  },
+  "platform_ranking": [
+    { "platform": "TikTok", "score": 92, "reason": "Raw crowd energy performs best here" },
+    { "platform": "Instagram Reel", "score": 85, "reason": "Strong visual moment" },
+    { "platform": "Instagram Story", "score": 78, "reason": "Good for day-after posting" }
+  ]
 }`,
-        500
+        800
       )
 
       setProgress(85)
@@ -303,8 +332,34 @@ Return JSON:
         {result && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
+            {/* Content Score Card */}
+            {result.content_score && (
+              <div style={{ background: s.panel, border: `1px solid ${s.gold}`, padding: '24px 28px', boxShadow: '0 0 20px rgba(176,141,87,0.08)' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px' }}>Content intelligence</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                  {[
+                    { label: 'Engagement', value: result.content_score.engagement, desc: 'Save + share potential' },
+                    { label: 'Brand fit', value: result.content_score.brand_alignment, desc: 'Tone lane alignment' },
+                    { label: 'Virality', value: result.content_score.virality, desc: 'Organic reach' },
+                  ].map(metric => (
+                    <div key={metric.label}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>{metric.label}</div>
+                      <div style={{ fontSize: '28px', fontWeight: 300, color: metric.value >= 80 ? '#3d6b4a' : metric.value >= 60 ? s.gold : '#8a4a3a', marginBottom: '4px' }}>{metric.value}</div>
+                      <div style={{ height: '2px', background: '#1a1917', marginBottom: '6px' }}>
+                        <div style={{ height: '2px', background: metric.value >= 80 ? '#3d6b4a' : metric.value >= 60 ? s.gold : '#8a4a3a', width: `${metric.value}%`, transition: 'width 0.8s ease' }} />
+                      </div>
+                      <div style={{ fontSize: '10px', color: s.textDimmer }}>{metric.desc}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '12px', color: s.textDim, lineHeight: '1.7', fontStyle: 'italic', fontFamily: 'Georgia, serif', paddingTop: '16px', borderTop: `1px solid ${s.border}` }}>
+                  {result.content_score.reasoning}
+                </div>
+              </div>
+            )}
+
             {/* Best moment */}
-            <div style={{ background: s.panel, border: `1px solid ${s.gold}`, padding: '24px 28px', boxShadow: '0 0 20px rgba(176,141,87,0.08)' }}>
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
               <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Best moment</div>
               <div style={{ fontSize: '28px', fontWeight: 300, color: s.gold, marginBottom: '6px' }}>{result.best_moment.timestamp.toFixed(1)}s</div>
               <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '12px', lineHeight: '1.6', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{result.best_moment.reason}</div>
@@ -314,9 +369,48 @@ Return JSON:
               </div>
             </div>
 
+            {/* Tone match + Tags */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {result.tone_match && (
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#3d6b4a', textTransform: 'uppercase', marginBottom: '10px' }}>Tone match</div>
+                  <div style={{ fontSize: '12px', color: s.textDim, lineHeight: '1.7' }}>{result.tone_match}</div>
+                </div>
+              )}
+              {result.tags && result.tags.length > 0 && (
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '10px' }}>Auto-tags</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {result.tags.map((tag, i) => (
+                      <span key={i} style={{ fontSize: '11px', color: s.textDim, background: '#1a1917', padding: '4px 10px', letterSpacing: '0.04em' }}>{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Platform ranking */}
+            {result.platform_ranking && (
+              <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Platform ranking</div>
+                {result.platform_ranking.map((p, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: i < result.platform_ranking.length - 1 ? `1px solid ${s.border}` : 'none' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 300, color: i === 0 ? '#3d6b4a' : i === 1 ? s.gold : s.textDimmer, width: '36px' }}>{p.score}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', color: s.text, marginBottom: '2px' }}>{p.platform}</div>
+                      <div style={{ fontSize: '10px', color: s.textDimmer }}>{p.reason}</div>
+                    </div>
+                    <div style={{ height: '2px', width: '80px', background: '#1a1917' }}>
+                      <div style={{ height: '2px', background: i === 0 ? '#3d6b4a' : i === 1 ? s.gold : s.textDimmer, width: `${p.score}%`, transition: 'width 0.6s ease' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Platform cuts */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Platform cuts</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Clip timestamps</div>
               {Object.entries(result.platform_cuts).map(([platform, cut]) => (
                 <div key={platform} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: `1px solid ${s.border}`, fontSize: '11px' }}>
                   <span style={{ color: s.textDimmer, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{platform}</span>
