@@ -40,8 +40,8 @@ export default function Dashboard() {
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
       <div style={{ padding: '52px 56px 44px', borderBottom: '1px solid var(--border-dim)' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
-          <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />Signal Lab — Command centre
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
+          <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />Tour Lab — Command centre
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
@@ -57,7 +57,7 @@ export default function Dashboard() {
           {next && (
             <div className="card" style={{ padding: '32px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-                <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Next show</div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Next show</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>{daysTo} days</div>
               </div>
               <div className="display" style={{ fontSize: '22px', marginBottom: '6px', lineHeight: 1.2 }}>{next.title}</div>
@@ -70,7 +70,7 @@ export default function Dashboard() {
                   { l: 'Fee', v: `€${(next.fee || 0).toLocaleString()}` },
                 ].map(item => (
                   <div key={item.l}>
-                    <div style={{ fontSize: '8px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '6px' }}>{item.l}</div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '6px' }}>{item.l}</div>
                     <div style={{ fontSize: '15px', color: 'var(--text-dim)' }}>{item.v}</div>
                   </div>
                 ))}
@@ -83,7 +83,7 @@ export default function Dashboard() {
           )}
 
           <div className="card" style={{ padding: '32px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '24px' }}>Needs attention</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '24px' }}>Needs attention</div>
             {URGENT.map((item, i) => (
               <Link key={i} href={item.href} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0', borderBottom: i < 2 ? '1px solid var(--border-dim)' : 'none', textDecoration: 'none' }}
                 onMouseEnter={e => e.currentTarget.style.opacity = '0.6'} onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
@@ -99,7 +99,7 @@ export default function Dashboard() {
 
         <div style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Forthcoming shows</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Forthcoming shows</div>
             <div style={{ flex: 1, height: '1px', background: 'var(--border-dim)' }} />
             <Link href="/gigs" style={{ fontSize: '10px', color: 'var(--text-dimmer)', textDecoration: 'none' }}>View all →</Link>
           </div>
@@ -116,7 +116,7 @@ export default function Dashboard() {
                   </div>
                   <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
                   <div style={{ fontSize: '13px', color: 'var(--text-dimmer)' }}>{gig.location?.split(',')[1]?.trim()}</div>
-                  <div><span style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: gig.status === 'confirmed' ? 'var(--green)' : '#8a6a3a', background: gig.status === 'confirmed' ? 'rgba(61, 107, 74, 0.1)' : 'rgba(138, 106, 58, 0.1)', padding: '4px 10px' }}>{gig.status}</span></div>
+                  <div><span style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: gig.status === 'confirmed' ? 'var(--green)' : '#8a6a3a', background: gig.status === 'confirmed' ? 'rgba(61, 107, 74, 0.1)' : 'rgba(138, 106, 58, 0.1)', padding: '4px 10px' }}>{gig.status}</span></div>
                   <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{(gig.audience || 0).toLocaleString()}</div>
                   <div style={{ fontSize: '14px', color: 'var(--text)' }}>€{(gig.fee || 0).toLocaleString()}</div>
                   <div style={{ display: 'flex', gap: '12px' }}>
@@ -147,7 +147,7 @@ export default function Dashboard() {
             { label: 'Needs attention', value: '3', sub: 'Actions required', alert: true },
           ].map(stat => (
             <div key={stat.label} style={{ background: 'var(--panel)', border: `1px solid ${stat.alert ? 'rgba(138, 74, 58, 0.19)' : 'var(--border-dim)'}`, padding: '28px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '14px' }}>{stat.label}</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '14px' }}>{stat.label}</div>
               <div className="display" style={{ fontSize: '38px', color: stat.alert ? 'var(--gold)' : 'var(--text)', lineHeight: 1, marginBottom: '8px' }}>{stat.value}</div>
               <div style={{ fontSize: '11px', color: 'var(--text-dimmest)' }}>{stat.sub}</div>
             </div>

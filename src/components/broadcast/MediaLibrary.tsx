@@ -39,9 +39,9 @@ export function MediaLibrary() {
   return (
     <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '40px 48px' }}>
       <div style={{ marginBottom: '40px' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
-          Broadcast Lab — Media Library
+          Signal Lab — Media Library
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
@@ -66,9 +66,9 @@ export function MediaLibrary() {
       ) : items.length === 0 ? (
         <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '60px', textAlign: 'center' }}>
           <div style={{ fontSize: '14px', color: s.dim, marginBottom: '8px' }}>No media uploaded yet</div>
-          <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '24px' }}>Upload photos and videos in Broadcast Lab</div>
+          <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '24px' }}>Upload photos and videos in Signal Lab</div>
           <a href="/broadcast" style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: s.gold, textDecoration: 'none', border: `1px solid ${s.gold}40`, padding: '12px 24px' }}>
-            Go to Broadcast Lab →
+            Go to Signal Lab →
           </a>
         </div>
       ) : (
@@ -92,7 +92,7 @@ export function MediaLibrary() {
                 <div style={{ fontSize: '10px', color: s.dimmer, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.pathname.split('/').pop()}
                 </div>
-                <div style={{ fontSize: '9px', color: '#2e2c29', marginTop: '3px' }}>
+                <div style={{ fontSize: '10px', color: '#2e2c29', marginTop: '3px' }}>
                   {(item.size / 1024).toFixed(0)} KB
                 </div>
               </div>

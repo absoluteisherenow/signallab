@@ -66,7 +66,7 @@ export default function Settings() {
   }
 
   const labelStyle = {
-    fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)',
+    fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)',
     textTransform: 'uppercase' as const, marginBottom: '8px', display: 'block',
   }
 
@@ -75,9 +75,9 @@ export default function Settings() {
 
       {/* HEADER */}
       <div style={{ marginBottom: '40px' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
           <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
-          Signal Lab — Settings
+          Tour Lab — Settings
         </div>
         <div className="display" style={{ fontSize: '28px', letterSpacing: '0.04em' }}>Settings</div>
       </div>
@@ -101,7 +101,7 @@ export default function Settings() {
       {/* PROFILE TAB */}
       {activeTab === 'profile' && (
         <div className="card" style={{ maxWidth: '640px' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '28px' }}>Artist profile</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '28px' }}>Artist profile</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {[
               { label: 'Artist / act name', key: 'name', placeholder: 'NIGHT manoeuvres' },
@@ -174,9 +174,9 @@ export default function Settings() {
                   <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', letterSpacing: '0.04em' }}>{integration.desc}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: integration.color }}>{integration.status}</span>
+                  <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: integration.color }}>{integration.status}</span>
                   {integration.status === 'not connected' && (
-                    <button className="btn-secondary" style={{ fontSize: '9px', padding: '6px 14px' }}>
+                    <button className="btn-secondary" style={{ fontSize: '10px', padding: '6px 14px' }}>
                       Connect
                     </button>
                   )}
@@ -185,7 +185,7 @@ export default function Settings() {
             </div>
           ))}
           <div className="card" style={{ marginTop: '16px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Subscription</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Subscription</div>
             <div className="display" style={{ fontSize: '20px', color: 'var(--gold)', marginBottom: '4px' }}>Pro</div>
             <div style={{ fontSize: '12px', color: 'var(--text-dimmer)' }}>£59/month · All features unlocked</div>
           </div>
@@ -195,7 +195,7 @@ export default function Settings() {
       {/* ADVANCE FORM TAB */}
       {activeTab === 'advance' && (
         <div className="card" style={{ maxWidth: '640px' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '8px' }}>Advance form settings</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '8px' }}>Advance form settings</div>
           <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '28px', lineHeight: '1.7' }}>
             These details appear on advance request emails sent to promoters. Use your management company name and email for a professional appearance.
           </div>

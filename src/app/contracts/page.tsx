@@ -73,7 +73,7 @@ export default function Contracts() {
     <div style={{background:'var(--bg)',color:'var(--text)',fontFamily:'var(--font-mono)',minHeight:'100vh',padding:'40px 48px'}}>
       <div style={{marginBottom:'40px'}}>
         <div style={{fontSize:'9px',letterSpacing:'0.3em',color:'var(--gold)',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
-          <span style={{display:'block',width:'28px',height:'1px',background:'var(--gold)'}}/>Signal Lab — Contracts
+          <span style={{display:'block',width:'28px',height:'1px',background:'var(--gold)'}}/>Tour Lab — Contracts
         </div>
         <div className="display" style={{fontSize:'28px'}}>Contract parser</div>
         <div style={{fontSize:'13px',color:'var(--text-dimmer)',marginTop:'8px'}}>Paste a booking email or contract — extracts venue, times, hotel, backline, fee, deposits</div>
@@ -83,7 +83,7 @@ export default function Contracts() {
       <div style={{background:'rgba(176, 141, 87, 0.06)',border:'1px solid rgba(176, 141, 87, 0.25)',padding:'20px 24px',marginBottom:'32px',borderRadius:'4px'}}>
         <div style={{fontSize:'10px',letterSpacing:'0.15em',color:'var(--gold)',textTransform:'uppercase',marginBottom:'8px'}}>💌 Faster way</div>
         <div style={{fontSize:'12px',color:'var(--text)',lineHeight:'1.6'}}>
-          Forward booking emails to <strong>advancingabsolute@gmail.com</strong> — they'll be automatically parsed and create gigs in Signal Lab. No copy/paste needed.
+          Forward booking emails to <strong>advancingabsolute@gmail.com</strong> — they'll be automatically parsed and create gigs in Tour Lab. No copy/paste needed.
         </div>
       </div>
 

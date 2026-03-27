@@ -762,7 +762,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
                     href="#broadcast-lab"
                     className="px-4 py-2 bg-night-dark-gray hover:bg-night-dark-gray/70 text-night-light rounded transition-colors text-sm"
                   >
-                    → Broadcast Lab Integration
+                    → Signal Lab Integration
                   </a>
                   <a
                     href="#sonix"

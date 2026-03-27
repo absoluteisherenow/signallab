@@ -309,21 +309,21 @@ export function BroadcastLab() {
       {/* HEADER */}
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-[9px] tracking-[.3em] uppercase text-[#b08d57] flex items-center gap-3 mb-3">
+          <div className="text-[10px] tracking-[.3em] uppercase text-[#b08d57] flex items-center gap-3 mb-3">
             <span className="block w-7 h-px bg-[#b08d57]" />
-            Broadcast Lab — Tone Intelligence
+            Signal Lab — Tone Intelligence
           </div>
           <div className="text-3xl tracking-[.04em] font-light">
             Tone <span className="italic text-[#b08d57]" style={{fontFamily:'Georgia,serif'}}>intelligence</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-right text-[9px] tracking-[.13em] uppercase text-[#8a8780] leading-7 mr-4">
+          <div className="text-right text-[10px] tracking-[.13em] uppercase text-[#8a8780] leading-7 mr-4">
             <div>Last scan — 2 hours ago</div>
             <div>Profile confidence — <span className="text-[#b08d57]">High</span></div>
           </div>
           <button onClick={generateFullWeek} disabled={generatingWeek}
-            className="text-[9px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50 flex items-center gap-2">
+            className="text-[10px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50 flex items-center gap-2">
             {generatingWeek && <div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />}
             {generatingWeek ? 'Generating...' : 'Generate week'}
           </button>
@@ -332,7 +332,7 @@ export function BroadcastLab() {
 
       {/* REFERENCE ARTISTS */}
       <div>
-        <div className="flex items-center gap-2 mb-4 text-[8.5px] tracking-[.22em] uppercase text-[#b08d57]">
+        <div className="flex items-center gap-2 mb-4 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
           Reference artists — your lane
           <div className="flex-1 h-px bg-white/10" />
         </div>
@@ -345,9 +345,9 @@ export function BroadcastLab() {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <div className="text-sm tracking-[.08em]">{artist.name}</div>
-                  <div className="text-[9px] tracking-[.1em] text-[#8a8780] mt-1">{artist.handle} · {artist.genre}</div>
+                  <div className="text-[10px] tracking-[.1em] text-[#8a8780] mt-1">{artist.handle} · {artist.genre}</div>
                 </div>
-                <div className="text-[8px] tracking-[.12em] uppercase text-[#3d6b4a] flex items-center gap-1 flex-shrink-0">
+                <div className="text-[10px] tracking-[.12em] uppercase text-[#3d6b4a] flex items-center gap-1 flex-shrink-0">
                   <div className="w-1 h-1 rounded-full bg-[#3d6b4a]" />Scanned
                 </div>
               </div>
@@ -355,8 +355,8 @@ export function BroadcastLab() {
                 {[{l:'Lowercase',v:`${artist.lowercase_pct}%`,p:artist.lowercase_pct},{l:'Short captions',v:`${artist.short_caption_pct}%`,p:artist.short_caption_pct},{l:'No hashtags',v:`${artist.no_hashtags_pct}%`,p:artist.no_hashtags_pct,t:true}].map(b => (
                   <div key={b.l}>
                     <div className="flex justify-between">
-                      <span className="text-[9px] tracking-[.08em] text-[#8a8780]">{b.l}</span>
-                      <span className="text-[9px] tracking-[.08em]">{b.v}</span>
+                      <span className="text-[10px] tracking-[.08em] text-[#8a8780]">{b.l}</span>
+                      <span className="text-[10px] tracking-[.08em]">{b.v}</span>
                     </div>
                     <Bar value={b.p} teal={b.t} />
                   </div>
@@ -372,14 +372,14 @@ export function BroadcastLab() {
           <div onClick={() => !addingArtist && setAddingArtist(true)}
             className="bg-[#0e0d0b] border border-dashed border-white/13 p-5 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-[#b08d57] hover:bg-[#141310] transition-colors min-h-[176px]">
             {!addingArtist ? (
-              <><div className="text-2xl text-[#2e2c29]">+</div><div className="text-[9px] tracking-[.15em] uppercase text-[#8a8780]">Add reference artist</div></>
+              <><div className="text-2xl text-[#2e2c29]">+</div><div className="text-[10px] tracking-[.15em] uppercase text-[#8a8780]">Add reference artist</div></>
             ) : (
               <div className="w-full flex flex-col gap-2" onClick={e => e.stopPropagation()}>
                 <input ref={addInputRef} value={newArtistName} onChange={e => setNewArtistName(e.target.value)}
                   onKeyDown={e => { if(e.key==='Enter'&&newArtistName.trim()){scanArtist(newArtistName.trim());setNewArtistName('');setAddingArtist(false)} if(e.key==='Escape'){setAddingArtist(false);setNewArtistName('')} }}
                   placeholder="Artist name — press Enter"
                   className="w-full bg-[#1a1917] border border-[#b08d57] text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29]" />
-                <div className="text-[8.5px] tracking-[.1em] text-[#2e2c29] text-center">Enter to scan · Escape to cancel</div>
+                <div className="text-[10px] tracking-[.1em] text-[#2e2c29] text-center">Enter to scan · Escape to cancel</div>
               </div>
             )}
           </div>
@@ -414,12 +414,12 @@ export function BroadcastLab() {
 
       {/* TREND ENGINE */}
       <div className="bg-[#0e0d0b] border border-white/7 p-7">
-        <div className="flex items-center gap-2 mb-2 text-[8.5px] tracking-[.22em] uppercase text-[#b08d57]">
+        <div className="flex items-center gap-2 mb-2 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
           Trend engine — filtered for your lane<div className="flex-1 h-px bg-white/10" />
         </div>
         <div className="text-[10px] tracking-[.07em] text-[#8a8780] mb-5 italic" style={{fontFamily:'Georgia,serif'}}>Only trends already moving in electronic / dance. Never mainstream pop.</div>
         {loadingTrends && (
-          <div className="flex items-center gap-2 text-[9px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
+          <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
             <div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.2s'}} /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.4s'}} />
             <span>Analysing trend fit...</span>
           </div>
@@ -428,44 +428,44 @@ export function BroadcastLab() {
           {TRENDS.map(trend => (
             <div key={trend.id} className={`bg-[#1a1917] border p-4 relative hover:bg-[#141310] transition-colors ${trend.hot ? 'border-[#b08d57]/30' : 'border-white/7'}`}>
               {trend.hot && <div className="absolute top-2.5 right-2.5 text-[7px] tracking-[.16em] text-[#b08d57] bg-[#b08d57]/10 px-1.5 py-0.5">HOT</div>}
-              <div className="text-[8px] tracking-[.15em] uppercase text-[#8a8780] mb-2">{trend.platform}</div>
+              <div className="text-[10px] tracking-[.15em] uppercase text-[#8a8780] mb-2">{trend.platform}</div>
               <div className="text-[11px] tracking-[.06em] mb-2 leading-snug">{trend.name}</div>
               <div className="text-[10px] text-[#8a8780] leading-relaxed mb-3 italic min-h-[32px]" style={{fontFamily:'Georgia,serif'}}>{trendCaptions[trend.id] || 'Loading...'}</div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-[8.5px] tracking-[.1em] text-[#8a8780]">Lane fit</span>
+                <span className="text-[10px] tracking-[.1em] text-[#8a8780]">Lane fit</span>
                 <div className="flex-1 h-px bg-white/10 relative"><div className="absolute top-0 left-0 h-px bg-[#b08d57]" style={{width:`${trend.fit}%`}} /></div>
-                <span className="text-[9px] text-[#b08d57]">{trend.fit}%</span>
+                <span className="text-[10px] text-[#b08d57]">{trend.fit}%</span>
               </div>
-              <button onClick={() => useTrend(trend.context)} className="w-full text-[8px] tracking-[.15em] uppercase border border-white/13 text-[#8a8780] py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Use this trend -&gt;</button>
+              <button onClick={() => useTrend(trend.context)} className="w-full text-[10px] tracking-[.15em] uppercase border border-white/13 text-[#8a8780] py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Use this trend -&gt;</button>
             </div>
           ))}
           <div className="bg-[#1a1917] border border-dashed border-white/13 flex flex-col items-center justify-center gap-2 min-h-[160px]">
-            <div className="text-[9px] tracking-[.15em] uppercase text-[#2e2c29]">Next scan</div>
+            <div className="text-[10px] tracking-[.15em] uppercase text-[#2e2c29]">Next scan</div>
             <div className="text-xl font-light text-[#8a8780]">6h 42m</div>
-            <button onClick={() => {loadTrendCaptions();showToast('Refreshing trends...','Trends')}} className="text-[8px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-3 py-1.5 mt-1 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Refresh now</button>
+            <button onClick={() => {loadTrendCaptions();showToast('Refreshing trends...','Trends')}} className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-3 py-1.5 mt-1 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Refresh now</button>
           </div>
         </div>
       </div>
 
       {/* CAPTION GENERATOR */}
       <div className="bg-[#0e0d0b] border border-white/7 p-8 caption-panel">
-        <div className="flex items-center gap-2 mb-5 text-[8.5px] tracking-[.22em] uppercase text-[#b08d57]">
+        <div className="flex items-center gap-2 mb-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
           Caption generator — real AI, tuned to your voice<div className="flex-1 h-px bg-white/10" />
         </div>
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div>
-            <label className="block text-[8px] tracking-[.18em] uppercase text-[#8a8780] mb-2">What happened</label>
+            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">What happened</label>
             <input value={context} onChange={e => setContext(e.target.value)} placeholder="show, studio, flight..."
               className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors placeholder-[#2e2c29]" />
           </div>
           <div>
-            <label className="block text-[8px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Platform</label>
+            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Platform</label>
             <select value={platform} onChange={e => setPlatform(e.target.value)} className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors">
               {['Instagram','TikTok','X / Twitter'].map(p => <option key={p}>{p}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-[8px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Media type</label>
+            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Media type</label>
             <select value={media} onChange={e => setMedia(e.target.value)} className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors">
               {['Crowd clip (video)','Show photo','Behind the decks','Studio photo','Travel / transit','No media'].map(m => <option key={m}>{m}</option>)}
             </select>
@@ -474,7 +474,7 @@ export function BroadcastLab() {
         <div className="flex gap-2 mb-3">
           {(['post','carousel','story','reel'] as const).map(f => (
             <button key={f} onClick={() => setPostFormat(f)}
-              className={`text-[8.5px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${postFormat===f ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
+              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${postFormat===f ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
               {f}
             </button>
           ))}
@@ -485,28 +485,28 @@ export function BroadcastLab() {
             onChange={e => { if (e.target.files?.length) uploadMedia(e.target.files) }} />
           <div className="flex items-center gap-3 mb-5 p-3 border border-white/7 bg-[#1a1917]">
             <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-              className="text-[8.5px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-4 py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex items-center gap-2 flex-shrink-0">
+              className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-4 py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex items-center gap-2 flex-shrink-0">
               {uploading && <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
               {uploading ? 'Uploading...' : 'Upload media'}
             </button>
             {mediaUrls.length > 0 ? (
               <div className="flex items-center gap-2 flex-1">
                 <img src={mediaUrls[0]} className="w-10 h-10 object-cover" alt="preview" />
-                <span className="text-[9px] tracking-[.1em] text-[#3d6b4a] flex-1 truncate">Media ready — will attach to post</span>
+                <span className="text-[10px] tracking-[.1em] text-[#3d6b4a] flex-1 truncate">Media ready — will attach to post</span>
                 <button onClick={() => setMediaUrls([])} className="text-[#8a8780] hover:text-red-400 text-xs">x</button>
               </div>
             ) : (
-              <span className="text-[9px] tracking-[.08em] text-[#2e2c29] uppercase tracking-widest">No media — Instagram requires image or video</span>
+              <span className="text-[10px] tracking-[.08em] text-[#2e2c29] uppercase tracking-widest">No media — Instagram requires image or video</span>
             )}
           </div>
 
           {['Instagram','TikTok','X / Twitter'].map(p => (
             <button key={p} onClick={() => {setPlatform(p);setTimeout(generateCaptions,100)}}
-              className={`text-[8.5px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${platform===p?'border-[#b08d57] text-[#b08d57]':'border-white/13 text-[#8a8780] hover:border-white/20'}`}>{p}</button>
+              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${platform===p?'border-[#b08d57] text-[#b08d57]':'border-white/13 text-[#8a8780] hover:border-white/20'}`}>{p}</button>
           ))}
         </div>
         {generatingCaptions && (
-          <div className="flex items-center gap-2 text-[9px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
+          <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
             <div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.2s'}} /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.4s'}} />
             <span>Generating captions — reading your tone profile...</span>
           </div>
@@ -517,7 +517,7 @@ export function BroadcastLab() {
             return (
               <div key={key} onClick={() => setSelectedVariant(key)}
                 className={`bg-[#1a1917] border p-4 cursor-pointer transition-colors ${selectedVariant===key?'border-[#b08d57]':'border-white/7 hover:border-white/13'}`}>
-                <div className="flex items-center gap-2 mb-2.5 text-[8px] tracking-[.18em] uppercase text-[#8a8780]">
+                <div className="flex items-center gap-2 mb-2.5 text-[10px] tracking-[.18em] uppercase text-[#8a8780]">
                   {key.charAt(0).toUpperCase()+key.slice(1)}<div className="flex-1 h-px bg-white/10" />
                 </div>
                 {generatingCaptions ? <div className="h-16 bg-white/5 animate-pulse rounded" /> : (
@@ -525,15 +525,15 @@ export function BroadcastLab() {
                     <div className="flex items-start gap-2 mb-2">
                       <div className="text-[12px] tracking-[.05em] leading-7 min-h-[72px] flex-1">{v?.text||''}</div>
                       <button onClick={e => { e.stopPropagation(); copyToClipboard(v?.text||'', key.charAt(0).toUpperCase()+key.slice(1)) }}
-                        className="text-[8.5px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors flex-shrink-0 whitespace-nowrap mt-1">
+                        className="text-[10px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors flex-shrink-0 whitespace-nowrap mt-1">
                         Copy
                       </button>
                     </div>
-                    <div className="text-[9px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{fontFamily:'Georgia,serif'}}>{v?.reasoning||''}</div>
+                    <div className="text-[10px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{fontFamily:'Georgia,serif'}}>{v?.reasoning||''}</div>
                     <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
                       <button onClick={e=>{e.stopPropagation();scheduleToBuffer(v?.text||'',platform,mediaUrls)}}
-                        className="text-[8.5px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">Schedule -&gt;</button>
-                      <div className="text-[9px] text-[#8a8780]">Est. <span className={v&&v.score>1600?'text-[#3d6b4a]':v&&v.score>1200?'text-[#b08d57]':'text-[#8a8780]'}>{v?formatScore(v.score):'...'}</span></div>
+                        className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">Schedule -&gt;</button>
+                      <div className="text-[10px] text-[#8a8780]">Est. <span className={v&&v.score>1600?'text-[#3d6b4a]':v&&v.score>1200?'text-[#b08d57]':'text-[#8a8780]'}>{v?formatScore(v.score):'...'}</span></div>
                     </div>
                   </>
                 )}
@@ -548,12 +548,12 @@ export function BroadcastLab() {
           </div>
           <div className="flex gap-2.5">
             <button onClick={generateCaptions} disabled={generatingCaptions}
-              className="text-[9px] tracking-[.16em] uppercase border border-white/13 text-[#8a8780] px-5 py-2.5 hover:border-[#8a8780] hover:text-[#f0ebe2] transition-colors disabled:opacity-40 flex items-center gap-2">
+              className="text-[10px] tracking-[.16em] uppercase border border-white/13 text-[#8a8780] px-5 py-2.5 hover:border-[#8a8780] hover:text-[#f0ebe2] transition-colors disabled:opacity-40 flex items-center gap-2">
               {generatingCaptions&&<div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
               {generatingCaptions?'Generating...':'Regenerate'}
             </button>
             <button onClick={() => scheduleToBuffer(captions?.[selectedVariant]?.text||'', platform, mediaUrls)}
-              className="text-[9px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors">
+              className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors">
               Schedule best -&gt;
             </button>
           </div>
@@ -563,7 +563,7 @@ export function BroadcastLab() {
       {/* TOAST */}
       {toast && (
         <div className="fixed bottom-7 right-7 bg-[#0e0d0b]/96 border border-white/13 px-5 py-3.5 text-[11px] tracking-[.07em] text-[#f0ebe2] z-50 max-w-xs leading-relaxed backdrop-blur-md">
-          <div className="text-[8px] tracking-[.2em] uppercase text-[#b08d57] mb-1">{toast.tag}</div>
+          <div className="text-[10px] tracking-[.2em] uppercase text-[#b08d57] mb-1">{toast.tag}</div>
           {toast.msg}
         </div>
       )}

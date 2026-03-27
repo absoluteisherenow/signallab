@@ -118,14 +118,14 @@ a { color: inherit; }
 }
 
 .label {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
   color: var(--text-dimmer);
 }
 
 .label-gold {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
   color: var(--gold);
@@ -218,7 +218,7 @@ a { color: inherit; }
   display: grid;
   padding: 14px 28px;
   border-bottom: 1px solid var(--border-dim);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-dimmer);
@@ -244,7 +244,7 @@ a { color: inherit; }
 /* STATUS BADGES */
 .badge {
   display: inline-block;
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 4px 10px;
@@ -286,7 +286,7 @@ a { color: inherit; }
 }
 
 .toast-label {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--gold);
@@ -322,7 +322,7 @@ a { color: inherit; }
 
 /* FORM FIELDS */
 .field-label {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-dimmer);

@@ -75,7 +75,7 @@ export default function Onboarding() {
         {/* STEP 0 — WELCOME */}
         {step === 0 && (
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.4em', color: s.gold, textTransform: 'uppercase', marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.4em', color: s.gold, textTransform: 'uppercase', marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
               <span style={{ display: 'block', width: '40px', height: '1px', background: s.gold }} />
               The Modular Suite
               <span style={{ display: 'block', width: '40px', height: '1px', background: s.gold }} />
@@ -88,7 +88,7 @@ export default function Onboarding() {
               Add three tracks from your next show. Set Lab will analyse your harmonic flow, energy arc, and flag any transitions to watch — in under 90 seconds.
             </p>
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '10px' }}>Your name or act</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '10px' }}>Your name or act</div>
               <input value={artistName} onChange={e => setArtistName(e.target.value)}
                 placeholder="Night Manoeuvres"
                 style={{ width: '100%', background: s.panel, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '14px', padding: '14px 20px', outline: 'none', boxSizing: 'border-box', textAlign: 'center', marginBottom: '16px' }} />
@@ -103,7 +103,7 @@ export default function Onboarding() {
         {/* STEP 1 — ADD TRACKS */}
         {step === 1 && (
           <div>
-            <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
               Step 1 of 2 — Your tracks
             </div>
@@ -117,7 +117,7 @@ export default function Onboarding() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
               {tracks.map((track, i) => (
                 <div key={i} style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>
                     Track {i + 1} {i === 0 ? '— opener' : i === 1 ? '— second' : '— third'}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
@@ -179,7 +179,7 @@ export default function Onboarding() {
         {/* STEP 3 — RESULT */}
         {step === 3 && (
           <div>
-            <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
               Set analysis — {artistName || 'your set'}
             </div>
@@ -194,7 +194,7 @@ export default function Onboarding() {
             </div>
 
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px', marginBottom: '24px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Your tracks</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Your tracks</div>
               {tracks.filter(t => t.title || t.artist).map((t, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: `1px solid ${s.border}`, fontSize: '13px' }}>
                   <span style={{ color: s.text }}>{t.artist ? `${t.artist} — ` : ''}{t.title}</span>

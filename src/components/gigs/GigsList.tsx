@@ -86,8 +86,8 @@ export function GigsList() {
 
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px' }}>
         <div>
-          <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: f.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-            <span style={{ display: 'block', width: '28px', height: '1px', background: f.gold }} />Signal Lab — Gigs
+          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: f.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+            <span style={{ display: 'block', width: '28px', height: '1px', background: f.gold }} />Tour Lab — Gigs
           </div>
           <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 200 }}>Gigs</div>
           <div style={{ fontSize: '13px', color: f.dimmer, marginTop: '6px' }}>{gigs.filter(g => g.status === 'confirmed').length} confirmed · €{totalFees.toLocaleString()} total · Click any row to expand</div>
@@ -101,7 +101,7 @@ export function GigsList() {
       </div>
 
       {/* HEADERS */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 120px 150px 100px 80px 100px 160px', padding: '10px 24px', fontSize: '9px', letterSpacing: '0.18em', color: f.dimmer, textTransform: 'uppercase' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 120px 150px 100px 80px 100px 160px', padding: '10px 24px', fontSize: '10px', letterSpacing: '0.18em', color: f.dimmer, textTransform: 'uppercase' }}>
         {['Show', 'Date', 'Location', 'Status', 'Cap.', 'Fee', 'Advance'].map(h => <div key={h}>{h}</div>)}
       </div>
 
@@ -133,7 +133,7 @@ export function GigsList() {
                 </div>
                 <div style={{ fontSize: '12px', color: f.dimmer }}>{gig.location?.split(',')[0]}</div>
                 <div>
-                  <span style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: gig.status === 'confirmed' ? f.green : '#8a6a3a', background: gig.status === 'confirmed' ? '#3d6b4a18' : '#8a6a3a18', padding: '4px 10px' }}>
+                  <span style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: gig.status === 'confirmed' ? f.green : '#8a6a3a', background: gig.status === 'confirmed' ? '#3d6b4a18' : '#8a6a3a18', padding: '4px 10px' }}>
                     {gig.status}
                   </span>
                 </div>
@@ -151,7 +151,7 @@ export function GigsList() {
 
                     {/* DETAILS */}
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: f.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Show details</div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: f.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Show details</div>
                       {[
                         { l: 'Venue', v: gig.venue },
                         { l: 'Location', v: gig.location },
@@ -169,7 +169,7 @@ export function GigsList() {
 
                     {/* ADVANCE */}
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: f.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Advance request</div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: f.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Advance request</div>
                       {advStatus === 'complete' && (
                         <div>
                           <div style={{ fontSize: '13px', color: f.green, marginBottom: '14px' }}>✓ Advance received</div>
@@ -179,7 +179,7 @@ export function GigsList() {
                       {advStatus === 'sent' && (
                         <div>
                           <div style={{ fontSize: '13px', color: f.gold, marginBottom: '10px' }}>Sent — awaiting response</div>
-                          <button onClick={() => setShowEmailInput(showEmailInput === gig.id ? null : gig.id)} style={{ background: 'transparent', border: `1px solid ${f.border}`, color: f.dimmer, fontFamily: f.font, fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer' }}>Resend</button>
+                          <button onClick={() => setShowEmailInput(showEmailInput === gig.id ? null : gig.id)} style={{ background: 'transparent', border: `1px solid ${f.border}`, color: f.dimmer, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer' }}>Resend</button>
                         </div>
                       )}
                       {(advStatus === 'not_sent' || showEmailInput === gig.id) && (
@@ -190,11 +190,11 @@ export function GigsList() {
                               <input value={promoterEmail} onChange={e => setPromoterEmail(e.target.value)} placeholder="promoter@venue.com"
                                 style={{ background: f.bg, border: `1px solid ${f.mid}`, color: f.text, fontFamily: f.font, fontSize: '13px', padding: '10px 14px', outline: 'none' }} />
                               <div style={{ display: 'flex', gap: '8px' }}>
-                                <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} style={{ background: promoterEmail ? f.gold : 'transparent', color: promoterEmail ? '#070706' : f.dimmer, border: `1px solid ${promoterEmail ? f.gold : f.border}`, fontFamily: f.font, fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} style={{ background: promoterEmail ? f.gold : 'transparent', color: promoterEmail ? '#070706' : f.dimmer, border: `1px solid ${promoterEmail ? f.gold : f.border}`, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   {sending === gig.id && <div style={{ width: '8px', height: '8px', border: '1px solid #070706', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
                                   {sending === gig.id ? 'Sending...' : 'Send →'}
                                 </button>
-                                <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} style={{ background: 'transparent', color: f.dimmer, border: `1px solid ${f.border}`, fontFamily: f.font, fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 16px', cursor: 'pointer' }}>Cancel</button>
+                                <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} style={{ background: 'transparent', color: f.dimmer, border: `1px solid ${f.border}`, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 16px', cursor: 'pointer' }}>Cancel</button>
                               </div>
                             </div>
                           ) : (
@@ -208,7 +208,7 @@ export function GigsList() {
 
                     {/* ACTIONS */}
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: f.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Quick actions</div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: f.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Quick actions</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <Link href={`/broadcast?gig=${gig.id}&title=${encodeURIComponent(gig.title)}&venue=${encodeURIComponent(gig.venue)}&location=${encodeURIComponent(gig.location)}&date=${gig.date}`}
                           style={{ fontSize: '12px', color: f.green, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${f.green}30`, display: 'block' }}>Create post →</Link>
@@ -226,7 +226,7 @@ export function GigsList() {
 
       {toast && (
         <div style={{ position: 'fixed', bottom: '32px', right: '32px', background: 'rgba(14,13,11,0.97)', border: `1px solid ${f.border}`, padding: '16px 24px', fontSize: '13px', color: f.text, zIndex: 9999, backdropFilter: 'blur(16px)' }}>
-          <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: f.gold, marginBottom: '5px', textTransform: 'uppercase' }}>Gigs</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: f.gold, marginBottom: '5px', textTransform: 'uppercase' }}>Gigs</div>
           {toast}
         </div>
       )}

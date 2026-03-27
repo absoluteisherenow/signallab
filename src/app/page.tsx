@@ -10,9 +10,9 @@ const plans = [
     accent: 'text-[#8a8780]',
     button: 'Start with Creator',
     features: [
-      'Signal Lab - unlimited gigs',
+      'Tour Lab - unlimited gigs',
       'Basic advance templates',
-      'Broadcast Lab - 30 captions / month',
+      'Signal Lab - 30 captions / month',
       'Artist tone profile',
       'SetLab - unlimited set building',
       'Camelot + energy arcs',
@@ -77,12 +77,12 @@ const plans = [
 
 const labs = [
   {
-    name: 'Signal Lab',
+    name: 'Tour Lab',
     role: 'Touring operations',
     text: 'Advancing, invoicing, contracts, logistics briefs, expenses, and live show pages that keep the whole team aligned.',
   },
   {
-    name: 'Broadcast Lab',
+    name: 'Signal Lab',
     role: 'Audience engine',
     text: 'Tone-matched captions, media scanning, reference artist analysis, scheduling support, and content intelligence that feels native to the artist.',
   },
@@ -264,8 +264,8 @@ export default function ModularSuiteLandingPage() {
                     {[
                       ['Sonix Lab', 'Production intelligence', 'Create tracks'],
                       ['SetLab', 'DJ intelligence', 'Prepare sets'],
-                      ['Signal Lab', 'Touring operations', 'Perform shows'],
-                      ['Broadcast Lab', 'Audience engine', 'Publish content'],
+                      ['Tour Lab', 'Touring operations', 'Perform shows'],
+                      ['Signal Lab', 'Audience engine', 'Publish content'],
                     ].map(([name, role, action]) => (
                       <div key={name} className="relative text-center">
                         <div className="absolute left-1/2 top-[-40px] h-10 w-px -translate-x-1/2 bg-[#3a2e1f]" />

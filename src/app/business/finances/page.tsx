@@ -135,9 +135,9 @@ export default function Finances() {
       {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px' }}>
         <div>
-          <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
             <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
-            Signal Lab — Finances
+            Tour Lab — Finances
           </div>
           <div className="display" style={{ fontSize: '28px', letterSpacing: '0.04em' }}>Finances</div>
         </div>
@@ -160,7 +160,7 @@ export default function Finances() {
           { label: 'This month', value: `€${monthly[monthly.length - 1].amount.toLocaleString()}`, sub: 'April 2026' },
         ].map(stat => (
           <div key={stat.label} style={{ background: 'var(--panel)', border: `1px solid ${stat.alert ? 'rgba(138, 74, 58, 0.25)' : 'var(--border-dim)'}`, padding: '24px 28px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>{stat.label}</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>{stat.label}</div>
             <div className="display" style={{ fontSize: '28px', color: stat.alert ? 'var(--gold-bright)' : stat.green ? 'var(--green)' : 'var(--text)', marginBottom: '6px' }}>{stat.value}</div>
             <div style={{ fontSize: '11px', color: 'var(--border)' }}>{stat.sub}</div>
           </div>
@@ -169,7 +169,7 @@ export default function Finances() {
 
       {/* CHART */}
       <div className="card" style={{ marginBottom: '24px' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Monthly income</div>
+        <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Monthly income</div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '80px' }}>
           {monthly.map((m, i) => (
             <div key={m.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
@@ -179,7 +179,7 @@ export default function Finances() {
                 background: i >= monthly.length - 2 ? 'linear-gradient(180deg, var(--gold), #7a5a28)' : 'linear-gradient(180deg, var(--border), var(--border-dim))',
                 transition: 'height 0.4s ease',
               }} />
-              <div style={{ fontSize: '9px', color: 'var(--text-dimmer)' }}>{m.month}</div>
+              <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>{m.month}</div>
             </div>
           ))}
         </div>
@@ -188,7 +188,7 @@ export default function Finances() {
       {/* ADD INVOICE FORM */}
       {showAdd && (
         <div className="card" style={{ border: '1px solid rgba(176, 141, 87, 0.25)', marginBottom: '24px' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>New invoice</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>New invoice</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
             {[
               { label: 'Gig / show', key: 'gig_title', placeholder: 'Electric Nights Festival' },
@@ -196,14 +196,14 @@ export default function Finances() {
               { label: 'Due date', key: 'due_date', placeholder: '2026-04-16' },
             ].map(f => (
               <div key={f.key}>
-                <div style={{ fontSize: '9px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>{f.label}</div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>{f.label}</div>
                 <input value={newInvoice[f.key as keyof typeof newInvoice]} onChange={e => setNewInvoice(p => ({ ...p, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
                   style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
               </div>
             ))}
             <div>
-              <div style={{ fontSize: '9px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Type</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Type</div>
               <select value={newInvoice.type} onChange={e => setNewInvoice(p => ({ ...p, type: e.target.value }))}
                 style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none' }}>
                 <option value="deposit">Deposit</option>
@@ -223,7 +223,7 @@ export default function Finances() {
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 120px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
           {['Show', 'Due date', 'Type', 'Amount', 'Status', ''].map(h => (
-            <div key={h} style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{h}</div>
+            <div key={h} style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{h}</div>
           ))}
         </div>
         {loading ? (
@@ -241,7 +241,7 @@ export default function Finances() {
               <div style={{ fontSize: '14px', color: 'var(--text)' }}>{inv.currency}€{inv.amount.toLocaleString()}</div>
               <div>
                 <span style={{
-                  fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase',
+                  fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase',
                   color: inv.status === 'paid' ? 'var(--green)' : 'var(--gold-bright)',
                   background: inv.status === 'paid' ? 'rgba(61, 107, 74, 0.125)' : 'rgba(201, 164, 110, 0.1)',
                   padding: '4px 10px',
@@ -249,7 +249,7 @@ export default function Finances() {
               </div>
               <div>
                 {inv.status === 'pending' && (
-                  <button onClick={() => markPaid(inv.id)} style={{ background: 'transparent', border: 'rgba(61, 107, 74, 0.25)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                  <button onClick={() => markPaid(inv.id)} style={{ background: 'transparent', border: 'rgba(61, 107, 74, 0.25)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', cursor: 'pointer', transition: 'all 0.15s' }}>
                     Mark paid
                   </button>
                 )}

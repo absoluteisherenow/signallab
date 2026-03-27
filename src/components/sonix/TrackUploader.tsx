@@ -116,20 +116,20 @@ Return JSON:
 
   return (
     <div style={{ background: s.bg, fontFamily: s.font, color: s.text, padding: '28px', borderTop: `1px solid ${s.border}`, marginTop: '24px' }}>
-      <div style={{ fontSize: '9px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
         <span style={{ display: 'block', width: '20px', height: '1px', background: s.gold }} />
         Track analyser — upload for instant AI analysis
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
         <div>
-          <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Track name</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Track name</div>
           <input value={trackName} onChange={e => setTrackName(e.target.value)}
             placeholder="Track title"
             style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
         </div>
         <div>
-          <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Artist (optional)</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Artist (optional)</div>
           <input value={artist} onChange={e => setArtist(e.target.value)}
             placeholder="Artist name"
             style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
@@ -202,7 +202,7 @@ Return JSON:
               border: '1px solid var(--accent-green)',
               color: 'var(--accent-green)',
               fontFamily: s.font,
-              fontSize: '9px',
+              fontSize: '10px',
               letterSpacing: '0.14em',
               textTransform: 'uppercase',
               padding: '8px 16px',
@@ -221,7 +221,7 @@ Return JSON:
               { l: 'Chain', v: analysis.suggested_chain.split('—')[0].trim() },
             ].map(stat => (
               <div key={stat.l} style={{ background: s.bg, border: `1px solid ${s.border}`, padding: '12px 14px' }}>
-                <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '4px' }}>{stat.l}</div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '4px' }}>{stat.l}</div>
                 <div style={{ fontSize: '14px', color: s.gold }}>{stat.v}</div>
               </div>
             ))}
@@ -229,17 +229,17 @@ Return JSON:
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div>
-              <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Arrangement</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Arrangement</div>
               <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{analysis.arrangement_notes}</div>
             </div>
             <div>
-              <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Mix character</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Mix character</div>
               <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{analysis.mix_notes}</div>
             </div>
           </div>
 
           <div>
-            <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Sounds like</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Sounds like</div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {analysis.reference_artists.map(a => (
                 <div key={a} style={{ background: s.bg, border: `1px solid ${s.border}`, padding: '6px 12px', fontSize: '11px', color: s.textDim }}>{a}</div>

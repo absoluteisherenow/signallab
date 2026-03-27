@@ -54,10 +54,10 @@ const DEVICES = [
 ]
 
 const INSTALL_STEPS = [
-  { n: '01', title: 'Download the package', body: 'Download the Signal Lab M4L package below. Contains all three devices as .amxd files.' },
+  { n: '01', title: 'Download the package', body: 'Download the Artist OS M4L package below. Contains all three devices as .amxd files.' },
   { n: '02', title: 'Open Ableton Live', body: 'Open Live 11 or 12. Max for Live must be included (Suite edition or add-on).' },
   { n: '03', title: 'Add to User Library', body: 'Drag the .amxd files into your User Library → Max for Live folder in the browser sidebar.' },
-  { n: '04', title: 'Connect to Signal Lab', body: 'In each device, enter your Signal Lab API key from Settings → Integrations. Devices sync in real time.' },
+  { n: '04', title: 'Connect to Artist OS', body: 'In each device, enter your Artist OS API key from Settings → Integrations. Devices sync in real time.' },
   { n: '05', title: 'Start playing', body: 'Drop Chord Engine on a MIDI track, Energy Arc on the Master, Mix Chain on any audio channel.' },
 ]
 
@@ -102,7 +102,7 @@ export function MaxForLive() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <div style={{ background: 'linear-gradient(135deg, #2e2416 0%, #1c1508 100%)', border: `1px solid ${s.borderBright}`, padding: '10px 20px' }}>
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 300, letterSpacing: '0.2em', color: s.gold }}>MAX <span style={{ color: '#8a6a3a' }}>FOR LIVE</span></div>
-            <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.goldDim, marginTop: '2px' }}>SIGNAL LAB — ABLETON INTEGRATION</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.goldDim, marginTop: '2px' }}>SIGNAL LAB — ABLETON INTEGRATION</div>
           </div>
           <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.1em' }}>3 devices · Live 11/12 · M4L required</div>
         </div>
@@ -126,7 +126,7 @@ export function MaxForLive() {
 
         {/* DEVICE SELECTOR */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Devices</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Devices</div>
           {DEVICES.map((d, i) => (
             <div key={d.id} onClick={() => setActiveDevice(i)} style={{
               background: activeDevice === i ? 'linear-gradient(180deg, #2e2416 0%, #1e1508 100%)' : s.black,
@@ -137,7 +137,7 @@ export function MaxForLive() {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                 <div style={{ fontSize: '13px', color: activeDevice === i ? s.text : s.textDim }}>{d.name}</div>
-                <div style={{ fontSize: '8px', letterSpacing: '0.12em', color: d.color, textTransform: 'uppercase' }}>{d.type}</div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: d.color, textTransform: 'uppercase' }}>{d.type}</div>
               </div>
               <div style={{ fontSize: '10px', color: s.textDimmer, lineHeight: '1.5' }}>{d.description.slice(0, 60)}...</div>
             </div>
@@ -145,15 +145,15 @@ export function MaxForLive() {
 
           {/* API KEY */}
           <div style={{ marginTop: '16px', background: s.black, border: `1px solid ${s.border}`, padding: '16px 18px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '10px' }}>Your API key</div>
-            <div style={{ fontSize: '10px', color: s.textDim, marginBottom: '10px', lineHeight: '1.5' }}>Paste into each device to connect to Signal Lab</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '10px' }}>Your API key</div>
+            <div style={{ fontSize: '10px', color: s.textDim, marginBottom: '10px', lineHeight: '1.5' }}>Paste into each device to connect to Artist OS</div>
             <button onClick={copyApiKey} style={{
               width: '100%',
               background: copied ? 'linear-gradient(180deg, #2a3020 0%, #1a2010 100%)' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
               border: `1px solid ${copied ? '#4a6a38' : s.goldDim}`,
               color: copied ? '#8aba68' : s.gold,
               fontFamily: s.font,
-              fontSize: '9px',
+              fontSize: '10px',
               letterSpacing: '0.15em',
               textTransform: 'uppercase',
               padding: '10px',
@@ -184,7 +184,7 @@ export function MaxForLive() {
 
           {/* Parameters */}
           <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: device.color, textTransform: 'uppercase', marginBottom: '16px' }}>Parameters</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: device.color, textTransform: 'uppercase', marginBottom: '16px' }}>Parameters</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {device.params.map(p => (
                 <div key={p.name} style={{ background: s.black, border: `1px solid ${s.border}`, padding: '14px 16px' }}>
@@ -198,7 +198,7 @@ export function MaxForLive() {
 
           {/* Install guide */}
           <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px' }}>Installation</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px' }}>Installation</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
               {INSTALL_STEPS.map((step, i) => (
                 <div key={step.n} style={{ display: 'flex', gap: '20px', padding: '14px 0', borderBottom: i < INSTALL_STEPS.length - 1 ? `1px solid ${s.border}` : 'none' }}>
@@ -214,7 +214,7 @@ export function MaxForLive() {
 
           {/* Compatibility */}
           <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 28px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Compatibility</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Compatibility</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               {[
                 { label: 'Ableton Live', val: '11, 12' },
@@ -223,7 +223,7 @@ export function MaxForLive() {
                 { label: 'Windows', val: '10, 11' },
               ].map(c => (
                 <div key={c.label} style={{ background: s.black, border: `1px solid ${s.border}`, padding: '12px 14px' }}>
-                  <div style={{ fontSize: '9px', color: s.textDimmer, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' }}>{c.label}</div>
+                  <div style={{ fontSize: '10px', color: s.textDimmer, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' }}>{c.label}</div>
                   <div style={{ fontSize: '13px', color: s.text }}>{c.val}</div>
                 </div>
               ))}
@@ -234,7 +234,7 @@ export function MaxForLive() {
 
       {toast && (
         <div style={{ position: 'fixed', bottom: '28px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 50, backdropFilter: 'blur(12px)' }}>
-          <div style={{ fontSize: '8px', letterSpacing: '0.2em', textTransform: 'uppercase', color: s.gold, marginBottom: '4px' }}>Signal Lab</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: s.gold, marginBottom: '4px' }}>Artist OS</div>
           {toast.msg}
         </div>
       )}

@@ -190,9 +190,9 @@ If any field is not found, use null for strings and 0 for numbers.`
     <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '48px 56px' }}>
 
       <div style={{ marginBottom: '40px' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
-          Signal Lab — Contract parser
+          Tour Lab — Contracts
         </div>
         <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 200, letterSpacing: '0.03em', marginBottom: '8px' }}>
           Contract <span style={{ fontStyle: 'italic', fontFamily: 'Georgia, serif', color: s.gold }}>parser</span>
@@ -264,7 +264,7 @@ If any field is not found, use null for strings and 0 for numbers.`
           </button>
 
           <div style={{ marginTop: '32px', background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>What gets created</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>What gets created</div>
             {[
               'Gig record — venue, date, time, location, fee',
               'Deposit invoice — amount + due date from contract',
@@ -280,7 +280,7 @@ If any field is not found, use null for strings and 0 for numbers.`
       ) : (
         /* CONTRACT REVIEW */
         <div style={{ maxWidth: '800px' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ display: 'block', width: '20px', height: '1px', background: s.gold }} />
             Review — edit anything before creating
           </div>
@@ -289,7 +289,7 @@ If any field is not found, use null for strings and 0 for numbers.`
 
             {/* SHOW */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Show details</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Show details</div>
               {[
                 { l: 'Venue', k: 'venue' as keyof ContractData },
                 { l: 'Location', k: 'location' as keyof ContractData },
@@ -297,7 +297,7 @@ If any field is not found, use null for strings and 0 for numbers.`
                 { l: 'Time', k: 'show_time' as keyof ContractData },
               ].map(f => (
                 <div key={f.k} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.l}</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.l}</div>
                   <input value={contract[f.k] as string || ''} onChange={e => updateContract(f.k, e.target.value)} style={inputStyle} />
                 </div>
               ))}
@@ -305,7 +305,7 @@ If any field is not found, use null for strings and 0 for numbers.`
 
             {/* FINANCIALS */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Financials</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Financials</div>
               {[
                 { l: 'Total fee', k: 'total_fee' as keyof ContractData },
                 { l: 'Deposit amount', k: 'deposit_amount' as keyof ContractData },
@@ -314,7 +314,7 @@ If any field is not found, use null for strings and 0 for numbers.`
                 { l: 'Balance due', k: 'balance_due_date' as keyof ContractData },
               ].map(f => (
                 <div key={f.k} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.l}</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.l}</div>
                   <input value={contract[f.k] as string || ''} onChange={e => updateContract(f.k, e.target.value)} style={inputStyle} />
                 </div>
               ))}
@@ -323,14 +323,14 @@ If any field is not found, use null for strings and 0 for numbers.`
 
           {/* PROMOTER */}
           <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px', marginBottom: '24px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Promoter</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Promoter</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {[
                 { l: 'Name', k: 'promoter_name' as keyof ContractData },
                 { l: 'Email', k: 'promoter_email' as keyof ContractData },
               ].map(f => (
                 <div key={f.k}>
-                  <div style={{ fontSize: '8px', letterSpacing: '0.15em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.l}</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.l}</div>
                   <input value={contract[f.k] as string || ''} onChange={e => updateContract(f.k, e.target.value)} style={inputStyle} />
                 </div>
               ))}

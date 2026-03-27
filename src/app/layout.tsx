@@ -3,8 +3,8 @@ import './globals.css'
 import { Navigation } from '@/components/layout/Navigation'
 
 export const metadata: Metadata = {
-  title: 'Night Manoeuvres - Signal Lab Dashboard',
-  description: 'Electronic Artist OS - Signal Lab',
+  title: 'Artist OS — The Modular Suite',
+  description: 'The operating system for electronic artists',
 }
 
 export default function RootLayout({

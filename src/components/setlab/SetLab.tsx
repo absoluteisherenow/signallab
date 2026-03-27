@@ -242,7 +242,7 @@ Provide:
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <div style={{ background: s.panel, border: `1px solid ${s.borderBright}`, padding: '10px 20px' }}>
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 300, letterSpacing: '0.2em', color: s.gold, textShadow: `0 0 20px rgba(176,141,87,0.2)` }}>SET<span style={{ color: s.goldDim }}>LAB</span></div>
-            <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.goldDim, marginTop: '2px' }}>INTELLIGENT DJ COMPANION</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.goldDim, marginTop: '2px' }}>INTELLIGENT DJ COMPANION</div>
           </div>
           <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: s.textDimmer }}>
             {library.length} tracks · {set.length} in set · {setLength}min slot
@@ -253,7 +253,7 @@ Provide:
           {(['library', 'builder', 'history'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               ...btn(activeTab === tab ? s.gold : s.goldDim, activeTab === tab ? s.gold : 'transparent'),
-              fontSize: '9px', padding: '8px 18px',
+              fontSize: '10px', padding: '8px 18px',
               boxShadow: activeTab === tab ? `0 0 10px rgba(${parseInt(s.gold.slice(1, 3), 16)}, ${parseInt(s.gold.slice(3, 5), 16)}, ${parseInt(s.gold.slice(5, 7), 16)}, 0.1)` : 'none',
               color: activeTab === tab ? s.bg : s.gold,
             }}>{tab}</button>
@@ -294,7 +294,7 @@ Provide:
                     { label: 'Artist', key: 'artist', placeholder: 'Artist name' },
                   ].map(f => (
                     <div key={f.key}>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.label}</div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.label}</div>
                       <input value={newTrack[f.key as keyof typeof newTrack]} onChange={e => setNewTrack(p => ({ ...p, [f.key]: e.target.value }))}
                         placeholder={f.placeholder}
                         style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '10px 12px', outline: 'none' }} />
@@ -312,7 +312,7 @@ Provide:
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 80px 80px 80px 60px 1fr 80px', gap: '0', padding: '12px 20px', borderBottom: `1px solid ${s.border}` }}>
                 {['Track', 'Artist', 'BPM', 'Key', 'Camelot', 'Energy', 'Notes', ''].map(h => (
-                  <div key={h} style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase' }}>{h}</div>
+                  <div key={h} style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase' }}>{h}</div>
                 ))}
               </div>
               {filteredLibrary.map(track => (
@@ -331,7 +331,7 @@ Provide:
                     <span style={{ fontSize: '10px', color: s.textDimmer }}>{track.energy}</span>
                   </div>
                   <div style={{ fontSize: '10px', color: s.textDimmer, fontStyle: 'italic', fontFamily: 'Georgia, serif', paddingRight: '12px' }}>{track.notes}</div>
-                  <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '8px', padding: '6px 12px' }}>Add →</button>
+                  <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px' }}>Add →</button>
                 </div>
               ))}
             </div>
@@ -353,20 +353,20 @@ Provide:
                     { label: 'Venue', value: venue, onChange: setVenue, placeholder: 'Fabric, London' },
                   ].map(f => (
                     <div key={f.label}>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.label}</div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{f.label}</div>
                       <input value={f.value} onChange={e => f.onChange(e.target.value)} placeholder={f.placeholder}
                         style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none' }} />
                     </div>
                   ))}
                   <div>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Slot type</div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Slot type</div>
                     <select value={slotType} onChange={e => setSlotType(e.target.value)}
                       style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none' }}>
                       {['Club — peak time', 'Club — warm up', 'Club — closing', 'Festival — main stage', 'Festival — second stage', 'Festival — opening', 'Private event', 'Livestream'].map(o => <option key={o}>{o}</option>)}
                     </select>
                   </div>
                   <div>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Length (mins)</div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Length (mins)</div>
                     <select value={setLength} onChange={e => setSetLength(e.target.value)}
                       style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none' }}>
                       {['30', '45', '60', '90', '120', '180'].map(o => <option key={o}>{o}</option>)}
@@ -378,7 +378,7 @@ Provide:
               {/* Energy arc */}
               {set.length > 1 && (
                 <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '16px 24px' }}>
-                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px' }}>Energy arc</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px' }}>Energy arc</div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '60px' }}>
                     {set.map((t, i) => (
                       <div key={t.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
@@ -389,7 +389,7 @@ Provide:
                           border: '1px solid rgba(201,164,110,0.15)',
                           transition: 'height 0.4s ease',
                         }} />
-                        <div style={{ fontSize: '8px', color: s.textDimmer }}>{i + 1}</div>
+                        <div style={{ fontSize: '10px', color: s.textDimmer }}>{i + 1}</div>
                       </div>
                     ))}
                   </div>
@@ -512,7 +512,7 @@ Provide:
 
       {toast && (
         <div style={{ position: 'fixed', bottom: '28px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 50, maxWidth: '280px', lineHeight: '1.55', backdropFilter: 'blur(12px)' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: s.gold, marginBottom: '4px' }}>{toast.tag}</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: s.gold, marginBottom: '4px' }}>{toast.tag}</div>
           {toast.msg}
         </div>
       )}

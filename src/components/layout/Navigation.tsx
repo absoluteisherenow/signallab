@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const MODULES = [
-  { label: 'Signal Lab', href: '/dashboard', color: '#3d6b4a', sub: [
+  { label: 'Signal Lab', href: '/broadcast', color: '#3d6b4a', sub: [
     { label: 'Tone Intelligence', href: '/broadcast' },
     { label: 'Calendar', href: '/broadcast/calendar' },
     { label: 'Content Intelligence', href: '/broadcast/scanner' },
@@ -34,8 +34,8 @@ export function Navigation() {
     return pathname === mod.href || mod.sub.some(s => pathname === s.href)
   }
   
-  // Hide nav on pricing page
-  if (pathname === '/pricing') {
+  // Hide nav on landing page, pricing, login, onboarding
+  if (pathname === '/' || pathname === '/pricing' || pathname === '/login' || pathname === '/onboarding') {
     return null
   }
   
@@ -43,7 +43,8 @@ export function Navigation() {
     <nav className="sidebar-nav" style={{ width: '200px', background: '#070706', borderRight: '1px solid #1a1917', display: 'flex', flexDirection: 'column', fontFamily: "'DM Mono', monospace", flexShrink: 0, overflowY: 'auto' }}>
       <div style={{ padding: '20px 18px 18px', borderBottom: '1px solid #1a1917' }}>
         <Link href='/dashboard' style={{ textDecoration: 'none' }}>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '10px', fontWeight: 200, letterSpacing: '0.15em', color: '#b08d57', lineHeight: 1.3 }}>Night Manoeuvres<br/>Artist OS</div>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '10px', fontWeight: 200, letterSpacing: '0.15em', color: '#b08d57', lineHeight: 1.3 }}>Artist OS</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#2e2c29', marginTop: '4px', textTransform: 'uppercase' }}>The Modular Suite</div>
         </Link>
       </div>
       <div style={{ flex: 1, padding: '16px 0' }}>

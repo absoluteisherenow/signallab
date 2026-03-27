@@ -126,7 +126,7 @@ export default function RekordboxImport() {
   return (
     <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '32px' }}>
 
-      <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+      <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
         <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
         Set Lab — Rekordbox Import
       </div>
@@ -151,7 +151,7 @@ export default function RekordboxImport() {
           {error && <div style={{ fontSize: '12px', color: '#8a4a3a', padding: '14px 18px', border: '1px solid #4a2a1a', background: '#1a0a06', marginBottom: '16px' }}>{error}</div>}
 
           <div style={{ background: s.black, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>How to export from rekordbox</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>How to export from rekordbox</div>
             {[
               '01 — Open rekordbox on your Mac or PC',
               '02 — Go to File → Export Collection in xml format',
@@ -196,7 +196,7 @@ export default function RekordboxImport() {
           <div style={{ background: s.black, border: `1px solid ${s.border}` }}>
             <div style={{ display: 'grid', gridTemplateColumns: '40px 2fr 1fr 60px 60px 70px 80px', padding: '10px 16px', borderBottom: `1px solid ${s.border}` }}>
               {['', 'Track', 'Artist', 'BPM', 'Key', 'Camelot', 'Time'].map(h => (
-                <div key={h} style={{ fontSize: '8px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase' }}>{h}</div>
+                <div key={h} style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase' }}>{h}</div>
               ))}
             </div>
             <div style={{ maxHeight: '500px', overflowY: 'auto' }}>

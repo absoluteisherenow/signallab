@@ -84,9 +84,9 @@ export default function Logistics() {
     <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh', padding: '48px 56px' }}>
 
       <div style={{ marginBottom: '40px' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
           <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
-          Signal Lab — Gigs
+          Tour Lab — Gigs
         </div>
         <div className="display" style={{ fontSize: '36px', letterSpacing: '0.03em', marginBottom: '8px' }}>
           Gigs
@@ -102,7 +102,7 @@ export default function Logistics() {
           { label: 'Not yet sent', value: gigs.length - Object.keys(advanceStatus).length, color: 'var(--text-dimmer)' },
         ].map(stat => (
           <div key={stat.label} className="card">
-            <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
             <div className="display" style={{ fontSize: '32px', color: stat.color }}>{stat.value}</div>
           </div>
         ))}
@@ -137,7 +137,7 @@ export default function Logistics() {
                   {gigDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {gig.time}
                 </div>
                 <div>
-                  <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: gig.status === 'confirmed' ? 'var(--green)' : '#8a6a3a', background: gig.status === 'confirmed' ? 'rgba(61, 107, 74, 0.1)' : 'rgba(138, 106, 58, 0.1)', padding: '4px 10px' }}>
+                  <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: gig.status === 'confirmed' ? 'var(--green)' : '#8a6a3a', background: gig.status === 'confirmed' ? 'rgba(61, 107, 74, 0.1)' : 'rgba(138, 106, 58, 0.1)', padding: '4px 10px' }}>
                     {gig.status}
                   </span>
                 </div>
@@ -157,7 +157,7 @@ export default function Logistics() {
 
                     {/* SHOW DETAILS */}
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Show details</div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Show details</div>
                       {[
                         { l: 'Venue', v: gig.venue },
                         { l: 'Location', v: gig.location },
@@ -175,7 +175,7 @@ export default function Logistics() {
 
                     {/* ADVANCE */}
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Advance request</div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Advance request</div>
 
                       {advStatus === 'complete' && (
                         <div>
@@ -190,7 +190,7 @@ export default function Logistics() {
                         <div>
                           <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '12px' }}>Sent — awaiting promoter response</div>
                           <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '16px' }}>The promoter has been sent the advance form link</div>
-                          <button onClick={() => setShowEmailInput(showEmailInput === gig.id ? null : gig.id)} className="btn-secondary" style={{ fontSize: '9px', padding: '8px 16px' }}>
+                          <button onClick={() => setShowEmailInput(showEmailInput === gig.id ? null : gig.id)} className="btn-secondary" style={{ fontSize: '10px', padding: '8px 16px' }}>
                             Resend
                           </button>
                         </div>
@@ -209,13 +209,13 @@ export default function Logistics() {
                               />
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} className="btn-primary" style={{
-                                  fontSize: '9px', padding: '10px 20px', opacity: !promoterEmail ? 0.4 : 1, cursor: !promoterEmail ? 'not-allowed' : 'pointer',
+                                  fontSize: '10px', padding: '10px 20px', opacity: !promoterEmail ? 0.4 : 1, cursor: !promoterEmail ? 'not-allowed' : 'pointer',
                                   display: 'flex', alignItems: 'center', gap: '8px',
                                 }}>
                                   {sending === gig.id && <div style={{ width: '8px', height: '8px', border: '1px solid var(--bg)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
                                   {sending === gig.id ? 'Sending...' : 'Send →'}
                                 </button>
-                                <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} className="btn-secondary" style={{ fontSize: '9px', padding: '10px 16px' }}>
+                                <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} className="btn-secondary" style={{ fontSize: '10px', padding: '10px 16px' }}>
                                   Cancel
                                 </button>
                               </div>
@@ -233,7 +233,7 @@ export default function Logistics() {
 
                     {/* QUICK ACTIONS */}
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Quick actions</div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Quick actions</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <Link href={`/broadcast?gig=${gig.id}&title=${encodeURIComponent(gig.title)}&venue=${encodeURIComponent(gig.venue)}&location=${encodeURIComponent(gig.location)}&date=${gig.date}`}
                           style={{ fontSize: '12px', color: 'var(--green)', textDecoration: 'none', padding: '12px 16px', border: 'rgba(61, 107, 74, 0.19)', display: 'block', transition: 'all 0.15s' }}>

@@ -34,7 +34,7 @@ export default function NewGig() {
   }
 
   const labelStyle = {
-    fontSize: '9px', letterSpacing: '0.18em', color: s.dimmer,
+    fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer,
     textTransform: 'uppercase' as const, marginBottom: '8px', display: 'block',
   }
 
@@ -65,9 +65,9 @@ export default function NewGig() {
     <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '48px 56px' }}>
 
       <div style={{ marginBottom: '40px' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
-          Signal Lab — New gig
+          Tour Lab — New gig
         </div>
         <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 200, letterSpacing: '0.03em' }}>Add new gig</div>
       </div>
@@ -76,7 +76,7 @@ export default function NewGig() {
 
         {/* SHOW DETAILS */}
         <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '32px', marginBottom: '16px' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px' }}>Show details</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px' }}>Show details</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             <div>
               <label style={labelStyle}>Show title *</label>
@@ -119,7 +119,7 @@ export default function NewGig() {
 
         {/* FINANCIAL */}
         <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '32px', marginBottom: '16px' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px' }}>Financial</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px' }}>Financial</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 1fr', gap: '14px' }}>
             <div>
               <label style={labelStyle}>Fee</label>
@@ -145,7 +145,7 @@ export default function NewGig() {
 
         {/* PROMOTER */}
         <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '32px', marginBottom: '32px' }}>
-          <div style={{ fontSize: '9px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px' }}>Promoter</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px' }}>Promoter</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             <div>
               <label style={labelStyle}>Promoter email</label>

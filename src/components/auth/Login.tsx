@@ -56,7 +56,7 @@ export default function Login() {
         <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 200, letterSpacing: '0.25em', color: s.gold, lineHeight: 1.3, marginBottom: '6px' }}>
           NIGHT MANOEUVRES
         </div>
-        <div style={{ fontSize: '8px', letterSpacing: '0.3em', color: s.dimmer, textTransform: 'uppercase' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.dimmer, textTransform: 'uppercase' }}>
           The Modular Suite
         </div>
       </div>
@@ -65,13 +65,13 @@ export default function Login() {
       <div style={{ width: '100%', maxWidth: '400px' }}>
         <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '40px' }}>
 
-          <div style={{ fontSize: '9px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', marginBottom: '28px' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', marginBottom: '28px' }}>
             {mode === 'login' ? 'Sign in' : 'Create account'}
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div>
-              <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Email</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Email</div>
               <input
                 type="email"
                 value={email}
@@ -84,7 +84,7 @@ export default function Login() {
               />
             </div>
             <div>
-              <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Password</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Password</div>
               <input
                 type="password"
                 value={password}

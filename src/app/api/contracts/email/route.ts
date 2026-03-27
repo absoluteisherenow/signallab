@@ -202,7 +202,7 @@ Contact: ${gig.promoter_email || 'TBA'}
 
 ${gig.notes ? `Notes: ${gig.notes}` : ''}
 
-Log in to Signal Lab to view full details, upload contracts, and send advance requests.
+Log in to Artist OS to view full details, upload contracts, and send advance requests.
 
 Night Manoeuvres
       `.trim()
@@ -211,7 +211,7 @@ Night Manoeuvres
         const emailClient = getResend()
         if (emailClient) {
           await emailClient.emails.send({
-            from: 'Signal Lab <bookings@nightmanoeuvres.com>',
+            from: 'Artist OS <bookings@nightmanoeuvres.com>',
             to: process.env.ARTIST_EMAIL || 'bookings@nightmanoeuvres.com',
             subject: `New gig confirmed: ${gig.title} on ${gigDate}`,
             text: notificationEmail,

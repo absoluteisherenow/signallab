@@ -199,9 +199,9 @@ Return JSON:
 
       {/* HEADER */}
       <div style={{ marginBottom: '32px' }}>
-        <div style={{ fontSize: '9px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
-          Broadcast Lab — Intelligent Media Scanner
+          Signal Lab — Intelligent Media Scanner
         </div>
         <div style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '0.04em' }}>
           Media <span style={{ fontStyle: 'italic', color: s.gold, fontFamily: 'Georgia, serif' }}>scanner</span>
@@ -235,7 +235,7 @@ Return JSON:
               <div>
                 <div style={{ fontSize: '14px', color: s.gold, marginBottom: '6px' }}>{file.name}</div>
                 <div style={{ fontSize: '11px', color: s.textDimmer, marginBottom: '16px' }}>{(file.size / 1024 / 1024).toFixed(1)} MB</div>
-                <button onClick={() => fileInputRef.current?.click()} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.textDim, fontFamily: s.font, fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer' }}>
+                <button onClick={() => fileInputRef.current?.click()} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.textDim, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer' }}>
                   Change file
                 </button>
               </div>
@@ -286,12 +286,12 @@ Return JSON:
           {/* Extracted frames */}
           {frames.length > 0 && (
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '16px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '10px' }}>Extracted frames</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '10px' }}>Extracted frames</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
                 {frames.map((f, i) => (
                   <div key={i} style={{ position: 'relative' }}>
                     <img src={f.dataUrl} alt="" style={{ width: '100%', display: 'block' }} />
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', fontSize: '8px', color: s.textDim, padding: '2px 4px' }}>{f.timestamp.toFixed(1)}s</div>
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', fontSize: '10px', color: s.textDim, padding: '2px 4px' }}>{f.timestamp.toFixed(1)}s</div>
                   </div>
                 ))}
               </div>
@@ -305,7 +305,7 @@ Return JSON:
 
             {/* Best moment */}
             <div style={{ background: s.panel, border: `1px solid ${s.gold}`, padding: '24px 28px', boxShadow: '0 0 20px rgba(176,141,87,0.08)' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Best moment</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Best moment</div>
               <div style={{ fontSize: '28px', fontWeight: 300, color: s.gold, marginBottom: '6px' }}>{result.best_moment.timestamp.toFixed(1)}s</div>
               <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '12px', lineHeight: '1.6', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{result.best_moment.reason}</div>
               <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: s.textDimmer }}>
@@ -316,7 +316,7 @@ Return JSON:
 
             {/* Platform cuts */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Platform cuts</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Platform cuts</div>
               {Object.entries(result.platform_cuts).map(([platform, cut]) => (
                 <div key={platform} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: `1px solid ${s.border}`, fontSize: '11px' }}>
                   <span style={{ color: s.textDimmer, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{platform}</span>
@@ -327,7 +327,7 @@ Return JSON:
 
             {/* All moments */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>All moments</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>All moments</div>
               {result.moments.map((moment, i) => (
                 <div key={i} onClick={() => setSelectedMoment(i)} style={{
                   padding: '12px 0',
@@ -339,7 +339,7 @@ Return JSON:
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span style={{ fontSize: '12px', color: s.text }}>{moment.timestamp.toFixed(1)}s</span>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <span style={{ fontSize: '9px', color: typeColors[moment.type] || s.gold, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{moment.type}</span>
+                      <span style={{ fontSize: '10px', color: typeColors[moment.type] || s.gold, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{moment.type}</span>
                       <span style={{ fontSize: '12px', color: s.gold }}>{moment.score}</span>
                     </div>
                   </div>
@@ -364,7 +364,7 @@ Return JSON:
                 padding: '14px',
                 cursor: 'pointer',
               }}>
-                Generate caption in Broadcast Lab →
+                Generate caption in Signal Lab →
               </button>
             </div>
           </div>
