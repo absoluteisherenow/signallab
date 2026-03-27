@@ -101,6 +101,16 @@ export function SonixLab() {
   const [activeType, setActiveType] = useState<string>('all')
   const [meters, setMeters] = useState([0.3, 0.6, 0.4, 0.8, 0.5, 0.7])
 
+  // QUESTION BAR state
+  const [question, setQuestion] = useState('')
+  const [questionResult, setQuestionResult] = useState('')
+  const [askingQuestion, setAskingQuestion] = useState(false)
+
+  // STEM ANALYSIS state
+  const [stemType, setStemType] = useState<'kick' | 'bass' | 'vocals' | 'synths' | 'drums' | 'full_mix'>('full_mix')
+  const [stemAnalysis, setStemAnalysis] = useState('')
+  const [analysingStem, setAnalysingStem] = useState(false)
+
   const showToast = (msg: string, tag = 'Info') => {
     setToast({ msg, tag })
     if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -258,6 +268,61 @@ Give me:
     }
   }
 
+  async function askProductionQuestion() {
+    if (!question.trim()) return
+    setAskingQuestion(true)
+    setQuestionResult('')
+    try {
+      const raw = await callClaude(
+        `You are an expert electronic music producer and mix engineer who has worked with artists like Bicep, Four Tet, Floating Points, Jon Hopkins, and Aphex Twin. You know every plugin, every technique, every signal chain. Give specific, actionable answers — exact plugin names, exact settings, exact techniques. No generic advice. If the question mentions a specific artist or sound, explain exactly how to recreate it in Ableton Live with specific plugins and settings.`,
+        `Production question: ${question}
+Genre context: ${genre}
+Key: ${key}
+
+Answer with:
+1. The exact approach (step by step)
+2. Specific plugins to use (with settings where possible)
+3. The "secret" that makes this sound work
+4. Common mistakes that ruin it
+5. One reference track that nails this technique`,
+        800
+      )
+      setQuestionResult(raw)
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`, 'Error')
+    } finally {
+      setAskingQuestion(false)
+    }
+  }
+
+  async function analyseStem() {
+    setAnalysingStem(true)
+    setStemAnalysis('')
+    try {
+      const raw = await callClaude(
+        `You are an expert mix engineer specialising in electronic music. You know every plugin chain used by top producers. Give specific, immediately actionable advice — exact plugin names, exact settings, exact frequencies. Think like a senior engineer at a top studio reviewing a client's stem.`,
+        `Analyse and suggest improvements for this stem type: ${stemType}
+Genre: ${genre}
+Key: ${key}
+Feel: ${feel}
+
+Give me:
+1. DIAGNOSIS — What to listen for in this stem type, common problems
+2. SIGNAL CHAIN — Exact plugin order with specific settings (EQ frequencies, compression ratios, saturation amounts)
+3. KNOWN PRODUCER CHAINS — How Bicep, Four Tet, Floating Points, and Jon Hopkins handle this stem type specifically
+4. QUICK WINS — 3 specific moves that will immediately improve this stem
+5. PRO UPGRADE — What separates an amateur ${stemType} from a professional one
+6. ABLETON SPECIFIC — Native Ableton plugins that can achieve 80% of the result before reaching for third-party`,
+        900
+      )
+      setStemAnalysis(raw)
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`, 'Error')
+    } finally {
+      setAnalysingStem(false)
+    }
+  }
+
   const filteredChains = activeType === 'all' ? CHAINS : CHAINS.filter(c => c.type === activeType)
 
   const typeColors: Record<string, string> = {
@@ -347,7 +412,7 @@ Give me:
         </div>
 
         <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: '#3a2e20' }}>
-          SIGNAL LAB — THE MODULAR SUITE
+          ARTIST OS — SONIX LAB
         </div>
       </div>
 
@@ -395,6 +460,48 @@ Give me:
           {referenceAnalysis && (
             <div style={{ marginTop: '16px', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '16px 20px', maxHeight: '180px', overflowY: 'auto' }}>
               <div style={{ fontSize: '14px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{referenceAnalysis}</div>
+            </div>
+          )}
+        </div>
+
+        {/* PRODUCTION QUESTION BAR — always visible */}
+        <div style={{
+          background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)',
+          border: '1px solid #3a2e1c',
+          padding: '20px 28px',
+          marginBottom: '24px',
+        }}>
+          <div style={{ fontSize: '11px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
+            How do I make this? — ask anything
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <input value={question} onChange={e => setQuestion(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') askProductionQuestion() }}
+              placeholder="How do I get Four Tet's organic drum sound? / How do Bicep make those wide pads? / Make my bass sound like Floating Points..."
+              style={{ flex: 1, background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+            <button onClick={askProductionQuestion} disabled={askingQuestion || !question.trim()} style={{
+              background: askingQuestion ? 'var(--bg)' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
+              border: '1px solid var(--gold-bright)',
+              color: 'var(--gold-bright)',
+              fontFamily: "'DM Mono', monospace",
+              fontSize: '10px',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              padding: '12px 28px',
+              cursor: 'pointer',
+              opacity: askingQuestion || !question.trim() ? 0.5 : 1,
+              display: 'flex', alignItems: 'center', gap: '10px',
+            }}>
+              {askingQuestion && <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+              {askingQuestion ? 'Thinking...' : 'Ask →'}
+            </button>
+          </div>
+          {questionResult && (
+            <div style={{ marginTop: '16px', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '20px 24px', maxHeight: '300px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '13px', lineHeight: '1.9', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                {questionResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
+              </div>
             </div>
           )}
         </div>
@@ -631,6 +738,69 @@ Give me:
         {/* ═══ MIXDOWN TAB ═══ */}
         {activeTab === 'mixdown' && (
           <div className="flex flex-col gap-6">
+
+            {/* STEM ANALYSIS — PRO FEATURE */}
+            <div style={{
+              background: 'linear-gradient(180deg, #1a1812 0%, #141008 100%)',
+              border: '1px solid var(--gold-dim)',
+              padding: '24px 28px',
+              boxShadow: '0 0 20px rgba(201,164,110,0.05)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ fontSize: '11px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
+                  Stem analysis — Pro
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', letterSpacing: '0.1em' }}>Select a stem type for targeted analysis</div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                {(['kick', 'bass', 'vocals', 'synths', 'drums', 'full_mix'] as const).map(stem => (
+                  <button key={stem} onClick={() => setStemType(stem)} style={{
+                    flex: 1,
+                    background: stemType === stem ? 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)' : 'var(--bg-input)',
+                    border: `1px solid ${stemType === stem ? 'var(--gold)' : 'var(--border-dim)'}`,
+                    color: stemType === stem ? 'var(--gold-bright)' : 'var(--text-dimmer)',
+                    fontFamily: "'DM Mono', monospace",
+                    fontSize: '10px',
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    padding: '10px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}>
+                    {stem === 'full_mix' ? 'Full mix' : stem}
+                  </button>
+                ))}
+              </div>
+              <button onClick={analyseStem} disabled={analysingStem} style={{
+                width: '100%',
+                background: analysingStem ? 'var(--bg)' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
+                border: '1px solid var(--gold-bright)',
+                color: 'var(--gold-bright)',
+                fontFamily: "'DM Mono', monospace",
+                fontSize: '11px',
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                padding: '14px',
+                cursor: 'pointer',
+                opacity: analysingStem ? 0.5 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                boxShadow: '0 0 16px rgba(201,164,110,0.1)',
+              }}>
+                {analysingStem && <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+                {analysingStem ? `Analysing ${stemType}...` : `Analyse ${stemType === 'full_mix' ? 'full mix' : stemType} — get plugin chain + producer insights`}
+              </button>
+              {stemAnalysis && (
+                <div style={{ marginTop: '16px', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '24px', maxHeight: '400px', overflowY: 'auto' }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--border-dim)' }}>
+                    {stemType} analysis — plugin chains + producer insights
+                  </div>
+                  <div style={{ fontSize: '13px', lineHeight: '1.9', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
+                    {stemAnalysis.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* CHAIN TYPE FILTER */}
             <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid var(--border-dim)', padding: '20px 28px' }}>
