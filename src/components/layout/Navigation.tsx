@@ -16,9 +16,6 @@ const MODULES = [
       { label: 'Contracts', href: '/contracts' },
   ]},
   { label: 'SONIX Lab', href: '/sonix', color: '#6a7a9a', sub: [
-    { label: 'Compose', href: '/sonix#compose' },
-    { label: 'Arrange', href: '/sonix#arrange' },
-    { label: 'Mixdown', href: '/sonix#mixdown' },
     { label: 'Max for Live', href: '/maxforlive' },
   ]},
   { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [

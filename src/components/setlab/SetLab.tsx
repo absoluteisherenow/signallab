@@ -489,9 +489,6 @@ Provide:
               <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search tracks, artists, genres, moment types..."
                 style={{ flex: 1, background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
-              <button onClick={() => setAddingTrack(!addingTrack)} style={btn(s.gold)}>
-                {addingTrack ? 'Cancel' : '+ Add track'}
-              </button>
             </div>
 
             {/* Moment type filter pills */}
@@ -508,33 +505,7 @@ Provide:
               ))}
             </div>
 
-            {/* Add track form — simplified */}
-            {addingTrack && (
-              <div style={{ background: s.panel, border: `1px solid ${s.borderBright}`, padding: '20px 24px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Add track — Claude analyses key, BPM, energy, mix techniques, crowd reaction</div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Artist</div>
-                    <input value={newTrack.artist} onChange={e => setNewTrack(p => ({ ...p, artist: e.target.value }))}
-                      placeholder="Four Tet"
-                      style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '10px 12px', outline: 'none' }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Track</div>
-                    <input value={newTrack.title} onChange={e => setNewTrack(p => ({ ...p, title: e.target.value }))}
-                      placeholder="Track name"
-                      onKeyDown={e => e.key === 'Enter' && analyseAndAddTrack()}
-                      style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '10px 12px', outline: 'none' }} />
-                  </div>
-                  <button onClick={analyseAndAddTrack} disabled={analysingTrack} style={{ ...btn(s.gold), opacity: analysingTrack ? 0.5 : 1, whiteSpace: 'nowrap' }}>
-                    {analysingTrack && <div style={{ width: '10px', height: '10px', border: `1px solid ${s.gold}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
-                    {analysingTrack ? 'Analysing...' : 'Analyse & add →'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Audio drop zone */}
+            {/* Audio drop zone — drag MP3/WAV/FLAC to add tracks */}
             <div
               onDragOver={e => { e.preventDefault(); setDragOver(true) }}
               onDragLeave={() => setDragOver(false)}

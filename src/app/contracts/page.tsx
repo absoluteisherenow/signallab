@@ -13,13 +13,13 @@ interface Extracted {
 }
 const EMPTY:Extracted={title:'',venue:'',location:'',date:'',time:'',fee:'',currency:'EUR',audience:'',status:'confirmed',promoter_email:'',promoter_name:'',promoter_phone:'',notes:'',load_in:'',soundcheck:'',doors:'',set_length:'',parking:'',wifi:'',dressing_room:'',hospitality:'',hotel_name:'',hotel_address:'',backline:'',deposit_amount:'',deposit_due:'',balance_due:''}
 const iStyle={width:'100%',background:'var(--bg)',border:'1px solid var(--border-dim)',color:'var(--text)',fontFamily:'var(--font-mono)',fontSize:'13px',padding:'10px 14px',outline:'none',boxSizing:'border-box' as const}
-const lStyle={fontSize:'9px',letterSpacing:'0.18em',color:'var(--text-dimmer)',textTransform:'uppercase' as const,marginBottom:'6px',display:'block'}
+const lStyle={fontSize:'10px',letterSpacing:'0.18em',color:'var(--text-dimmer)',textTransform:'uppercase' as const,marginBottom:'6px',display:'block'}
 
 function F({label,value,onChange,ph=''}:{label:string;value:string;onChange:(v:string)=>void;ph?:string}) {
   return <div><label style={lStyle}>{label}</label><input value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} style={iStyle}/></div>
 }
 function Sec({label}:{label:string}) {
-  return <div style={{fontSize:'9px',letterSpacing:'0.22em',color:'var(--gold)',textTransform:'uppercase',marginBottom:'20px',paddingBottom:'10px',borderBottom:'1px solid var(--border-dim)'}}>{label}</div>
+  return <div style={{fontSize:'10px',letterSpacing:'0.22em',color:'var(--gold)',textTransform:'uppercase',marginBottom:'20px',paddingBottom:'10px',borderBottom:'1px solid var(--border-dim)'}}>{label}</div>
 }
 
 export default function Contracts() {
@@ -72,7 +72,7 @@ export default function Contracts() {
   return (
     <div style={{background:'var(--bg)',color:'var(--text)',fontFamily:'var(--font-mono)',minHeight:'100vh',padding:'40px 48px'}}>
       <div style={{marginBottom:'40px'}}>
-        <div style={{fontSize:'9px',letterSpacing:'0.3em',color:'var(--gold)',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
+        <div style={{fontSize:'10px',letterSpacing:'0.3em',color:'var(--gold)',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
           <span style={{display:'block',width:'28px',height:'1px',background:'var(--gold)'}}/>Tour Lab — Contracts
         </div>
         <div className="display" style={{fontSize:'28px'}}>Contract parser</div>
@@ -90,7 +90,7 @@ export default function Contracts() {
       {!extracted ? (
         <div style={{maxWidth:'800px'}}>
           <div className="card" style={{marginBottom:'16px'}}>
-            <div style={{fontSize:'9px',letterSpacing:'0.2em',color:'var(--text-dimmer)',textTransform:'uppercase',marginBottom:'14px'}}>Paste contract, booking email, or rider</div>
+            <div style={{fontSize:'10px',letterSpacing:'0.2em',color:'var(--text-dimmer)',textTransform:'uppercase',marginBottom:'14px'}}>Paste contract, booking email, or rider</div>
             <textarea value={rawText} onChange={e=>setRawText(e.target.value)} rows={14}
               placeholder={'Paste booking confirmation here...\n\nExample:\nDear Artist, We confirm your booking at Tresor Club, Berlin.\nDate: 15 April 2026, Set time: 23:00-01:00\nFee: EUR 5000 (50% deposit due 1 April)\nLoad-in: 20:00, Soundcheck: 21:30\nHotel: Hotel Adlon, Unter den Linden 77\nBackline: Pioneer CDJ-3000 x2, DJM-V10'}
               style={{...iStyle,resize:'vertical',lineHeight:'1.7',fontSize:'12px'}}/>
