@@ -13,6 +13,16 @@ interface ScheduledPost {
   media_url?: string
 }
 
+interface Gig {
+  id: string
+  title: string
+  venue: string
+  location: string
+  date: string
+  time: string
+  status: string
+}
+
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -24,29 +34,29 @@ const PLATFORM_COLORS: Record<string, string> = {
 
 export function BroadcastCalendar() {
   const [posts, setPosts] = useState<ScheduledPost[]>([])
+  const [gigs, setGigs] = useState<Gig[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null)
   const [weekOffset, setWeekOffset] = useState(0)
   const [filterPlatform, setFilterPlatform] = useState('All')
 
-  useEffect(() => { loadPosts() }, [])
+  useEffect(() => { loadPosts(); loadGigs() }, [])
+
+  async function loadGigs() {
+    try {
+      const res = await fetch('/api/gigs')
+      const data = await res.json()
+      if (data.gigs) setGigs(data.gigs)
+    } catch { /* non-critical */ }
+  }
 
   async function loadPosts() {
     setLoading(true)
     try {
       const res = await fetch('/api/schedule')
       const data = await res.json()
-      if (data.success && data.posts.length > 0) {
+      if (data.success && data.posts?.length > 0) {
         setPosts(data.posts)
-      } else {
-        // Fallback sample data
-        setPosts([
-          { id: '1', platform: 'Instagram', caption: 'pitch on a saturday. yeah', format: 'post', scheduled_at: getWeekDate(1, 22), status: 'scheduled' },
-          { id: '2', platform: 'TikTok', caption: "crowd clip — didn't expect that reaction", format: 'reel', scheduled_at: getWeekDate(1, 20), status: 'scheduled' },
-          { id: '3', platform: 'Instagram', caption: 'same airport. different country.', format: 'story', scheduled_at: getWeekDate(3, 9), status: 'draft' },
-          { id: '4', platform: 'TikTok', caption: 'studio session clip', format: 'reel', scheduled_at: getWeekDate(4, 19), status: 'scheduled' },
-          { id: '5', platform: 'Instagram', caption: 'still processing last night tbh', format: 'carousel', scheduled_at: getWeekDate(5, 12), status: 'posted' },
-        ])
       }
     } catch {
       setPosts([])
@@ -83,6 +93,15 @@ export function BroadcastCalendar() {
     })
   }
 
+  function getGigsForDay(dayIndex: number) {
+    const dayDate = getDayDate(dayIndex)
+    return gigs.filter(g => {
+      if (!g.date) return false
+      const gigDate = new Date(g.date)
+      return gigDate.toDateString() === dayDate.toDateString()
+    })
+  }
+
   function getPostTime(post: ScheduledPost) {
     const d = new Date(post.scheduled_at)
     return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -90,6 +109,7 @@ export function BroadcastCalendar() {
 
   const totalScheduled = posts.filter(p => p.status === 'scheduled').length
   const totalPosted = posts.filter(p => p.status === 'posted').length
+  const totalGigs = gigs.length
 
   const s = {
     bg: '#070706', panel: '#0e0d0b', border: '#2e2c29',
@@ -115,8 +135,8 @@ export function BroadcastCalendar() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ fontSize: '11px', color: s.dim, textAlign: 'right', lineHeight: '2' }}>
-            <div>{totalScheduled} scheduled</div>
-            <div>{totalPosted} posted</div>
+            <div>{totalScheduled} scheduled · {totalPosted} posted</div>
+            {totalGigs > 0 && <div style={{ color: '#b08d57' }}>{totalGigs} gigs</div>}
           </div>
           <div style={{ display: 'flex', gap: '4px' }}>
             <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: s.panel, border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '14px', padding: '8px 14px', cursor: 'pointer' }}>←</button>
@@ -157,6 +177,16 @@ export function BroadcastCalendar() {
                 <div style={{ fontSize: '12px', color: isToday ? s.gold : s.dim }}>{date.getDate()}</div>
               </div>
               <div style={{ flex: 1, padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {getGigsForDay(i).map(gig => (
+                  <div key={gig.id} onClick={() => window.location.href = '/logistics'} style={{
+                    background: 'rgba(176,141,87,0.08)', border: '1px solid rgba(176,141,87,0.3)',
+                    borderLeft: '2px solid #b08d57', padding: '6px 8px', cursor: 'pointer',
+                  }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: '#b08d57', textTransform: 'uppercase' }}>GIG</div>
+                    <div style={{ fontSize: '11px', color: s.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gig.title}</div>
+                    <div style={{ fontSize: '10px', color: s.dimmer }}>{gig.venue} {gig.time && `· ${gig.time}`}</div>
+                  </div>
+                ))}
                 {dayPosts.map(post => (
                   <div key={post.id} onClick={() => setSelectedPost(post)} style={{
                     background: '#1a1917', border: `1px solid ${PLATFORM_COLORS[post.platform] || s.border}30`,
