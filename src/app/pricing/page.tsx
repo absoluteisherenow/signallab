@@ -183,7 +183,7 @@ export default function PricingPage() {
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                   <th style={{ textAlign: 'left', padding: '16px 0', fontWeight: 'bold', color: COLORS.text }}>Feature</th>
-                  <th style={{ textAlign: 'center', padding: '16px 0', fontWeight: 'bold', color: COLORS.gold }}>Modular Suite</th>
+                  <th style={{ textAlign: 'center', padding: '16px 0', fontWeight: 'bold', color: COLORS.gold }}>Artist OS</th>
                   <th style={{ textAlign: 'center', padding: '16px 0', fontWeight: 'bold', color: COLORS.textDimmer }}>Advancers</th>
                   <th style={{ textAlign: 'center', padding: '16px 0', fontWeight: 'bold', color: COLORS.textDimmer }}>Sheets</th>
                 </tr>

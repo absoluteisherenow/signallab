@@ -77,7 +77,7 @@ export default function Onboarding() {
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '10px', letterSpacing: '0.4em', color: s.gold, textTransform: 'uppercase', marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
               <span style={{ display: 'block', width: '40px', height: '1px', background: s.gold }} />
-              The Modular Suite
+              Artist OS
               <span style={{ display: 'block', width: '40px', height: '1px', background: s.gold }} />
             </div>
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 56px)', fontWeight: 200, letterSpacing: '0.03em', lineHeight: 1.1, marginBottom: '24px' }}>

@@ -57,7 +57,7 @@ export default function Login() {
           NIGHT MANOEUVRES
         </div>
         <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.dimmer, textTransform: 'uppercase' }}>
-          The Modular Suite
+          Artist OS
         </div>
       </div>
 

@@ -159,7 +159,7 @@ export default function ModularSuiteLandingPage() {
         },
         body: JSON.stringify({
           email,
-          source: 'signal-lab-landing',
+          source: 'artist-os-landing',
         }),
       })
 

@@ -125,7 +125,7 @@ export default function Finances() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'signal-lab-finances.csv'
+    a.download = 'artist-os-finances.csv'
     a.click()
   }
 

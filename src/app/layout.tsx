@@ -3,7 +3,7 @@ import './globals.css'
 import { Navigation } from '@/components/layout/Navigation'
 
 export const metadata: Metadata = {
-  title: 'Artist OS — The Modular Suite',
+  title: 'Artist OS',
   description: 'The operating system for electronic artists',
 }
 

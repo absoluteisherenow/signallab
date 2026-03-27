@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Artist OS — The Modular Suite',
+    name: 'Artist OS',
     short_name: 'Night Manoeuvres',
     description: 'The operating system for electronic artists',
     start_url: '/',

@@ -44,7 +44,7 @@ export function Navigation() {
       <div style={{ padding: '20px 18px 18px', borderBottom: '1px solid #1a1917' }}>
         <Link href='/dashboard' style={{ textDecoration: 'none' }}>
           <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '10px', fontWeight: 200, letterSpacing: '0.15em', color: '#b08d57', lineHeight: 1.3 }}>Artist OS</div>
-          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#2e2c29', marginTop: '4px', textTransform: 'uppercase' }}>The Modular Suite</div>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#2e2c29', marginTop: '4px', textTransform: 'uppercase' }}>by Night Manoeuvres</div>
         </Link>
       </div>
       <div style={{ flex: 1, padding: '16px 0' }}>
