@@ -377,6 +377,57 @@ Return JSON:
     }
   }
 
+  // ── Rekordbox XML Export ──────────────────────────────────────────────
+  function exportToRekordbox() {
+    const tracks = set.length > 0 ? set : library
+    if (tracks.length === 0) { showToast('No tracks to export', 'Error'); return }
+
+    // Reverse Camelot → Rekordbox key mapping
+    const camelotToKey: Record<string, string> = {
+      '8A': 'Am', '9A': 'Em', '10A': 'Bm', '11A': 'F#m', '12A': 'Dbm', '1A': 'Abm',
+      '2A': 'Ebm', '3A': 'Bbm', '4A': 'Fm', '5A': 'Cm', '6A': 'Gm', '7A': 'Dm',
+      '8B': 'C', '9B': 'G', '10B': 'D', '11B': 'A', '12B': 'E', '1B': 'B',
+      '2B': 'F#', '3B': 'Db', '4B': 'Ab', '5B': 'Eb', '6B': 'Bb', '7B': 'F',
+    }
+
+    const trackXml = tracks.map((t, i) => {
+      const tonality = camelotToKey[t.camelot] || t.key || ''
+      const dur = t.duration ? t.duration.split(':').reduce((acc, v, j) => acc + parseInt(v) * (j === 0 ? 60 : 1), 0) : 300
+      return `    <TRACK TrackID="${i + 1}" Name="${escXml(t.title)}" Artist="${escXml(t.artist)}" TotalTime="${dur}" BPM="${t.bpm.toFixed(2)}" Tonality="${tonality}" Rating="${Math.min(Math.round(t.energy / 2), 5) * 51}" />`
+    }).join('\n')
+
+    const playlistTracks = tracks.map((_, i) => `      <TRACK Key="${i + 1}" />`).join('\n')
+    const playlistName = set.length > 0 ? (setName || 'Set Lab Export') : 'Set Lab Library'
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<DJ_PLAYLISTS Version="1.0.0">
+  <PRODUCT Name="Artist OS — Set Lab" Version="1.0" />
+  <COLLECTION Entries="${tracks.length}">
+${trackXml}
+  </COLLECTION>
+  <PLAYLISTS>
+    <NODE Type="0" Name="ROOT" Count="1">
+      <NODE Name="${escXml(playlistName)}" Type="1" KeyType="0" Entries="${tracks.length}">
+${playlistTracks}
+      </NODE>
+    </NODE>
+  </PLAYLISTS>
+</DJ_PLAYLISTS>`
+
+    const blob = new Blob([xml], { type: 'application/xml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${playlistName.replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, '_')}.xml`
+    a.click()
+    URL.revokeObjectURL(url)
+    showToast(`Exported ${tracks.length} tracks as Rekordbox XML`, 'Export')
+  }
+
+  function escXml(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  }
+
   // ── Set Narrative ──────────────────────────────────────────────────────
   async function generateSetNarrative() {
     if (set.length < 3) { showToast('Add at least 3 tracks first', 'Error'); return }
@@ -472,7 +523,7 @@ Provide:
 
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={saveSet} style={btn(s.gold)}>Save set</button>
-          <button onClick={() => showToast('Rekordbox export coming soon', 'Export')} style={btn('#3d6b4a', s.panel)}>
+          <button onClick={exportToRekordbox} style={btn('#3d6b4a', s.panel)}>
             Export to rekordbox →
           </button>
         </div>

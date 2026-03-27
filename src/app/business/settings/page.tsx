@@ -160,12 +160,12 @@ export default function Settings() {
       {activeTab === 'integrations' && (
         <div style={{ maxWidth: '640px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {[
-            { name: 'Buffer', desc: 'Publishing to Instagram, TikTok, Threads', status: 'connected', color: 'var(--green)' },
-            { name: 'Supabase', desc: 'Data persistence — artist profiles, sets, posts', status: 'connected', color: 'var(--green)' },
-            { name: 'Vercel Blob', desc: 'Media storage — photos and video clips', status: 'connected', color: 'var(--green)' },
-            { name: 'Resend', desc: 'Advance request emails', status: 'connected', color: 'var(--green)' },
-            { name: 'Instagram Insights', desc: 'Engagement data for caption intelligence', status: 'not connected', color: '#8a6a3a' },
-            { name: 'Rekordbox', desc: 'DJ library sync and set export', status: 'not connected', color: '#8a6a3a' },
+            { name: 'Buffer', desc: 'Publishing to Instagram, TikTok, Threads', status: 'connected', color: 'var(--green)', action: null },
+            { name: 'Supabase', desc: 'Data persistence — artist profiles, sets, posts', status: 'connected', color: 'var(--green)', action: null },
+            { name: 'Vercel Blob', desc: 'Media storage — photos and video clips', status: 'connected', color: 'var(--green)', action: null },
+            { name: 'Resend', desc: 'Advance request emails', status: 'connected', color: 'var(--green)', action: null },
+            { name: 'Rekordbox', desc: 'Import your DJ library via XML export', status: 'ready', color: '#b08d57', action: '/setlab/rekordbox' },
+            { name: 'Instagram Insights', desc: 'Engagement data for caption intelligence — coming in v2', status: 'coming soon', color: 'var(--text-dimmer)', action: null },
           ].map(integration => (
             <div key={integration.name} className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
@@ -175,9 +175,9 @@ export default function Settings() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: integration.color }}>{integration.status}</span>
-                  {integration.status === 'not connected' && (
-                    <button className="btn-secondary" style={{ fontSize: '10px', padding: '6px 14px' }}>
-                      Connect
+                  {integration.action && (
+                    <button onClick={() => window.location.href = integration.action!} className="btn-secondary" style={{ fontSize: '10px', padding: '6px 14px' }}>
+                      {integration.status === 'ready' ? 'Import →' : 'Connect'}
                     </button>
                   )}
                 </div>

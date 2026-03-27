@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface MediaItem {
   url: string
@@ -13,6 +13,8 @@ export function MediaLibrary() {
   const [items, setItems] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/media')
@@ -36,8 +38,26 @@ export function MediaLibrary() {
     })
   }
 
+  async function uploadFiles(files: FileList) {
+    setUploading(true)
+    for (const file of Array.from(files)) {
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await fetch('/api/upload', { method: 'POST', body: formData })
+        const data = await res.json()
+        if (data.url) {
+          setItems(prev => [{ url: data.url, pathname: file.name, size: file.size, uploadedAt: new Date().toISOString() }, ...prev])
+        }
+      } catch { /* skip failed uploads */ }
+    }
+    setUploading(false)
+  }
+
   return (
     <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '40px 48px' }}>
+      <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }}
+        onChange={e => e.target.files && uploadFiles(e.target.files)} />
       <div style={{ marginBottom: '40px' }}>
         <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
@@ -46,18 +66,27 @@ export function MediaLibrary() {
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 200 }}>Media library</div>
-            <div style={{ fontSize: '13px', color: s.dimmer, marginTop: '6px' }}>{items.length} items</div>
+            <div style={{ fontSize: '13px', color: s.dimmer, marginTop: '6px' }}>{items.length} items{uploading && ' · uploading...'}</div>
           </div>
-          {selected.size > 0 && (
-            <button onClick={() => window.location.href = '/broadcast'} style={{
-              background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-              border: '1px solid #b08d57', color: '#b08d57',
-              fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => fileRef.current?.click()} style={{
+              background: 'transparent', border: `1px solid ${s.gold}`,
+              color: s.gold, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
               textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
             }}>
-              Use {selected.size} in post →
+              + Upload media
             </button>
-          )}
+            {selected.size > 0 && (
+              <button onClick={() => window.location.href = '/broadcast'} style={{
+                background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+                border: '1px solid #b08d57', color: '#b08d57',
+                fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
+                textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
+              }}>
+                Use {selected.size} in post →
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
