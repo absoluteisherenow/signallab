@@ -22,7 +22,9 @@ const MODULES = [
     { label: 'Max for Live', href: '/maxforlive' },
   ]},
   { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [
-    { label: 'Rekordbox import', href: '/setlab/rekordbox' },
+    { label: 'Library', href: '/setlab' },
+    { label: 'Set Builder', href: '/setlab' },
+    { label: 'Rekordbox', href: '/setlab/rekordbox' },
   ]},
 ]
 
@@ -55,8 +57,8 @@ export function Navigation() {
                 onMouseEnter={e => { e.currentTarget.style.color = mod.color }}
                 onMouseLeave={e => { e.currentTarget.style.color = active ? mod.color : '#52504c' }}
               >{mod.label}</Link>
-              {mod.sub.map(s => (
-                <Link key={s.href} href={s.href} style={{ display: 'block', padding: '5px 18px 5px 28px', fontSize: '11px', letterSpacing: '0.06em', textDecoration: 'none', color: isActive(s.href) ? mod.color : '#2e2c29', transition: 'color 0.15s' }}
+              {active && mod.sub.map(s => (
+                <Link key={s.href + s.label} href={s.href} style={{ display: 'block', padding: '5px 18px 5px 28px', fontSize: '11px', letterSpacing: '0.06em', textDecoration: 'none', color: isActive(s.href) ? mod.color : '#2e2c29', transition: 'color 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.color = mod.color }}
                   onMouseLeave={e => { e.currentTarget.style.color = isActive(s.href) ? mod.color : '#2e2c29' }}
                 >{s.label}</Link>
