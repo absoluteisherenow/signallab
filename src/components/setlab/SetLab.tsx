@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { analyseAudioFile, type AudioAnalysisResult } from '@/lib/audioAnalysis'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800): Promise<string> {
   const res = await fetch('/api/claude', {
@@ -125,6 +126,10 @@ export function SetLab() {
   const [suggestions, setSuggestions] = useState<{ id: string; reason: string }[]>([])
   const [toast, setToast] = useState<{ msg: string; tag: string } | null>(null)
   const [pastSets, setPastSets] = useState<any[]>([])
+  const [audioUploading, setAudioUploading] = useState(false)
+  const [audioProgress, setAudioProgress] = useState('')
+  const [dragOver, setDragOver] = useState(false)
+  const audioInputRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
 
   const showToast = (msg: string, tag = 'Info') => {
@@ -132,6 +137,97 @@ export function SetLab() {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), 3400)
   }
+
+  // ── Audio File Analysis ─────────────────────────────────────────────────
+  async function handleAudioFiles(files: FileList | File[]) {
+    const audioFiles = Array.from(files).filter(f =>
+      /\.(mp3|wav|flac|aac|m4a|ogg|aiff?)$/i.test(f.name)
+    )
+    if (audioFiles.length === 0) { showToast('No audio files found — drop MP3, WAV, or FLAC', 'Error'); return }
+
+    setAudioUploading(true)
+    let processed = 0
+
+    for (const file of audioFiles) {
+      try {
+        setAudioProgress(`Analysing ${file.name} (${processed + 1}/${audioFiles.length})...`)
+
+        // Step 1: Extract BPM and duration from audio
+        const analysis = await analyseAudioFile(file)
+
+        setAudioProgress(`Enriching ${analysis.title || file.name}...`)
+
+        // Step 2: Claude enriches with key, energy, mix techniques etc
+        const raw = await callClaude(
+          'You are a music intelligence expert for DJs. Return ONLY valid JSON, no markdown.',
+          `I have an audio file with these detected properties:
+Title: ${analysis.title || 'Unknown'}
+Artist: ${analysis.artist || 'Unknown'}
+Detected BPM: ${analysis.bpm} (confidence: ${analysis.confidence})
+Duration: ${analysis.duration}
+Filename: ${analysis.fileName}
+
+${analysis.confidence === 'low' ? 'BPM detection confidence is low — please verify/correct the BPM based on your knowledge of this track.' : ''}
+
+Return JSON:
+{
+  "title": "correct track title",
+  "artist": "correct artist name",
+  "bpm": ${analysis.confidence === 'high' ? analysis.bpm : 'corrected BPM as number'},
+  "key": "musical key (e.g. F minor)",
+  "camelot": "Camelot code (e.g. 4A)",
+  "energy": number 1-10,
+  "genre": "genre",
+  "moment_type": "opener|builder|peak|breakdown|closer",
+  "position_score": "warm-up|build|peak|cool-down",
+  "mix_in": "specific DJ mix-in technique",
+  "mix_out": "specific mix-out technique",
+  "crowd_reaction": "expected crowd response in 5-8 words",
+  "producer_style": "one sentence about production style",
+  "notes": "when/how to use in a set"
+}`, 400)
+
+        const d = JSON.parse(raw.replace(/```json|```/g, '').trim())
+        const track: Track = {
+          id: Date.now().toString() + Math.random(),
+          title: d.title || analysis.title || 'Unknown',
+          artist: d.artist || analysis.artist || 'Unknown',
+          bpm: d.bpm || analysis.bpm || 128,
+          key: d.key || '',
+          camelot: d.camelot || '',
+          energy: d.energy || 5,
+          genre: d.genre || 'Electronic',
+          duration: analysis.duration,
+          notes: d.notes || '',
+          analysed: true,
+          moment_type: d.moment_type || 'builder',
+          position_score: d.position_score || 'build',
+          mix_in: d.mix_in || '',
+          mix_out: d.mix_out || '',
+          crowd_reaction: d.crowd_reaction || '',
+          similar_to: '',
+          producer_style: d.producer_style || '',
+        }
+
+        setLibrary(prev => [...prev, track])
+        processed++
+        showToast(`${track.title} — ${track.bpm}BPM, ${track.camelot}, energy ${track.energy}`, 'Analysed')
+      } catch (err: any) {
+        showToast(`Failed to analyse ${file.name}: ${err.message}`, 'Error')
+        processed++
+      }
+    }
+
+    setAudioUploading(false)
+    setAudioProgress('')
+    if (processed > 1) showToast(`${processed} tracks analysed and added to library`, 'Done')
+  }
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    if (e.dataTransfer.files.length > 0) handleAudioFiles(e.dataTransfer.files)
+  }, [])
 
   const filteredLibrary = library.filter(t =>
     t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -437,6 +533,42 @@ Provide:
                 </div>
               </div>
             )}
+
+            {/* Audio drop zone */}
+            <div
+              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => !audioUploading && audioInputRef.current?.click()}
+              style={{
+                border: `1px dashed ${dragOver ? s.setlab : s.border}`,
+                background: dragOver ? 'rgba(154,106,90,0.08)' : s.panel,
+                padding: audioUploading ? '16px 24px' : '24px',
+                textAlign: 'center',
+                cursor: audioUploading ? 'default' : 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              <input ref={audioInputRef} type="file" accept=".mp3,.wav,.flac,.aac,.m4a,.ogg,.aif,.aiff" multiple
+                style={{ display: 'none' }}
+                onChange={e => e.target.files && handleAudioFiles(e.target.files)} />
+
+              {audioUploading ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '12px', height: '12px', border: `2px solid ${s.setlab}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <div style={{ fontSize: '12px', color: s.setlab }}>{audioProgress}</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '13px', color: dragOver ? s.setlab : s.dim, marginBottom: '4px' }}>
+                    {dragOver ? 'Drop audio files here' : 'Drop MP3, WAV, or FLAC files here — or click to browse'}
+                  </div>
+                  <div style={{ fontSize: '10px', color: s.dimmer }}>
+                    Extracts BPM from audio waveform · Claude adds key, energy, mix techniques, crowd reaction
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Track library with expandable intelligence */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
