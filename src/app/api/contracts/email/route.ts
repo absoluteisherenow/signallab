@@ -20,17 +20,26 @@ function getResend() {
   return resend
 }
 
+// Direct POST shape (manual / legacy)
 interface EmailPayload {
   from: string
-  to: string
+  to: string | string[]
   subject: string
   text?: string
   html?: string
   attachments?: Array<{
     filename: string
     content: string
-    contentType: string
+    contentType?: string
+    content_type?: string
   }>
+}
+
+// Resend inbound webhook shape: { type: "email.received", data: { ... } }
+interface ResendInboundEvent {
+  type: string
+  created_at?: string
+  data: EmailPayload
 }
 
 async function extractContractWithClaude(
@@ -104,7 +113,10 @@ async function convertPdfToText(base64Content: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
-    const body: EmailPayload = await req.json()
+    const raw = await req.json()
+
+    // Normalise: Resend wraps inbound emails in { type: "email.received", data: {...} }
+    const body: EmailPayload = (raw as ResendInboundEvent).data ?? (raw as EmailPayload)
 
     console.log('📧 Contract email received from:', body.from)
     console.log('Subject:', body.subject)
@@ -123,13 +135,14 @@ export async function POST(req: NextRequest) {
     if (body.attachments && body.attachments.length > 0) {
       for (const attachment of body.attachments) {
         console.log(`Processing attachment: ${attachment.filename}`)
+        const mimeType = attachment.contentType || attachment.content_type || ''
         if (
           attachment.filename.toLowerCase().endsWith('.pdf') ||
-          attachment.contentType.includes('pdf')
+          mimeType.includes('pdf')
         ) {
           const text = await convertPdfToText(attachment.content)
           if (text) attachmentTexts.push(`[${attachment.filename}]\n${text}`)
-        } else if (attachment.contentType.includes('text')) {
+        } else if (mimeType.includes('text')) {
           attachmentTexts.push(`[${attachment.filename}]\n${attachment.content}`)
         }
       }
