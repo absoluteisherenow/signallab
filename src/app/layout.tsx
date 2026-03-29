@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Navigation } from '@/components/layout/Navigation'
+import { VoiceCommandBar } from '@/components/ui/VoiceCommandBarWrapper'
 
 export const metadata: Metadata = {
   title: 'Artist OS',
@@ -63,6 +64,7 @@ export default function RootLayout({
           <main className="app-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: '100vh', }} >
             {children}
           </main>
+          <VoiceCommandBar />
         </div>
       </body>
     </html>
