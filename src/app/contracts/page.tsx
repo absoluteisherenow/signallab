@@ -55,16 +55,65 @@ export default function Contracts() {
     if(!extracted||!extracted.title){setError('Title required');return}
     setSaving(true);setError('')
     try {
+      // 1. Create gig
+      const gigNotes=[
+        extracted.notes,
+        extracted.promoter_name&&`Promoter: ${extracted.promoter_name}`,
+        extracted.promoter_phone&&`Phone: ${extracted.promoter_phone}`,
+        extracted.load_in&&`Load-in: ${extracted.load_in}`,
+        extracted.soundcheck&&`Soundcheck: ${extracted.soundcheck}`,
+        extracted.doors&&`Doors: ${extracted.doors}`,
+        extracted.set_length&&`Set length: ${extracted.set_length} mins`,
+        extracted.parking&&`Parking: ${extracted.parking}`,
+        extracted.wifi&&`WiFi: ${extracted.wifi}`,
+        extracted.dressing_room&&`Dressing room: ${extracted.dressing_room}`,
+        extracted.hotel_name&&`Hotel: ${extracted.hotel_name}${extracted.hotel_address?`, ${extracted.hotel_address}`:''}`,
+        extracted.hospitality&&`Hospitality: ${extracted.hospitality}`,
+        extracted.backline&&`Backline: ${extracted.backline}`,
+      ].filter(Boolean).join('\n')
+
       const r=await fetch('/api/gigs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
         title:extracted.title,venue:extracted.venue,location:extracted.location,date:extracted.date,time:extracted.time,
         fee:extracted.fee?parseFloat(extracted.fee):0,currency:extracted.currency||'EUR',
         audience:extracted.audience?parseInt(extracted.audience):0,status:extracted.status||'confirmed',
-        promoter_email:extracted.promoter_email,
-        notes:[extracted.notes,extracted.promoter_name&&`Promoter: ${extracted.promoter_name}`,extracted.promoter_phone&&`Phone: ${extracted.promoter_phone}`,extracted.deposit_amount&&`Deposit: ${extracted.deposit_amount} ${extracted.currency} due ${extracted.deposit_due}`,extracted.balance_due&&`Balance due: ${extracted.balance_due}`].filter(Boolean).join('\n')
+        promoter_email:extracted.promoter_email,promoter_name:extracted.promoter_name,
+        notes:gigNotes,
       })})
       const d=await r.json()
       if(!d.success)throw new Error(d.error||'Save failed')
-      showToast(`${extracted.title} added`)
+      const gigId=d.gig?.id
+
+      // 2. Create deposit invoice if amount extracted
+      const depositAmt=extracted.deposit_amount?parseFloat(extracted.deposit_amount):0
+      if(depositAmt>0&&gigId){
+        await fetch('/api/invoices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          gig_id:gigId,
+          gig_title:extracted.title,
+          amount:depositAmt,
+          currency:extracted.currency||'EUR',
+          type:'deposit',
+          status:'pending',
+          due_date:extracted.deposit_due||null,
+        })})
+      }
+
+      // 3. Create balance invoice
+      const totalFee=extracted.fee?parseFloat(extracted.fee):0
+      const balanceAmt=totalFee>0&&depositAmt>0 ? totalFee-depositAmt : 0
+      if(balanceAmt>0&&gigId){
+        await fetch('/api/invoices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          gig_id:gigId,
+          gig_title:extracted.title,
+          amount:balanceAmt,
+          currency:extracted.currency||'EUR',
+          type:'balance',
+          status:'pending',
+          due_date:extracted.balance_due||null,
+        })})
+      }
+
+      const invoiceNote=depositAmt>0 ? ` + ${depositAmt>0&&balanceAmt>0?'deposit & balance invoices':'deposit invoice'} created` : ''
+      showToast(`${extracted.title} added${invoiceNote}`)
       setTimeout(()=>router.push('/logistics'),1200)
     } catch(e:any){setError(e.message);setSaving(false)}
   }
@@ -76,7 +125,7 @@ export default function Contracts() {
           <span style={{display:'block',width:'28px',height:'1px',background:'var(--gold)'}}/>Tour Lab — Contracts
         </div>
         <div className="display" style={{fontSize:'28px'}}>Contract parser</div>
-        <div style={{fontSize:'13px',color:'var(--text-dimmer)',marginTop:'8px'}}>Paste a booking email or contract — extracts venue, times, hotel, backline, fee, deposits</div>
+        <div style={{fontSize:'13px',color:'var(--text-dimmer)',marginTop:'8px'}}>Paste a booking email or contract — extracts venue, times, hotel, backline, fee and deposits, creates the gig and invoices automatically</div>
       </div>
 
       {/* EMAIL WORKFLOW BANNER */}
@@ -99,7 +148,7 @@ export default function Contracts() {
                 {extracting&&<div style={{width:'10px',height:'10px',border:'1px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>}
                 {extracting?'Extracting...':'Extract details →'}
               </button>
-              {extracting&&<div style={{fontSize:'11px',color:'var(--text-dimmer)'}}>Claude is reading the contract...</div>}
+              {extracting&&<div style={{fontSize:'11px',color:'var(--text-dimmer)'}}>Reading contract...</div>}
             </div>
             <div style={{marginTop:'16px'}}>
               <input ref={fileRef} type="file" accept=".pdf,.txt,.doc,.docx" style={{display:'none'}} onChange={e=>{if(e.target.files?.[0])e.target.files[0].text().then(extract).catch(()=>{setError('Could not read file — paste text instead')})}}/>
