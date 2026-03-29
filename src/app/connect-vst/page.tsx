@@ -8,6 +8,7 @@ export default function ConnectVST() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
 
   async function handleGenerate() {
     setLoading(true)
@@ -32,13 +33,13 @@ export default function ConnectVST() {
 
   async function handleCopy() {
     if (!token) return
-    try {
-      await navigator.clipboard.writeText(token)
+    navigator.clipboard.writeText(token).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard API may be blocked — silently ignore
-    }
+    }).catch(() => {
+      setCopyFailed(true)
+      setTimeout(() => setCopyFailed(false), 3000)
+    })
   }
 
   return (
@@ -178,9 +179,19 @@ export default function ConnectVST() {
               style={{
                 width: '100%',
                 padding: '14px 24px',
-                background: copied ? 'rgba(61, 107, 74, 0.15)' : 'transparent',
-                border: `1px solid ${copied ? 'rgba(61, 107, 74, 0.6)' : '#2a2520'}`,
-                color: copied ? '#5a9a68' : '#7a7570',
+                background: copied
+                  ? 'rgba(61, 107, 74, 0.15)'
+                  : copyFailed
+                  ? 'rgba(100, 50, 40, 0.15)'
+                  : 'transparent',
+                border: `1px solid ${
+                  copied
+                    ? 'rgba(61, 107, 74, 0.6)'
+                    : copyFailed
+                    ? 'rgba(138, 74, 58, 0.6)'
+                    : '#2a2520'
+                }`,
+                color: copied ? '#5a9a68' : copyFailed ? '#8a4a3a' : '#7a7570',
                 fontFamily: '"DM Mono", "Courier New", monospace',
                 fontSize: '10px',
                 letterSpacing: '0.25em',
@@ -189,7 +200,7 @@ export default function ConnectVST() {
                 transition: 'all 0.15s',
               }}
             >
-              {copied ? 'Copied' : 'Copy Token'}
+              {copied ? 'Copied ✓' : copyFailed ? 'Copy failed — select manually' : 'Copy Token'}
             </button>
 
             {/* Regenerate */}
@@ -234,13 +245,13 @@ export default function ConnectVST() {
             How to connect
           </div>
           {[
-            { step: '01', text: 'Generate your token using the button above.' },
-            { step: '02', text: 'Open Sonix Lab VST in your DAW.' },
+            { step: '01', text: 'Install the VST and load Sonix Lab Suite in Ableton.' },
+            { step: '02', text: 'Come back to this page and copy the token below.' },
             {
               step: '03',
-              text: 'Go to Settings → Artist OS → paste the token into the Token field.',
+              text: 'In Ableton, open the Sonix Lab plugin. Click the Settings tab, paste the token into the field at the bottom, and click SAVE.',
             },
-            { step: '04', text: 'Save. Sonix Lab will confirm the connection.' },
+            { step: '04', text: 'Click SYNC TO SONIX LAB in the plugin to connect your library.' },
           ].map(({ step, text }) => (
             <div
               key={step}
