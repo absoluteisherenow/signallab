@@ -22,6 +22,30 @@ export async function GET() {
   }
 }
 
+// DELETE — remove a track
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id } = await req.json()
+    const { error } = await supabase.from('dj_tracks').delete().eq('id', id)
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// PATCH — update a track's fields
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...fields } = await req.json()
+    const { data, error } = await supabase.from('dj_tracks').update(fields).eq('id', id).select().single()
+    if (error) throw error
+    return NextResponse.json({ track: data })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
 // POST — import tracks (from Rekordbox or manual add)
 export async function POST(req: NextRequest) {
   try {

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 const MODULES = [
   { label: 'Signal Lab', href: '/broadcast', color: '#3d6b4a', sub: [
@@ -32,7 +33,19 @@ export function Navigation() {
     if (mod.href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
     return pathname === mod.href || mod.sub.some(s => pathname === s.href)
   }
-  
+  const [apiUsage, setApiUsage] = useState<{ percentUsed: number; totalCostUsd: number; warning: boolean; critical: boolean } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/usage').then(r => r.json()).then(d => {
+      if (!d.error) setApiUsage(d)
+    }).catch(() => {})
+    // Refresh every 5 minutes
+    const t = setInterval(() => {
+      fetch('/api/usage').then(r => r.json()).then(d => { if (!d.error) setApiUsage(d) }).catch(() => {})
+    }, 5 * 60 * 1000)
+    return () => clearInterval(t)
+  }, [])
+
   // Hide nav on landing page, pricing, login, onboarding
   if (pathname === '/' || pathname === '/pricing' || pathname === '/login' || pathname === '/onboarding') {
     return null
@@ -64,6 +77,30 @@ export function Navigation() {
           )
         })}
       </div>
+      {/* API usage bar */}
+      {apiUsage && (
+        <div style={{ padding: '10px 18px', borderTop: '1px solid #1a1917' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+            <span style={{ fontSize: '9px', letterSpacing: '0.15em', color: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#2e2c29', textTransform: 'uppercase' }}>
+              {apiUsage.critical ? '⚠ API CRITICAL' : apiUsage.warning ? '⚠ API WARNING' : 'API usage'}
+            </span>
+            <span style={{ fontSize: '9px', color: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#2e2c29' }}>
+              {apiUsage.percentUsed}%
+            </span>
+          </div>
+          <div style={{ height: '3px', background: '#1a1917', borderRadius: '2px' }}>
+            <div style={{
+              height: '3px', borderRadius: '2px',
+              width: `${Math.min(apiUsage.percentUsed, 100)}%`,
+              background: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#3d6b4a',
+              transition: 'width 0.5s ease',
+            }} />
+          </div>
+          <div style={{ fontSize: '9px', color: '#2e2c29', marginTop: '4px' }}>
+            £{(apiUsage.totalCostUsd * 0.79).toFixed(2)} / £{(150 * 0.79).toFixed(0)} this month
+          </div>
+        </div>
+      )}
       <div style={{ borderTop: '1px solid #1a1917' }}>
         <Link href='/business/settings' style={{ display: 'block', padding: '12px 18px', fontSize: '11px', letterSpacing: '0.08em', textDecoration: 'none', color: pathname === '/business/settings' ? '#b08d57' : '#2e2c29', transition: 'color 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#8a8780' }}

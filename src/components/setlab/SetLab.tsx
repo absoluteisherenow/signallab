@@ -108,8 +108,11 @@ const SAMPLE_LIBRARY: Track[] = [
 ]
 
 export function SetLab() {
-  const [activeTab, setActiveTab] = useState<'library' | 'builder' | 'history'>('library')
-  const [library, setLibrary] = useState<Track[]>(SAMPLE_LIBRARY)
+  const [activeTab, setActiveTab] = useState<'library' | 'builder' | 'history' | 'discover'>('library')
+  const [library, setLibrary] = useState<Track[]>([])
+  const [libraryLoading, setLibraryLoading] = useState(true)
+  const [editingTrack, setEditingTrack] = useState<Track | null>(null)
+  const [reanalysing, setReanalysing] = useState<string | null>(null)
   const [set, setSet] = useState<SetTrack[]>([])
   const [setName, setSetName] = useState('New Set')
   const [venue, setVenue] = useState('')
@@ -129,6 +132,13 @@ export function SetLab() {
   const [audioUploading, setAudioUploading] = useState(false)
   const [audioProgress, setAudioProgress] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  // ── Discover state ──────────────────────────────────────────────────────
+  const [discoverResults, setDiscoverResults] = useState<any[]>([])
+  const [discoverLoading, setDiscoverLoading] = useState(false)
+  const [discoverError, setDiscoverError] = useState('')
+  const [maxPopularity, setMaxPopularity] = useState(35)
+  const [discoverMeta, setDiscoverMeta] = useState<{ targetCamelot: string; targetBpm: number; debug?: any } | null>(null)
+  const [discoverCallCount, setDiscoverCallCount] = useState(0)
   const audioInputRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -481,7 +491,131 @@ Provide:
     } catch {}
   }
 
-  useEffect(() => { loadPastSets() }, [])
+  async function loadLibrary() {
+    setLibraryLoading(true)
+    try {
+      const res = await fetch('/api/tracks')
+      const data = await res.json()
+      if (data.tracks && data.tracks.length > 0) {
+        setLibrary(data.tracks.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          artist: t.artist,
+          bpm: t.bpm || 0,
+          key: t.key || '',
+          camelot: t.camelot || '',
+          energy: t.energy || 0,
+          genre: t.genre || '',
+          duration: t.duration || '',
+          notes: t.notes || '',
+          analysed: t.enriched || false,
+          moment_type: t.moment_type || '',
+          position_score: t.position_score || '',
+          mix_in: t.mix_in || '',
+          mix_out: t.mix_out || '',
+          crowd_reaction: t.crowd_reaction || '',
+          similar_to: t.similar_to || '',
+          producer_style: t.producer_style || '',
+        })))
+      } else {
+        setLibrary(SAMPLE_LIBRARY)
+      }
+    } catch {
+      setLibrary(SAMPLE_LIBRARY)
+    } finally {
+      setLibraryLoading(false)
+    }
+  }
+
+  async function deleteTrack(id: string) {
+    await fetch('/api/tracks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    setLibrary(prev => prev.filter(t => t.id !== id))
+    showToast('Track removed', 'Done')
+  }
+
+  async function reanalyseTrack(track: Track) {
+    setReanalysing(track.id)
+    try {
+      const raw = await callClaude(
+        'You are a DJ music intelligence expert. Cross-reference this track with your knowledge and correct any errors. Return ONLY valid JSON, no markdown.',
+        `Cross-reference and correct this track data. The BPM and key may be wrong from Rekordbox analysis — use your knowledge to verify.
+
+Track: ${track.artist} — ${track.title}
+Rekordbox BPM: ${track.bpm}
+Rekordbox Key: ${track.key} / Camelot: ${track.camelot}
+
+Return corrected JSON:
+{
+  "bpm": corrected BPM as number,
+  "key": "corrected key e.g. F minor",
+  "camelot": "corrected Camelot code e.g. 4A",
+  "energy": number 1-10,
+  "moment_type": "opener|builder|peak|breakdown|closer",
+  "position_score": "warm-up|build|peak|cool-down",
+  "mix_in": "specific mix-in technique",
+  "mix_out": "specific mix-out technique",
+  "crowd_reaction": "expected crowd response in 5-8 words",
+  "producer_style": "one sentence about production style",
+  "notes": "when/how to use in a set",
+  "bpm_corrected": true or false,
+  "key_corrected": true or false
+}`, 500)
+
+      const d = JSON.parse(raw.replace(/```json|```/g, '').trim())
+      const updated = { ...track, ...d }
+
+      await fetch('/api/tracks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: track.id, ...d }),
+      })
+
+      setLibrary(prev => prev.map(t => t.id === track.id ? updated : t))
+      const corrections = [d.bpm_corrected && `BPM → ${d.bpm}`, d.key_corrected && `Key → ${d.key}`].filter(Boolean)
+      showToast(corrections.length ? `Corrected: ${corrections.join(', ')}` : 'Analysis verified — no corrections needed', 'Intelligence')
+    } catch (err: any) {
+      showToast('Re-analyse failed: ' + err.message, 'Error')
+    } finally {
+      setReanalysing(null)
+    }
+  }
+
+  async function saveTrackEdit(updated: Track) {
+    await fetch('/api/tracks', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: updated.id, bpm: updated.bpm, key: updated.key, camelot: updated.camelot, energy: updated.energy, notes: updated.notes }),
+    })
+    setLibrary(prev => prev.map(t => t.id === updated.id ? updated : t))
+    setEditingTrack(null)
+    showToast('Track updated', 'Done')
+  }
+
+  async function discoverTracks(pop = maxPopularity) {
+    const seedTracks = library.length > 0 ? library : set
+    if (seedTracks.length === 0) { setDiscoverError('Add some tracks to your library first'); return }
+    setDiscoverLoading(true)
+    setDiscoverError('')
+    setDiscoverResults([])
+    try {
+      const res = await fetch('/api/spotify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracks: seedTracks.slice(0, 8), maxPopularity: pop, limit: 20 }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setDiscoverResults(data.tracks || [])
+      setDiscoverMeta({ targetCamelot: data.targetCamelot, targetBpm: data.targetBpm, debug: data.debug })
+      setDiscoverCallCount(c => c + 1)
+    } catch (err: any) {
+      setDiscoverError(err.message)
+    } finally {
+      setDiscoverLoading(false)
+    }
+  }
+
+  useEffect(() => { loadLibrary(); loadPastSets() }, [])
 
   // ── Styles ─────────────────────────────────────────────────────────────
   const s = {
@@ -512,7 +646,7 @@ Provide:
         </div>
 
         <div style={{ display: 'flex', gap: '4px' }}>
-          {(['library', 'builder', 'history'] as const).map(tab => (
+          {(['library', 'builder', 'history', 'discover'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               ...btn(activeTab === tab ? s.setlab : s.goldDim, activeTab === tab ? s.setlab : 'transparent'),
               fontSize: '10px', padding: '8px 18px',
@@ -582,10 +716,10 @@ Provide:
                 </div>
               ) : (
                 <div>
-                  <div style={{ fontSize: '13px', color: dragOver ? s.setlab : s.dim, marginBottom: '4px' }}>
+                  <div style={{ fontSize: '13px', color: dragOver ? s.setlab : s.textDim, marginBottom: '4px' }}>
                     {dragOver ? 'Drop audio files here' : 'Drop MP3, WAV, or FLAC files here — or click to browse'}
                   </div>
-                  <div style={{ fontSize: '10px', color: s.dimmer }}>
+                  <div style={{ fontSize: '10px', color: s.textDimmer }}>
                     Extracts BPM from audio waveform · Claude adds key, energy, mix techniques, crowd reaction
                   </div>
                 </div>
@@ -676,6 +810,26 @@ Provide:
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      {/* Actions row */}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${s.border}` }}>
+                        <button
+                          onClick={() => reanalyseTrack(track)}
+                          disabled={reanalysing === track.id}
+                          style={{ ...btn(s.gold, 'transparent'), fontSize: '10px', padding: '6px 14px', opacity: reanalysing === track.id ? 0.5 : 1 }}>
+                          {reanalysing === track.id ? 'Cross-referencing...' : '↻ Verify & correct'}
+                        </button>
+                        <button
+                          onClick={() => setEditingTrack({ ...track })}
+                          style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '6px 14px' }}>
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => { if (confirm(`Remove "${track.title}"?`)) deleteTrack(track.id) }}
+                          style={{ ...btn('#9a6a5a', 'transparent'), fontSize: '10px', padding: '6px 14px', marginLeft: 'auto' }}>
+                          Delete
+                        </button>
                       </div>
                     </div>
                   )}
@@ -902,7 +1056,253 @@ Provide:
             </div>
           </div>
         )}
+
+        {/* ═══ DISCOVER TAB ═══ */}
+        {activeTab === 'discover' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            {/* Header + controls */}
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
+                <div>
+                  <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, marginBottom: '6px' }}>DISCOVER</div>
+                  <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
+                    Finds tracks that fit your set's key, BPM, and sound — ranked rarest first.<br/>
+                    {discoverMeta && <span style={{ color: s.goldDim }}>Seeded from {discoverMeta.targetCamelot} · {discoverMeta.targetBpm} BPM</span>}
+                  </div>
+                </div>
+                <div style={{ fontSize: '10px', color: s.textDimmer, textAlign: 'right', lineHeight: '1.7' }}>
+                  <div>Spotify-powered</div>
+                  <div>Camelot-filtered</div>
+                </div>
+              </div>
+
+              {/* Underground slider */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.textDimmer }}>
+                    Underground depth
+                  </div>
+                  <div style={{ fontSize: '11px', color: maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : s.textDim, letterSpacing: '0.1em' }}>
+                    {maxPopularity < 25 ? 'Rare gems' : maxPopularity < 50 ? 'Underground' : maxPopularity < 70 ? 'Known tracks' : 'Popular'}&nbsp;
+                    <span style={{ color: s.textDimmer }}>/ max popularity {maxPopularity}</span>
+                  </div>
+                </div>
+                <div style={{ position: 'relative', height: '4px', background: s.border, cursor: 'pointer' }}
+                  onClick={e => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    setMaxPopularity(Math.round(((e.clientX - rect.left) / rect.width) * 100))
+                  }}>
+                  {/* Track fill */}
+                  <div style={{ position: 'absolute', top: 0, left: 0, height: '4px', width: `${maxPopularity}%`, background: maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#3d6b4a', transition: 'width 0.15s' }} />
+                  {/* Thumb */}
+                  <div style={{ position: 'absolute', top: '50%', left: `${maxPopularity}%`, transform: 'translate(-50%, -50%)', width: '14px', height: '14px', background: s.panel, border: `2px solid ${maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#3d6b4a'}`, borderRadius: '50%', cursor: 'grab' }} />
+                </div>
+                <input type="range" min={5} max={100} value={maxPopularity}
+                  onChange={e => setMaxPopularity(Number(e.target.value))}
+                  style={{ position: 'absolute', opacity: 0, width: '1px', height: '1px', pointerEvents: 'none' }} />
+                {/* Labels */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '10px', color: s.textDimmer }}>
+                  <span>Rare</span>
+                  <span>Underground</span>
+                  <span>Known</span>
+                  <span>Popular</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => discoverTracks(maxPopularity)}
+                disabled={discoverLoading}
+                style={{ ...btn(s.setlab), justifyContent: 'center', width: '100%', fontSize: '11px', padding: '13px' }}>
+                {discoverLoading
+                  ? <><div style={{ width: '10px', height: '10px', border: `1px solid ${s.setlab}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> Finding rare gems...</>
+                  : 'Find rare gems →'}
+              </button>
+
+              {/* API usage counter */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', padding: '8px 12px', background: discoverCallCount >= 8 ? 'rgba(154,106,90,0.15)' : 'transparent', border: `1px solid ${discoverCallCount >= 8 ? 'rgba(154,106,90,0.4)' : s.border}` }}>
+                <div style={{ fontSize: '10px', color: discoverCallCount >= 8 ? '#9a6a5a' : s.textDimmer }}>
+                  {discoverCallCount >= 8 ? '⚠ ' : ''}{discoverCallCount} discover {discoverCallCount === 1 ? 'search' : 'searches'} this session
+                  {discoverCallCount >= 8 && ' — each search calls Claude + Last.fm + Spotify'}
+                </div>
+                <div style={{ fontSize: '10px', color: s.textDimmer }}>
+                  ~£{(discoverCallCount * 0.001).toFixed(3)} Claude cost
+                </div>
+              </div>
+
+              {/* Debug: seeds used */}
+              {discoverMeta?.debug && (
+                <div style={{ marginTop: '8px', padding: '8px 12px', background: s.bg, border: `1px solid ${s.border}`, fontSize: '10px', color: s.textDimmer, lineHeight: '1.7' }}>
+                  <div style={{ color: s.textDim, marginBottom: '4px' }}>Last search — seeds used:</div>
+                  {discoverMeta.debug.lastFmSeeds?.map((seed: string, i: number) => (
+                    <div key={i}>Last.fm seed {i + 1}: {seed}</div>
+                  ))}
+                  <div style={{ marginTop: '4px', color: s.textDimmer }}>
+                    Claude: {discoverMeta.debug.claudeCount} suggestions · Last.fm: {discoverMeta.debug.lastFmCount} similar · {discoverMeta.debug.mergedBeforeFilter} merged → {discoverMeta.debug.afterPopularityFilter} after popularity filter
+                  </div>
+                </div>
+              )}
+
+              {discoverError && (
+                <div style={{ marginTop: '12px', fontSize: '11px', color: '#9a6a5a', padding: '10px 14px', background: 'rgba(154,106,90,0.1)', border: '1px solid rgba(154,106,90,0.3)' }}>
+                  {discoverError}
+                </div>
+              )}
+            </div>
+
+            {/* Results grid */}
+            {discoverResults.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: `1px solid ${s.border}` }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>
+                    {discoverResults.length} matches — sorted rarest first
+                  </div>
+                  {discoverMeta && (
+                    <div style={{ fontSize: '10px', color: s.textDimmer }}>
+                      Compatible with {discoverMeta.targetCamelot} · ~{discoverMeta.targetBpm} BPM
+                    </div>
+                  )}
+                </div>
+
+                {discoverResults.map((track: any) => {
+                  const popLabel = track.popularity < 20 ? 'Rare' : track.popularity < 40 ? 'Underground' : track.popularity < 65 ? 'Known' : 'Popular'
+                  const popColor = track.popularity < 20 ? '#9a6a5a' : track.popularity < 40 ? s.gold : track.popularity < 65 ? '#3d6b4a' : s.textDimmer
+                  const alreadyInLib = library.some(t => t.title.toLowerCase() === track.title.toLowerCase() && t.artist.toLowerCase() === track.artist.toLowerCase())
+
+                  return (
+                    <div key={track.id} style={{ background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 18px', transition: 'border-color 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
+
+                      {/* Album art */}
+                      {track.album_art
+                        ? <img src={track.album_art} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', flexShrink: 0 }} />
+                        : <div style={{ width: '52px', height: '52px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: s.textDimmer }}>♫</div>
+                      }
+
+                      {/* Track info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                        <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
+                        {track.reason && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '3px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{track.reason}</div>}
+                        {track.release_year && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{track.album} · {track.release_year}</div>}
+                      </div>
+
+                      {/* Tags */}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                        <div style={{ fontSize: '10px', padding: '3px 8px', background: `${popColor}20`, border: `1px solid ${popColor}50`, color: popColor, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{popLabel}</div>
+                        {track.camelot && <div style={{ fontSize: '11px', color: s.gold, minWidth: '32px', textAlign: 'center' }}>{track.camelot}</div>}
+                        {track.bpm && <div style={{ fontSize: '11px', color: s.textDim, minWidth: '36px', textAlign: 'center' }}>{track.bpm}</div>}
+                        <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.1em' }}>{track.source === 'lastfm' ? 'LAST.FM' : 'AI'}</div>
+                      </div>
+
+                      {/* Preview + links */}
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                        {track.preview_url && (
+                          <audio controls src={track.preview_url}
+                            style={{ height: '28px', width: '160px', filter: 'invert(0.8) sepia(0.4) hue-rotate(10deg)' }} />
+                        )}
+                        {track.spotify_url && (
+                          <a href={track.spotify_url} target="_blank" rel="noreferrer"
+                            style={{ fontSize: '10px', color: '#1DB954', textDecoration: 'none', letterSpacing: '0.1em', border: '1px solid #1DB95440', padding: '4px 8px' }}>
+                            Open ↗
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Add to library */}
+                      <button
+                        disabled={alreadyInLib}
+                        onClick={async () => {
+                          if (alreadyInLib) return
+                          const t: Track = {
+                            id: track.id,
+                            title: track.title,
+                            artist: track.artist,
+                            bpm: track.bpm,
+                            key: '',
+                            camelot: track.camelot,
+                            energy: track.energy || 5,
+                            genre: 'Electronic',
+                            duration: '',
+                            notes: '',
+                            analysed: false,
+                            moment_type: '',
+                            position_score: '',
+                            mix_in: '',
+                            mix_out: '',
+                            crowd_reaction: '',
+                            similar_to: '',
+                            producer_style: '',
+                          }
+                          // Save to DB
+                          await fetch('/api/tracks', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ tracks: [t] }),
+                          })
+                          setLibrary(prev => [...prev, t])
+                          showToast(`${track.title} added to library`, 'Added')
+                        }}
+                        style={{
+                          ...btn(alreadyInLib ? s.textDimmer : s.setlab, 'transparent'),
+                          fontSize: '10px', padding: '6px 12px', flexShrink: 0,
+                          opacity: alreadyInLib ? 0.4 : 1, cursor: alreadyInLib ? 'default' : 'pointer',
+                        }}>
+                        {alreadyInLib ? '✓ In library' : '+ Add'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!discoverLoading && discoverResults.length === 0 && !discoverError && (
+              <div style={{ textAlign: 'center', padding: '60px 32px', color: s.textDimmer }}>
+                <div style={{ fontSize: '32px', marginBottom: '16px', opacity: 0.3 }}>◎</div>
+                <div style={{ fontSize: '12px', letterSpacing: '0.15em', marginBottom: '8px' }}>Set the underground depth and search</div>
+                <div style={{ fontSize: '11px', color: s.textDimmer }}>
+                  Uses your library as seeds · Camelot-compatible only · Sorted rarest first
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── Edit Track Modal ── */}
+      {editingTrack && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+          onClick={() => setEditingTrack(null)}>
+          <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '32px', width: '420px', maxWidth: '90vw' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>Edit track</div>
+            <div style={{ fontSize: '14px', color: s.text, marginBottom: '20px' }}>{editingTrack.artist} — {editingTrack.title}</div>
+            {[
+              { label: 'BPM', key: 'bpm', type: 'number' },
+              { label: 'Key', key: 'key', type: 'text' },
+              { label: 'Camelot', key: 'camelot', type: 'text' },
+              { label: 'Energy (1–10)', key: 'energy', type: 'number' },
+              { label: 'Notes', key: 'notes', type: 'text' },
+            ].map(field => (
+              <div key={field.key} style={{ marginBottom: '14px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>{field.label}</div>
+                <input
+                  type={field.type}
+                  value={(editingTrack as any)[field.key] || ''}
+                  onChange={e => setEditingTrack(prev => prev ? { ...prev, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value } : null)}
+                  style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
+              <button onClick={() => saveTrackEdit(editingTrack)} style={{ ...btn(s.setlab), flex: 1, fontSize: '10px', padding: '10px' }}>Save</button>
+              <button onClick={() => setEditingTrack(null)} style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '10px 16px' }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div style={{ position: 'fixed', bottom: '28px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 50, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)' }}>
