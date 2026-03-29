@@ -218,7 +218,7 @@ Respond with the appropriate JSON structure. Be specific, direct, and actionable
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1400,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
