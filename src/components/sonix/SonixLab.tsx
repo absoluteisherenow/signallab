@@ -75,6 +75,110 @@ interface ArrangementSection {
   notes: string
 }
 
+interface AudioMeasurements {
+  filename: string
+  duration_ms: number
+  sample_rate: number
+  channels: number
+  peak_db: number
+  rms_db: number
+  dynamic_range_db: number
+  spectral_centroid_hz: number
+  low_energy_ratio: number
+  high_energy_ratio: number
+  transient_sharpness: number
+  fundamental_hz: number
+  spectral_flatness: number
+}
+
+interface NextStep {
+  priority: number
+  area: string
+  action: string
+  detail: string
+  plugin?: string
+}
+
+interface NextStepsResult {
+  detected_type: string
+  current_state: string
+  next_steps: NextStep[]
+  sonic_gap?: string | null
+}
+
+// ── Browser audio measurement (Cooley-Tukey FFT + acoustic analysis) ──────────
+
+function computeFFT(realIn: Float32Array): Float32Array {
+  const n = realIn.length
+  const real = new Float32Array(n), imag = new Float32Array(n)
+  for (let i = 0; i < n; i++) real[i] = realIn[i] * 0.5 * (1 - Math.cos((6.283185307 * i) / (n - 1)))
+  let j = 0
+  for (let i = 1; i < n; i++) {
+    let bit = n >> 1
+    for (; j & bit; bit >>= 1) j ^= bit
+    j ^= bit
+    if (i < j) { const t = real[i]; real[i] = real[j]; real[j] = t }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (-2 * Math.PI) / len, wRe = Math.cos(ang), wIm = Math.sin(ang)
+    for (let i = 0; i < n; i += len) {
+      let cRe = 1, cIm = 0
+      for (let k = 0; k < len / 2; k++) {
+        const uR = real[i+k], uI = imag[i+k]
+        const vR = real[i+k+len/2]*cRe - imag[i+k+len/2]*cIm
+        const vI = real[i+k+len/2]*cIm + imag[i+k+len/2]*cRe
+        real[i+k] = uR+vR; imag[i+k] = uI+vI
+        real[i+k+len/2] = uR-vR; imag[i+k+len/2] = uI-vI
+        const nr = cRe*wRe - cIm*wIm; cIm = cRe*wIm + cIm*wRe; cRe = nr
+      }
+    }
+  }
+  const mags = new Float32Array(n/2)
+  for (let i = 0; i < n/2; i++) mags[i] = Math.sqrt(real[i]*real[i]+imag[i]*imag[i])/n
+  return mags
+}
+
+function measureAudioBuffer(buf: AudioBuffer, filename: string): AudioMeasurements {
+  const ch = buf.numberOfChannels, sr = buf.sampleRate, len = buf.length
+  const mono = new Float32Array(len)
+  for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) mono[i] += d[i]/ch }
+  let peak = 0, sumSq = 0
+  for (let i = 0; i < len; i++) { const a = Math.abs(mono[i]); if (a > peak) peak = a; sumSq += mono[i]*mono[i] }
+  const rms = Math.sqrt(sumSq/len)
+  const peak_db = peak > 1e-10 ? 20*Math.log10(peak) : -96
+  const rms_db  = rms  > 1e-10 ? 20*Math.log10(rms)  : -96
+  const fftSize = 16384, mid = Math.max(0, Math.floor(len/2) - fftSize/2)
+  const padded = new Float32Array(fftSize); padded.set(mono.subarray(mid, mid+fftSize))
+  const mags = computeFFT(padded), numBins = mags.length, binHz = sr/fftSize
+  let tot = 0, ws = 0
+  for (let k = 1; k < numBins; k++) { tot += mags[k]; ws += k*binHz*mags[k] }
+  const centroid = tot > 0 ? ws/tot : 1000
+  const lowBin = Math.ceil(200/binHz), highBin = Math.floor(4000/binHz)
+  let low = 0, high = 0, all = 0
+  for (let k = 1; k < numBins; k++) { const e = mags[k]*mags[k]; all += e; if (k < lowBin) low += e; if (k >= highBin) high += e }
+  let logS = 0, arS = 0, vB = 0
+  for (let k = 1; k < numBins; k++) { if (mags[k] > 1e-12) { logS += Math.log(mags[k]); arS += mags[k]; vB++ } }
+  const flat = vB > 0 && arS > 0 ? Math.min(1, Math.exp(logS/vB)/(arS/vB)) : 0
+  const fMin = Math.floor(30/binHz), fMax = Math.ceil(600/binHz)
+  let fPk = 0, fBin = 1
+  for (let k = fMin; k < Math.min(fMax, numBins); k++) { if (mags[k] > fPk) { fPk = mags[k]; fBin = k } }
+  const envWin = Math.max(1, Math.round(sr*0.002)), nF = Math.floor(len/envWin), env = new Float32Array(nF)
+  for (let f = 0; f < nF; f++) { let r = 0; for (let s = f*envWin; s < (f+1)*envWin && s < len; s++) r += mono[s]*mono[s]; env[f] = Math.sqrt(r/envWin) }
+  let maxR = 0
+  for (let f = 1; f < nF; f++) { const rise = env[f]-env[f-1]; if (rise > maxR) maxR = rise }
+  return {
+    filename, duration_ms: Math.round(buf.duration*1000), sample_rate: sr, channels: ch,
+    peak_db: Math.round(peak_db*10)/10, rms_db: Math.round(rms_db*10)/10,
+    dynamic_range_db: Math.round((peak_db-rms_db)*10)/10,
+    spectral_centroid_hz: Math.round(centroid),
+    low_energy_ratio: all > 0 ? Math.round(low/all*1000)/1000 : 0,
+    high_energy_ratio: all > 0 ? Math.round(high/all*1000)/1000 : 0,
+    transient_sharpness: Math.min(1, Math.round(maxR*4*1000)/1000),
+    fundamental_hz: Math.round(fBin*binHz),
+    spectral_flatness: Math.round(flat*1000)/1000,
+  }
+}
+
 export function SonixLab() {
   const [toast, setToast] = useState<{ msg: string; tag: string } | null>(null)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
@@ -117,6 +221,15 @@ export function SonixLab() {
   const [stemType, setStemType] = useState<'kick'|'bass'|'vocals'|'synths'|'drums'|'full_mix'>('full_mix')
   const [stemAnalysis, setStemAnalysis] = useState('')
   const [analysingStem, setAnalysingStem] = useState(false)
+
+  // ── Next Steps ───────────────────────────────────────────────────────
+  const [nextStepsFile, setNextStepsFile] = useState<File | null>(null)
+  const [nextStepsMeasurements, setNextStepsMeasurements] = useState<AudioMeasurements | null>(null)
+  const [nextStepsResult, setNextStepsResult] = useState<NextStepsResult | null>(null)
+  const [generatingNextSteps, setGeneratingNextSteps] = useState(false)
+  const [nextStepsDrag, setNextStepsDrag] = useState(false)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const nextStepsInputRef = useRef<HTMLInputElement>(null)
 
   // ── Helpers ──────────────────────────────────────────────────────────
   const showToast = useCallback((msg: string, tag = 'Info') => {
@@ -400,6 +513,84 @@ Give:
       showToast(`Error: ${err.message}`, 'Error')
     } finally {
       setAnalysingStem(false)
+    }
+  }
+
+  // ── Next Steps analyser ───────────────────────────────────────────────
+  async function analyseAndSuggestNextSteps(file: File) {
+    setGeneratingNextSteps(true)
+    setNextStepsResult(null)
+    setNextStepsMeasurements(null)
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioContext()
+      const ctx = audioCtxRef.current
+      const arrayBuf = await file.arrayBuffer()
+      const audioBuf = await ctx.decodeAudioData(arrayBuf)
+      const m = measureAudioBuffer(audioBuf, file.name)
+      setNextStepsMeasurements(m)
+
+      const brightnessLabel =
+        m.spectral_centroid_hz < 500  ? 'very dark/muddy, lacks presence' :
+        m.spectral_centroid_hz < 1200 ? 'warm and full, may lack air' :
+        m.spectral_centroid_hz < 2500 ? 'balanced tonal centre' :
+        m.spectral_centroid_hz < 5000 ? 'bright and present' : 'very bright, possibly thin'
+      const subLabel =
+        m.low_energy_ratio > 0.6 ? 'sub-dominant — risk of mud and masking' :
+        m.low_energy_ratio > 0.4 ? 'healthy sub presence' : 'sub-thin, lacks low-end weight'
+      const transientLabel =
+        m.transient_sharpness > 0.7 ? 'very punchy/sharp attacks' :
+        m.transient_sharpness > 0.4 ? 'decent transient definition' : 'soft/blunted attacks'
+      const dynLabel =
+        m.dynamic_range_db > 15 ? 'very dynamic, likely uncompressed' :
+        m.dynamic_range_db > 8  ? 'natural dynamics' : 'heavily compressed or clipped'
+
+      const raw = await callClaude(
+        `You are an expert electronic music producer and mixing engineer analysing a producer's work-in-progress audio. Return ONLY valid JSON, no markdown.`,
+        `I've uploaded audio I'm working on. Based on the acoustic measurements and my session context, tell me the most important next steps.
+
+SESSION CONTEXT:
+${sonicCtxString() || 'No session context set'}
+${installedPlugins.length ? `Installed plugins: ${installedPlugins.slice(0, 40).join(', ')}` : 'No plugins scanned — recommend Ableton stock'}
+
+AUDIO MEASUREMENTS:
+  File: ${m.filename}
+  Duration: ${(m.duration_ms / 1000).toFixed(1)}s  |  ${m.channels === 1 ? 'Mono' : 'Stereo'}  |  ${m.sample_rate}Hz
+  Peak: ${m.peak_db.toFixed(1)}dBFS
+  RMS: ${m.rms_db.toFixed(1)}dBFS
+  Dynamic Range: ${m.dynamic_range_db.toFixed(1)}dB → ${dynLabel}
+  Spectral Centroid: ${m.spectral_centroid_hz}Hz → ${brightnessLabel}
+  Low Energy (below 200Hz): ${(m.low_energy_ratio * 100).toFixed(1)}% → ${subLabel}
+  High Energy (above 4kHz): ${(m.high_energy_ratio * 100).toFixed(1)}%
+  Transient Sharpness: ${m.transient_sharpness.toFixed(3)} → ${transientLabel}
+  Fundamental: ${m.fundamental_hz}Hz
+  Spectral Flatness: ${m.spectral_flatness.toFixed(3)} (0=tonal, 1=noise-like)
+
+Return JSON:
+{
+  "detected_type": "<what this likely is: full mix, drum loop, bass stem, synth pad, etc>",
+  "current_state": "<one sentence: what does this audio sound like right now based on the measurements>",
+  "next_steps": [
+    {
+      "priority": 1,
+      "area": "<Low end / Dynamics / Brightness / Transients / Space / Clarity / Gain>",
+      "action": "<short action title, e.g. 'Tame the mid-bass buildup'>",
+      "detail": "<exactly what to do — plugin name, exact parameter, value. E.g. 'EQ Eight: -3dB shelf at 220Hz, Q 1.4 on the master bus — the 64% sub ratio is masking the kick punch'>",
+      "plugin": "<exact plugin name from installed list or Ableton stock>"
+    }
+  ],
+  "sonic_gap": "<if sounds_like references are set in session context: compare this audio's measurements to what those artists sound like — what specific gap needs closing? If no references set, return null>"
+}
+
+Give 3-5 next steps ordered by impact. Use installed plugins where available, Ableton stock otherwise. Be concrete: exact frequencies, ratios, dB values. Reference the session context and sonic world throughout.`,
+        750
+      )
+      const cleaned = raw.replace(/```json|```/g, '').trim()
+      setNextStepsResult(JSON.parse(cleaned) as NextStepsResult)
+      showToast('Next steps ready', 'Done')
+    } catch (err: unknown) {
+      showToast(`Error: ${err instanceof Error ? err.message : 'Analysis failed'}`, 'Error')
+    } finally {
+      setGeneratingNextSteps(false)
     }
   }
 
@@ -814,6 +1005,150 @@ Give:
               </div>
               {chainResult && (
                 <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{chainResult}</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════
+            SECTION 5 — NEXT STEPS
+        ════════════════════════════════════════════════════════════ */}
+        <div style={panelGold}>
+          <div style={{ ...sectionLabel, color: 'var(--gold-bright)' }}>
+            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
+            Next Steps — upload what you&apos;ve made
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', marginBottom: '16px', letterSpacing: '0.04em' }}>
+            Drop audio you&apos;re working on. Get concrete next steps based on the actual measurements and your sonic world.
+          </div>
+
+          {/* Drop zone */}
+          <div
+            onDragOver={e => { e.preventDefault(); setNextStepsDrag(true) }}
+            onDragLeave={() => setNextStepsDrag(false)}
+            onDrop={e => {
+              e.preventDefault(); setNextStepsDrag(false)
+              const f = e.dataTransfer.files[0]
+              if (f) { setNextStepsFile(f); setNextStepsResult(null); setNextStepsMeasurements(null) }
+            }}
+            onClick={() => nextStepsInputRef.current?.click()}
+            style={{
+              border: `1px dashed ${nextStepsDrag ? 'var(--gold-bright)' : '#3a2e1c'}`,
+              padding: '28px', textAlign: 'center', cursor: 'pointer', marginBottom: '16px',
+              background: nextStepsDrag ? 'rgba(201,164,110,0.04)' : 'transparent',
+              transition: 'all 0.15s',
+            }}
+          >
+            <input
+              ref={nextStepsInputRef} type="file" accept="audio/*,.wav,.aif,.aiff,.mp3,.flac"
+              style={{ display: 'none' }}
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) { setNextStepsFile(f); setNextStepsResult(null); setNextStepsMeasurements(null) }
+              }}
+            />
+            {nextStepsFile ? (
+              <div>
+                <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '4px' }}>{nextStepsFile.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>{(nextStepsFile.size / 1024 / 1024).toFixed(1)} MB · click to change</div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginBottom: '6px' }}>Drop audio here or click to browse</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>WAV · AIFF · MP3 · FLAC</div>
+              </div>
+            )}
+          </div>
+
+          {nextStepsFile && (
+            <button
+              onClick={() => analyseAndSuggestNextSteps(nextStepsFile)}
+              disabled={generatingNextSteps}
+              style={goldBtn(generatingNextSteps)}
+            >
+              {generatingNextSteps && spinner}
+              {generatingNextSteps ? 'Analysing audio…' : 'Analyse & suggest next steps →'}
+            </button>
+          )}
+
+          {/* Measurement readout */}
+          {nextStepsMeasurements && (
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
+              {[
+                { label: 'Peak',      value: `${nextStepsMeasurements.peak_db.toFixed(1)} dBFS` },
+                { label: 'RMS',       value: `${nextStepsMeasurements.rms_db.toFixed(1)} dBFS` },
+                { label: 'Centroid',  value: `${nextStepsMeasurements.spectral_centroid_hz} Hz` },
+                { label: 'Sub energy', value: `${(nextStepsMeasurements.low_energy_ratio * 100).toFixed(0)}%` },
+                { label: 'Transients', value: nextStepsMeasurements.transient_sharpness.toFixed(2) },
+                { label: 'Dyn range',  value: `${nextStepsMeasurements.dynamic_range_db.toFixed(1)} dB` },
+              ].map(b => (
+                <div key={b.label} style={{ background: '#120f0a', border: '1px solid #2a2018', padding: '8px 14px', textAlign: 'center', minWidth: '72px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmest)', textTransform: 'uppercase', marginBottom: '4px' }}>{b.label}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-dim)', fontFamily: "'DM Mono', monospace" }}>{b.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Results */}
+          {nextStepsResult && (
+            <div style={{ marginTop: '20px' }}>
+              {/* Header row */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ background: 'rgba(201,164,110,0.08)', border: '1px solid rgba(201,164,110,0.25)', padding: '6px 14px', fontSize: '11px', color: 'var(--gold-bright)', letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0 }}>
+                  {nextStepsResult.detected_type}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-warm)', flex: 1, lineHeight: '1.5', letterSpacing: '0.03em' }}>
+                  {nextStepsResult.current_state}
+                </div>
+              </div>
+
+              {/* Step cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: nextStepsResult.sonic_gap ? '16px' : '0' }}>
+                {nextStepsResult.next_steps.map((step, i) => (
+                  <div key={i} style={{
+                    background: '#120f0a',
+                    border: `1px solid ${step.priority === 1 ? '#5a4428' : step.priority === 2 ? '#2a4a36' : '#2a2018'}`,
+                    padding: '14px 18px', display: 'flex', gap: '16px', alignItems: 'flex-start',
+                  }}>
+                    {/* Priority badge */}
+                    <div style={{
+                      flexShrink: 0, width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: step.priority === 1 ? 'rgba(201,164,110,0.15)' : step.priority === 2 ? 'rgba(61,107,74,0.2)' : 'rgba(255,255,255,0.04)',
+                      fontSize: '11px', fontWeight: 700,
+                      color: step.priority === 1 ? 'var(--gold-bright)' : step.priority === 2 ? 'var(--accent-green)' : 'var(--text-dimmer)',
+                    }}>
+                      {step.priority}
+                    </div>
+                    {/* Content */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: step.priority === 1 ? 'var(--gold-bright)' : step.priority === 2 ? 'var(--accent-green)' : 'var(--text-dimmer)' }}>
+                          {step.area}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 500 }}>{step.action}</div>
+                        {step.plugin && (
+                          <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', border: '1px solid #2a2018', padding: '2px 8px', letterSpacing: '0.08em' }}>
+                            {step.plugin}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-warm)', lineHeight: '1.6', letterSpacing: '0.03em' }}>{step.detail}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sonic gap vs references */}
+              {nextStepsResult.sonic_gap && (
+                <div style={{ background: 'rgba(201,164,110,0.04)', border: '1px solid rgba(201,164,110,0.2)', padding: '14px 18px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    Sonic gap — vs your references
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6', fontStyle: 'italic' }}>
+                    {nextStepsResult.sonic_gap}
+                  </div>
+                </div>
               )}
             </div>
           )}
