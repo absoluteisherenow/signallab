@@ -16,32 +16,6 @@ async function callClaude(system: string, userPrompt: string, maxTokens = 800): 
   return data.content?.[0]?.text || ''
 }
 
-// ── Chain category definitions (used as selector only) ───────────────────
-const CHAINS = [
-  { name: 'Vocal — Warmth',     type: 'vocal', desc: 'Vintage compression, harmonic saturation, air shelf' },
-  { name: 'Vocal — Presence',   type: 'vocal', desc: 'Forward mid push, de-ess, bright reverb tail' },
-  { name: 'Vocal — Intimate',   type: 'vocal', desc: 'Close-mic feel, subtle tape, room ambience' },
-  { name: 'Vocal — Radio',      type: 'vocal', desc: 'Aggressive limiting, telephonic character, punch' },
-  { name: 'Vocal — Depth',      type: 'vocal', desc: 'Wide stereo, long pre-delay, lush modulation' },
-  { name: 'Vocal — Dark',       type: 'vocal', desc: 'Low-mid body, rolled highs, dense reverb' },
-  { name: 'Vocal — Airy',       type: 'vocal', desc: 'High-shelf lift, minimal compression, open space' },
-  { name: 'Vocal — Electronic', type: 'vocal', desc: 'Pitch character, bit colour, parallel distortion' },
-  { name: 'Bass — Sub',         type: 'bass',  desc: 'Clean sub foundation, gentle limiting, no upper harmonics' },
-  { name: 'Bass — Midrange',    type: 'bass',  desc: 'Upper harmonic focus, growl, speaker-friendly' },
-  { name: 'Bass — Reese',       type: 'bass',  desc: 'Detuned character, dark modulation, movement' },
-  { name: 'Bass — Punch',       type: 'bass',  desc: 'Transient snap, fast attack, tight release' },
-  { name: 'Synth — Pad',        type: 'synth', desc: 'Wide stereo, slow attack, soft harmonic sheen' },
-  { name: 'Synth — Lead',       type: 'synth', desc: 'Mono focus, mid presence, clean sustain' },
-  { name: 'Synth — Texture',    type: 'synth', desc: 'Granular movement, spectral interest, background depth' },
-  { name: 'Drum — Room',        type: 'drum',  desc: 'Natural room glue, parallel compression, weight' },
-  { name: 'Drum — Electronic',  type: 'drum',  desc: 'Tight transients, no room, surgical punch' },
-  { name: 'Reference',          type: 'ref',   desc: 'LUFS matching, dynamic ceiling, true peak control' },
-]
-
-const typeColors: Record<string, string> = {
-  vocal: '#b08d57', bass: '#5a8a6a', synth: '#6a7a9a', drum: '#9a6a5a', ref: '#7a6a8a',
-}
-
 // ── Sonic World defaults ─────────────────────────────────────────────────
 const DEFAULT_SONIC_WORLD = {
   soundsLike: [] as string[],
@@ -214,10 +188,6 @@ export function SonixLab() {
   const [energyArc, setEnergyArc] = useState<number[]>([])
 
   // ── Chains ───────────────────────────────────────────────────────────
-  const [selectedChain, setSelectedChain] = useState<number | null>(null)
-  const [chainResult, setChainResult] = useState('')
-  const [generatingChain, setGeneratingChain] = useState(false)
-  const [activeType, setActiveType] = useState('all')
   const [stemType, setStemType] = useState<'kick'|'bass'|'vocals'|'synths'|'drums'|'full_mix'>('full_mix')
   const [stemAnalysis, setStemAnalysis] = useState('')
   const [analysingStem, setAnalysingStem] = useState(false)
@@ -461,34 +431,6 @@ Return JSON:
     }
   }
 
-  // ── Chain advice ──────────────────────────────────────────────────────
-  async function generateChainAdvice() {
-    if (selectedChain === null) { showToast('Select a chain type first', 'Error'); return }
-    setGeneratingChain(true)
-    setChainResult('')
-    const chain = CHAINS[selectedChain]
-    try {
-      const raw = await callClaude(
-        `You are an expert mix engineer with 20+ years in electronic music. Give specific plugin settings and techniques. ${pluginCtxString()}`,
-        `Chain type: ${chain.name}
-Context: ${sonicCtxString() || chain.desc}
-${installedPlugins.length ? `Use from the producer's actual installed plugins where possible: ${installedPlugins.slice(0,30).join(', ')}` : ''}
-
-Give:
-1. Signal chain order with specific plugins (prefer installed plugins if provided, otherwise Ableton stock)
-2. Key settings for each plugin (specific dB values, ratios, frequencies, times)
-3. The one setting that makes or breaks this chain
-4. What to listen for to know it's right`,
-        500
-      )
-      setChainResult(raw.replace(/\*\*/g,'').replace(/^#{1,3} /gm,''))
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'Error')
-    } finally {
-      setGeneratingChain(false)
-    }
-  }
-
   // ── Stem analysis ─────────────────────────────────────────────────────
   async function analyseStem() {
     setAnalysingStem(true)
@@ -592,8 +534,6 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
       setGeneratingNextSteps(false)
     }
   }
-
-  const filteredChains = activeType === 'all' ? CHAINS : CHAINS.filter(c => c.type === activeType)
 
   // ── Shared styles ─────────────────────────────────────────────────────
   const card = {
@@ -893,51 +833,6 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
             </div>
             {stemAnalysis && <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap' }}>{stemAnalysis}</div>}
           </div>
-
-          <div style={{ ...fieldLabel, marginBottom: '12px' }}>Select chain type</div>
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-            {['all','vocal','bass','synth','drum','ref'].map(t => (
-              <button key={t} onClick={() => setActiveType(t)} style={{
-                background: activeType === t ? 'rgba(255,255,255,0.04)' : 'transparent',
-                border: `1px solid ${activeType === t ? (typeColors[t] || 'var(--text-dim)') : 'var(--border-dim)'}`,
-                color: activeType === t ? (typeColors[t] || 'var(--text)') : 'var(--text-dimmer)',
-                fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.1em',
-                padding: '6px 14px', cursor: 'pointer', textTransform: 'uppercase', transition: 'all 0.15s',
-              }}>{t}</button>
-            ))}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
-            {filteredChains.map((chain, i) => {
-              const idx = CHAINS.indexOf(chain)
-              const selected = selectedChain === idx
-              return (
-                <div key={i} onClick={() => { setSelectedChain(idx); setChainResult('') }} style={{
-                  background: selected ? 'rgba(255,255,255,0.03)' : 'var(--bg)',
-                  border: `1px solid ${selected ? (typeColors[chain.type] || 'var(--border)') : 'var(--border-dim)'}`,
-                  padding: '14px 16px', cursor: 'pointer', transition: 'all 0.15s',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                    <div style={{ fontSize: '12px', color: selected ? (typeColors[chain.type] || 'var(--text)') : 'var(--text-dim)' }}>{chain.name}</div>
-                    <div style={{ fontSize: '9px', color: typeColors[chain.type] || 'var(--text-dimmer)', border: `1px solid ${typeColors[chain.type] || 'var(--border-dim)'}33`, padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{chain.type}</div>
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dimmest)', fontStyle: 'italic', lineHeight: '1.4' }}>{chain.desc}</div>
-                </div>
-              )
-            })}
-          </div>
-
-          {selectedChain !== null && (
-            <div style={{ padding: '16px 20px', background: 'var(--bg)', border: '1px solid var(--border-dim)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>{CHAINS[selectedChain].name}</div>
-                <button onClick={generateChainAdvice} disabled={generatingChain} style={btn(generatingChain)}>
-                  {generatingChain && spinner}{generatingChain ? '…' : 'Get chain →'}
-                </button>
-              </div>
-              {chainResult && <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap' }}>{chainResult}</div>}
-            </div>
-          )}
         </div>
 
         {/* ── Next Steps ── */}
