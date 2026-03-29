@@ -134,7 +134,7 @@ Four Tet | Teenage Birdsong | 130 | - | 5:12`,
         const raw = data.content?.[0]?.text
         if (!raw) throw new Error('No response from vision model')
 
-        const lines = raw.trim().split('\n').map(l => l.trim()).filter(Boolean)
+        const lines = raw.trim().split('\n').map((l: string) => l.trim()).filter(Boolean)
 
         // Extract source and playlist from header lines
         let source = 'Unknown'

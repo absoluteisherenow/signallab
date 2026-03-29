@@ -14,8 +14,13 @@ export default function ConnectVST() {
     setError(null)
     try {
       const res = await fetch('/api/auth-token')
-      if (!res.ok) throw new Error(`Request failed: ${res.status}`)
       const data = await res.json()
+      if (res.status === 401) {
+        // Not logged in — redirect to login page
+        window.location.href = `/login?next=${encodeURIComponent('/connect-vst')}`
+        return
+      }
+      if (!res.ok) throw new Error(data?.message ?? `Request failed: ${res.status}`)
       setToken(data.token)
       setArtist(data.artist)
     } catch (err: any) {
