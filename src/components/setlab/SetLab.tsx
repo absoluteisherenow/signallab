@@ -844,8 +844,8 @@ Return corrected JSON:
         if (!info) throw new Error('Could not read AIFF file — check it is a valid AIFF/AIFC')
         sampleRate = Math.round(info.sampleRate)
         duration = info.dataSize / info.bytesPerFrame / sampleRate
-        setScanProgress('Analysing energy envelope…')
-        const aiff = await processAIFFChunked(scannerFile, info, pct => setScanProgress(`Analysing energy… ${pct}%`))
+        setScanProgress('Reading mix…')
+        const aiff = await processAIFFChunked(scannerFile, info, pct => setScanProgress(`Reading mix… ${pct}%`))
         energyWindows = aiff.energyWindows
         aiffSnippet = aiff.getSnippet
         // BPM from 60s middle window
@@ -853,7 +853,7 @@ Return corrected JSON:
         const bmpMono = await aiff.getSnippet(midSec, Math.min(60, duration - midSec))
         bpmEstimate = estimateBPM(bmpMono, sampleRate)
       } else {
-        setScanProgress('Decoding audio…')
+        setScanProgress('Reading mix…')
         const arrayBuffer = await scannerFile.arrayBuffer()
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
         const audioCtx = new AudioCtx()
@@ -866,7 +866,7 @@ Return corrected JSON:
         audioCtx.close()
         duration = decoded.duration
         sampleRate = decoded.sampleRate
-        setScanProgress('Analysing energy envelope…')
+        setScanProgress('Reading mix…')
         const mono = new Float32Array(decoded.length)
         for (let c = 0; c < decoded.numberOfChannels; c++) {
           const ch = decoded.getChannelData(c)
@@ -1006,7 +1006,7 @@ Return corrected JSON:
     if (!scanAudioRef.current) { showToast('No scan data — re-upload the mix', 'Error'); return }
     setScanPhase('analysing')
     setScanning(true)
-    setScanProgress('Getting AI analysis…')
+    setScanProgress('Analysing mix…')
     try {
       const resp = await fetch('/api/mix-scan', {
         method: 'POST',
@@ -1558,27 +1558,9 @@ Return corrected JSON:
                   : 'Find rare gems →'}
               </button>
 
-              {/* API usage counter */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', padding: '8px 12px', background: discoverCallCount >= 8 ? 'rgba(154,106,90,0.15)' : 'transparent', border: `1px solid ${discoverCallCount >= 8 ? 'rgba(154,106,90,0.4)' : s.border}` }}>
-                <div style={{ fontSize: '10px', color: discoverCallCount >= 8 ? '#9a6a5a' : s.textDimmer }}>
-                  {discoverCallCount >= 8 ? '⚠ ' : ''}{discoverCallCount} discover {discoverCallCount === 1 ? 'search' : 'searches'} this session
-                  {discoverCallCount >= 8 && ' — each search calls Claude + Last.fm + Spotify'}
-                </div>
-                <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                  ~£{(discoverCallCount * 0.001).toFixed(3)} Claude cost
-                </div>
-              </div>
-
-              {/* Debug: seeds used */}
-              {discoverMeta?.debug && (
-                <div style={{ marginTop: '8px', padding: '8px 12px', background: s.bg, border: `1px solid ${s.border}`, fontSize: '10px', color: s.textDimmer, lineHeight: '1.7' }}>
-                  <div style={{ color: s.textDim, marginBottom: '4px' }}>Last search — seeds used:</div>
-                  {discoverMeta.debug.lastFmSeeds?.map((seed: string, i: number) => (
-                    <div key={i}>Last.fm seed {i + 1}: {seed}</div>
-                  ))}
-                  <div style={{ marginTop: '4px', color: s.textDimmer }}>
-                    Claude: {discoverMeta.debug.claudeCount} suggestions · Last.fm: {discoverMeta.debug.lastFmCount} similar · {discoverMeta.debug.mergedBeforeFilter} merged → {discoverMeta.debug.afterPopularityFilter} after popularity filter
-                  </div>
+              {discoverCallCount >= 8 && (
+                <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(154,106,90,0.1)', border: '1px solid rgba(154,106,90,0.3)', fontSize: '10px', color: '#9a6a5a' }}>
+                  ⚠ {discoverCallCount} searches this session — go easy to keep results fresh
                 </div>
               )}
 
@@ -1718,7 +1700,7 @@ Return corrected JSON:
               <div>
                 <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.25em', color: s.setlab, marginBottom: '6px' }}>MIX SCANNER</div>
                 <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
-                  Upload a recorded DJ mix · AI analyses energy, transitions, flow and technique · Rated out of 10
+                  Upload a recorded DJ mix · Breaks down transitions, energy arc and flow · Rated out of 10
                 </div>
               </div>
               {scanResult && (
@@ -1769,9 +1751,9 @@ Return corrected JSON:
                   {scanPhase === 'detecting' ? 'Analysing mix' : 'Identifying tracks'}
                 </div>
                 <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '8px' }}>{scanProgress}</div>
-                {scanPhase === 'fingerprinting' && (
+                {scanPhase === 'fingerprinting' && detectedTracks.length > 0 && (
                   <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '8px' }}>
-                    Using ACRCloud audio fingerprinting · {detectedTracks.length} tracks found so far
+                    {detectedTracks.filter(t => t.found).length} of {detectedTracks.length} tracks identified so far
                   </div>
                 )}
               </div>
@@ -1874,12 +1856,7 @@ Return corrected JSON:
                       </div>
                       {detectedTracks.length > 0 && detectedTracks.filter(t => !t.found && t.acrCode !== undefined && t.acrCode !== 1001).length > 0 && (
                         <div style={{ marginTop: '6px', fontSize: '10px', color: '#c04040' }}>
-                          ACRCloud errors detected — codes: {[...new Set(detectedTracks.filter(t => t.acrCode !== undefined && t.acrCode !== 1001).map(t => `${t.acrCode} ${t.acrMsg || ''}`))].join(', ')}
-                        </div>
-                      )}
-                      {detectedTracks.length > 0 && detectedTracks.filter(t => !t.found && t.acrCode === undefined).length > 0 && (
-                        <div style={{ marginTop: '6px', fontSize: '10px', color: '#b08d57' }}>
-                          {detectedTracks.filter(t => !t.found && t.acrCode === undefined).length} network errors — check console for details
+                          Some tracks could not be read — check your connection and try re-uploading
                         </div>
                       )}
                     </div>
@@ -1938,7 +1915,7 @@ Return corrected JSON:
                     onClick={runClaudeAnalysis}
                     disabled={scanning}
                     style={{ ...btn(s.setlab), fontSize: '11px', padding: '14px 28px', flexShrink: 0 }}>
-                    {scanning ? (scanProgress || 'Analysing…') : 'Analyse with Claude →'}
+                    {scanning ? (scanProgress || 'Analysing…') : 'Analyse mix →'}
                   </button>
                 </div>
 
@@ -1957,9 +1934,7 @@ Return corrected JSON:
                 {/* Data quality banner */}
                 {scanResult.data_quality === 'amplitude-only' && (
                   <div style={{ background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '12px 16px', fontSize: '11px', color: s.textDim, lineHeight: '1.6' }}>
-                    <span style={{ color: s.gold, letterSpacing: '0.1em', textTransform: 'uppercase', fontSize: '9px' }}>Amplitude-only analysis</span>
-                    <br />
-                    This scan had no tracklist — results are based on loudness data only. For track-by-track feedback, key mixing analysis, and curation scoring, re-run with your tracklist added.
+                    No tracklist provided — for track-by-track feedback, key mixing analysis and curation scoring, re-run with your tracklist filled in.
                   </div>
                 )}
 
