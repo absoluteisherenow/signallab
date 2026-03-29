@@ -577,8 +577,7 @@ Return JSON:
       "detail": "<exactly what to do — plugin name, exact parameter, value. E.g. 'EQ Eight: -3dB shelf at 220Hz, Q 1.4 on the master bus — the 64% sub ratio is masking the kick punch'>",
       "plugin": "<exact plugin name from installed list or Ableton stock>"
     }
-  ],
-  "sonic_gap": "<if sounds_like references are set in session context: compare this audio's measurements to what those artists sound like — what specific gap needs closing? If no references set, return null>"
+  ]
 }
 
 Give 3-5 next steps ordered by impact. Use installed plugins where available, Ableton stock otherwise. Be concrete: exact frequencies, ratios, dB values. Reference the session context and sonic world throughout.`,
@@ -597,163 +596,135 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
   const filteredChains = activeType === 'all' ? CHAINS : CHAINS.filter(c => c.type === activeType)
 
   // ── Shared styles ─────────────────────────────────────────────────────
-  const panel = {
-    background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)',
-    border: '1px solid #3a2e1c',
-    padding: '24px 28px',
+  const card = {
+    background: 'var(--panel)',
+    border: '1px solid var(--border-dim)',
+    padding: '28px 32px',
     marginBottom: '24px',
   } as const
 
-  const panelGold = {
-    ...panel,
-    background: 'linear-gradient(180deg, #2a2018 0%, #1e1710 100%)',
-    border: '1px solid #5a4428',
-    boxShadow: '0 0 20px rgba(201,164,110,0.05)',
+  const cardGold = {
+    ...card,
+    border: '1px solid rgba(176, 141, 87, 0.2)',
   } as const
 
-  const sectionLabel = {
-    fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase' as const,
-    marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px',
+  const secHead = (label: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' as const }}>{label}</div>
+      <div style={{ flex: 1, height: '1px', background: 'var(--border-dim)' }} />
+    </div>
+  )
+
+  const btn = (busy: boolean, disabled = false, variant: 'gold' | 'dim' | 'green' = 'gold') => {
+    const v = { gold: { bg: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: 'var(--gold)', color: 'var(--gold)' }, dim: { bg: 'transparent', border: 'var(--border-dim)', color: 'var(--text-dimmer)' }, green: { bg: 'linear-gradient(180deg, #1a2e1c 0%, #121e0e 100%)', border: 'var(--green)', color: 'var(--green)' } }[variant]
+    return { background: busy ? 'transparent' : v.bg, border: `1px solid ${v.border}`, color: v.color, fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, padding: '12px 24px', cursor: busy || disabled ? 'default' : 'pointer', opacity: busy || disabled ? 0.45 : 1, display: 'flex', alignItems: 'center', gap: '10px', transition: 'opacity 0.15s' }
   }
 
-  const goldBtn = (busy: boolean, disabled = false) => ({
-    background: busy ? 'var(--bg)' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
-    border: '1px solid var(--gold-bright)',
-    color: 'var(--gold-bright)',
-    fontFamily: "'DM Mono', monospace",
-    fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const,
-    padding: '10px 24px', cursor: busy || disabled ? 'default' : 'pointer',
-    opacity: busy || disabled ? 0.5 : 1,
-    display: 'flex', alignItems: 'center', gap: '10px',
-    boxShadow: '0 0 12px rgba(201,164,110,0.1)',
-  })
+  const spinner = <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
 
-  const spinner = <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+  const fieldLabel: React.CSSProperties = { fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }
+  const inputStyle: React.CSSProperties = { width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none' }
 
   return (
-    <div className="min-h-screen text-[#e8dcc8]" style={{ background: 'linear-gradient(180deg, #1a1410 0%, #120f0a 100%)', fontFamily: "'DM Mono', monospace" }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
 
-      {/* HEADER */}
-      <div style={{ background: 'linear-gradient(180deg, #2a2018 0%, #1e1710 100%)', borderBottom: '2px solid #3a2e20', boxShadow: '0 2px 20px rgba(0,0,0,0.5)' }} className="px-8 py-5 flex items-center justify-between">
-        <div style={{ background: 'linear-gradient(135deg, #2e2416 0%, #1c1508 100%)', border: '1px solid #5a4428', boxShadow: 'inset 0 1px 0 rgba(255,200,100,0.1), 0 2px 8px rgba(0,0,0,0.4)', padding: '10px 20px' }}>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: '300', letterSpacing: '0.2em', color: 'var(--gold-bright)', textShadow: '0 0 20px rgba(201,164,110,0.4)' }}>
-            SONIX <span style={{ color: 'var(--text-dimmer)' }}>LAB</span>
-          </div>
-          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: '#5a4428', marginTop: '2px' }}>MODULAR CREATIVE SUITE — MK.II</div>
+      {/* ── Page header ── */}
+      <div style={{ padding: '52px 56px 44px', borderBottom: '1px solid var(--border-dim)' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
+          <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
+          Artist OS — Modular Suite
         </div>
-        {installedPlugins.length > 0 && (
-          <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: '#3d6b4a' }}>
-            {installedPlugins.length} plugins loaded
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+          <div>
+            <div className="display" style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 200, lineHeight: 1.0 }}>Sonix Lab.</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginTop: '10px' }}>Production tools — composition, chains &amp; analysis</div>
           </div>
-        )}
-        <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: '#3a2e20' }}>ARTIST OS</div>
+          {installedPlugins.length > 0 && (
+            <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--green)', textTransform: 'uppercase' }}>
+              {installedPlugins.length} plugins loaded
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="p-8">
+      <div style={{ padding: '44px 56px' }}>
 
-        {/* ═══════════════════════════════════════════════════════════
-            SECTION 1 — SONIC WORLD
-        ════════════════════════════════════════════════════════════ */}
-        <div style={panelGold}>
-          <div style={{ ...sectionLabel, color: 'var(--gold-bright)' }}>
-            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
-            Sonic World — your session context
-          </div>
-
-          {/* Alignment list */}
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>
-              Sounds like <span style={{ color: 'var(--text-dimmest)', textTransform: 'none', letterSpacing: '0' }}>(up to 6 references)</span>
-            </div>
+        {/* ── Sonic World ── */}
+        <div style={{ ...cardGold, marginBottom: '32px' }}>
+          {secHead('Sonic World — session context')}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={fieldLabel}>Sounds like <span style={{ color: 'var(--text-dimmest)', textTransform: 'none', letterSpacing: 0 }}>(up to 6)</span></div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
               {sonicWorld.soundsLike.map((ref, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(201,164,110,0.08)', border: '1px solid rgba(201,164,110,0.3)', padding: '6px 12px', fontSize: '12px', color: 'var(--gold-bright)' }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(176,141,87,0.07)', border: '1px solid rgba(176,141,87,0.22)', padding: '5px 12px', fontSize: '12px', color: 'var(--gold)' }}>
                   {ref}
-                  <button onClick={() => removeRef(i)} style={{ background: 'none', border: 'none', color: 'var(--text-dimmest)', cursor: 'pointer', fontSize: '14px', padding: '0', lineHeight: '1' }}>×</button>
+                  <button onClick={() => removeRef(i)} style={{ background: 'none', border: 'none', color: 'var(--text-dimmer)', cursor: 'pointer', fontSize: '14px', padding: '0', lineHeight: '1' }}>×</button>
                 </div>
               ))}
               {sonicWorld.soundsLike.length < 6 && (
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input value={newRef} onChange={e => setNewRef(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') addRef() }}
-                    placeholder="Artist — Track (press Enter)"
-                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '12px', padding: '6px 12px', outline: 'none', width: '260px' }} />
-                  <button onClick={addRef} style={{ ...goldBtn(false), padding: '6px 16px', fontSize: '10px' }}>Add</button>
+                    placeholder="Artist — Track (Enter to add)"
+                    style={{ ...inputStyle, width: '260px' }} />
+                  <button onClick={addRef} style={{ ...btn(false), padding: '8px 16px' }}>Add</button>
                 </div>
               )}
             </div>
           </div>
-
-          {/* Key / BPM / Genre / Making */}
-          <div className="grid grid-cols-4 gap-4">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
             <div>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Key</div>
-              <select value={sonicWorld.key} onChange={e => setSonicWorld(s => ({ ...s, key: e.target.value }))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '8px 12px', outline: 'none' }}>
+              <div style={fieldLabel}>Key</div>
+              <select value={sonicWorld.key} onChange={e => setSonicWorld(s => ({ ...s, key: e.target.value }))} style={inputStyle}>
                 {['A minor','C major','D minor','E minor','F major','G major','B minor','Eb major','F# minor','Bb major','C# minor','Ab major'].map(k => <option key={k}>{k}</option>)}
               </select>
             </div>
             <div>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>BPM</div>
-              <input value={sonicWorld.bpm} onChange={e => setSonicWorld(s => ({ ...s, bpm: e.target.value }))}
-                placeholder="125" type="number"
-                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '8px 12px', outline: 'none' }} />
+              <div style={fieldLabel}>BPM</div>
+              <input value={sonicWorld.bpm} onChange={e => setSonicWorld(s => ({ ...s, bpm: e.target.value }))} placeholder="125" type="number" style={inputStyle} />
             </div>
             <div>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Genre</div>
-              <select value={sonicWorld.genre} onChange={e => setSonicWorld(s => ({ ...s, genre: e.target.value }))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '8px 12px', outline: 'none' }}>
+              <div style={fieldLabel}>Genre</div>
+              <select value={sonicWorld.genre} onChange={e => setSonicWorld(s => ({ ...s, genre: e.target.value }))} style={inputStyle}>
                 {['Electronic','Deep House','Techno','Ambient','Drum & Bass','UK Garage','Afrobeats','Hip Hop','Pop','R&B','Jazz'].map(g => <option key={g}>{g}</option>)}
               </select>
             </div>
             <div>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Making</div>
-              <input value={sonicWorld.making} onChange={e => setSonicWorld(s => ({ ...s, making: e.target.value }))}
-                placeholder="6-min DJ tool, dark techno…"
-                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '8px 12px', outline: 'none' }} />
+              <div style={fieldLabel}>Making</div>
+              <input value={sonicWorld.making} onChange={e => setSonicWorld(s => ({ ...s, making: e.target.value }))} placeholder="6-min DJ tool, dark techno…" style={inputStyle} />
             </div>
           </div>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════════
-            QUICK ASK
-        ════════════════════════════════════════════════════════════ */}
-        <div style={panel}>
-          <div style={{ ...sectionLabel, color: 'var(--gold-bright)' }}>
-            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
-            Ask anything
-          </div>
+        {/* ── Ask anything ── */}
+        <div style={{ ...card, marginBottom: '32px' }}>
+          {secHead('Ask anything')}
           <div style={{ display: 'flex', gap: '12px' }}>
             <input value={question} onChange={e => setQuestion(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') askQuestion() }}
-              placeholder={`Why is my kick clashing? / How do ${sonicWorld.soundsLike[0] || 'Bicep'} get that bass width? / What reverb for this pad?`}
-              style={{ flex: 1, background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
-            <button onClick={askQuestion} disabled={askingQuestion || !question.trim()} style={goldBtn(askingQuestion, !question.trim())}>
+              placeholder={`Why is my kick clashing? / How do ${sonicWorld.soundsLike[0] || 'Bicep'} get that bass width?`}
+              style={{ ...inputStyle, flex: 1 }} />
+            <button onClick={askQuestion} disabled={askingQuestion || !question.trim()} style={btn(askingQuestion, !question.trim())}>
               {askingQuestion && spinner}
               {askingQuestion ? 'Thinking…' : 'Ask →'}
             </button>
           </div>
           {questionResult && (
-            <div style={{ marginTop: '14px', padding: '16px 20px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim)' }}>
-              <div style={{ fontSize: '14px', lineHeight: '1.8', color: 'var(--text-warm)', letterSpacing: '0.04em' }}>{questionResult}</div>
+            <div style={{ marginTop: '16px', padding: '16px 20px', background: 'var(--bg)', border: '1px solid var(--border-dim)' }}>
+              <div style={{ fontSize: '14px', lineHeight: '1.8', color: 'var(--text-warm)', letterSpacing: '0.03em' }}>{questionResult}</div>
             </div>
           )}
         </div>
 
-        {/* ═══════════════════════════════════════════════════════════
-            SECTION 2 — REFERENCE INTEL
-        ════════════════════════════════════════════════════════════ */}
-        <div style={panelGold}>
-          <div style={{ ...sectionLabel, color: 'var(--gold-bright)' }}>
-            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
-            Reference Intel — break down any track
-          </div>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginBottom: referenceIntel ? '20px' : '0' }}>
-            <div style={{ flex: 1 }}>
-              <input value={refInput} onChange={e => setRefInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') analyseReference() }}
-                placeholder="Artist — Track name (e.g. Bicep — Glue, Jon Hopkins — Emerald Rush)"
-                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
-            </div>
-            <button onClick={analyseReference} disabled={analysingRef} style={goldBtn(analysingRef)}>
+        {/* ── Reference Intel ── */}
+        <div style={{ ...card, marginBottom: '32px' }}>
+          {secHead('Reference Intel — break down any track')}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: referenceIntel ? '24px' : '0' }}>
+            <input value={refInput} onChange={e => setRefInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') analyseReference() }}
+              placeholder="Artist — Track (e.g. Bicep — Glue, Jon Hopkins — Emerald Rush)"
+              style={{ ...inputStyle, flex: 1 }} />
+            <button onClick={analyseReference} disabled={analysingRef} style={btn(analysingRef)}>
               {analysingRef && spinner}
               {analysingRef ? 'Analysing…' : 'Analyse →'}
             </button>
@@ -761,52 +732,41 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
 
           {referenceIntel && (
             <div>
-              {/* Spec row */}
               <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                {[
-                  { label: 'BPM', value: String(referenceIntel.bpm) },
-                  { label: 'Key', value: referenceIntel.key },
-                ].map(b => (
-                  <div key={b.label} style={{ background: 'rgba(201,164,110,0.08)', border: '1px solid rgba(201,164,110,0.25)', padding: '10px 20px', minWidth: '80px', textAlign: 'center' }}>
+                {[{ label: 'BPM', value: String(referenceIntel.bpm) }, { label: 'Key', value: referenceIntel.key }].map(b => (
+                  <div key={b.label} style={{ background: 'var(--bg)', border: '1px solid rgba(176,141,87,0.2)', padding: '10px 20px', minWidth: '80px', textAlign: 'center' }}>
                     <div style={{ fontSize: '9px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>{b.label}</div>
-                    <div style={{ fontSize: '18px', color: 'var(--gold-bright)', letterSpacing: '0.05em' }}>{b.value}</div>
+                    <div style={{ fontSize: '18px', color: 'var(--gold)' }}>{b.value}</div>
                   </div>
                 ))}
-                {/* Energy arc */}
                 {referenceIntel.energy_arc.length > 0 && (
-                  <div style={{ background: 'rgba(201,164,110,0.08)', border: '1px solid rgba(201,164,110,0.25)', padding: '10px 16px', flex: 1 }}>
+                  <div style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '10px 16px', flex: 1 }}>
                     <div style={{ fontSize: '9px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Energy arc</div>
                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '28px' }}>
                       {referenceIntel.energy_arc.map((v, i) => (
-                        <div key={i} style={{ flex: 1, height: `${(v / 10) * 100}%`, background: v > 7 ? 'var(--gold-bright)' : v > 4 ? '#3d6b4a' : '#2a2018', transition: 'height 0.3s' }} />
+                        <div key={i} style={{ flex: 1, height: `${(v / 10) * 100}%`, background: v > 7 ? 'var(--gold)' : v > 4 ? 'var(--green)' : 'var(--border)', transition: 'height 0.3s' }} />
                       ))}
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Key sounds palette */}
               {referenceIntel.key_sounds.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
                   {referenceIntel.key_sounds.map((s, i) => (
-                    <div key={i} style={{ fontSize: '11px', background: '#1a1410', border: '1px solid #3a2e1c', padding: '4px 10px', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{s}</div>
+                    <div key={i} style={{ fontSize: '11px', background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '4px 10px', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{s}</div>
                   ))}
                 </div>
               )}
-
-              {/* Technique cards */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
                 {referenceIntel.techniques.map((t, i) => (
-                  <div key={i} style={{ background: '#120f0a', border: '1px solid #3a2e1c', padding: '14px 16px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '8px' }}>{t.name}</div>
-                    <div style={{ fontSize: '12px', lineHeight: '1.6', color: 'var(--text-warm)' }}>{t.detail}</div>
+                  <div key={i} style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '14px 16px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '8px' }}>{t.name}</div>
+                    <div style={{ fontSize: '12px', lineHeight: '1.6', color: 'var(--text-dim)' }}>{t.detail}</div>
                   </div>
                 ))}
               </div>
-
-              {/* Mix notes */}
               {referenceIntel.mix_notes && (
-                <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', letterSpacing: '0.04em', fontStyle: 'italic', borderTop: '1px solid var(--border-dim)', paddingTop: '12px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', fontStyle: 'italic', borderTop: '1px solid var(--border-dim)', paddingTop: '14px' }}>
                   {referenceIntel.mix_notes}
                 </div>
               )}
@@ -814,91 +774,75 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
           )}
         </div>
 
-        {/* ═══════════════════════════════════════════════════════════
-            SECTION 3 — COMPOSITION
-        ════════════════════════════════════════════════════════════ */}
-        <div style={panel}>
-          <div style={{ ...sectionLabel, color: 'var(--text-dim)' }}>
-            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--text-dim)' }} />
-            Composition — chords, melody &amp; arrangement
-          </div>
+        {/* ── Composition ── */}
+        <div style={{ ...card, marginBottom: '32px' }}>
+          {secHead('Composition — chords, melody & arrangement')}
 
-          {/* Chord voicings */}
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '28px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>
+              <div style={{ ...fieldLabel, marginBottom: 0 }}>
                 Real voicings — {sonicWorld.key}
-                {sonicWorld.soundsLike.length > 0 && <span style={{ color: 'var(--text-dimmest)' }}> · referenced to {sonicWorld.soundsLike[0]}</span>}
+                {sonicWorld.soundsLike.length > 0 && <span style={{ color: 'var(--text-dimmest)', textTransform: 'none', letterSpacing: 0 }}> · {sonicWorld.soundsLike[0]}</span>}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={generateChords} disabled={generatingChords} style={goldBtn(generatingChords)}>
-                  {generatingChords && spinner}
-                  {generatingChords ? '…' : 'Generate voicings'}
+                <button onClick={generateChords} disabled={generatingChords} style={btn(generatingChords)}>
+                  {generatingChords && spinner}{generatingChords ? '…' : 'Generate voicings'}
                 </button>
-                <button onClick={generateMelody} disabled={generatingMelody || chordVoicings.length === 0} style={{ ...goldBtn(generatingMelody, chordVoicings.length === 0), border: '1px solid var(--accent-green)', color: 'var(--accent-green)', background: generatingMelody ? 'var(--bg)' : 'linear-gradient(180deg, #2a3020 0%, #1a2010 100%)' }}>
-                  {generatingMelody && spinner}
-                  {generatingMelody ? '…' : 'Melody ideas'}
+                <button onClick={generateMelody} disabled={generatingMelody || chordVoicings.length === 0} style={btn(generatingMelody, chordVoicings.length === 0, 'green')}>
+                  {generatingMelody && spinner}{generatingMelody ? '…' : 'Melody ideas'}
                 </button>
               </div>
             </div>
-
             {chordVoicings.length > 0 && (
               <div>
-                <div className="grid grid-cols-4 gap-3 mb-4">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '14px' }}>
                   {chordVoicings.map((c, i) => (
-                    <div key={i} style={{ background: '#120f0a', border: '1px solid #3a2e1c', padding: '14px 16px' }}>
-                      <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--gold-bright)', marginBottom: '8px' }}>{c.name}</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '8px', letterSpacing: '0.05em', fontFamily: "'DM Mono', monospace" }}>{c.notes}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-dimmest)', fontStyle: 'italic', lineHeight: '1.4' }}>{c.character}</div>
+                    <div key={i} style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '14px 16px' }}>
+                      <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--gold)', marginBottom: '8px' }}>{c.name}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '8px', letterSpacing: '0.05em' }}>{c.notes}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', fontStyle: 'italic', lineHeight: '1.4' }}>{c.character}</div>
                     </div>
                   ))}
                 </div>
                 {motifResult && (
-                  <div style={{ background: 'rgba(201,164,110,0.04)', border: '1px solid rgba(201,164,110,0.15)', padding: '14px 18px', marginBottom: '12px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Motif idea</div>
+                  <div style={{ background: 'var(--bg)', border: '1px solid rgba(176,141,87,0.15)', padding: '14px 18px' }}>
+                    <div style={fieldLabel}>Motif idea</div>
                     <div style={{ fontSize: '13px', color: 'var(--text-warm)', lineHeight: '1.6' }}>{motifResult}</div>
                   </div>
                 )}
               </div>
             )}
-
             {melodyResult && (
-              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--accent-green)', padding: '20px 24px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--accent-green)', textTransform: 'uppercase', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--accent-green)' }}>Melody ideas</div>
-                <div style={{ fontSize: '13px', lineHeight: '1.9', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{melodyResult}</div>
+              <div style={{ marginTop: '14px', background: 'var(--bg)', border: '1px solid rgba(61,107,74,0.3)', padding: '20px 24px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--green)', textTransform: 'uppercase', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid rgba(61,107,74,0.2)' }}>Melody ideas</div>
+                <div style={{ fontSize: '13px', lineHeight: '1.9', color: 'var(--text-warm)', whiteSpace: 'pre-wrap' }}>{melodyResult}</div>
               </div>
             )}
           </div>
 
-          {/* Arrangement */}
-          <div style={{ borderTop: '1px solid var(--border-dim)', paddingTop: '20px' }}>
+          <div style={{ borderTop: '1px solid var(--border-dim)', paddingTop: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>
-                Arrangement — {sonicWorld.making || sonicWorld.genre}
-              </div>
-              <button onClick={generateArrangement} disabled={generatingArrange} style={goldBtn(generatingArrange)}>
-                {generatingArrange && spinner}
-                {generatingArrange ? '…' : 'Generate arrangement'}
+              <div style={{ ...fieldLabel, marginBottom: 0 }}>Arrangement — {sonicWorld.making || sonicWorld.genre}</div>
+              <button onClick={generateArrangement} disabled={generatingArrange} style={btn(generatingArrange)}>
+                {generatingArrange && spinner}{generatingArrange ? '…' : 'Generate arrangement'}
               </button>
             </div>
-
             {energyArc.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '48px', marginBottom: '20px', padding: '0 4px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '48px', marginBottom: '20px' }}>
                 {energyArc.map((v, i) => (
-                  <div key={i} style={{ flex: 1, height: `${(v / 10) * 100}%`, background: v > 7 ? 'var(--gold-bright)' : v > 4 ? '#3d6b4a' : '#2a2018', transition: 'height 0.3s', position: 'relative' }}>
+                  <div key={i} style={{ flex: 1, height: `${(v / 10) * 100}%`, background: v > 7 ? 'var(--gold)' : v > 4 ? 'var(--green)' : 'var(--border)', transition: 'height 0.3s', position: 'relative' }}>
                     <div style={{ position: 'absolute', bottom: '-18px', left: '50%', transform: 'translateX(-50%)', fontSize: '9px', color: 'var(--text-dimmest)' }}>{v}</div>
                   </div>
                 ))}
               </div>
             )}
-
             {arrangeSections.length > 0 && (
-              <div>
-                <div className="grid grid-cols-4 gap-3 mb-4" style={{ marginTop: energyArc.length ? '24px' : '0' }}>
+              <div style={{ marginTop: energyArc.length ? '24px' : '0' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
                   {arrangeSections.map((s, i) => (
-                    <div key={i} style={{ background: '#120f0a', border: '1px solid #2a2018', padding: '12px 14px' }}>
+                    <div key={i} style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '12px 14px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: s.energy > 7 ? 'var(--gold-bright)' : 'var(--text-dim)' }}>{s.name}</div>
+                        <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: s.energy > 7 ? 'var(--gold)' : 'var(--text-dim)' }}>{s.name}</div>
                         <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>{s.bars}b</div>
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '6px', lineHeight: '1.4' }}>{s.elements}</div>
@@ -907,16 +851,16 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
                   ))}
                 </div>
                 {arrangeExtra && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     {arrangeExtra.key_moments.length > 0 && (
-                      <div style={{ background: 'rgba(201,164,110,0.04)', border: '1px solid rgba(201,164,110,0.15)', padding: '14px 18px' }}>
-                        <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '10px' }}>Key moments</div>
+                      <div style={{ background: 'var(--bg)', border: '1px solid rgba(176,141,87,0.15)', padding: '14px 18px' }}>
+                        <div style={fieldLabel}>Key moments</div>
                         {arrangeExtra.key_moments.map((m, i) => <div key={i} style={{ fontSize: '12px', color: 'var(--text-warm)', lineHeight: '1.6', marginBottom: '6px' }}>→ {m}</div>)}
                       </div>
                     )}
                     {arrangeExtra.production_tips.length > 0 && (
-                      <div style={{ background: '#120f0a', border: '1px solid #2a2018', padding: '14px 18px' }}>
-                        <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>Production tips</div>
+                      <div style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '14px 18px' }}>
+                        <div style={fieldLabel}>Production tips</div>
                         {arrangeExtra.production_tips.map((t, i) => <div key={i} style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6', marginBottom: '6px' }}>→ {t}</div>)}
                       </div>
                     )}
@@ -927,66 +871,55 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
           </div>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════════
-            SECTION 4 — SIGNAL CHAINS
-        ════════════════════════════════════════════════════════════ */}
-        <div style={panel}>
-          <div style={{ ...sectionLabel, color: 'var(--text-dim)' }}>
-            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--text-dim)' }} />
-            Signal Chains {installedPlugins.length > 0 && <span style={{ fontSize: '10px', color: '#3d6b4a', letterSpacing: '0.1em' }}>· using your {installedPlugins.length} plugins</span>}
-          </div>
+        {/* ── Signal Chains ── */}
+        <div style={{ ...card, marginBottom: '32px' }}>
+          {secHead(`Signal Chains${installedPlugins.length > 0 ? ` — ${installedPlugins.length} plugins loaded` : ''}`)}
 
-          {/* Stem analysis */}
-          <div style={{ marginBottom: '20px', padding: '16px 20px', background: '#120f0a', border: '1px solid #2a2018' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Stem analysis</div>
+          <div style={{ marginBottom: '24px', padding: '16px 20px', background: 'var(--bg)', border: '1px solid var(--border-dim)' }}>
+            <div style={{ ...fieldLabel, marginBottom: '12px' }}>Stem analysis</div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
               {(['kick','bass','vocals','synths','drums','full_mix'] as const).map(t => (
                 <button key={t} onClick={() => setStemType(t)} style={{
-                  background: stemType === t ? 'rgba(201,164,110,0.1)' : 'transparent',
+                  background: stemType === t ? 'rgba(176,141,87,0.08)' : 'transparent',
                   border: `1px solid ${stemType === t ? 'var(--gold)' : 'var(--border-dim)'}`,
-                  color: stemType === t ? 'var(--gold-bright)' : 'var(--text-dimmer)',
-                  fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.1em',
-                  padding: '6px 14px', cursor: 'pointer', textTransform: 'uppercase',
+                  color: stemType === t ? 'var(--gold)' : 'var(--text-dimmer)',
+                  fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.1em',
+                  padding: '6px 14px', cursor: 'pointer', textTransform: 'uppercase', transition: 'all 0.15s',
                 }}>{t.replace('_',' ')}</button>
               ))}
-              <button onClick={analyseStem} disabled={analysingStem} style={{ ...goldBtn(analysingStem), marginLeft: 'auto', padding: '6px 20px' }}>
-                {analysingStem && spinner}
-                {analysingStem ? '…' : 'Analyse stem'}
+              <button onClick={analyseStem} disabled={analysingStem} style={{ ...btn(analysingStem), marginLeft: 'auto', padding: '6px 20px' }}>
+                {analysingStem && spinner}{analysingStem ? '…' : 'Analyse stem'}
               </button>
             </div>
-            {stemAnalysis && (
-              <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{stemAnalysis}</div>
-            )}
+            {stemAnalysis && <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap' }}>{stemAnalysis}</div>}
           </div>
 
-          {/* Chain type selector */}
-          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Select chain type</div>
+          <div style={{ ...fieldLabel, marginBottom: '12px' }}>Select chain type</div>
           <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
             {['all','vocal','bass','synth','drum','ref'].map(t => (
               <button key={t} onClick={() => setActiveType(t)} style={{
-                background: activeType === t ? 'rgba(255,255,255,0.05)' : 'transparent',
+                background: activeType === t ? 'rgba(255,255,255,0.04)' : 'transparent',
                 border: `1px solid ${activeType === t ? (typeColors[t] || 'var(--text-dim)') : 'var(--border-dim)'}`,
                 color: activeType === t ? (typeColors[t] || 'var(--text)') : 'var(--text-dimmer)',
-                fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.1em',
-                padding: '6px 14px', cursor: 'pointer', textTransform: 'uppercase',
+                fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.1em',
+                padding: '6px 14px', cursor: 'pointer', textTransform: 'uppercase', transition: 'all 0.15s',
               }}>{t}</button>
             ))}
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
             {filteredChains.map((chain, i) => {
               const idx = CHAINS.indexOf(chain)
               const selected = selectedChain === idx
               return (
                 <div key={i} onClick={() => { setSelectedChain(idx); setChainResult('') }} style={{
-                  background: selected ? 'rgba(255,255,255,0.04)' : '#120f0a',
-                  border: `1px solid ${selected ? (typeColors[chain.type] || 'var(--border-dim)') : '#2a2018'}`,
+                  background: selected ? 'rgba(255,255,255,0.03)' : 'var(--bg)',
+                  border: `1px solid ${selected ? (typeColors[chain.type] || 'var(--border)') : 'var(--border-dim)'}`,
                   padding: '14px 16px', cursor: 'pointer', transition: 'all 0.15s',
-                  boxShadow: selected ? `0 0 12px ${typeColors[chain.type]}22` : 'none',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                     <div style={{ fontSize: '12px', color: selected ? (typeColors[chain.type] || 'var(--text)') : 'var(--text-dim)' }}>{chain.name}</div>
-                    <div style={{ fontSize: '9px', color: typeColors[chain.type] || 'var(--text-dimmer)', border: `1px solid ${typeColors[chain.type] || 'var(--border-dim)'}22`, padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{chain.type}</div>
+                    <div style={{ fontSize: '9px', color: typeColors[chain.type] || 'var(--text-dimmer)', border: `1px solid ${typeColors[chain.type] || 'var(--border-dim)'}33`, padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{chain.type}</div>
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-dimmest)', fontStyle: 'italic', lineHeight: '1.4' }}>{chain.desc}</div>
                 </div>
@@ -995,34 +928,25 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
           </div>
 
           {selectedChain !== null && (
-            <div style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim)' }}>
+            <div style={{ padding: '16px 20px', background: 'var(--bg)', border: '1px solid var(--border-dim)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>{CHAINS[selectedChain].name}</div>
-                <button onClick={generateChainAdvice} disabled={generatingChain} style={goldBtn(generatingChain)}>
-                  {generatingChain && spinner}
-                  {generatingChain ? '…' : 'Get chain →'}
+                <button onClick={generateChainAdvice} disabled={generatingChain} style={btn(generatingChain)}>
+                  {generatingChain && spinner}{generatingChain ? '…' : 'Get chain →'}
                 </button>
               </div>
-              {chainResult && (
-                <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{chainResult}</div>
-              )}
+              {chainResult && <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap' }}>{chainResult}</div>}
             </div>
           )}
         </div>
 
-        {/* ═══════════════════════════════════════════════════════════
-            SECTION 5 — NEXT STEPS
-        ════════════════════════════════════════════════════════════ */}
-        <div style={panelGold}>
-          <div style={{ ...sectionLabel, color: 'var(--gold-bright)' }}>
-            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
-            Next Steps — upload what you&apos;ve made
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', marginBottom: '16px', letterSpacing: '0.04em' }}>
-            Drop audio you&apos;re working on. Get concrete next steps based on the actual measurements and your sonic world.
+        {/* ── Next Steps ── */}
+        <div style={{ ...card, marginBottom: '32px' }}>
+          {secHead('Next Steps — upload what you\'ve made')}
+          <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginBottom: '20px' }}>
+            Drop audio you&apos;re working on. Get concrete next steps based on real acoustic measurements and your sonic world.
           </div>
 
-          {/* Drop zone */}
           <div
             onDragOver={e => { e.preventDefault(); setNextStepsDrag(true) }}
             onDragLeave={() => setNextStepsDrag(false)}
@@ -1033,19 +957,14 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
             }}
             onClick={() => nextStepsInputRef.current?.click()}
             style={{
-              border: `1px dashed ${nextStepsDrag ? 'var(--gold-bright)' : '#3a2e1c'}`,
+              border: `1px dashed ${nextStepsDrag ? 'var(--gold)' : 'var(--border)'}`,
               padding: '28px', textAlign: 'center', cursor: 'pointer', marginBottom: '16px',
-              background: nextStepsDrag ? 'rgba(201,164,110,0.04)' : 'transparent',
+              background: nextStepsDrag ? 'rgba(176,141,87,0.03)' : 'transparent',
               transition: 'all 0.15s',
             }}
           >
-            <input
-              ref={nextStepsInputRef} type="file" accept="audio/*,.wav,.aif,.aiff,.mp3,.flac"
-              style={{ display: 'none' }}
-              onChange={e => {
-                const f = e.target.files?.[0]
-                if (f) { setNextStepsFile(f); setNextStepsResult(null); setNextStepsMeasurements(null) }
-              }}
+            <input ref={nextStepsInputRef} type="file" accept="audio/*,.wav,.aif,.aiff,.mp3,.flac" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) { setNextStepsFile(f); setNextStepsResult(null); setNextStepsMeasurements(null) } }}
             />
             {nextStepsFile ? (
               <div>
@@ -1054,116 +973,85 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginBottom: '6px' }}>Drop audio here or click to browse</div>
-                <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>WAV · AIFF · MP3 · FLAC</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-dim)', marginBottom: '6px' }}>Drop audio here or click to browse</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>WAV · AIFF · MP3 · FLAC</div>
               </div>
             )}
           </div>
 
           {nextStepsFile && (
-            <button
-              onClick={() => analyseAndSuggestNextSteps(nextStepsFile)}
-              disabled={generatingNextSteps}
-              style={goldBtn(generatingNextSteps)}
-            >
+            <button onClick={() => analyseAndSuggestNextSteps(nextStepsFile)} disabled={generatingNextSteps} style={btn(generatingNextSteps)}>
               {generatingNextSteps && spinner}
               {generatingNextSteps ? 'Analysing audio…' : 'Analyse & suggest next steps →'}
             </button>
           )}
 
-          {/* Measurement readout */}
           {nextStepsMeasurements && (
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '20px', flexWrap: 'wrap' }}>
               {[
-                { label: 'Peak',      value: `${nextStepsMeasurements.peak_db.toFixed(1)} dBFS` },
-                { label: 'RMS',       value: `${nextStepsMeasurements.rms_db.toFixed(1)} dBFS` },
-                { label: 'Centroid',  value: `${nextStepsMeasurements.spectral_centroid_hz} Hz` },
+                { label: 'Peak',       value: `${nextStepsMeasurements.peak_db.toFixed(1)} dBFS` },
+                { label: 'RMS',        value: `${nextStepsMeasurements.rms_db.toFixed(1)} dBFS` },
+                { label: 'Centroid',   value: `${nextStepsMeasurements.spectral_centroid_hz} Hz` },
                 { label: 'Sub energy', value: `${(nextStepsMeasurements.low_energy_ratio * 100).toFixed(0)}%` },
                 { label: 'Transients', value: nextStepsMeasurements.transient_sharpness.toFixed(2) },
                 { label: 'Dyn range',  value: `${nextStepsMeasurements.dynamic_range_db.toFixed(1)} dB` },
               ].map(b => (
-                <div key={b.label} style={{ background: '#120f0a', border: '1px solid #2a2018', padding: '8px 14px', textAlign: 'center', minWidth: '72px' }}>
-                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmest)', textTransform: 'uppercase', marginBottom: '4px' }}>{b.label}</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-dim)', fontFamily: "'DM Mono', monospace" }}>{b.value}</div>
+                <div key={b.label} style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '8px 14px', textAlign: 'center', minWidth: '80px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmest)', textTransform: 'uppercase', marginBottom: '4px' }}>{b.label}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{b.value}</div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Results */}
           {nextStepsResult && (
-            <div style={{ marginTop: '20px' }}>
-              {/* Header row */}
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ background: 'rgba(201,164,110,0.08)', border: '1px solid rgba(201,164,110,0.25)', padding: '6px 14px', fontSize: '11px', color: 'var(--gold-bright)', letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0 }}>
+            <div style={{ marginTop: '24px' }}>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ background: 'rgba(176,141,87,0.07)', border: '1px solid rgba(176,141,87,0.2)', padding: '5px 14px', fontSize: '11px', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0 }}>
                   {nextStepsResult.detected_type}
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--text-warm)', flex: 1, lineHeight: '1.5', letterSpacing: '0.03em' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-warm)', flex: 1, lineHeight: '1.5' }}>
                   {nextStepsResult.current_state}
                 </div>
               </div>
-
-              {/* Step cards */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: nextStepsResult.sonic_gap ? '16px' : '0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                 {nextStepsResult.next_steps.map((step, i) => (
                   <div key={i} style={{
-                    background: '#120f0a',
-                    border: `1px solid ${step.priority === 1 ? '#5a4428' : step.priority === 2 ? '#2a4a36' : '#2a2018'}`,
+                    background: 'var(--bg)',
+                    border: `1px solid ${step.priority === 1 ? 'rgba(176,141,87,0.3)' : step.priority === 2 ? 'rgba(61,107,74,0.25)' : 'var(--border-dim)'}`,
                     padding: '14px 18px', display: 'flex', gap: '16px', alignItems: 'flex-start',
                   }}>
-                    {/* Priority badge */}
-                    <div style={{
-                      flexShrink: 0, width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: step.priority === 1 ? 'rgba(201,164,110,0.15)' : step.priority === 2 ? 'rgba(61,107,74,0.2)' : 'rgba(255,255,255,0.04)',
-                      fontSize: '11px', fontWeight: 700,
-                      color: step.priority === 1 ? 'var(--gold-bright)' : step.priority === 2 ? 'var(--accent-green)' : 'var(--text-dimmer)',
-                    }}>
+                    <div style={{ flexShrink: 0, width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: step.priority === 1 ? 'rgba(176,141,87,0.12)' : step.priority === 2 ? 'rgba(61,107,74,0.15)' : 'rgba(255,255,255,0.03)', fontSize: '11px', fontWeight: 700, color: step.priority === 1 ? 'var(--gold)' : step.priority === 2 ? 'var(--green)' : 'var(--text-dimmer)' }}>
                       {step.priority}
                     </div>
-                    {/* Content */}
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: step.priority === 1 ? 'var(--gold-bright)' : step.priority === 2 ? 'var(--accent-green)' : 'var(--text-dimmer)' }}>
-                          {step.area}
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 500 }}>{step.action}</div>
-                        {step.plugin && (
-                          <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', border: '1px solid #2a2018', padding: '2px 8px', letterSpacing: '0.08em' }}>
-                            {step.plugin}
-                          </div>
-                        )}
+                        <div style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: step.priority === 1 ? 'var(--gold)' : step.priority === 2 ? 'var(--green)' : 'var(--text-dimmer)' }}>{step.area}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text)' }}>{step.action}</div>
+                        {step.plugin && <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '2px 8px', letterSpacing: '0.08em' }}>{step.plugin}</div>}
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-warm)', lineHeight: '1.6', letterSpacing: '0.03em' }}>{step.detail}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{step.detail}</div>
                     </div>
                   </div>
                 ))}
               </div>
-
-              {/* Sonic gap vs references */}
-              {nextStepsResult.sonic_gap && (
-                <div style={{ background: 'rgba(201,164,110,0.04)', border: '1px solid rgba(201,164,110,0.2)', padding: '14px 18px' }}>
-                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                    Sonic gap — vs your references
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6', fontStyle: 'italic' }}>
-                    {nextStepsResult.sonic_gap}
-                  </div>
-                </div>
-              )}
+              <div style={{ padding: '12px 18px', background: 'var(--bg)', border: '1px solid var(--border-dim)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmest)', textTransform: 'uppercase', flexShrink: 0 }}>Reference comparison</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dimmest)', fontStyle: 'italic' }}>Upload a reference track alongside your audio for a real measurement-based comparison</div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Track uploader */}
         <TrackUploader />
 
       </div>
 
       {/* Toast */}
       {toast && (
-        <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: '#2a2018', border: '1px solid #5a4428', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '12px', zIndex: 1000, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-          <span style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{toast.tag}</span>
-          <span style={{ fontSize: '13px', color: 'var(--text)' }}>{toast.msg}</span>
+        <div style={{ position: 'fixed', bottom: '32px', right: '32px', background: 'rgba(14,13,11,0.97)', border: '1px solid var(--border)', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '4px', zIndex: 1000, backdropFilter: 'blur(16px)', minWidth: '240px' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase' }}>{toast.tag}</div>
+          <div style={{ fontSize: '13px', color: 'var(--text)' }}>{toast.msg}</div>
         </div>
       )}
     </div>

@@ -577,15 +577,24 @@ var ANALYSE_URL    = BASE_URL + '/api/stem-analyse';
 var TRANSCRIBE_URL = BASE_URL + '/api/transcribe';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-var pendingFile    = null;
-var audioCtx       = null;
-var isRecording    = false;
-var mediaRecorder  = null;
-var audioChunks    = [];
-var micStream      = null;
-var isBusy         = false;
-var convoHistory   = [];      // [{q, a}] last 3 exchanges for context
-var textRowVisible = false;
+var pendingFile      = null;
+var audioCtx         = null;
+var isRecording      = false;
+var mediaRecorder    = null;
+var audioChunks      = [];
+var micStream        = null;
+var isBusy           = false;
+var convoHistory     = [];      // [{q, a}] last 3 exchanges for context
+var textRowVisible   = false;
+var installedPlugins = [];      // loaded from /api/plugins/sync on startup
+
+// ── Load installed plugins ────────────────────────────────────────────────────
+(function() {
+  fetch(BASE_URL + '/api/plugins/sync')
+    .then(function(r) { return r.json(); })
+    .then(function(d) { if (Array.isArray(d.plugins) && d.plugins.length) installedPlugins = d.plugins; })
+    .catch(function() {});
+})();
 
 // ── Sonic World — persist in localStorage ─────────────────────────────────────
 var swKey  = document.getElementById('sw-key');
@@ -876,10 +885,12 @@ function submitStemAnalysis(measurements) {
   showThinking('Analysing audio…', true);
   setMicState('busy', 'analysing…');
   var sw = getSonicWorld();
+  var body = { stem: measurements, sonic_world: sw };
+  if (installedPlugins.length) body.available_plugins = installedPlugins.slice(0, 60);
   fetch(ANALYSE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ stem: measurements, sonic_world: sw })
+    body: JSON.stringify(body)
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
