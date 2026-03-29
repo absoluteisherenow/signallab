@@ -1,7 +1,6 @@
 'use client'
 import { TrackUploader } from './TrackUploader'
-
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800): Promise<string> {
   const res = await fetch('/api/claude', {
@@ -17,275 +16,213 @@ async function callClaude(system: string, userPrompt: string, maxTokens = 800): 
   return data.content?.[0]?.text || ''
 }
 
-const STOCK_CHAINS: Record<string, string> = {
-  'Vocal — Warmth': 'EQ Eight (high shelf +2dB @ 8kHz) → Compressor (4:1, soft knee) → Saturator (warm tube) → Reverb (small room)',
-  'Vocal — Presence': 'EQ Eight (mid boost 2-4kHz) → Glue Compressor (2:1) → Echo (short pre-delay) → Utility (width)',
-  'Vocal — Intimate': 'Channel EQ (low cut 80Hz) → Compressor (8:1 fast) → Saturator (light) → Reverb (med room)',
-  'Vocal — Radio': 'EQ Eight (telephone filter) → Compressor (limiting) → Saturator (hard clip) → Utility',
-  'Vocal — Depth': 'EQ Eight → Compressor → Echo (ping pong) → Reverb (large hall) → Utility (wide)',
-  'Vocal — Dark': 'EQ Eight (high shelf -4dB) → Multiband Dynamics → Reverb (long tail)',
-  'Vocal — Airy': 'EQ Eight (air shelf +3dB @ 16kHz) → Compressor (2:1) → Reverb (bright room)',
-  'Vocal — Electronic': 'Redux (light bit crush) → Saturator → Auto Filter (band pass) → Echo',
-  'Bass — Sub': 'EQ Eight (high cut 80Hz, low shelf boost) → Compressor (fast, 8:1) → Utility (mono)',
-  'Bass — Midrange': 'EQ Eight (upper harmonics +3dB) → Glue Compressor → Saturator (light)',
-  'Bass — Reese': 'Auto Filter (slow LFO) → Saturator → EQ Eight → Compressor',
-  'Bass — Punch': 'Compressor (fast attack/release) → EQ Eight → Saturator (transient)',
-  'Synth — Pad': 'EQ Eight → Compressor (slow) → Reverb (large) → Utility (wide) → Auto Pan',
-  'Synth — Lead': 'EQ Eight (mid focus) → Compressor → Saturator → Echo (short)',
-  'Synth — Texture': 'Redux → Reverb → Echo → Utility',
-  'Drum — Room': 'Glue Compressor (parallel) → EQ Eight → Reverb (room) → Utility',
-  'Drum — Electronic': 'Compressor (fast) → EQ Eight → Saturator → Utility (mono low)',
-  'Reference': 'Multiband Dynamics (gentle) → EQ Eight (matching) → Limiter (-0.3dB)',
+// ── Chain category definitions (used as selector only) ───────────────────
+const CHAINS = [
+  { name: 'Vocal — Warmth',     type: 'vocal', desc: 'Vintage compression, harmonic saturation, air shelf' },
+  { name: 'Vocal — Presence',   type: 'vocal', desc: 'Forward mid push, de-ess, bright reverb tail' },
+  { name: 'Vocal — Intimate',   type: 'vocal', desc: 'Close-mic feel, subtle tape, room ambience' },
+  { name: 'Vocal — Radio',      type: 'vocal', desc: 'Aggressive limiting, telephonic character, punch' },
+  { name: 'Vocal — Depth',      type: 'vocal', desc: 'Wide stereo, long pre-delay, lush modulation' },
+  { name: 'Vocal — Dark',       type: 'vocal', desc: 'Low-mid body, rolled highs, dense reverb' },
+  { name: 'Vocal — Airy',       type: 'vocal', desc: 'High-shelf lift, minimal compression, open space' },
+  { name: 'Vocal — Electronic', type: 'vocal', desc: 'Pitch character, bit colour, parallel distortion' },
+  { name: 'Bass — Sub',         type: 'bass',  desc: 'Clean sub foundation, gentle limiting, no upper harmonics' },
+  { name: 'Bass — Midrange',    type: 'bass',  desc: 'Upper harmonic focus, growl, speaker-friendly' },
+  { name: 'Bass — Reese',       type: 'bass',  desc: 'Detuned character, dark modulation, movement' },
+  { name: 'Bass — Punch',       type: 'bass',  desc: 'Transient snap, fast attack, tight release' },
+  { name: 'Synth — Pad',        type: 'synth', desc: 'Wide stereo, slow attack, soft harmonic sheen' },
+  { name: 'Synth — Lead',       type: 'synth', desc: 'Mono focus, mid presence, clean sustain' },
+  { name: 'Synth — Texture',    type: 'synth', desc: 'Granular movement, spectral interest, background depth' },
+  { name: 'Drum — Room',        type: 'drum',  desc: 'Natural room glue, parallel compression, weight' },
+  { name: 'Drum — Electronic',  type: 'drum',  desc: 'Tight transients, no room, surgical punch' },
+  { name: 'Reference',          type: 'ref',   desc: 'LUFS matching, dynamic ceiling, true peak control' },
+]
+
+const typeColors: Record<string, string> = {
+  vocal: '#b08d57', bass: '#5a8a6a', synth: '#6a7a9a', drum: '#9a6a5a', ref: '#7a6a8a',
 }
 
-const CHAINS = [
-  { name: 'Vocal — Warmth', type: 'vocal', desc: 'Vintage compression, harmonic saturation, air shelf' },
-  { name: 'Vocal — Presence', type: 'vocal', desc: 'Forward mid push, de-ess, bright reverb tail' },
-  { name: 'Vocal — Intimate', type: 'vocal', desc: 'Close-mic feel, subtle tape, room ambience' },
-  { name: 'Vocal — Radio', type: 'vocal', desc: 'Aggressive limiting, telephonic character, punch' },
-  { name: 'Vocal — Depth', type: 'vocal', desc: 'Wide stereo, long pre-delay, lush modulation' },
-  { name: 'Vocal — Dark', type: 'vocal', desc: 'Low-mid body, rolled highs, dense reverb' },
-  { name: 'Vocal — Airy', type: 'vocal', desc: 'High-shelf lift, minimal compression, open space' },
-  { name: 'Vocal — Electronic', type: 'vocal', desc: 'Pitch character, bit colour, parallel distortion' },
-  { name: 'Bass — Sub', type: 'bass', desc: 'Clean sub foundation, gentle limiting, no upper harmonics' },
-  { name: 'Bass — Midrange', type: 'bass', desc: 'Upper harmonic focus, growl, speaker-friendly' },
-  { name: 'Bass — Reese', type: 'bass', desc: 'Detuned character, dark modulation, movement' },
-  { name: 'Bass — Punch', type: 'bass', desc: 'Transient snap, fast attack, tight release' },
-  { name: 'Synth — Pad', type: 'synth', desc: 'Wide stereo, slow attack, soft harmonic sheen' },
-  { name: 'Synth — Lead', type: 'synth', desc: 'Mono focus, mid presence, clean sustain' },
-  { name: 'Synth — Texture', type: 'synth', desc: 'Granular movement, spectral interest, background depth' },
-  { name: 'Drum — Room', type: 'drum', desc: 'Natural room glue, parallel compression, weight' },
-  { name: 'Drum — Electronic', type: 'drum', desc: 'Tight transients, no room, surgical punch' },
-  { name: 'Reference', type: 'ref', desc: 'LUFS matching, dynamic ceiling, true peak control' },
-]
+// ── Sonic World defaults ─────────────────────────────────────────────────
+const DEFAULT_SONIC_WORLD = {
+  soundsLike: [] as string[],
+  key: 'A minor',
+  bpm: '',
+  genre: 'Electronic',
+  making: '',
+}
 
-const CHORD_PROGRESSIONS = [
-  { name: 'i — VI — III — VII', genre: 'Electronic / Minor', feel: 'Melancholic, driving' },
-  { name: 'I — V — vi — IV', genre: 'Pop / Major', feel: 'Anthemic, familiar' },
-  { name: 'i — VII — VI — VII', genre: 'Dark Electronic', feel: 'Tense, circular' },
-  { name: 'ii — V — I — VI', genre: 'Jazz influenced', feel: 'Sophisticated, resolved' },
-  { name: 'I — IV — I — V', genre: 'Minimal / Hypnotic', feel: 'Loop-friendly, trance' },
-  { name: 'vi — IV — I — V', genre: 'Emotional Electronic', feel: 'Bittersweet, epic' },
-]
+// ── Types ────────────────────────────────────────────────────────────────
+interface ReferenceIntel {
+  bpm: number
+  key: string
+  energy_arc: number[]
+  techniques: { name: string; detail: string }[]
+  key_sounds: string[]
+  mix_notes: string
+}
+
+interface ChordVoicing {
+  name: string
+  notes: string
+  character: string
+}
+
+interface ArrangementSection {
+  name: string
+  bars: number
+  energy: number
+  elements: string
+  notes: string
+}
 
 export function SonixLab() {
-  const [activeTab, setActiveTab] = useState<'compose' | 'arrange' | 'mixdown'>('compose')
   const [toast, setToast] = useState<{ msg: string; tag: string } | null>(null)
-  const [reference, setReference] = useState('')
-  const [referenceAnalysis, setReferenceAnalysis] = useState('')
-  const [analysingReference, setAnalysingReference] = useState(false)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
 
-  // COMPOSE state
-  const [key, setKey] = useState('A minor')
-  const [genre, setGenre] = useState('Electronic')
-  const [feel, setFeel] = useState('Melancholic')
-  const [chordResult, setChordResult] = useState('')
-  const [melodyResult, setMelodyResult] = useState('')
-  const [generatingChords, setGeneratingChords] = useState(false)
-  const [generatingMelody, setGeneratingMelody] = useState(false)
-  const [selectedProgression, setSelectedProgression] = useState(0)
+  // ── Sonic World (persistent) ─────────────────────────────────────────
+  const [sonicWorld, setSonicWorld] = useState(DEFAULT_SONIC_WORLD)
+  const [newRef, setNewRef] = useState('')
 
-  // ARRANGE state
-  const [trackContext, setTrackContext] = useState('')
-  const [referenceTrack, setReferenceTrack] = useState('')
-  const [arrangeResult, setArrangeResult] = useState('')
-  const [energyArc, setEnergyArc] = useState<number[]>([])
-  const [generatingArrange, setGeneratingArrange] = useState(false)
+  // ── Installed plugins ────────────────────────────────────────────────
+  const [installedPlugins, setInstalledPlugins] = useState<string[]>([])
 
-  // MIXDOWN state
-  const [selectedChain, setSelectedChain] = useState<number | null>(null)
-  const [chainContext, setChainContext] = useState('')
-  const [chainResult, setChainResult] = useState('')
-  const [generatingChain, setGeneratingChain] = useState(false)
-  const [activeType, setActiveType] = useState<string>('all')
-  const [meters, setMeters] = useState([0.3, 0.6, 0.4, 0.8, 0.5, 0.7])
+  // ── Reference Intel ──────────────────────────────────────────────────
+  const [refInput, setRefInput] = useState('')
+  const [referenceIntel, setReferenceIntel] = useState<ReferenceIntel | null>(null)
+  const [analysingRef, setAnalysingRef] = useState(false)
 
-  // QUESTION BAR state
+  // ── Quick Ask ────────────────────────────────────────────────────────
   const [question, setQuestion] = useState('')
   const [questionResult, setQuestionResult] = useState('')
   const [askingQuestion, setAskingQuestion] = useState(false)
 
-  // STEM ANALYSIS state
-  const [stemType, setStemType] = useState<'kick' | 'bass' | 'vocals' | 'synths' | 'drums' | 'full_mix'>('full_mix')
+  // ── Composition ──────────────────────────────────────────────────────
+  const [chordVoicings, setChordVoicings] = useState<ChordVoicing[]>([])
+  const [motifResult, setMotifResult] = useState('')
+  const [generatingChords, setGeneratingChords] = useState(false)
+  const [melodyResult, setMelodyResult] = useState('')
+  const [generatingMelody, setGeneratingMelody] = useState(false)
+
+  // ── Arrangement ──────────────────────────────────────────────────────
+  const [arrangeSections, setArrangeSections] = useState<ArrangementSection[]>([])
+  const [arrangeExtra, setArrangeExtra] = useState<{ production_tips: string[]; key_moments: string[] } | null>(null)
+  const [generatingArrange, setGeneratingArrange] = useState(false)
+  const [energyArc, setEnergyArc] = useState<number[]>([])
+
+  // ── Chains ───────────────────────────────────────────────────────────
+  const [selectedChain, setSelectedChain] = useState<number | null>(null)
+  const [chainResult, setChainResult] = useState('')
+  const [generatingChain, setGeneratingChain] = useState(false)
+  const [activeType, setActiveType] = useState('all')
+  const [stemType, setStemType] = useState<'kick'|'bass'|'vocals'|'synths'|'drums'|'full_mix'>('full_mix')
   const [stemAnalysis, setStemAnalysis] = useState('')
   const [analysingStem, setAnalysingStem] = useState(false)
 
-  const showToast = (msg: string, tag = 'Info') => {
+  // ── Helpers ──────────────────────────────────────────────────────────
+  const showToast = useCallback((msg: string, tag = 'Info') => {
     setToast({ msg, tag })
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), 3400)
-  }
-
-  async function analyseReference() {
-    if (!reference.trim()) { showToast('Enter a reference track first', 'Error'); return }
-    setAnalysingReference(true)
-    setReferenceAnalysis('')
-    try {
-      const raw = await callClaude('You are an expert music analyst. Be specific and practical.', 'Analyse this reference track for a producer wanting a similar style: ' + reference + '. Cover: key, BPM, arrangement structure, harmonic character, mix profile, energy arc, three defining production techniques.', 700)
-      setReferenceAnalysis(raw)
-      showToast('Reference analysed', 'Done')
-    } catch (err) {
-      showToast('Analysis failed', 'Error')
-    } finally {
-      setAnalysingReference(false)
-    }
-  }
-
-  // Animate VU meters
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMeters(prev => prev.map(m => Math.max(0.1, Math.min(0.95, m + (Math.random() - 0.5) * 0.15))))
-    }, 150)
-    return () => clearInterval(interval)
   }, [])
 
-  async function generateChords() {
-    setGeneratingChords(true)
-    setChordResult('')
-    try {
-      const raw = await callClaude(
-        `You are an expert music theorist and electronic music producer. Give practical, specific advice a producer can immediately use. Be concise but detailed.`,
-        `Key: ${key}
-Genre: ${genre}
-Feel: ${feel}
-Progression: ${CHORD_PROGRESSIONS[selectedProgression].name}
-
-Give me:
-1. Exact chord voicings (specific notes, not just chord names) for this progression in this key
-2. Three variation ideas (tensions, extensions, substitutions)
-3. A motif or riff idea that works over this progression
-4. Suggested BPM range and rhythmic feel
-5. Two reference tracks with a similar harmonic character
-
-Keep it practical and producer-focused.`,
-        600
-      )
-      setChordResult(raw)
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'Error')
-    } finally {
-      setGeneratingChords(false)
-    }
+  const sonicCtxString = () => {
+    const parts: string[] = []
+    if (sonicWorld.soundsLike.length) parts.push(`Sounds like: ${sonicWorld.soundsLike.join(' / ')}`)
+    if (sonicWorld.key) parts.push(`Key: ${sonicWorld.key}`)
+    if (sonicWorld.bpm) parts.push(`BPM: ${sonicWorld.bpm}`)
+    if (sonicWorld.genre) parts.push(`Genre: ${sonicWorld.genre}`)
+    if (sonicWorld.making) parts.push(`Making: ${sonicWorld.making}`)
+    return parts.join(' · ')
   }
 
-  async function generateMelody() {
-    setGeneratingMelody(true)
-    setMelodyResult('')
-    try {
-      const raw = await callClaude(
-        `You are a melody composer specialising in electronic music. Give specific, actionable note suggestions.`,
-        `Key: ${key}
-Genre: ${genre}
-Feel: ${feel}
-Underlying progression: ${CHORD_PROGRESSIONS[selectedProgression].name}
-${chordResult ? 'Context from chord session: ' + chordResult.slice(0, 200) : ''}
+  const pluginCtxString = () => installedPlugins.length
+    ? `Available plugins: ${installedPlugins.slice(0, 40).join(', ')}`
+    : ''
 
-Give me:
-1. A specific melodic motif (describe the intervals and rhythm, e.g. "root, up a minor third, down a step, hold")
-2. Two variations on that motif
-3. A counter-melody idea
-4. Scale/mode suggestions beyond the obvious
-5. Articulation and expression tips for this genre`,
-        500
-      )
-      setMelodyResult(raw)
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'Error')
-    } finally {
-      setGeneratingMelody(false)
-    }
+  // ── Persist Sonic World to localStorage ──────────────────────────────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sonix_world')
+      if (saved) setSonicWorld(JSON.parse(saved))
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem('sonix_world', JSON.stringify(sonicWorld)) } catch {}
+  }, [sonicWorld])
+
+  // ── Load installed plugins ────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/plugins/sync')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d.plugins) && d.plugins.length) setInstalledPlugins(d.plugins) })
+      .catch(() => {})
+  }, [])
+
+  // ── Sonic World helpers ───────────────────────────────────────────────
+  function addRef() {
+    const v = newRef.trim()
+    if (!v || sonicWorld.soundsLike.length >= 6) return
+    setSonicWorld(s => ({ ...s, soundsLike: [...s.soundsLike, v] }))
+    setNewRef('')
   }
 
-  async function generateArrangement() {
-    setGeneratingArrange(true)
-    setArrangeResult('')
-    setEnergyArc([])
+  function removeRef(i: number) {
+    setSonicWorld(s => ({ ...s, soundsLike: s.soundsLike.filter((_, idx) => idx !== i) }))
+  }
+
+  // ── Reference Intel ───────────────────────────────────────────────────
+  async function analyseReference() {
+    if (!refInput.trim()) { showToast('Enter a track name first', 'Error'); return }
+    setAnalysingRef(true)
+    setReferenceIntel(null)
     try {
       const raw = await callClaude(
-        `You are an expert electronic music arranger. Give a detailed, specific arrangement breakdown a producer can follow immediately. Respond with a JSON object.`,
-        `Track context: ${trackContext || 'Electronic dance track, 128 BPM'}
-Reference: ${referenceTrack || 'No reference provided'}
-Genre: ${genre}
+        `You are an expert music analyst with encyclopedic knowledge of electronic music. Return ONLY valid JSON, no markdown.`,
+        `Analyse this track for a producer who wants to work in a similar sonic world: "${refInput}"
 
-Return a JSON object with:
+Return JSON:
 {
-  "sections": [
-    {"name": "Intro", "bars": 8, "energy": 2, "elements": "what's playing", "notes": "production tip"},
-    ...continue through full track...
+  "bpm": <number — actual BPM of this track>,
+  "key": "<actual key, e.g. 'A minor'>",
+  "energy_arc": [<array of 6-8 energy values 1-10 representing the track arc from start to end>],
+  "techniques": [
+    { "name": "<technique name>", "detail": "<specific setting or approach — exact frequencies, ratios, plugin names if known, e.g. 'Parallel compression on drums, 6:1 ratio, 2ms attack, returns blended at -6dB'>"},
+    { "name": "<technique name>", "detail": "<specific detail>" },
+    { "name": "<technique name>", "detail": "<specific detail>" }
   ],
-  "total_bars": number,
-  "key_moments": ["drop at bar X", "breakdown at bar Y"],
-  "production_tips": ["tip 1", "tip 2", "tip 3"],
-  "reference_comparison": "how this compares to reference"
+  "key_sounds": ["<sound element 1>", "<sound element 2>", "<sound element 3>", "<sound element 4>"],
+  "mix_notes": "<One sentence on the mix character — low end approach, mid range, high end, stereo width>"
 }
-Energy is 1-10. Include: Intro, Build, Drop, Breakdown, Build 2, Drop 2, Outro at minimum.`,
+
+Be specific. Real BPM and key. Real techniques with actual settings, not descriptions.`,
         700
       )
       const cleaned = raw.replace(/```json|```/g, '').trim()
-      const data = JSON.parse(cleaned)
-      setArrangeResult(raw)
-      if (data.sections) {
-        setEnergyArc(data.sections.map((s: any) => s.energy))
-      }
-    } catch (err: any) {
-      try {
-        setArrangeResult('')
-      } catch {}
-      showToast('Arrangement generated', 'Done')
+      const parsed = JSON.parse(cleaned) as ReferenceIntel
+      setReferenceIntel(parsed)
+      // Auto-populate Sonic World
+      if (parsed.key) setSonicWorld(s => ({ ...s, key: parsed.key }))
+      if (parsed.bpm) setSonicWorld(s => ({ ...s, bpm: String(parsed.bpm) }))
+      showToast('Reference analysed', 'Done')
+    } catch {
+      showToast('Analysis failed — try a well-known track', 'Error')
     } finally {
-      setGeneratingArrange(false)
+      setAnalysingRef(false)
     }
   }
 
-  async function generateChainAdvice() {
-    if (selectedChain === null) { showToast('Select a chain first', 'Error'); return }
-    setGeneratingChain(true)
-    setChainResult('')
-    const chain = CHAINS[selectedChain]
-    try {
-      const raw = await callClaude(
-        `You are an expert mix engineer with 20+ years experience in electronic music. Give specific, practical plugin settings and techniques.`,
-        `Chain: ${chain.name}
-Description: ${chain.desc}
-Track context: ${chainContext || 'Electronic music production'}
-Genre: ${genre}
-
-Give me:
-1. Specific plugin recommendations (with settings where possible)
-2. Signal chain order with reasoning
-3. Key frequency areas to focus on
-4. Common mistakes to avoid with this chain
-5. A "secret weapon" technique for this chain type
-6. How to know when it's right (what to listen for)`,
-        600
-      )
-      setChainResult(raw)
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'Error')
-    } finally {
-      setGeneratingChain(false)
-    }
-  }
-
-  async function askProductionQuestion() {
+  // ── Quick Ask ─────────────────────────────────────────────────────────
+  async function askQuestion() {
     if (!question.trim()) return
     setAskingQuestion(true)
     setQuestionResult('')
     try {
       const raw = await callClaude(
-        `You are an expert electronic music producer and mix engineer who has worked with artists like Bicep, Four Tet, Floating Points, Jon Hopkins, and Aphex Twin. You know every plugin, every technique, every signal chain. Give specific, actionable answers — exact plugin names, exact settings, exact techniques. No generic advice. If the question mentions a specific artist or sound, explain exactly how to recreate it in Ableton Live with specific plugins and settings.`,
-        `Production question: ${question}
-Genre context: ${genre}
-Key: ${key}
-
-Answer with:
-1. The exact approach (step by step)
-2. Specific plugins to use (with settings where possible)
-3. The "secret" that makes this sound work
-4. Common mistakes that ruin it
-5. One reference track that nails this technique`,
-        800
+        `You are an expert electronic music producer. ${sonicCtxString() ? `Session context: ${sonicCtxString()}.` : ''} ${pluginCtxString()}
+Answer in 2-3 sentences MAXIMUM. Be specific and concrete — exact plugin names, frequencies, settings. No generic advice. No lists.`,
+        question.trim(),
+        300
       )
       setQuestionResult(raw)
     } catch (err: any) {
@@ -295,27 +232,170 @@ Answer with:
     }
   }
 
+  // ── Composition: Chords ───────────────────────────────────────────────
+  async function generateChords() {
+    setGeneratingChords(true)
+    setChordVoicings([])
+    setMotifResult('')
+    try {
+      const refCtx = referenceIntel
+        ? `Reference track key sounds: ${referenceIntel.key_sounds.join(', ')}. Mix character: ${referenceIntel.mix_notes}.`
+        : ''
+      const raw = await callClaude(
+        `You are an expert electronic music composer. Return ONLY valid JSON, no markdown.`,
+        `Generate chord voicings for a producer making: "${sonicWorld.making || sonicWorld.genre || 'electronic music'}"
+Key: ${sonicWorld.key || 'A minor'}
+Genre: ${sonicWorld.genre}
+${sonicWorld.soundsLike.length ? `Sounds like: ${sonicWorld.soundsLike.join(', ')}` : ''}
+${refCtx}
+
+Return JSON:
+{
+  "voicings": [
+    { "name": "<chord name>", "notes": "<actual note names with octave, e.g. 'A2 · E3 · A3 · C4 · E4'>", "character": "<one sentence on feel/use>" },
+    { "name": "<chord name>", "notes": "<actual notes>", "character": "<feel>" },
+    { "name": "<chord name>", "notes": "<actual notes>", "character": "<feel>" },
+    { "name": "<chord name>", "notes": "<actual notes>", "character": "<feel>" }
+  ],
+  "motif": "<Describe a melodic motif using interval directions — e.g. 'root, up minor 3rd to C, down a step to B, hold 2 beats, resolve up to D'>"
+}
+
+Real note names only. No Roman numerals. No theory labels. Notes a producer can play directly.`,
+        600
+      )
+      const cleaned = raw.replace(/```json|```/g, '').trim()
+      const parsed = JSON.parse(cleaned)
+      setChordVoicings(parsed.voicings || [])
+      setMotifResult(parsed.motif || '')
+      showToast('Voicings generated', 'Done')
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`, 'Error')
+    } finally {
+      setGeneratingChords(false)
+    }
+  }
+
+  // ── Composition: Melody ───────────────────────────────────────────────
+  async function generateMelody() {
+    setGeneratingMelody(true)
+    setMelodyResult('')
+    try {
+      const raw = await callClaude(
+        `You are a melody composer for electronic music. Give specific actionable note suggestions. No Roman numerals. No theory labels.`,
+        `Key: ${sonicWorld.key || 'A minor'}
+Genre: ${sonicWorld.genre}
+${sonicWorld.soundsLike.length ? `Sounds like: ${sonicWorld.soundsLike.join(', ')}` : ''}
+${chordVoicings.length ? `Underlying chords: ${chordVoicings.map(c => `${c.name} (${c.notes})`).join(' → ')}` : ''}
+${sonicWorld.making ? `Making: ${sonicWorld.making}` : ''}
+
+Give me:
+1. A specific melodic motif — describe with actual interval directions and note names (e.g. "start on A3, up to C4, down to G3, hold 2 beats")
+2. Two variations using different rhythms or start points
+3. A counter-melody idea using actual notes
+4. Scale/mode extensions beyond the obvious (e.g. "use the Dorian b2 for tension on bar 4")
+5. How producers like ${sonicWorld.soundsLike.slice(0,2).join(', ') || 'Bicep, Four Tet'} typically approach melody in this register`,
+        500
+      )
+      setMelodyResult(raw.replace(/\*\*/g,'').replace(/^#{1,3} /gm,''))
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`, 'Error')
+    } finally {
+      setGeneratingMelody(false)
+    }
+  }
+
+  // ── Arrangement ───────────────────────────────────────────────────────
+  async function generateArrangement() {
+    setGeneratingArrange(true)
+    setArrangeSections([])
+    setArrangeExtra(null)
+    setEnergyArc([])
+    try {
+      const refIntelCtx = referenceIntel
+        ? `Reference energy arc: [${referenceIntel.energy_arc.join(', ')}]. Reference techniques: ${referenceIntel.techniques.map(t => t.name).join(', ')}.`
+        : ''
+      const raw = await callClaude(
+        `You are an expert electronic music arranger. Return ONLY valid JSON, no markdown.`,
+        `Create a detailed arrangement for:
+Making: ${sonicWorld.making || sonicWorld.genre + ' track'}
+Key: ${sonicWorld.key}
+BPM: ${sonicWorld.bpm || '130'}
+Genre: ${sonicWorld.genre}
+${sonicWorld.soundsLike.length ? `Reference artists: ${sonicWorld.soundsLike.join(', ')}` : ''}
+${refIntelCtx}
+
+Return JSON:
+{
+  "sections": [
+    { "name": "Intro", "bars": 8, "energy": 2, "elements": "<what's playing>", "notes": "<production tip>" },
+    ... continue through full track including Build, Drop, Breakdown, Build 2, Drop 2, Outro
+  ],
+  "key_moments": ["<e.g. 'Drop hits bar 32 — remove all reverb on kick for impact'>", "<moment 2>"],
+  "production_tips": ["<specific tip 1>", "<specific tip 2>", "<specific tip 3>"]
+}`,
+        800
+      )
+      const cleaned = raw.replace(/```json|```/g, '').trim()
+      const data = JSON.parse(cleaned)
+      setArrangeSections(data.sections || [])
+      setArrangeExtra({ production_tips: data.production_tips || [], key_moments: data.key_moments || [] })
+      setEnergyArc((data.sections || []).map((s: ArrangementSection) => s.energy))
+      showToast('Arrangement generated', 'Done')
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`, 'Error')
+    } finally {
+      setGeneratingArrange(false)
+    }
+  }
+
+  // ── Chain advice ──────────────────────────────────────────────────────
+  async function generateChainAdvice() {
+    if (selectedChain === null) { showToast('Select a chain type first', 'Error'); return }
+    setGeneratingChain(true)
+    setChainResult('')
+    const chain = CHAINS[selectedChain]
+    try {
+      const raw = await callClaude(
+        `You are an expert mix engineer with 20+ years in electronic music. Give specific plugin settings and techniques. ${pluginCtxString()}`,
+        `Chain type: ${chain.name}
+Context: ${sonicCtxString() || chain.desc}
+${installedPlugins.length ? `Use from the producer's actual installed plugins where possible: ${installedPlugins.slice(0,30).join(', ')}` : ''}
+
+Give:
+1. Signal chain order with specific plugins (prefer installed plugins if provided, otherwise Ableton stock)
+2. Key settings for each plugin (specific dB values, ratios, frequencies, times)
+3. The one setting that makes or breaks this chain
+4. What to listen for to know it's right`,
+        500
+      )
+      setChainResult(raw.replace(/\*\*/g,'').replace(/^#{1,3} /gm,''))
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`, 'Error')
+    } finally {
+      setGeneratingChain(false)
+    }
+  }
+
+  // ── Stem analysis ─────────────────────────────────────────────────────
   async function analyseStem() {
     setAnalysingStem(true)
     setStemAnalysis('')
     try {
       const raw = await callClaude(
-        `You are an expert mix engineer specialising in electronic music. You know every plugin chain used by top producers. Give specific, immediately actionable advice — exact plugin names, exact settings, exact frequencies. Think like a senior engineer at a top studio reviewing a client's stem.`,
-        `Analyse and suggest improvements for this stem type: ${stemType}
-Genre: ${genre}
-Key: ${key}
-Feel: ${feel}
+        `You are an expert mix engineer specialising in electronic music. ${pluginCtxString()} Give specific, immediately actionable advice — exact plugin names, exact settings, exact frequencies.`,
+        `Stem: ${stemType}
+${sonicCtxString() ? `Session context: ${sonicCtxString()}` : ''}
+${installedPlugins.length ? `Producer's installed plugins: ${installedPlugins.slice(0,40).join(', ')}` : ''}
 
-Give me:
-1. DIAGNOSIS — What to listen for in this stem type, common problems
-2. SIGNAL CHAIN — Exact plugin order with specific settings (EQ frequencies, compression ratios, saturation amounts)
-3. KNOWN PRODUCER CHAINS — How Bicep, Four Tet, Floating Points, and Jon Hopkins handle this stem type specifically
-4. QUICK WINS — 3 specific moves that will immediately improve this stem
-5. PRO UPGRADE — What separates an amateur ${stemType} from a professional one
-6. ABLETON SPECIFIC — Native Ableton plugins that can achieve 80% of the result before reaching for third-party`,
-        900
+Give:
+1. DIAGNOSIS — What to listen for, common problems with this stem type in ${sonicWorld.genre}
+2. SIGNAL CHAIN — Exact plugin order, prefer installed plugins. Specific settings (EQ frequencies, ratios, times)
+3. PRODUCER CHAINS — How ${sonicWorld.soundsLike.slice(0,2).join(' and ') || 'Bicep and Four Tet'} handle this stem type specifically
+4. QUICK WINS — 3 moves that immediately improve this stem
+5. ABLETON SPECIFIC — What native Ableton plugins cover 80% of the result`,
+        800
       )
-      setStemAnalysis(raw)
+      setStemAnalysis(raw.replace(/\*\*/g,'').replace(/^#{1,3} /gm,''))
     } catch (err: any) {
       showToast(`Error: ${err.message}`, 'Error')
     } finally {
@@ -325,600 +405,432 @@ Give me:
 
   const filteredChains = activeType === 'all' ? CHAINS : CHAINS.filter(c => c.type === activeType)
 
-  const typeColors: Record<string, string> = {
-    vocal: '#b08d57',
-    bass: '#5a8a6a',
-    synth: '#6a7a9a',
-    drum: '#9a6a5a',
-    ref: '#7a6a8a',
+  // ── Shared styles ─────────────────────────────────────────────────────
+  const panel = {
+    background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)',
+    border: '1px solid #3a2e1c',
+    padding: '24px 28px',
+    marginBottom: '24px',
+  } as const
+
+  const panelGold = {
+    ...panel,
+    background: 'linear-gradient(180deg, #2a2018 0%, #1e1710 100%)',
+    border: '1px solid #5a4428',
+    boxShadow: '0 0 20px rgba(201,164,110,0.05)',
+  } as const
+
+  const sectionLabel = {
+    fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase' as const,
+    marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px',
   }
 
+  const goldBtn = (busy: boolean, disabled = false) => ({
+    background: busy ? 'var(--bg)' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
+    border: '1px solid var(--gold-bright)',
+    color: 'var(--gold-bright)',
+    fontFamily: "'DM Mono', monospace",
+    fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const,
+    padding: '10px 24px', cursor: busy || disabled ? 'default' : 'pointer',
+    opacity: busy || disabled ? 0.5 : 1,
+    display: 'flex', alignItems: 'center', gap: '10px',
+    boxShadow: '0 0 12px rgba(201,164,110,0.1)',
+  })
+
+  const spinner = <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+
   return (
-    <div className="min-h-screen text-[#e8dcc8]" style={{
-      background: 'linear-gradient(180deg, #1a1410 0%, #120f0a 100%)',
-      fontFamily: "'DM Mono', monospace",
-    }}>
+    <div className="min-h-screen text-[#e8dcc8]" style={{ background: 'linear-gradient(180deg, #1a1410 0%, #120f0a 100%)', fontFamily: "'DM Mono', monospace" }}>
 
-      {/* HEADER — hardware nameplate */}
-      <div style={{
-        background: 'linear-gradient(180deg, #2a2018 0%, #1e1710 100%)',
-        borderBottom: '2px solid #3a2e20',
-        boxShadow: '0 2px 20px rgba(0,0,0,0.5)',
-      }} className="px-8 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          {/* Logo plate */}
-          <div style={{
-            background: 'linear-gradient(135deg, #2e2416 0%, #1c1508 100%)',
-            border: '1px solid #5a4428',
-            boxShadow: 'inset 0 1px 0 rgba(255,200,100,0.1), 0 2px 8px rgba(0,0,0,0.4)',
-            padding: '10px 20px',
-          }}>
-            <div style={{
-              fontFamily: "'Unbounded', sans-serif",
-              fontSize: '18px',
-              fontWeight: '300',
-              letterSpacing: '0.2em',
-              color: 'var(--gold-bright)',
-              textShadow: '0 0 20px rgba(201,164,110,0.4)',
-            }}>SONIX <span style={{ color: 'var(--text-dimmer)' }}>LAB</span></div>
-            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: '#5a4428', marginTop: '2px' }}>
-              MODULAR CREATIVE SUITE — MK.I
-            </div>
+      {/* HEADER */}
+      <div style={{ background: 'linear-gradient(180deg, #2a2018 0%, #1e1710 100%)', borderBottom: '2px solid #3a2e20', boxShadow: '0 2px 20px rgba(0,0,0,0.5)' }} className="px-8 py-5 flex items-center justify-between">
+        <div style={{ background: 'linear-gradient(135deg, #2e2416 0%, #1c1508 100%)', border: '1px solid #5a4428', boxShadow: 'inset 0 1px 0 rgba(255,200,100,0.1), 0 2px 8px rgba(0,0,0,0.4)', padding: '10px 20px' }}>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: '300', letterSpacing: '0.2em', color: 'var(--gold-bright)', textShadow: '0 0 20px rgba(201,164,110,0.4)' }}>
+            SONIX <span style={{ color: 'var(--text-dimmer)' }}>LAB</span>
           </div>
-
-          {/* VU Meters */}
-          <div className="flex items-end gap-1" style={{ height: '40px' }}>
-            {meters.map((m, i) => (
-              <div key={i} style={{ width: '6px', height: '40px', background: '#1a1208', border: '1px solid #2a1e10', position: 'relative', overflow: 'hidden' }}>
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  height: `${m * 100}%`,
-                  background: m > 0.8 ? '#c04030' : m > 0.6 ? '#c09030' : '#7a9a50',
-                  transition: 'height 0.1s ease',
-                  boxShadow: m > 0.6 ? `0 0 6px ${m > 0.8 ? '#c04030' : '#c09030'}` : 'none',
-                }} />
-              </div>
-            ))}
+          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: '#5a4428', marginTop: '2px' }}>MODULAR CREATIVE SUITE — MK.II</div>
+        </div>
+        {installedPlugins.length > 0 && (
+          <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: '#3d6b4a' }}>
+            {installedPlugins.length} plugins loaded
           </div>
-
-          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmest)', textTransform: 'uppercase' }}>
-            Input level
-          </div>
-        </div>
-
-        {/* Tab selector — hardware buttons */}
-        <div className="flex gap-1">
-          {(['compose', 'arrange', 'mixdown'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: '13px',
-              letterSpacing: '0.2em',
-              textTransform: 'uppercase',
-              padding: '8px 20px',
-              background: activeTab === tab
-                ? 'linear-gradient(180deg, #3a2e1c 0%, #2a2010 100%)'
-                : 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)',
-              border: activeTab === tab ? '1px solid #7a5a28' : '1px solid #2a2010',
-              color: activeTab === tab ? 'var(--gold-bright)' : '#4a3e28',
-              boxShadow: activeTab === tab
-                ? 'inset 0 1px 0 rgba(255,200,100,0.15), 0 0 10px rgba(201,164,110,0.1)'
-                : 'inset 0 1px 0 rgba(0,0,0,0.3)',
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}>
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: '#3a2e20' }}>
-          ARTIST OS — SONIX LAB
-        </div>
+        )}
+        <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: '#3a2e20' }}>ARTIST OS</div>
       </div>
 
       <div className="p-8">
 
-        {/* REFERENCE IMPORTER */}
-        <div style={{
-          background: 'linear-gradient(180deg, #2a2018 0%, #1e1710 100%)',
-          border: '1px solid #5a4428',
-          padding: '20px 28px',
-          marginBottom: '24px',
-          boxShadow: '0 0 20px rgba(201,164,110,0.05)',
-        }}>
-          <div style={{ fontSize: '13px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* ═══════════════════════════════════════════════════════════
+            SECTION 1 — SONIC WORLD
+        ════════════════════════════════════════════════════════════ */}
+        <div style={panelGold}>
+          <div style={{ ...sectionLabel, color: 'var(--gold-bright)' }}>
             <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
-            Reference track analyser — the starting point
+            Sonic World — your session context
           </div>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <input value={reference} onChange={e => setReference(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') analyseReference() }}
-                placeholder="Artist — Track name (e.g. Bicep — Glue, Four Tet — Baby)"
-                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+
+          {/* Alignment list */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>
+              Sounds like <span style={{ color: 'var(--text-dimmest)', textTransform: 'none', letterSpacing: '0' }}>(up to 6 references)</span>
             </div>
-            <button onClick={analyseReference} disabled={analysingReference} style={{
-              background: analysingReference ? 'var(--bg)' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
-              border: '1px solid var(--gold-bright)',
-              color: 'var(--gold-bright)',
-              fontFamily: "'DM Mono', monospace",
-              fontSize: '10px',
-              letterSpacing: '0.2em',
-              textTransform: 'uppercase',
-              padding: '12px 28px',
-              cursor: 'pointer',
-              opacity: analysingReference ? 0.6 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              boxShadow: '0 0 12px rgba(201,164,110,0.15)',
-            }}>
-              {analysingReference && <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
-              {analysingReference ? 'Analysing...' : 'Analyse reference'}
-            </button>
-          </div>
-          {referenceAnalysis && (
-            <div style={{ marginTop: '16px', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '16px 20px', maxHeight: '180px', overflowY: 'auto' }}>
-              <div style={{ fontSize: '14px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{referenceAnalysis}</div>
-            </div>
-          )}
-        </div>
-
-        {/* PRODUCTION QUESTION BAR — always visible */}
-        <div style={{
-          background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)',
-          border: '1px solid #3a2e1c',
-          padding: '20px 28px',
-          marginBottom: '24px',
-        }}>
-          <div style={{ fontSize: '11px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
-            How do I make this? — ask anything
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <input value={question} onChange={e => setQuestion(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') askProductionQuestion() }}
-              placeholder="How do I get Four Tet's organic drum sound? / How do Bicep make those wide pads? / Make my bass sound like Floating Points..."
-              style={{ flex: 1, background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
-            <button onClick={askProductionQuestion} disabled={askingQuestion || !question.trim()} style={{
-              background: askingQuestion ? 'var(--bg)' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
-              border: '1px solid var(--gold-bright)',
-              color: 'var(--gold-bright)',
-              fontFamily: "'DM Mono', monospace",
-              fontSize: '10px',
-              letterSpacing: '0.2em',
-              textTransform: 'uppercase',
-              padding: '12px 28px',
-              cursor: 'pointer',
-              opacity: askingQuestion || !question.trim() ? 0.5 : 1,
-              display: 'flex', alignItems: 'center', gap: '10px',
-            }}>
-              {askingQuestion && <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
-              {askingQuestion ? 'Thinking...' : 'Ask →'}
-            </button>
-          </div>
-          {questionResult && (
-            <div style={{ marginTop: '16px', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '20px 24px', maxHeight: '300px', overflowY: 'auto' }}>
-              <div style={{ fontSize: '13px', lineHeight: '1.9', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                {questionResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ═══ COMPOSE TAB ═══ */}
-        {activeTab === 'compose' && (
-          <div className="flex flex-col gap-6">
-
-            {/* CONTROLS ROW */}
-            <div style={{
-              background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)',
-              border: '1px solid #3a2e1c',
-              padding: '24px 28px',
-              boxShadow: 'inset 0 1px 0 rgba(255,200,100,0.05)',
-            }}>
-              <div style={{ fontSize: '11px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-dim)' }}>
-                Harmonic parameters
-              </div>
-              <div className="grid grid-cols-4 gap-6">
-                {[
-                  { label: 'Key / Mode', value: key, onChange: setKey, options: ['A minor', 'C major', 'D minor', 'E minor', 'F major', 'G major', 'B minor', 'Eb major', 'F# minor', 'Bb major', 'C# minor', 'Ab major'] },
-                  { label: 'Genre', value: genre, onChange: setGenre, options: ['Electronic', 'Deep House', 'Techno', 'Ambient', 'Drum & Bass', 'UK Garage', 'Afrobeats', 'Hip Hop', 'Pop', 'R&B', 'Jazz', 'Classical'] },
-                  { label: 'Emotional feel', value: feel, onChange: setFeel, options: ['Melancholic', 'Euphoric', 'Tense', 'Dreamy', 'Aggressive', 'Soulful', 'Minimal', 'Epic', 'Intimate', 'Hypnotic'] },
-                ].map(field => (
-                  <div key={field.label}>
-                    <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>{field.label}</div>
-                    <select value={field.value} onChange={e => field.onChange(e.target.value)} style={{
-                      width: '100%',
-                      background: 'var(--bg-input)',
-                      border: '1px solid var(--border-dim)',
-                      color: 'var(--text)',
-                      fontFamily: "'DM Mono', monospace",
-                      fontSize: '14px',
-                      padding: '8px 12px',
-                      outline: 'none',
-                    }}>
-                      {field.options.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </div>
-                ))}
-                <div>
-                  <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Actions</div>
-                  <div className="flex gap-2">
-                    <button onClick={generateChords} disabled={generatingChords} style={{
-                      flex: 1,
-                      background: generatingChords ? 'var(--bg)' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-                      border: '1px solid var(--gold-dim)',
-                      color: 'var(--gold-bright)',
-                      fontFamily: "'DM Mono', monospace",
-                      fontSize: '11px',
-                      letterSpacing: '0.15em',
-                      textTransform: 'uppercase',
-                      padding: '8px',
-                      cursor: 'pointer',
-                      opacity: generatingChords ? 0.5 : 1,
-                    }}>
-                      {generatingChords ? '...' : 'Chords'}
-                    </button>
-                    <button onClick={generateMelody} disabled={generatingMelody} style={{
-                      flex: 1,
-                      background: generatingMelody ? 'var(--bg)' : 'linear-gradient(180deg, #2a3020 0%, #1a2010 100%)',
-                      border: '1px solid var(--accent-green)',
-                      color: 'var(--accent-green)',
-                      fontFamily: "'DM Mono', monospace",
-                      fontSize: '11px',
-                      letterSpacing: '0.15em',
-                      textTransform: 'uppercase',
-                      padding: '8px',
-                      cursor: 'pointer',
-                      opacity: generatingMelody ? 0.5 : 1,
-                    }}>
-                      {generatingMelody ? '...' : 'Melody'}
-                    </button>
-                  </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+              {sonicWorld.soundsLike.map((ref, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(201,164,110,0.08)', border: '1px solid rgba(201,164,110,0.3)', padding: '6px 12px', fontSize: '12px', color: 'var(--gold-bright)' }}>
+                  {ref}
+                  <button onClick={() => removeRef(i)} style={{ background: 'none', border: 'none', color: 'var(--text-dimmest)', cursor: 'pointer', fontSize: '14px', padding: '0', lineHeight: '1' }}>×</button>
                 </div>
-              </div>
-            </div>
-
-            {/* PROGRESSIONS */}
-            <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '16px' }}>
-                Chord progressions — {key}
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {CHORD_PROGRESSIONS.map((prog, i) => (
-                  <div key={i} onClick={() => setSelectedProgression(i)} style={{
-                    background: selectedProgression === i ? 'linear-gradient(180deg, #2e2416 0%, #1e1508 100%)' : 'var(--bg-input)',
-                    border: selectedProgression === i ? '1px solid var(--gold)' : '1px solid var(--border-dim)',
-                    padding: '14px 16px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    boxShadow: selectedProgression === i ? '0 0 12px rgba(201,164,110,0.1)' : 'none',
-                  }}>
-                    <div style={{ fontSize: '14px', letterSpacing: '0.05em', color: selectedProgression === i ? 'var(--gold-bright)' : 'var(--text-dim)', marginBottom: '6px', fontWeight: '400' }}>{prog.name}</div>
-                    <div style={{ fontSize: '13px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', marginBottom: '3px' }}>{prog.genre}</div>
-                    <div style={{ fontSize: '13px', letterSpacing: '0.08em', color: 'var(--text-dimmest)', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{prog.feel}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* RESULTS */}
-            {chordResult && (
-              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '24px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--border-dim)' }}>
-                  Chord analysis
-                </div>
-                <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                  {chordResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
-                </div>
-              </div>
-            )}
-            {melodyResult && (
-              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--accent-green)', padding: '24px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--accent-green)', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--accent-green)' }}>
-                  Melody ideas
-                </div>
-                <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                  {melodyResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ═══ ARRANGE TAB ═══ */}
-        {activeTab === 'arrange' && (
-          <div className="flex flex-col gap-6">
-
-            <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-dim)' }}>
-                Track parameters
-              </div>
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
-                  <input value={trackContext} onChange={e => setTrackContext(e.target.value)}
-                    placeholder="128 BPM techno, dark and driving, 6 min DJ tool..."
-                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Reference track</div>
-                  <input value={referenceTrack} onChange={e => setReferenceTrack(e.target.value)}
-                    placeholder="Artist — Track name"
-                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
-                </div>
-              </div>
-              <button onClick={generateArrangement} disabled={generatingArrange} style={{
-                background: generatingArrange ? 'var(--bg)' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-                border: '1px solid var(--gold-dim)',
-                color: 'var(--gold-bright)',
-                fontFamily: "'DM Mono', monospace",
-                fontSize: '13px',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                padding: '12px 28px',
-                cursor: 'pointer',
-                opacity: generatingArrange ? 0.5 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-              }}>
-                {generatingArrange && <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
-                {generatingArrange ? 'Analysing structure...' : 'Generate arrangement'}
-              </button>
-            </div>
-
-            {/* ENERGY ARC VISUALISER */}
-            {energyArc.length > 0 && (
-              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '20px' }}>
-                  Energy arc
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '80px' }}>
-                  {energyArc.map((e, i) => (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                      <div style={{
-                        width: '100%',
-                        height: `${(e / 10) * 72}px`,
-                        background: e > 7 ? 'linear-gradient(180deg, #c9a46e, #8a6030)' : e > 4 ? 'linear-gradient(180deg, #6a8a50, #3a5020)' : 'linear-gradient(180deg, #3a3020, #1a1810)',
-                        border: '1px solid rgba(201,164,110,0.2)',
-                        transition: 'height 0.5s ease',
-                      }} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ARRANGEMENT RESULT */}
-            {arrangeResult && (
-              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--border-dim)' }}>
-                  Arrangement map
-                </div>
-                <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                  {(() => {
-                    try {
-                      const d = JSON.parse(arrangeResult.replace(/```json|```/g, '').trim())
-                      return (
-                        <div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '24px' }}>
-                            {d.sections?.map((s: any, i: number) => (
-                              <div key={i} style={{ background: '#1a1208', border: '1px solid #2a2010', padding: '12px' }}>
-                                <div style={{ fontSize: '13px', letterSpacing: '0.15em', color: '#c9a46e', textTransform: 'uppercase', marginBottom: '6px' }}>{s.name}</div>
-                                <div style={{ fontSize: '10px', color: '#6a5a3a', marginBottom: '4px' }}>{s.bars} bars · E:{s.energy}/10</div>
-                                <div style={{ fontSize: '10px', color: '#8a7a5a', lineHeight: '1.5' }}>{s.elements}</div>
-                                {s.notes && <div style={{ fontSize: '13px', color: '#5a4a28', marginTop: '6px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{s.notes}</div>}
-                              </div>
-                            ))}
-                          </div>
-                          {d.production_tips && (
-                            <div>
-                              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#5a4428', textTransform: 'uppercase', marginBottom: '10px' }}>Production tips</div>
-                              {d.production_tips.map((tip: string, i: number) => (
-                                <div key={i} style={{ display: 'flex', gap: '10px', padding: '8px 0', borderBottom: '1px solid #1a1208', fontSize: '13px', color: '#8a7a5a' }}>
-                                  <span style={{ color: '#c9a46e', opacity: 0.6 }}>→</span>{tip}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    } catch {
-                      return arrangeResult
-                    }
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ═══ MIXDOWN TAB ═══ */}
-        {activeTab === 'mixdown' && (
-          <div className="flex flex-col gap-6">
-
-            {/* STEM ANALYSIS — PRO FEATURE */}
-            <div style={{
-              background: 'linear-gradient(180deg, #1a1812 0%, #141008 100%)',
-              border: '1px solid var(--gold-dim)',
-              padding: '24px 28px',
-              boxShadow: '0 0 20px rgba(201,164,110,0.05)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div style={{ fontSize: '11px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
-                  Stem analysis — Pro
-                </div>
-                <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', letterSpacing: '0.1em' }}>Select a stem type for targeted analysis</div>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                {(['kick', 'bass', 'vocals', 'synths', 'drums', 'full_mix'] as const).map(stem => (
-                  <button key={stem} onClick={() => setStemType(stem)} style={{
-                    flex: 1,
-                    background: stemType === stem ? 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)' : 'var(--bg-input)',
-                    border: `1px solid ${stemType === stem ? 'var(--gold)' : 'var(--border-dim)'}`,
-                    color: stemType === stem ? 'var(--gold-bright)' : 'var(--text-dimmer)',
-                    fontFamily: "'DM Mono', monospace",
-                    fontSize: '10px',
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    padding: '10px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}>
-                    {stem === 'full_mix' ? 'Full mix' : stem}
-                  </button>
-                ))}
-              </div>
-              <button onClick={analyseStem} disabled={analysingStem} style={{
-                width: '100%',
-                background: analysingStem ? 'var(--bg)' : 'linear-gradient(180deg, #4a3820 0%, #3a2810 100%)',
-                border: '1px solid var(--gold-bright)',
-                color: 'var(--gold-bright)',
-                fontFamily: "'DM Mono', monospace",
-                fontSize: '11px',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                padding: '14px',
-                cursor: 'pointer',
-                opacity: analysingStem ? 0.5 : 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                boxShadow: '0 0 16px rgba(201,164,110,0.1)',
-              }}>
-                {analysingStem && <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
-                {analysingStem ? `Analysing ${stemType}...` : `Analyse ${stemType === 'full_mix' ? 'full mix' : stemType} — get plugin chain + producer insights`}
-              </button>
-              {stemAnalysis && (
-                <div style={{ marginTop: '16px', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '24px', maxHeight: '400px', overflowY: 'auto' }}>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--border-dim)' }}>
-                    {stemType} analysis — plugin chains + producer insights
-                  </div>
-                  <div style={{ fontSize: '13px', lineHeight: '1.9', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                    {stemAnalysis.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
-                  </div>
+              ))}
+              {sonicWorld.soundsLike.length < 6 && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input value={newRef} onChange={e => setNewRef(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addRef() }}
+                    placeholder="Artist — Track (press Enter)"
+                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '12px', padding: '6px 12px', outline: 'none', width: '260px' }} />
+                  <button onClick={addRef} style={{ ...goldBtn(false), padding: '6px 16px', fontSize: '10px' }}>Add</button>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* CHAIN TYPE FILTER */}
-            <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid var(--border-dim)', padding: '20px 28px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '16px' }}>
-                18 production chains
+          {/* Key / BPM / Genre / Making */}
+          <div className="grid grid-cols-4 gap-4">
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Key</div>
+              <select value={sonicWorld.key} onChange={e => setSonicWorld(s => ({ ...s, key: e.target.value }))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '8px 12px', outline: 'none' }}>
+                {['A minor','C major','D minor','E minor','F major','G major','B minor','Eb major','F# minor','Bb major','C# minor','Ab major'].map(k => <option key={k}>{k}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>BPM</div>
+              <input value={sonicWorld.bpm} onChange={e => setSonicWorld(s => ({ ...s, bpm: e.target.value }))}
+                placeholder="125" type="number"
+                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '8px 12px', outline: 'none' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Genre</div>
+              <select value={sonicWorld.genre} onChange={e => setSonicWorld(s => ({ ...s, genre: e.target.value }))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '8px 12px', outline: 'none' }}>
+                {['Electronic','Deep House','Techno','Ambient','Drum & Bass','UK Garage','Afrobeats','Hip Hop','Pop','R&B','Jazz'].map(g => <option key={g}>{g}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Making</div>
+              <input value={sonicWorld.making} onChange={e => setSonicWorld(s => ({ ...s, making: e.target.value }))}
+                placeholder="6-min DJ tool, dark techno…"
+                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '8px 12px', outline: 'none' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════
+            QUICK ASK
+        ════════════════════════════════════════════════════════════ */}
+        <div style={panel}>
+          <div style={{ ...sectionLabel, color: 'var(--gold-bright)' }}>
+            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
+            Ask anything
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <input value={question} onChange={e => setQuestion(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') askQuestion() }}
+              placeholder={`Why is my kick clashing? / How do ${sonicWorld.soundsLike[0] || 'Bicep'} get that bass width? / What reverb for this pad?`}
+              style={{ flex: 1, background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+            <button onClick={askQuestion} disabled={askingQuestion || !question.trim()} style={goldBtn(askingQuestion, !question.trim())}>
+              {askingQuestion && spinner}
+              {askingQuestion ? 'Thinking…' : 'Ask →'}
+            </button>
+          </div>
+          {questionResult && (
+            <div style={{ marginTop: '14px', padding: '16px 20px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim)' }}>
+              <div style={{ fontSize: '14px', lineHeight: '1.8', color: 'var(--text-warm)', letterSpacing: '0.04em' }}>{questionResult}</div>
+            </div>
+          )}
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════
+            SECTION 2 — REFERENCE INTEL
+        ════════════════════════════════════════════════════════════ */}
+        <div style={panelGold}>
+          <div style={{ ...sectionLabel, color: 'var(--gold-bright)' }}>
+            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold-bright)' }} />
+            Reference Intel — break down any track
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginBottom: referenceIntel ? '20px' : '0' }}>
+            <div style={{ flex: 1 }}>
+              <input value={refInput} onChange={e => setRefInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') analyseReference() }}
+                placeholder="Artist — Track name (e.g. Bicep — Glue, Jon Hopkins — Emerald Rush)"
+                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+            </div>
+            <button onClick={analyseReference} disabled={analysingRef} style={goldBtn(analysingRef)}>
+              {analysingRef && spinner}
+              {analysingRef ? 'Analysing…' : 'Analyse →'}
+            </button>
+          </div>
+
+          {referenceIntel && (
+            <div>
+              {/* Spec row */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                {[
+                  { label: 'BPM', value: String(referenceIntel.bpm) },
+                  { label: 'Key', value: referenceIntel.key },
+                ].map(b => (
+                  <div key={b.label} style={{ background: 'rgba(201,164,110,0.08)', border: '1px solid rgba(201,164,110,0.25)', padding: '10px 20px', minWidth: '80px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>{b.label}</div>
+                    <div style={{ fontSize: '18px', color: 'var(--gold-bright)', letterSpacing: '0.05em' }}>{b.value}</div>
+                  </div>
+                ))}
+                {/* Energy arc */}
+                {referenceIntel.energy_arc.length > 0 && (
+                  <div style={{ background: 'rgba(201,164,110,0.08)', border: '1px solid rgba(201,164,110,0.25)', padding: '10px 16px', flex: 1 }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Energy arc</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '28px' }}>
+                      {referenceIntel.energy_arc.map((v, i) => (
+                        <div key={i} style={{ flex: 1, height: `${(v / 10) * 100}%`, background: v > 7 ? 'var(--gold-bright)' : v > 4 ? '#3d6b4a' : '#2a2018', transition: 'height 0.3s' }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
-                {['all', 'vocal', 'bass', 'synth', 'drum', 'ref'].map(t => (
-                  <button key={t} onClick={() => setActiveType(t)} style={{
-                    fontFamily: "'DM Mono', monospace",
-                    fontSize: '10px',
-                    letterSpacing: '0.15em',
-                    textTransform: 'uppercase',
-                    padding: '6px 14px',
-                    background: activeType === t ? 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)' : 'var(--bg-input)',
-                    border: activeType === t ? `1px solid ${typeColors[t] || 'var(--gold-dim)'}` : '1px solid var(--border-dim)',
-                    color: activeType === t ? (typeColors[t] || 'var(--gold-bright)') : 'var(--text-dimmest)',
-                    cursor: 'pointer',
-                  }}>{t}</button>
+
+              {/* Key sounds palette */}
+              {referenceIntel.key_sounds.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
+                  {referenceIntel.key_sounds.map((s, i) => (
+                    <div key={i} style={{ fontSize: '11px', background: '#1a1410', border: '1px solid #3a2e1c', padding: '4px 10px', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{s}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Technique cards */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {referenceIntel.techniques.map((t, i) => (
+                  <div key={i} style={{ background: '#120f0a', border: '1px solid #3a2e1c', padding: '14px 16px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '8px' }}>{t.name}</div>
+                    <div style={{ fontSize: '12px', lineHeight: '1.6', color: 'var(--text-warm)' }}>{t.detail}</div>
+                  </div>
                 ))}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                {filteredChains.map((chain, idx) => {
-                  const realIdx = CHAINS.indexOf(chain)
-                  return (
-                    <div key={realIdx} onClick={() => setSelectedChain(realIdx)} style={{
-                      background: selectedChain === realIdx ? 'linear-gradient(180deg, #2e2416 0%, #1e1508 100%)' : 'var(--bg-input)',
-                      border: selectedChain === realIdx ? `1px solid ${typeColors[chain.type] || 'var(--gold-dim)'}` : '1px solid var(--border-dim)',
-                      padding: '14px 16px',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s',
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                        <div style={{ fontSize: '13px', letterSpacing: '0.06em', color: selectedChain === realIdx ? 'var(--text)' : 'var(--text-dim)' }}>{chain.name}</div>
-                        <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: typeColors[chain.type] || 'var(--text-dimmer)', textTransform: 'uppercase', flexShrink: 0, marginLeft: '8px' }}>{chain.type}</div>
-                      </div>
-                      <div style={{ fontSize: '13px', letterSpacing: '0.06em', color: 'var(--text-dimmest)', fontStyle: 'italic', fontFamily: 'Georgia, serif', lineHeight: '1.4' }}>{chain.desc}</div>
-                    </div>
-                  )
-                })}
+              {/* Mix notes */}
+              {referenceIntel.mix_notes && (
+                <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', letterSpacing: '0.04em', fontStyle: 'italic', borderTop: '1px solid var(--border-dim)', paddingTop: '12px' }}>
+                  {referenceIntel.mix_notes}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════
+            SECTION 3 — COMPOSITION
+        ════════════════════════════════════════════════════════════ */}
+        <div style={panel}>
+          <div style={{ ...sectionLabel, color: 'var(--text-dim)' }}>
+            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--text-dim)' }} />
+            Composition — chords, melody &amp; arrangement
+          </div>
+
+          {/* Chord voicings */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>
+                Real voicings — {sonicWorld.key}
+                {sonicWorld.soundsLike.length > 0 && <span style={{ color: 'var(--text-dimmest)' }}> · referenced to {sonicWorld.soundsLike[0]}</span>}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={generateChords} disabled={generatingChords} style={goldBtn(generatingChords)}>
+                  {generatingChords && spinner}
+                  {generatingChords ? '…' : 'Generate voicings'}
+                </button>
+                <button onClick={generateMelody} disabled={generatingMelody || chordVoicings.length === 0} style={{ ...goldBtn(generatingMelody, chordVoicings.length === 0), border: '1px solid var(--accent-green)', color: 'var(--accent-green)', background: generatingMelody ? 'var(--bg)' : 'linear-gradient(180deg, #2a3020 0%, #1a2010 100%)' }}>
+                  {generatingMelody && spinner}
+                  {generatingMelody ? '…' : 'Melody ideas'}
+                </button>
               </div>
             </div>
 
-            {/* CHAIN CONTEXT + GENERATE */}
-            {selectedChain !== null && (
-              <div style={{ background: 'linear-gradient(180deg, #1e1a10 0%, #161208 100%)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '16px' }}>
-                  {CHAINS[selectedChain].name} — chain detail
-                </div>
-                <div className="grid grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Track context</div>
-                    <input value={chainContext} onChange={e => setChainContext(e.target.value)}
-                      placeholder="What are you mixing? Genre, style, BPM..."
-                      style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: "'DM Mono', monospace", fontSize: '13px', padding: '10px 12px', outline: 'none' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                    <button onClick={generateChainAdvice} disabled={generatingChain} style={{
-                      background: generatingChain ? 'var(--bg)' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-                      border: '1px solid var(--gold-dim)',
-                      color: 'var(--gold-bright)',
-                      fontFamily: "'DM Mono', monospace",
-                      fontSize: '13px',
-                      letterSpacing: '0.2em',
-                      textTransform: 'uppercase',
-                      padding: '12px 28px',
-                      cursor: 'pointer',
-                      opacity: generatingChain ? 0.5 : 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                    }}>
-                      {generatingChain && <div style={{ width: '10px', height: '10px', border: '1px solid #c9a46e', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
-                      {generatingChain ? 'Analysing...' : 'Get chain advice'}
-                    </button>
-                  </div>
-                </div>
-
-                {chainResult && (
-                  <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-dim)', padding: '20px' }}>
-                    <div style={{ fontSize: '13px', lineHeight: '1.85', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>
-                      {chainResult.replace(/\*\*/g,"").replace(/^#{1,3} /gm,"").replace(/^---$/gm,"─────────")}
+            {chordVoicings.length > 0 && (
+              <div>
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  {chordVoicings.map((c, i) => (
+                    <div key={i} style={{ background: '#120f0a', border: '1px solid #3a2e1c', padding: '14px 16px' }}>
+                      <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--gold-bright)', marginBottom: '8px' }}>{c.name}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '8px', letterSpacing: '0.05em', fontFamily: "'DM Mono', monospace" }}>{c.notes}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-dimmest)', fontStyle: 'italic', lineHeight: '1.4' }}>{c.character}</div>
                     </div>
+                  ))}
+                </div>
+                {motifResult && (
+                  <div style={{ background: 'rgba(201,164,110,0.04)', border: '1px solid rgba(201,164,110,0.15)', padding: '14px 18px', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Motif idea</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-warm)', lineHeight: '1.6' }}>{motifResult}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {melodyResult && (
+              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--accent-green)', padding: '20px 24px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--accent-green)', textTransform: 'uppercase', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--accent-green)' }}>Melody ideas</div>
+                <div style={{ fontSize: '13px', lineHeight: '1.9', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{melodyResult}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Arrangement */}
+          <div style={{ borderTop: '1px solid var(--border-dim)', paddingTop: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>
+                Arrangement — {sonicWorld.making || sonicWorld.genre}
+              </div>
+              <button onClick={generateArrangement} disabled={generatingArrange} style={goldBtn(generatingArrange)}>
+                {generatingArrange && spinner}
+                {generatingArrange ? '…' : 'Generate arrangement'}
+              </button>
+            </div>
+
+            {energyArc.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '48px', marginBottom: '20px', padding: '0 4px' }}>
+                {energyArc.map((v, i) => (
+                  <div key={i} style={{ flex: 1, height: `${(v / 10) * 100}%`, background: v > 7 ? 'var(--gold-bright)' : v > 4 ? '#3d6b4a' : '#2a2018', transition: 'height 0.3s', position: 'relative' }}>
+                    <div style={{ position: 'absolute', bottom: '-18px', left: '50%', transform: 'translateX(-50%)', fontSize: '9px', color: 'var(--text-dimmest)' }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {arrangeSections.length > 0 && (
+              <div>
+                <div className="grid grid-cols-4 gap-3 mb-4" style={{ marginTop: energyArc.length ? '24px' : '0' }}>
+                  {arrangeSections.map((s, i) => (
+                    <div key={i} style={{ background: '#120f0a', border: '1px solid #2a2018', padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: s.energy > 7 ? 'var(--gold-bright)' : 'var(--text-dim)' }}>{s.name}</div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>{s.bars}b</div>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '6px', lineHeight: '1.4' }}>{s.elements}</div>
+                      {s.notes && <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', fontStyle: 'italic', lineHeight: '1.4' }}>{s.notes}</div>}
+                    </div>
+                  ))}
+                </div>
+                {arrangeExtra && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {arrangeExtra.key_moments.length > 0 && (
+                      <div style={{ background: 'rgba(201,164,110,0.04)', border: '1px solid rgba(201,164,110,0.15)', padding: '14px 18px' }}>
+                        <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold-bright)', textTransform: 'uppercase', marginBottom: '10px' }}>Key moments</div>
+                        {arrangeExtra.key_moments.map((m, i) => <div key={i} style={{ fontSize: '12px', color: 'var(--text-warm)', lineHeight: '1.6', marginBottom: '6px' }}>→ {m}</div>)}
+                      </div>
+                    )}
+                    {arrangeExtra.production_tips.length > 0 && (
+                      <div style={{ background: '#120f0a', border: '1px solid #2a2018', padding: '14px 18px' }}>
+                        <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>Production tips</div>
+                        {arrangeExtra.production_tips.map((t, i) => <div key={i} style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6', marginBottom: '6px' }}>→ {t}</div>)}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
           </div>
-        )}
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════
+            SECTION 4 — SIGNAL CHAINS
+        ════════════════════════════════════════════════════════════ */}
+        <div style={panel}>
+          <div style={{ ...sectionLabel, color: 'var(--text-dim)' }}>
+            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--text-dim)' }} />
+            Signal Chains {installedPlugins.length > 0 && <span style={{ fontSize: '10px', color: '#3d6b4a', letterSpacing: '0.1em' }}>· using your {installedPlugins.length} plugins</span>}
+          </div>
+
+          {/* Stem analysis */}
+          <div style={{ marginBottom: '20px', padding: '16px 20px', background: '#120f0a', border: '1px solid #2a2018' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Stem analysis</div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              {(['kick','bass','vocals','synths','drums','full_mix'] as const).map(t => (
+                <button key={t} onClick={() => setStemType(t)} style={{
+                  background: stemType === t ? 'rgba(201,164,110,0.1)' : 'transparent',
+                  border: `1px solid ${stemType === t ? 'var(--gold)' : 'var(--border-dim)'}`,
+                  color: stemType === t ? 'var(--gold-bright)' : 'var(--text-dimmer)',
+                  fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.1em',
+                  padding: '6px 14px', cursor: 'pointer', textTransform: 'uppercase',
+                }}>{t.replace('_',' ')}</button>
+              ))}
+              <button onClick={analyseStem} disabled={analysingStem} style={{ ...goldBtn(analysingStem), marginLeft: 'auto', padding: '6px 20px' }}>
+                {analysingStem && spinner}
+                {analysingStem ? '…' : 'Analyse stem'}
+              </button>
+            </div>
+            {stemAnalysis && (
+              <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{stemAnalysis}</div>
+            )}
+          </div>
+
+          {/* Chain type selector */}
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Select chain type</div>
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            {['all','vocal','bass','synth','drum','ref'].map(t => (
+              <button key={t} onClick={() => setActiveType(t)} style={{
+                background: activeType === t ? 'rgba(255,255,255,0.05)' : 'transparent',
+                border: `1px solid ${activeType === t ? (typeColors[t] || 'var(--text-dim)') : 'var(--border-dim)'}`,
+                color: activeType === t ? (typeColors[t] || 'var(--text)') : 'var(--text-dimmer)',
+                fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.1em',
+                padding: '6px 14px', cursor: 'pointer', textTransform: 'uppercase',
+              }}>{t}</button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {filteredChains.map((chain, i) => {
+              const idx = CHAINS.indexOf(chain)
+              const selected = selectedChain === idx
+              return (
+                <div key={i} onClick={() => { setSelectedChain(idx); setChainResult('') }} style={{
+                  background: selected ? 'rgba(255,255,255,0.04)' : '#120f0a',
+                  border: `1px solid ${selected ? (typeColors[chain.type] || 'var(--border-dim)') : '#2a2018'}`,
+                  padding: '14px 16px', cursor: 'pointer', transition: 'all 0.15s',
+                  boxShadow: selected ? `0 0 12px ${typeColors[chain.type]}22` : 'none',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '12px', color: selected ? (typeColors[chain.type] || 'var(--text)') : 'var(--text-dim)' }}>{chain.name}</div>
+                    <div style={{ fontSize: '9px', color: typeColors[chain.type] || 'var(--text-dimmer)', border: `1px solid ${typeColors[chain.type] || 'var(--border-dim)'}22`, padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{chain.type}</div>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dimmest)', fontStyle: 'italic', lineHeight: '1.4' }}>{chain.desc}</div>
+                </div>
+              )
+            })}
+          </div>
+
+          {selectedChain !== null && (
+            <div style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>{CHAINS[selectedChain].name}</div>
+                <button onClick={generateChainAdvice} disabled={generatingChain} style={goldBtn(generatingChain)}>
+                  {generatingChain && spinner}
+                  {generatingChain ? '…' : 'Get chain →'}
+                </button>
+              </div>
+              {chainResult && (
+                <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap', letterSpacing: '0.04em' }}>{chainResult}</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Track uploader */}
+        <TrackUploader />
 
       </div>
 
-      {/* TOAST */}
+      {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', bottom: '28px', right: '28px',
-          background: 'rgba(20,16,8,0.96)',
-          border: '1px solid var(--border-dim)',
-          padding: '14px 20px',
-          fontSize: '13px', letterSpacing: '0.07em',
-          color: 'var(--text)',
-          zIndex: 50,
-          maxWidth: '280px',
-          lineHeight: '1.55',
-          backdropFilter: 'blur(12px)',
-        }}>
-          <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold-bright)', marginBottom: '4px' }}>{toast.tag}</div>
-          {toast.msg}
+        <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: '#2a2018', border: '1px solid #5a4428', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '12px', zIndex: 1000, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+          <span style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{toast.tag}</span>
+          <span style={{ fontSize: '13px', color: 'var(--text)' }}>{toast.msg}</span>
         </div>
       )}
-
-      <TrackUploader />
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        select option { background: #1a1208; }
-      `}</style>
     </div>
   )
 }

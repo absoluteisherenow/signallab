@@ -61,17 +61,40 @@
     transition: color 0.15s, border-color 0.15s;
   }
   #mode-toggle:hover, #mode-toggle.active { color: #c9a46e; border-color: #c9a46e44; }
-  #tts-toggle {
-    font-size: 12px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    opacity: 0.5;
-    transition: opacity 0.15s;
-    line-height: 1;
-    padding: 3px;
+  /* ── Sonic World strip ── */
+  #sonic-strip {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: #0c0a06;
+    border-bottom: 1px solid #1a1612;
+    flex-wrap: wrap;
   }
-  #tts-toggle:hover, #tts-toggle.on { opacity: 1; }
+  .sw-label {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #3a3028;
+    flex-shrink: 0;
+  }
+  .sw-input {
+    background: #13110d;
+    border: 1px solid #2a2218;
+    color: #c9a46e;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 3px 7px;
+    outline: none;
+    transition: border-color 0.15s;
+    min-width: 0;
+  }
+  .sw-input:focus { border-color: #c9a46e44; }
+  .sw-input::placeholder { color: #2e2820; }
+  .sw-input.wide { flex: 1; min-width: 100px; }
+  .sw-sep { color: #2e2820; font-size: 10px; flex-shrink: 0; }
 
   /* ── Conversation area ── */
   #convo {
@@ -476,8 +499,19 @@
     <div id="header-title">Signal Genius</div>
     <div id="header-right">
       <button id="mode-toggle" title="Load audio for chain analysis">Audio</button>
-      <button id="tts-toggle" class="on" title="Voice on — click to mute">🔊</button>
     </div>
+  </div>
+
+  <!-- Sonic World strip -->
+  <div id="sonic-strip">
+    <div class="sw-label">Key</div>
+    <input class="sw-input" id="sw-key" placeholder="A minor" style="width:72px">
+    <div class="sw-sep">·</div>
+    <div class="sw-label">BPM</div>
+    <input class="sw-input" id="sw-bpm" placeholder="125" type="number" style="width:50px">
+    <div class="sw-sep">·</div>
+    <div class="sw-label">Sounds like</div>
+    <input class="sw-input wide" id="sw-refs" placeholder="Bicep, Four Tet, Jon Hopkins…">
   </div>
 
   <!-- Conversation area -->
@@ -541,21 +575,49 @@ var BASE_URL       = 'https://signal-lab-rebuild.vercel.app';
 var ASSISTANT_URL  = BASE_URL + '/api/assistant';
 var ANALYSE_URL    = BASE_URL + '/api/stem-analyse';
 var TRANSCRIBE_URL = BASE_URL + '/api/transcribe';
-var TTS_URL        = BASE_URL + '/api/tts';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 var pendingFile    = null;
 var audioCtx       = null;
-var ttsEnabled     = true;
 var isRecording    = false;
 var mediaRecorder  = null;
 var audioChunks    = [];
 var micStream      = null;
-var isBusy         = false;   // transcribing or querying
-var isSpeaking     = false;
-var ttsAudio       = null;    // current HTMLAudioElement for TTS
+var isBusy         = false;
 var convoHistory   = [];      // [{q, a}] last 3 exchanges for context
 var textRowVisible = false;
+
+// ── Sonic World — persist in localStorage ─────────────────────────────────────
+var swKey  = document.getElementById('sw-key');
+var swBpm  = document.getElementById('sw-bpm');
+var swRefs = document.getElementById('sw-refs');
+
+(function() {
+  try {
+    swKey.value  = localStorage.getItem('sg_key')  || '';
+    swBpm.value  = localStorage.getItem('sg_bpm')  || '';
+    swRefs.value = localStorage.getItem('sg_refs') || '';
+  } catch(e) {}
+})();
+
+function saveSW() {
+  try {
+    localStorage.setItem('sg_key',  swKey.value);
+    localStorage.setItem('sg_bpm',  swBpm.value);
+    localStorage.setItem('sg_refs', swRefs.value);
+  } catch(e) {}
+}
+swKey.addEventListener('change', saveSW);
+swBpm.addEventListener('change', saveSW);
+swRefs.addEventListener('change', saveSW);
+
+function getSonicWorld() {
+  var out = {};
+  if (swKey.value.trim())  out.key  = swKey.value.trim();
+  if (swBpm.value.trim())  out.bpm  = parseInt(swBpm.value) || undefined;
+  if (swRefs.value.trim()) out.sounds_like = swRefs.value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  return out;
+}
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 function esc(s) {
@@ -574,10 +636,8 @@ var micStatus = document.getElementById('mic-status');
 function setMicState(state, label) {
   micBtn.className = state || '';
   micStatus.textContent = label || '';
-  micStatus.className = 'active';
   if (state === 'recording') { micStatus.className = 'active'; }
-  else if (state === 'busy')     { micStatus.className = 'amber'; }
-  else if (state === 'speaking') { micStatus.className = 'green'; }
+  else if (state === 'busy') { micStatus.className = 'amber'; }
   else { micStatus.className = 'dim'; micStatus.textContent = label || 'tap to speak'; }
 }
 
@@ -765,11 +825,12 @@ function submitQuery(text) {
   setMicState('busy', 'thinking…');
 
   var prompt = buildContextPrompt(text);
+  var sw = getSonicWorld();
 
   fetch(ASSISTANT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: prompt, context_date: getToday() })
+    body: JSON.stringify({ query: prompt, context_date: getToday(), sonic_world: sw })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -782,6 +843,10 @@ function submitQuery(text) {
       html  = renderBlueprint(data);
       badge = 'Production Blueprint';
       green = false;
+    } else if (intent === 'chain_advice') {
+      html  = renderChain(data);
+      badge = 'Signal Chain';
+      green = true;
     } else if (intent === 'off_topic') {
       html  = renderGeneral(data);
       badge = 'Out of scope';
@@ -798,10 +863,7 @@ function submitQuery(text) {
     convoHistory.push({ q: text, a: answerText });
     if (convoHistory.length > 4) convoHistory.shift();
 
-    // Speak and re-arm mic after
-    speak(answerText, function() {
-      setMicState('', 'tap to speak');
-    });
+    setMicState('', 'tap to speak');
   })
   .catch(function(err) {
     isBusy = false;
@@ -813,10 +875,11 @@ function submitQuery(text) {
 function submitStemAnalysis(measurements) {
   showThinking('Analysing audio…', true);
   setMicState('busy', 'analysing…');
+  var sw = getSonicWorld();
   fetch(ANALYSE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ stem: measurements })
+    body: JSON.stringify({ stem: measurements, sonic_world: sw })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -825,10 +888,8 @@ function submitStemAnalysis(measurements) {
       addErrorMessage('Audio analysis', data.error);
     } else {
       addMessage('Audio chain analysis', renderChain(data), 'Mix Chain', true);
-      speak(data.character || 'Analysis complete', function() {
-        setMicState('', 'tap to speak');
-      });
     }
+    setMicState('', 'tap to speak');
   })
   .catch(function(err) {
     isBusy = false;
@@ -837,75 +898,11 @@ function submitStemAnalysis(measurements) {
   });
 }
 
-// ── TTS — OpenAI ──────────────────────────────────────────────────────────────
-function speak(text, onDone) {
-  if (!ttsEnabled || !text) {
-    if (onDone) onDone();
-    return;
-  }
-  // Cancel any current speech
-  if (ttsAudio) { ttsAudio.pause(); ttsAudio = null; }
-
-  setMicState('speaking', 'speaking…');
-  isSpeaking = true;
-
-  fetch(TTS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: text })
-  })
-  .then(function(r) {
-    if (!r.ok) throw new Error('TTS error ' + r.status);
-    return r.arrayBuffer();
-  })
-  .then(function(buf) {
-    var blob = new Blob([buf], { type: 'audio/mpeg' });
-    var url  = URL.createObjectURL(blob);
-    ttsAudio = new Audio(url);
-    ttsAudio.onended = function() {
-      URL.revokeObjectURL(url);
-      ttsAudio = null;
-      isSpeaking = false;
-      if (onDone) onDone();
-    };
-    ttsAudio.onerror = function() {
-      isSpeaking = false;
-      if (onDone) onDone();
-    };
-    ttsAudio.play();
-  })
-  .catch(function(err) {
-    // Fallback to Web Speech if TTS API fails
-    isSpeaking = false;
-    if (window.speechSynthesis) {
-      var u = new SpeechSynthesisUtterance(text.substring(0, 300));
-      u.rate = 0.92;
-      u.onend = function() { if (onDone) onDone(); };
-      window.speechSynthesis.speak(u);
-    } else {
-      if (onDone) onDone();
-    }
-  });
-}
-
-// TTS toggle
-var ttsToggle = document.getElementById('tts-toggle');
-ttsToggle.addEventListener('click', function() {
-  ttsEnabled = !ttsEnabled;
-  ttsToggle.textContent = ttsEnabled ? '🔊' : '🔇';
-  ttsToggle.className = ttsEnabled ? 'on' : '';
-  if (!ttsEnabled) {
-    if (ttsAudio) { ttsAudio.pause(); ttsAudio = null; }
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    isSpeaking = false;
-  }
-});
-
 // ── Voice input ───────────────────────────────────────────────────────────────
 var AUDIO_RE = /\.(wav|aif|aiff|mp3|m4a|flac|ogg|caf)$/i;
 
 micBtn.addEventListener('click', function() {
-  if (isBusy || isSpeaking) return;
+  if (isBusy) return;
   if (isRecording) stopRecording();
   else             startRecording();
 });
