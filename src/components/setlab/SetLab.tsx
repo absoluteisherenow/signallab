@@ -107,6 +107,148 @@ const SAMPLE_LIBRARY: Track[] = [
   { id: '8', title: 'Jungle', artist: 'Drake feat. Tems', bpm: 120, key: 'G minor', camelot: '6A', energy: 7, genre: 'Afrobeats', duration: '3:45', notes: 'Crowd pleaser — use sparingly', analysed: true, moment_type: 'builder', position_score: 'build', mix_in: 'Acappella over outgoing track, then drop', mix_out: 'Cut during verse, blend next track percussion', crowd_reaction: 'Instant recognition — phones out, singing', similar_to: '', producer_style: 'Smooth Afrobeats production, vocal-driven' },
 ]
 
+// ── AIFF chunked reader ────────────────────────────────────────────────────
+// Parses AIFF/AIFC headers and streams PCM in chunks — handles 1GB+ files
+// without loading the full file into memory
+
+function ieee754_80ToNumber(b: Uint8Array, o: number): number {
+  const exp = ((b[o] & 0x7F) << 8) | b[o + 1]
+  let m = 0; for (let i = 0; i < 8; i++) m = m * 256 + b[o + 2 + i]
+  if (exp === 0 && m === 0) return 0
+  return m * Math.pow(2, exp - 16383 - 63)
+}
+
+interface AIFFInfo {
+  channels: number; sampleRate: number; bitDepth: number
+  dataOffset: number; dataSize: number; bytesPerFrame: number
+}
+
+async function parseAIFFInfo(file: File): Promise<AIFFInfo | null> {
+  const hdr = new Uint8Array(await file.slice(0, Math.min(1024 * 1024, file.size)).arrayBuffer())
+  const v = new DataView(hdr.buffer)
+  const t4 = (o: number) => String.fromCharCode(hdr[o], hdr[o+1], hdr[o+2], hdr[o+3])
+  if (t4(0) !== 'FORM' || (t4(8) !== 'AIFF' && t4(8) !== 'AIFC')) return null
+  let channels = 0, sampleRate = 0, bitDepth = 0, dataOffset = 0, dataSize = 0
+  let pos = 12
+  while (pos + 8 < hdr.length) {
+    const id = t4(pos)
+    const sz = v.getUint32(pos + 4, false)
+    if (id === 'COMM') {
+      channels = v.getInt16(pos + 8, false)
+      bitDepth = v.getInt16(pos + 14, false)
+      sampleRate = ieee754_80ToNumber(hdr, pos + 16)
+    } else if (id === 'SSND') {
+      const inner = v.getUint32(pos + 8, false)
+      dataOffset = pos + 16 + inner
+      dataSize = sz - 8 - inner
+    }
+    pos += 8 + sz + (sz % 2 !== 0 ? 1 : 0)
+    if (id === 'SSND' && dataOffset > 0) break // found what we need
+  }
+  if (!channels || !sampleRate || !bitDepth || !dataOffset) return null
+  const bytesPerFrame = channels * Math.ceil(bitDepth / 8)
+  return { channels, sampleRate, bitDepth, dataOffset, dataSize, bytesPerFrame }
+}
+
+function pcmBigEndianToMono(raw: Uint8Array, channels: number, bitDepth: number, frames: number): Float32Array {
+  const bps = Math.ceil(bitDepth / 8)
+  const bpf = channels * bps
+  const mono = new Float32Array(frames)
+  for (let f = 0; f < frames; f++) {
+    let sum = 0
+    for (let c = 0; c < channels; c++) {
+      const o = f * bpf + c * bps
+      if (bps === 2) {
+        sum += (((raw[o] << 8) | raw[o+1]) << 16 >> 16) / 32768
+      } else if (bps === 3) {
+        const u = (raw[o] << 16) | (raw[o+1] << 8) | raw[o+2]
+        sum += (u & 0x800000 ? u - 0x1000000 : u) / 8388608
+      } else if (bps === 4) {
+        sum += new DataView(raw.buffer, raw.byteOffset + o, 4).getInt32(0, false) / 2147483648
+      }
+    }
+    mono[f] = sum / channels
+  }
+  return mono
+}
+
+// Returns energy windows (1-second RMS) and a snippet extractor for fingerprinting
+async function processAIFFChunked(
+  file: File,
+  info: AIFFInfo,
+  onProgress?: (pct: number) => void
+): Promise<{ energyWindows: number[]; getSnippet: (startSec: number, durSec: number) => Promise<Float32Array> }> {
+  const CHUNK_BYTES = 8 * 1024 * 1024 // 8MB per chunk
+  const { channels, sampleRate, bitDepth, dataOffset, dataSize, bytesPerFrame } = info
+  const windowFrames = sampleRate // 1-second RMS windows
+  const windowBytes = windowFrames * bytesPerFrame
+  const energyWindows: number[] = []
+  let pending = new Uint8Array(0)
+  let processed = 0
+
+  for (let offset = dataOffset; offset < dataOffset + dataSize; offset += CHUNK_BYTES) {
+    const sliceEnd = Math.min(offset + CHUNK_BYTES, dataOffset + dataSize)
+    const raw = new Uint8Array(await file.slice(offset, sliceEnd).arrayBuffer())
+    // prepend any partial window from last chunk
+    const combined = new Uint8Array(pending.length + raw.length)
+    combined.set(pending); combined.set(raw, pending.length)
+    // process complete windows
+    let pos = 0
+    while (pos + windowBytes <= combined.length) {
+      const frames = windowFrames
+      let sum = 0
+      const bps = Math.ceil(bitDepth / 8)
+      const bpf = channels * bps
+      for (let f = 0; f < frames; f++) {
+        let s = 0
+        for (let c = 0; c < channels; c++) {
+          const o = pos + f * bpf + c * bps
+          if (bps === 2) s += (((combined[o] << 8) | combined[o+1]) << 16 >> 16) / 32768
+          else if (bps === 3) { const u = (combined[o] << 16) | (combined[o+1] << 8) | combined[o+2]; s += (u & 0x800000 ? u - 0x1000000 : u) / 8388608 }
+          else if (bps === 4) s += new DataView(combined.buffer, combined.byteOffset + o, 4).getInt32(0, false) / 2147483648
+        }
+        sum += (s / channels) ** 2
+      }
+      energyWindows.push(Math.sqrt(sum / frames))
+      pos += windowBytes
+    }
+    pending = combined.slice(pos)
+    processed += sliceEnd - offset
+    onProgress?.(Math.round((processed / dataSize) * 100))
+  }
+
+  const getSnippet = async (startSec: number, durSec: number): Promise<Float32Array> => {
+    const startFrame = Math.floor(startSec * sampleRate)
+    const numFrames = Math.floor(durSec * sampleRate)
+    const startByte = dataOffset + startFrame * bytesPerFrame
+    const numBytes = numFrames * bytesPerFrame
+    const raw = new Uint8Array(await file.slice(startByte, startByte + numBytes).arrayBuffer())
+    return pcmBigEndianToMono(raw, channels, bitDepth, Math.floor(raw.length / bytesPerFrame))
+  }
+
+  return { energyWindows, getSnippet }
+}
+
+// ── BPM estimator (shared between AIFF and decoded paths) ──────────────────
+function estimateBPM(mono: Float32Array, sampleRate: number): number | null {
+  if (mono.length < sampleRate * 10) return null
+  const hopSize = Math.round(sampleRate / 20)
+  const onsets: number[] = []
+  for (let i = hopSize; i < mono.length; i += hopSize) {
+    let s = 0; for (let j = 0; j < hopSize && i + j < mono.length; j++) s += mono[i + j] ** 2
+    onsets.push(Math.sqrt(s / hopSize))
+  }
+  let bestBpm = 128, bestScore = -1
+  for (let bpm = 90; bpm <= 180; bpm++) {
+    const period = (60 / bpm) * 20; let score = 0
+    for (let i = 0; i < onsets.length; i++) {
+      const j = Math.round(i + period) % onsets.length; score += onsets[i] * onsets[j]
+    }
+    if (score > bestScore) { bestScore = score; bestBpm = bpm }
+  }
+  return bestBpm
+}
+
 // ── WAV snippet encoder — for ACRCloud fingerprinting ─────────────────────
 // ACRCloud recommends 8000 Hz mono 16-bit PCM for best recognition
 const ACR_SAMPLE_RATE = 8000
@@ -652,45 +794,70 @@ Return corrected JSON:
     setDetectedTracks([])
 
     try {
-      // 1. Decode audio
-      setScanProgress('Decoding audio…')
-      const arrayBuffer = await scannerFile.arrayBuffer()
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
-      const audioCtx = new AudioCtx()
-      let decoded: AudioBuffer
-      try {
-        decoded = await audioCtx.decodeAudioData(arrayBuffer)
-      } catch {
-        throw new Error('Could not decode audio — try MP3, WAV, or FLAC')
-      }
-      audioCtx.close()
+      // 1. Decode / stream audio
+      const isAiff = /\.aiff?$/i.test(scannerFile.name)
+      let duration = 0
+      let sampleRate = 44100
+      let energyWindows: number[] = []
+      let bpmEstimate: number | null = null
+      // For fingerprinting — either a full mono buffer or a per-snippet loader
+      let monoFull: Float32Array | null = null
+      let aiffSnippet: ((startSec: number, durSec: number) => Promise<Float32Array>) | null = null
 
-      const duration   = decoded.duration
-      const sampleRate = decoded.sampleRate
-
-      // Mix down to mono
-      setScanProgress('Analysing energy envelope…')
-      const mono = new Float32Array(decoded.length)
-      for (let c = 0; c < decoded.numberOfChannels; c++) {
-        const ch = decoded.getChannelData(c)
-        for (let i = 0; i < decoded.length; i++) mono[i] += ch[i] / decoded.numberOfChannels
+      if (isAiff) {
+        setScanProgress('Reading AIFF header…')
+        const info = await parseAIFFInfo(scannerFile)
+        if (!info) throw new Error('Could not read AIFF file — check it is a valid AIFF/AIFC')
+        sampleRate = Math.round(info.sampleRate)
+        duration = info.dataSize / info.bytesPerFrame / sampleRate
+        setScanProgress('Analysing energy envelope…')
+        const aiff = await processAIFFChunked(scannerFile, info, pct => setScanProgress(`Analysing energy… ${pct}%`))
+        energyWindows = aiff.energyWindows
+        aiffSnippet = aiff.getSnippet
+        // BPM from 60s middle window
+        const midSec = Math.max(0, duration / 2 - 30)
+        const bmpMono = await aiff.getSnippet(midSec, Math.min(60, duration - midSec))
+        bpmEstimate = estimateBPM(bmpMono, sampleRate)
+      } else {
+        setScanProgress('Decoding audio…')
+        const arrayBuffer = await scannerFile.arrayBuffer()
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+        const audioCtx = new AudioCtx()
+        let decoded: AudioBuffer
+        try {
+          decoded = await audioCtx.decodeAudioData(arrayBuffer)
+        } catch {
+          throw new Error('Could not decode audio — try MP3, WAV, AIFF, or FLAC')
+        }
+        audioCtx.close()
+        duration = decoded.duration
+        sampleRate = decoded.sampleRate
+        setScanProgress('Analysing energy envelope…')
+        const mono = new Float32Array(decoded.length)
+        for (let c = 0; c < decoded.numberOfChannels; c++) {
+          const ch = decoded.getChannelData(c)
+          for (let i = 0; i < decoded.length; i++) mono[i] += ch[i] / decoded.numberOfChannels
+        }
+        monoFull = mono
+        const windowSize = sampleRate
+        for (let i = 0; i < mono.length; i += windowSize) {
+          let sum = 0; const end = Math.min(i + windowSize, mono.length)
+          for (let j = i; j < end; j++) sum += mono[j] * mono[j]
+          energyWindows.push(Math.sqrt(sum / (end - i)))
+        }
+        if (duration < 7200) {
+          const midStart = Math.floor((mono.length / 2) - sampleRate * 30)
+          bpmEstimate = estimateBPM(mono.slice(Math.max(0, midStart), midStart + sampleRate * 60), sampleRate)
+        }
       }
 
-      // RMS in 1-second windows
-      const windowSize   = sampleRate
-      const energyWindows: number[] = []
-      for (let i = 0; i < mono.length; i += windowSize) {
-        let sum = 0; const end = Math.min(i + windowSize, mono.length)
-        for (let j = i; j < end; j++) sum += mono[j] * mono[j]
-        energyWindows.push(Math.sqrt(sum / (end - i)))
-      }
+      // Normalise energy + detect transitions
+      setScanProgress('Finding tracks…')
       const maxEnergy  = Math.max(...energyWindows) || 1
       const normEnergy = energyWindows.map(e => e / maxEnergy)
       const avgEnergy  = normEnergy.reduce((a, b) => a + b, 0) / normEnergy.length
       const peakEnergy = Math.max(...normEnergy)
 
-      // Smooth + detect transitions
-      setScanProgress('Finding tracks…')
       const smoothWindow = 4
       const smoothed: number[] = []
       for (let i = 0; i < normEnergy.length; i++) {
@@ -715,28 +882,6 @@ Return corrected JSON:
       }
       const topTransitions = transitions.sort((a, b) => b.energy_dip - a.energy_dip).slice(0, 25).sort((a, b) => a.time_seconds - b.time_seconds)
 
-      // BPM estimate
-      let bpmEstimate: number | null = null
-      if (duration < 7200) {
-        const midStart  = Math.floor((mono.length / 2) - sampleRate * 30)
-        const snippet   = mono.slice(Math.max(0, midStart), midStart + sampleRate * 60)
-        const hopSize   = Math.round(sampleRate / 20)
-        const onsets: number[] = []
-        for (let i = hopSize; i < snippet.length; i += hopSize) {
-          let s = 0; for (let j = 0; j < hopSize; j++) s += snippet[i + j] * snippet[i + j]
-          onsets.push(Math.sqrt(s / hopSize))
-        }
-        let bestBpm = 128, bestScore = -1
-        for (let bpm = 90; bpm <= 180; bpm++) {
-          const period = (60 / bpm) * 20; let score = 0
-          for (let i = 0; i < onsets.length; i++) {
-            const j = Math.round(i + period) % onsets.length; score += onsets[i] * onsets[j]
-          }
-          if (score > bestScore) { bestScore = score; bestBpm = bpm }
-        }
-        bpmEstimate = bestBpm
-      }
-
       // Store audio analysis data for later Claude call
       scanAudioRef.current = {
         filename:          scannerFile.name,
@@ -753,7 +898,7 @@ Return corrected JSON:
       const segments = segmentStarts.map((startTime, i) => ({
         startTime,
         endTime: i < segmentStarts.length - 1 ? segmentStarts[i + 1] : duration,
-      })).slice(0, 30) // cap at 30 tracks
+      })).slice(0, 30)
 
       const results: Array<{ time_in: string; title: string; artist: string; confidence: number; found: boolean; acrCode?: number; acrMsg?: string }> = []
 
@@ -761,7 +906,6 @@ Return corrected JSON:
         setScanProgress(`Identifying track ${i + 1} of ${segments.length}…`)
         const seg      = segments[i]
         const segLen   = seg.endTime - seg.startTime
-        // Sample from 8 seconds after segment start (skip blend zone), for 15 seconds
         const sampleStartSec = seg.startTime + Math.min(8, segLen * 0.25)
         const sampleDurSec   = Math.min(15, segLen - (sampleStartSec - seg.startTime))
 
@@ -775,9 +919,17 @@ Return corrected JSON:
         }
 
         try {
-          const startSample = Math.floor(sampleStartSec * sampleRate)
-          const numSamples  = Math.floor(sampleDurSec * sampleRate)
-          const wavBlob     = encodeWAVSnippet(mono, sampleRate, startSample, numSamples)
+          let wavBlob: Blob
+          if (monoFull) {
+            const startSample = Math.floor(sampleStartSec * sampleRate)
+            const numSamples  = Math.floor(sampleDurSec * sampleRate)
+            wavBlob = encodeWAVSnippet(monoFull, sampleRate, startSample, numSamples)
+          } else if (aiffSnippet) {
+            const snippetMono = await aiffSnippet(sampleStartSec, sampleDurSec)
+            wavBlob = encodeWAVSnippet(snippetMono, sampleRate, 0, snippetMono.length)
+          } else {
+            continue
+          }
 
           const fd = new FormData()
           fd.append('audio', wavBlob, 'snippet.wav')
