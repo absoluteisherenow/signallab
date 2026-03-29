@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chord Lab</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: #0a0906;
+    color: #e8dcc8;
+    font-family: 'Courier New', Courier, monospace;
+    -webkit-font-smoothing: antialiased;
+    font-size: 12px;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #app { display: flex; flex-direction: column; height: 100%; }
+
+  /* ── Header ── */
+  #header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 36px;
+    padding: 0 14px;
+    background: #0e0c08;
+    border-bottom: 1px solid #1e1c18;
+  }
+  #header-title {
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase; color: #c9a46e;
+  }
+
+  /* ── Controls bar ── */
+  #controls {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: #0c0a06;
+    border-bottom: 1px solid #1a1612;
+  }
+  .ctrl-label {
+    font-size: 8px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #3a3028;
+  }
+  select {
+    background: #13110d; border: 1px solid #2a2218; color: #e8dcc8;
+    font-family: inherit; font-size: 10px; padding: 4px 8px;
+    outline: none; cursor: pointer;
+  }
+  select:focus { border-color: #4a3a28; }
+
+  /* ── Feel filter ── */
+  #feel-bar {
+    flex-shrink: 0;
+    display: flex;
+    gap: 4px;
+    padding: 8px 14px 0;
+  }
+  .feel-btn {
+    font-family: inherit; font-size: 8px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: #3a3028; background: transparent;
+    border: 1px solid #1e1c18; padding: 3px 8px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .feel-btn:hover { color: #6a5a40; border-color: #3a3028; }
+  .feel-btn.active { color: #c9a46e; border-color: #c9a46e44; background: #1a1208; }
+
+  /* ── Progression list ── */
+  #prog-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 14px;
+  }
+  #prog-list::-webkit-scrollbar { width: 3px; }
+  #prog-list::-webkit-scrollbar-thumb { background: #2a2218; }
+
+  .prog-item {
+    padding: 8px 10px;
+    border: 1px solid #1a1612;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: all 0.12s;
+    background: #0c0a06;
+  }
+  .prog-item:hover { border-color: #3a3028; background: #100e0a; }
+  .prog-item.selected { border-color: #c9a46e44; background: #161008; }
+
+  .prog-name {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #6a5a40; margin-bottom: 4px;
+  }
+  .prog-chords {
+    font-size: 13px; color: #c9a46e; letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+  .prog-feel {
+    font-size: 8px; color: #3a3028; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+
+  /* ── Notes panel ── */
+  #notes-panel {
+    flex-shrink: 0;
+    border-top: 1px solid #1a1612;
+    background: #0e0c08;
+    padding: 10px 14px 12px;
+    display: none;
+  }
+  #notes-panel.visible { display: block; }
+
+  .notes-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .chord-block {
+    background: #13110d;
+    border: 1px solid #2a2218;
+    padding: 6px 8px;
+    min-width: 60px;
+  }
+  .chord-block.root { border-color: #c9a46e44; }
+  .chord-name {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: #c9a46e; margin-bottom: 3px;
+  }
+  .chord-notes {
+    font-size: 8px; color: #6a5a40; line-height: 1.6;
+  }
+
+  #gen-btn {
+    width: 100%;
+    height: 28px;
+    background: transparent;
+    border: 1px solid #3a3028;
+    color: #6a5a40;
+    font-family: inherit; font-size: 8px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  #gen-btn:hover { border-color: #c9a46e44; color: #c9a46e; }
+  #gen-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .spinner {
+    width: 7px; height: 7px;
+    border: 1px solid #c9a46e; border-top-color: transparent;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+
+  /* ── Generated variations ── */
+  #variations {
+    flex-shrink: 0;
+    padding: 0 14px 10px;
+    display: none;
+  }
+  #variations.visible { display: block; }
+  .var-label {
+    font-size: 8px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #3a3028; margin-bottom: 5px;
+  }
+  .var-item {
+    padding: 6px 8px;
+    border: 1px solid #1a1612;
+    margin-bottom: 3px;
+    cursor: pointer;
+    transition: all 0.12s;
+    background: #0c0a06;
+  }
+  .var-item:hover { border-color: #3a3028; }
+  .var-chords { font-size: 12px; color: #8a7a60; margin-bottom: 2px; }
+  .var-why { font-size: 8px; color: #3a3028; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="header">
+    <div id="header-title">Chord Lab</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="ctrl-label">Key</div>
+      <select id="key-select">
+        <option value="Am">A minor</option>
+        <option value="Bm">B minor</option>
+        <option value="Cm">C minor</option>
+        <option value="Dm">D minor</option>
+        <option value="Em">E minor</option>
+        <option value="Fm">F minor</option>
+        <option value="Gm">G minor</option>
+        <option value="C">C major</option>
+        <option value="D">D major</option>
+        <option value="E">E major</option>
+        <option value="F">F major</option>
+        <option value="G">G major</option>
+        <option value="A">A major</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="feel-bar">
+    <button class="feel-btn active" data-feel="all">All</button>
+    <button class="feel-btn" data-feel="dark">Dark</button>
+    <button class="feel-btn" data-feel="euphoric">Euphoric</button>
+    <button class="feel-btn" data-feel="driving">Driving</button>
+    <button class="feel-btn" data-feel="deep">Deep</button>
+  </div>
+
+  <div id="prog-list"></div>
+
+  <div id="notes-panel">
+    <div class="notes-row" id="notes-row"></div>
+    <button id="gen-btn">Generate similar variations →</button>
+  </div>
+
+  <div id="variations">
+    <div class="var-label">Variations</div>
+    <div id="var-list"></div>
+  </div>
+
+</div>
+
+<script>
+var BASE_URL = 'https://signal-lab-rebuild.vercel.app';
+
+// ── Pitch data ────────────────────────────────────────────────────────────────
+var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+// Pitch class for each chord root
+var ROOT_PC = {
+  'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,
+  'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11
+};
+
+// Chord pitch class offsets [root, third, fifth]
+// major = [0,4,7], minor = [0,3,7]
+function chordPCs(name) {
+  var minor = name.indexOf('m') > 0;
+  var root  = name.replace('m','').replace('maj','');
+  var pc    = ROOT_PC[root] != null ? ROOT_PC[root] : 0;
+  var ints  = minor ? [0,3,7] : [0,4,7];
+  // Handle maj7 / 7 extensions in name
+  if (name.indexOf('maj7') > -1) ints = [0,4,7,11];
+  else if (name.indexOf('7') > -1 && name.indexOf('maj7') === -1) ints = [0,4,7,10];
+  return ints.map(function(i){ return (pc + i) % 12; });
+}
+
+function pcToNoteName(pc, octave) {
+  return NOTE_NAMES[pc] + octave;
+}
+
+function voiceChord(chordName, baseOctave) {
+  var pcs = chordPCs(chordName);
+  var oct = baseOctave || 3;
+  var notes = [];
+  for (var i = 0; i < pcs.length; i++) {
+    // Spread across octaves: root oct3, third oct3 or 4, fifth oct4
+    var o = oct + Math.floor(i / 2);
+    notes.push(NOTE_NAMES[pcs[i]] + o);
+  }
+  return notes.join(' · ');
+}
+
+// ── Transposition ─────────────────────────────────────────────────────────────
+// Progressions are stored in their natural key
+// We transpose all chord roots by a semitone offset
+function transposeChord(chordName, semitones) {
+  if (semitones === 0) return chordName;
+  var minor  = chordName.indexOf('m') > 0 && chordName.indexOf('maj') === -1;
+  var hasMaj7 = chordName.indexOf('maj7') > -1;
+  var has7   = !hasMaj7 && chordName.indexOf('7') > -1;
+  var root   = chordName.replace('maj7','').replace('m','').replace('7','');
+  var pc     = ROOT_PC[root];
+  if (pc == null) return chordName;
+  var newPc  = (pc + semitones + 120) % 12;
+  var newRoot = NOTE_NAMES[newPc];
+  // Prefer flat naming in certain keys
+  var flatKeys = ['F','Bb','Eb','Ab','Db','Gb'];
+  // Use flats for black keys when in flat-friendly contexts
+  if ([1,3,6,8,10].indexOf(newPc) > -1) {
+    var sharpNames = ['','C#','','D#','','','F#','','G#','','A#',''];
+    var flatNames  = ['','Db','','Eb','','','Gb','','Ab','','Bb',''];
+    newRoot = flatNames[newPc] || sharpNames[newPc];
+  }
+  return newRoot + (minor ? 'm' : '') + (hasMaj7 ? 'maj7' : '') + (has7 ? '7' : '');
+}
+
+// Semitone offset from Am (root = A = 9) to any key root
+var KEY_OFFSET = {
+  'Am':0, 'Bm':2, 'Cm':3, 'Dm':5, 'Em':7, 'Fm':8, 'Gm':10,
+  'C':3,  'D':5,  'E':7,  'F':8,  'G':10, 'A':0,  'B':2
+};
+
+// ── Progression library ───────────────────────────────────────────────────────
+// Stored in Am / relative minor as default
+var PROGRESSIONS = [
+  // DARK
+  { name: 'Melodic dark loop',   chords: ['Am','F','C','G'],        feel: 'dark' },
+  { name: 'Minor descent',       chords: ['Am','G','F','Em'],       feel: 'dark' },
+  { name: 'Hypnotic loop',       chords: ['Am','Em','Am','Em'],     feel: 'dark' },
+  { name: 'Dark tension',        chords: ['Dm','Am','Bb','C'],      feel: 'dark' },
+  { name: 'Industrial pulse',    chords: ['Am','Fm','G'],           feel: 'dark' },
+  { name: 'Chromatic drop',      chords: ['Am','Ab','G'],           feel: 'dark' },
+
+  // EUPHORIC
+  { name: 'Classic rise',        chords: ['Am','F','Am','G'],       feel: 'euphoric' },
+  { name: 'Euphoric four',       chords: ['Em','C','G','D'],        feel: 'euphoric' },
+  { name: 'Uplifting minor',     chords: ['Dm','Bb','F','C'],       feel: 'euphoric' },
+  { name: 'Festival build',      chords: ['Am','C','F','G'],        feel: 'euphoric' },
+  { name: 'Anthemic loop',       chords: ['Em','G','D','C'],        feel: 'euphoric' },
+
+  // DRIVING
+  { name: 'Two chord pulse',     chords: ['Am','G'],                feel: 'driving' },
+  { name: 'Techno minimal',      chords: ['Dm','C'],                feel: 'driving' },
+  { name: 'UK rave engine',      chords: ['Am','Em','F','C'],       feel: 'driving' },
+  { name: 'Peak time loop',      chords: ['Fm','Cm','Db','Ab'],     feel: 'driving' },
+  { name: 'Dark driver',         chords: ['Am','Bb','Am','G'],      feel: 'driving' },
+
+  // DEEP
+  { name: 'Late night house',    chords: ['Am','Fmaj7'],            feel: 'deep' },
+  { name: 'Deep two-chord',      chords: ['Dm','Am'],               feel: 'deep' },
+  { name: 'Lush breakdown',      chords: ['Am','Fmaj7','C','G'],    feel: 'deep' },
+  { name: 'Organic deep',        chords: ['Gm','Dm','Eb','F'],      feel: 'deep' },
+  { name: 'Three chord drift',   chords: ['Dm','Am','Em'],          feel: 'deep' },
+  { name: 'Warm resolution',     chords: ['Am','G','F','E'],        feel: 'deep' },
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+var currentKey    = 'Am';
+var currentFeel   = 'all';
+var selectedProg  = null;
+var isGenerating  = false;
+
+// ── Render progression list ───────────────────────────────────────────────────
+function renderList() {
+  var list = document.getElementById('prog-list');
+  var offset = KEY_OFFSET[currentKey] || 0;
+
+  var filtered = currentFeel === 'all'
+    ? PROGRESSIONS
+    : PROGRESSIONS.filter(function(p){ return p.feel === currentFeel; });
+
+  list.innerHTML = '';
+  filtered.forEach(function(prog, i) {
+    var transposed = prog.chords.map(function(c){ return transposeChord(c, offset); });
+    var div = document.createElement('div');
+    div.className = 'prog-item' + (selectedProg && selectedProg.name === prog.name ? ' selected' : '');
+    div.innerHTML =
+      '<div class="prog-name">' + esc(prog.name) + '</div>' +
+      '<div class="prog-chords">' + transposed.join(' – ') + '</div>' +
+      '<div class="prog-feel">' + prog.feel + '</div>';
+    div.addEventListener('click', function(){
+      selectProg(prog, transposed);
+    });
+    list.appendChild(div);
+  });
+}
+
+// ── Select a progression ──────────────────────────────────────────────────────
+function selectProg(prog, transposedChords) {
+  selectedProg = prog;
+  document.getElementById('variations').classList.remove('visible');
+  document.getElementById('var-list').innerHTML = '';
+  renderList();
+  renderNotes(transposedChords);
+}
+
+function renderNotes(chords) {
+  var panel = document.getElementById('notes-panel');
+  var row   = document.getElementById('notes-row');
+  panel.classList.add('visible');
+
+  row.innerHTML = '';
+  chords.forEach(function(chord, i) {
+    var notes = voiceChord(chord, 3);
+    var block = document.createElement('div');
+    block.className = 'chord-block' + (i === 0 ? ' root' : '');
+    block.innerHTML =
+      '<div class="chord-name">' + esc(chord) + '</div>' +
+      '<div class="chord-notes">' + esc(notes) + '</div>';
+    row.appendChild(block);
+  });
+}
+
+// ── Generate variations ───────────────────────────────────────────────────────
+document.getElementById('gen-btn').addEventListener('click', function(){
+  if (!selectedProg || isGenerating) return;
+  generateVariations();
+});
+
+function generateVariations() {
+  isGenerating = true;
+  var btn = document.getElementById('gen-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Generating…';
+
+  var offset = KEY_OFFSET[currentKey] || 0;
+  var transposed = selectedProg.chords.map(function(c){ return transposeChord(c, offset); });
+  var keyLabel = document.getElementById('key-select').options[document.getElementById('key-select').selectedIndex].text;
+
+  fetch(BASE_URL + '/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      max_tokens: 400,
+      messages: [{ role: 'user', content:
+        'Reference progression in ' + keyLabel + ': ' + transposed.join(' – ') + '\n' +
+        'Feel: ' + selectedProg.feel + '\n\n' +
+        'Generate 3 chord progressions with the same emotional character but different movement. ' +
+        'Stay in ' + keyLabel + '. Use real chord names (Am, F, etc), no theory labels.\n\n' +
+        'Return ONLY valid JSON array, no markdown:\n' +
+        '[{"chords":["Am","F","C","G"],"why":"one sentence"}]'
+      }],
+      system: 'You are an expert electronic music composer. Return ONLY valid JSON, no markdown, no explanation.'
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var text = d.content && d.content[0] && d.content[0].text || '[]';
+    var vars = JSON.parse(text.replace(/```json|```/g,'').trim());
+    renderVariations(vars);
+  })
+  .catch(function(){})
+  .finally(function(){
+    isGenerating = false;
+    btn.disabled = false;
+    btn.innerHTML = 'Generate similar variations →';
+  });
+}
+
+function renderVariations(vars) {
+  var container = document.getElementById('variations');
+  var list = document.getElementById('var-list');
+  list.innerHTML = '';
+
+  if (!vars || !vars.length) return;
+
+  vars.forEach(function(v) {
+    if (!v.chords || !v.chords.length) return;
+    var div = document.createElement('div');
+    div.className = 'var-item';
+    div.innerHTML =
+      '<div class="var-chords">' + v.chords.join(' – ') + '</div>' +
+      '<div class="var-why">' + esc(v.why || '') + '</div>';
+    div.addEventListener('click', function(){
+      selectProg({ name: v.chords.join('–'), chords: v.chords, feel: selectedProg.feel }, v.chords);
+    });
+    list.appendChild(div);
+  });
+
+  container.classList.add('visible');
+}
+
+// ── Feel filter ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.feel-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.feel-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    currentFeel = btn.dataset.feel;
+    selectedProg = null;
+    document.getElementById('notes-panel').classList.remove('visible');
+    document.getElementById('variations').classList.remove('visible');
+    renderList();
+  });
+});
+
+// ── Key change ────────────────────────────────────────────────────────────────
+document.getElementById('key-select').addEventListener('change', function() {
+  currentKey = this.value;
+  if (selectedProg) {
+    var offset = KEY_OFFSET[currentKey] || 0;
+    var transposed = selectedProg.chords.map(function(c){ return transposeChord(c, offset); });
+    renderNotes(transposed);
+  }
+  renderList();
+});
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderList();
+</script>
+</body>
+</html>

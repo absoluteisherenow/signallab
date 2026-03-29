@@ -255,14 +255,16 @@ export function SonixLab() {
   }
 
   // ── Reference Intel ───────────────────────────────────────────────────
-  async function analyseReference() {
-    if (!refInput.trim()) { showToast('Enter a track name first', 'Error'); return }
+  async function analyseReference(trackOverride?: string) {
+    const track = trackOverride ?? refInput
+    if (!track.trim()) { showToast('Enter a track name first', 'Error'); return }
+    if (trackOverride) setRefInput(trackOverride)
     setAnalysingRef(true)
     setReferenceIntel(null)
     try {
       const raw = await callClaude(
         `You are an expert music analyst with encyclopedic knowledge of electronic music. Return ONLY valid JSON, no markdown.`,
-        `Analyse this track for a producer who wants to work in a similar sonic world: "${refInput}"
+        `Analyse this track for a producer who wants to work in a similar sonic world: "${track}"
 
 Return JSON:
 {
@@ -634,6 +636,29 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
               <input value={sonicWorld.making} onChange={e => setSonicWorld(s => ({ ...s, making: e.target.value }))} placeholder="6-min DJ tool, dark techno…" style={inputStyle} />
             </div>
           </div>
+
+          {/* Context live — quick actions */}
+          {(sonicWorld.soundsLike.length > 0 || sonicWorld.making) && (
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-dim)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 6px rgba(61,107,74,0.8)' }} />
+                <span style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Context set — generate now</span>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button onClick={generateChords} disabled={generatingChords} style={btn(generatingChords)}>
+                  {generatingChords && spinner}{generatingChords ? '…' : 'Generate chord voicings →'}
+                </button>
+                <button onClick={generateArrangement} disabled={generatingArrange} style={btn(generatingArrange, false, 'green')}>
+                  {generatingArrange && spinner}{generatingArrange ? '…' : 'Build arrangement →'}
+                </button>
+                {sonicWorld.soundsLike.length > 0 && (
+                  <button onClick={() => analyseReference(sonicWorld.soundsLike[0])} disabled={analysingRef} style={btn(analysingRef, false, 'dim')}>
+                    {analysingRef && spinner}{analysingRef ? '…' : `Break down ${sonicWorld.soundsLike[0].split('—')[0].trim()} →`}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Ask anything ── */}

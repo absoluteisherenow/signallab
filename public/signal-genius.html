@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Signal Genius</title>
+<title>Chain Lab</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -11,9 +11,9 @@
     height: 100%;
     background: #0a0906;
     color: #e8dcc8;
-    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Courier New', Courier, monospace;
     -webkit-font-smoothing: antialiased;
-    font-size: 13px;
+    font-size: 12px;
     overflow: hidden;
     user-select: none;
   }
@@ -30,1134 +30,547 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 38px;
+    height: 36px;
     padding: 0 14px;
     background: #0e0c08;
     border-bottom: 1px solid #1e1c18;
   }
   #header-title {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #c9a46e;
   }
-  #header-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  #status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #2a2218;
+    transition: background 0.3s, box-shadow 0.3s;
   }
-  #mode-toggle {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #4a4038;
-    background: transparent;
-    border: 1px solid #2a2218;
-    border-radius: 3px;
-    padding: 3px 8px;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  #mode-toggle:hover, #mode-toggle.active { color: #c9a46e; border-color: #c9a46e44; }
-  /* ── Sonic World strip ── */
-  #sonic-strip {
+  #status-dot.active { background: #c9a46e; box-shadow: 0 0 6px rgba(201,164,110,0.6); }
+  #status-dot.green  { background: #4ecb71; box-shadow: 0 0 6px rgba(78,203,113,0.5); }
+
+  /* ── Stem type selector ── */
+  #stem-bar {
     flex-shrink: 0;
     display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
+    gap: 4px;
+    padding: 10px 14px;
     background: #0c0a06;
     border-bottom: 1px solid #1a1612;
     flex-wrap: wrap;
   }
-  .sw-label {
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: #3a3028;
-    flex-shrink: 0;
-  }
-  .sw-input {
-    background: #13110d;
-    border: 1px solid #2a2218;
-    color: #c9a46e;
+  .stem-btn {
     font-family: inherit;
-    font-size: 11px;
-    padding: 3px 7px;
-    outline: none;
-    transition: border-color 0.15s;
-    min-width: 0;
-  }
-  .sw-input:focus { border-color: #c9a46e44; }
-  .sw-input::placeholder { color: #2e2820; }
-  .sw-input.wide { flex: 1; min-width: 100px; }
-  .sw-sep { color: #2e2820; font-size: 10px; flex-shrink: 0; }
-
-  /* ── Conversation area ── */
-  #convo {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    scrollbar-width: thin;
-    scrollbar-color: #2a2218 transparent;
-  }
-  #convo::-webkit-scrollbar { width: 3px; }
-  #convo::-webkit-scrollbar-thumb { background: #2a2218; border-radius: 2px; }
-
-  /* ── Idle state inside convo ── */
-  #idle {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    text-align: center;
-    gap: 10px;
-    padding: 20px 0;
-    min-height: 80px;
-  }
-  .idle-title {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #3a3028;
-  }
-  .idle-examples {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-  .idle-example {
-    color: #3a3028;
-    font-size: 11px;
-    font-style: italic;
-    cursor: pointer;
-    transition: color 0.15s;
-    padding: 2px 0;
-  }
-  .idle-example:hover { color: #7a6a50; }
-  .idle-example::before { content: '"'; }
-  .idle-example::after  { content: '"'; }
-
-  /* ── Chat bubbles ── */
-  .msg {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-width: 100%;
-  }
-  .msg-q {
-    align-self: flex-end;
-    background: #1e1c18;
-    border: 1px solid #2e2a24;
-    border-radius: 10px 10px 2px 10px;
-    padding: 7px 11px;
-    font-size: 12px;
-    color: #c9a46e;
-    max-width: 88%;
-    line-height: 1.45;
-  }
-  .msg-a {
-    align-self: flex-start;
-    max-width: 100%;
-  }
-  .msg-badge {
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: #5a4a38;
-    margin-bottom: 4px;
-    padding-left: 2px;
-  }
-  .msg-badge.green { color: #3a6a44; }
-  .msg-text {
-    background: #13110d;
-    border-left: 2px solid #c9a46e;
-    border-radius: 0 6px 6px 0;
-    padding: 8px 12px;
-    font-size: 12px;
-    color: #e8dcc8;
-    line-height: 1.55;
-  }
-  .msg-text.green { border-left-color: #4ecb71; }
-  .msg-text.dim   { border-left-color: #2e2a22; color: #7a6a54; }
-  .msg-text.error { border-left-color: #803030; color: #c06060; }
-
-  /* Blueprint grid inside bubble */
-  .bp-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
-    margin: 8px 0 6px;
-  }
-  .bp-cell {
-    background: #0e0c09;
-    border-top: 2px solid #c9a46e;
-    padding: 5px 7px 7px;
-    border-radius: 0 0 3px 3px;
-  }
-  .bp-label {
-    font-size: 7px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #5a4a38;
-    margin-bottom: 3px;
-  }
-  .bp-value {
-    font-size: 13px;
-    font-family: 'SF Mono', monospace;
-    color: #c9a46e;
-    font-weight: 600;
-  }
-  .bp-row {
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
-    margin-bottom: 5px;
-    font-size: 11.5px;
-  }
-  .bp-row-label {
-    flex-shrink: 0;
-    font-size: 7.5px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #5a4a38;
-    width: 52px;
-  }
-  .bp-row-value { color: #e8dcc8; line-height: 1.4; }
-  .chip {
-    display: inline-block;
-    background: #1a1814;
-    border: 1px solid #3a2e22;
-    border-radius: 3px;
-    padding: 1px 6px;
-    font-size: 10px;
-    color: #c9a46e;
-    margin: 1px 2px 1px 0;
-  }
-
-  /* Chain analysis inside bubble */
-  .chain-step {
-    background: #0e0c09;
-    border: 1px solid #1e1c18;
-    border-radius: 4px;
-    padding: 7px 9px;
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 5px;
-  }
-  .chain-num {
-    flex-shrink: 0;
-    width: 18px; height: 18px;
-    background: #1e1c18;
-    border: 1px solid #3a2e22;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 8px; font-weight: 700; color: #c9a46e; font-family: 'SF Mono', monospace;
-    margin-top: 1px;
-  }
-  .chain-plugin { font-size: 12px; font-weight: 700; color: #e8dcc8; }
-  .chain-role   { font-size: 10.5px; color: #7a6a54; margin-top: 1px; }
-  .chain-hint   { font-size: 10px; color: #c9a46e; font-family: 'SF Mono', monospace; background: #0a0806; border-radius: 3px; padding: 2px 6px; display: inline-block; margin-top: 3px; }
-
-  /* ── Thinking ── */
-  #thinking {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 2px;
-  }
-  #thinking.visible { display: flex; }
-  .dots { display: flex; gap: 5px; }
-  .dot {
-    width: 6px; height: 6px;
-    background: #c9a46e;
-    border-radius: 50%;
-    animation: dot-pulse 1.4s ease-in-out infinite;
-  }
-  .dot:nth-child(2) { animation-delay: 0.2s; }
-  .dot:nth-child(3) { animation-delay: 0.4s; }
-  .dot.green { background: #4ecb71; }
-  @keyframes dot-pulse {
-    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-    40%           { opacity: 1;   transform: scale(1.2); }
-  }
-  .thinking-label {
-    font-size: 9px; font-weight: 700; letter-spacing: 0.16em;
-    text-transform: uppercase; color: #5a4a38;
-  }
-
-  /* ── Mic zone ── */
-  #mic-zone {
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 12px 14px 14px;
-    background: #0e0c08;
-    border-top: 1px solid #1a1814;
-    gap: 8px;
-  }
-
-  #mic-btn {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: #161410;
-    border: 2px solid #3a3028;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-    position: relative;
-    flex-shrink: 0;
-  }
-  #mic-btn svg {
-    width: 26px; height: 26px;
-    fill: #5a4a38;
-    transition: fill 0.2s;
-  }
-  #mic-btn:hover {
-    border-color: #c9a46e;
-    background: #1e1c16;
-    box-shadow: 0 0 16px rgba(201,164,110,0.15);
-  }
-  #mic-btn:hover svg { fill: #c9a46e; }
-
-  /* Recording — red pulse */
-  #mic-btn.recording {
-    border-color: #e05050;
-    background: #1e1010;
-    box-shadow: 0 0 20px rgba(224,80,80,0.25);
-  }
-  #mic-btn.recording svg { fill: #e05050; }
-  #mic-btn.recording::after {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    border: 2px solid #e05050;
-    animation: mic-pulse 1s ease-out infinite;
-  }
-
-  /* Transcribing / thinking — amber ring */
-  #mic-btn.busy {
-    border-color: #c9a46e;
-    background: #1a1810;
-    pointer-events: none;
-    box-shadow: 0 0 16px rgba(201,164,110,0.2);
-  }
-  #mic-btn.busy svg { fill: #c9a46e; }
-  #mic-btn.busy::after {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    border-top-color: #c9a46e;
-    animation: mic-spin 0.8s linear infinite;
-  }
-
-  /* Speaking — green glow */
-  #mic-btn.speaking {
-    border-color: #4ecb71;
-    background: #0e1610;
-    pointer-events: none;
-    box-shadow: 0 0 20px rgba(78,203,113,0.25);
-  }
-  #mic-btn.speaking svg { fill: #4ecb71; }
-  #mic-btn.speaking::after {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    border: 2px solid #4ecb71;
-    animation: speak-pulse 1.2s ease-out infinite;
-  }
-
-  @keyframes mic-pulse {
-    0%   { transform: scale(1);   opacity: 0.8; }
-    100% { transform: scale(1.6); opacity: 0; }
-  }
-  @keyframes mic-spin { to { transform: rotate(360deg); } }
-  @keyframes speak-pulse {
-    0%   { transform: scale(1);   opacity: 0.6; }
-    100% { transform: scale(1.5); opacity: 0; }
-  }
-
-  #mic-status {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: #3a3028;
-    text-align: center;
-    min-height: 14px;
-    transition: color 0.2s;
-  }
-  #mic-status.active   { color: #e05050; }
-  #mic-status.amber    { color: #c9a46e; }
-  #mic-status.green    { color: #4ecb71; }
-  #mic-status.dim      { color: #2e2820; }
-
-  /* ── Text fallback row ── */
-  #text-row {
-    display: none;
-    width: 100%;
-    gap: 6px;
-  }
-  #text-row.visible { display: flex; }
-  #text-input {
-    flex: 1;
-    background: #13110d;
-    border: 1px solid #2a2218;
-    border-radius: 4px;
-    color: #e8dcc8;
-    font-family: inherit;
-    font-size: 12px;
-    padding: 0 10px;
-    height: 32px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  #text-input:focus { border-color: #c9a46e44; }
-  #text-input::placeholder { color: #3a3028; }
-  #text-send {
-    flex-shrink: 0;
-    height: 32px;
-    padding: 0 14px;
     background: transparent;
-    border: 1px solid #3a3028;
-    border-radius: 4px;
-    color: #7a6a50;
-    font-family: inherit;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    border: 1px solid #2a2218;
+    padding: 4px 10px;
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
+    transition: all 0.15s;
   }
-  #text-send:hover { border-color: #c9a46e44; color: #c9a46e; }
+  .stem-btn:hover { color: #c9a46e; border-color: #4a3a28; }
+  .stem-btn.selected { color: #c9a46e; border-color: #c9a46e; background: #1a1208; }
 
-  /* ── Audio zone (secondary mode) ── */
-  #audio-zone {
-    display: none;
-    width: 100%;
-    flex-direction: column;
-    gap: 5px;
-  }
-  #audio-zone.visible { display: flex; }
-  #drop-zone {
-    width: 100%;
-    height: 36px;
+  /* ── Drop zone ── */
+  #drop-area {
+    flex-shrink: 0;
+    margin: 12px 14px 0;
     border: 1px dashed #2a2218;
-    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: border-color 0.15s, background 0.15s;
-    background: #0e0c09;
+    height: 44px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
   }
-  #drop-zone:hover { border-color: #c9a46e44; }
-  #drop-zone.has-file { border-color: #4ecb71; background: #0a1009; }
+  #drop-area:hover { border-color: #4a3a28; }
+  #drop-area.drag  { border-color: #c9a46e; background: #1a1208; }
+  #drop-area.has-file { border-color: #4ecb71; background: #0a1009; border-style: solid; }
   #drop-label {
-    display: flex; align-items: center; gap: 8px;
-    cursor: pointer; width: 100%; height: 100%; justify-content: center;
-    font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #3a3028;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #3a3028;
+    pointer-events: none;
+    transition: color 0.15s;
   }
-  #drop-zone:hover #drop-label { color: #5a4a38; }
-  #drop-zone.has-file #drop-label { color: #4ecb71; }
-  #analyse-btn {
-    width: 100%; height: 30px;
-    background: #4ecb71; color: #060e08;
-    border: none; border-radius: 4px;
-    font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-    cursor: pointer; transition: background 0.15s; display: none;
+  #drop-area:hover #drop-label { color: #6a5a40; }
+  #drop-area.has-file #drop-label { color: #4ecb71; }
+  #file-input { display: none; }
+
+  /* ── Run button ── */
+  #run-btn {
+    flex-shrink: 0;
+    margin: 8px 14px;
+    width: calc(100% - 28px);
+    height: 32px;
+    background: linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%);
+    border: 1px solid #c9a46e;
+    color: #c9a46e;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
-  #analyse-btn.visible { display: block; }
-  #analyse-btn:hover { background: #6adb88; }
+  #run-btn:disabled { opacity: 0.3; cursor: default; }
+  #run-btn:not(:disabled):hover { opacity: 0.85; }
+
+  .spinner {
+    width: 8px; height: 8px;
+    border: 1px solid #c9a46e;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  /* ── Results ── */
+  #result-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 14px 14px;
+  }
+  #result-area::-webkit-scrollbar { width: 3px; }
+  #result-area::-webkit-scrollbar-track { background: transparent; }
+  #result-area::-webkit-scrollbar-thumb { background: #2a2218; }
+
+  .result-meta {
+    margin-bottom: 10px;
+  }
+  .result-type {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #c9a46e;
+    margin-bottom: 4px;
+  }
+  .result-char {
+    font-size: 10px;
+    color: #6a5a40;
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .result-issues {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .issue-chip {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #9a5a50;
+    border: 1px solid #3a2018;
+    padding: 2px 6px;
+  }
+
+  .chain-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #3a3028;
+    margin-bottom: 6px;
+  }
+  .chain-step {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid #1a1612;
+    margin-bottom: 4px;
+    background: #0c0a06;
+    position: relative;
+  }
+  .step-num {
+    font-size: 8px;
+    font-weight: 700;
+    color: #3a3028;
+    min-width: 12px;
+    padding-top: 1px;
+  }
+  .step-body { flex: 1; min-width: 0; }
+  .step-plugin {
+    font-size: 10px;
+    font-weight: 700;
+    color: #c9a46e;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+  .step-role {
+    font-size: 9px;
+    color: #5a4a38;
+    margin-bottom: 3px;
+  }
+  .step-hint {
+    font-size: 9px;
+    color: #8a7a60;
+    font-family: 'Courier New', monospace;
+    line-height: 1.4;
+  }
+
+  .idle-msg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+  }
+  .idle-title {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #2a2218;
+  }
+  .idle-sub {
+    font-size: 9px;
+    color: #2a2218;
+    line-height: 1.5;
+  }
+
+  .err-msg {
+    font-size: 10px;
+    color: #9a5a50;
+    padding: 10px;
+    border: 1px solid #3a2018;
+    text-align: center;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- Header -->
   <div id="header">
-    <div id="header-title">Signal Genius</div>
-    <div id="header-right">
-      <button id="mode-toggle" title="Load audio for chain analysis">Audio</button>
-    </div>
+    <div id="header-title">Chain Lab</div>
+    <div id="status-dot"></div>
   </div>
 
-  <!-- Sonic World strip -->
-  <div id="sonic-strip">
-    <div class="sw-label">Key</div>
-    <input class="sw-input" id="sw-key" placeholder="A minor" style="width:72px">
-    <div class="sw-sep">·</div>
-    <div class="sw-label">BPM</div>
-    <input class="sw-input" id="sw-bpm" placeholder="125" type="number" style="width:50px">
-    <div class="sw-sep">·</div>
-    <div class="sw-label">Sounds like</div>
-    <input class="sw-input wide" id="sw-refs" placeholder="Bicep, Four Tet, Jon Hopkins…">
+  <div id="stem-bar">
+    <button class="stem-btn selected" data-type="kick">Kick</button>
+    <button class="stem-btn" data-type="bass">Bass</button>
+    <button class="stem-btn" data-type="synths">Synths</button>
+    <button class="stem-btn" data-type="drums">Drums</button>
+    <button class="stem-btn" data-type="pads">Pads</button>
+    <button class="stem-btn" data-type="full mix">Full Mix</button>
   </div>
 
-  <!-- Conversation area -->
-  <div id="convo">
-    <div id="idle">
-      <div class="idle-title">Tap the mic to ask</div>
-      <div class="idle-examples">
-        <div class="idle-example" data-query="make a track that fits last night's set">make a track that fits last night's set</div>
-        <div class="idle-example" data-query="what key works over a 135 BPM dark groove">what key works over 135 BPM</div>
-        <div class="idle-example" data-query="how do I layer a kick for industrial techno">how to layer a kick for industrial techno</div>
-      </div>
-    </div>
-    <div id="thinking">
-      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-      <div class="thinking-label" id="thinking-label">Thinking</div>
-    </div>
+  <div id="drop-area">
+    <input type="file" id="file-input" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac">
+    <div id="drop-label">Drop stem here or click to browse</div>
   </div>
 
-  <!-- Mic zone -->
-  <div id="mic-zone">
+  <button id="run-btn" disabled>Get chain</button>
 
-    <!-- Audio file zone (hidden by default) -->
-    <div id="audio-zone">
-      <div id="drop-zone">
-        <input type="file" id="file-input" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg,.caf" style="display:none">
-        <label for="file-input" id="drop-label">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.5">
-            <path d="M9 17H7A5 5 0 0 1 7 7h1a7 7 0 0 1 13 2.1A4.5 4.5 0 0 1 19.5 18H13v-5.586l1.293 1.293a1 1 0 0 0 1.414-1.414l-3-3a1 1 0 0 0-1.414 0l-3 3a1 1 1 0 1.414 1.414L11 11.414V18H9z"/>
-          </svg>
-          <span id="drop-text">Click to load audio</span>
-        </label>
-      </div>
-      <button id="analyse-btn">Analyse chain →</button>
+  <div id="result-area">
+    <div class="idle-msg">
+      <div class="idle-title">Drop a stem</div>
+      <div class="idle-sub">Select stem type above<br>drop audio to get your chain</div>
     </div>
-
-    <!-- Text fallback -->
-    <div id="text-row">
-      <input id="text-input" type="text" placeholder="Type a question…" autocomplete="off" />
-      <button id="text-send">Send</button>
-    </div>
-
-    <!-- Main mic button -->
-    <button id="mic-btn" title="Tap to speak">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-2 4v6a2 2 0 0 0 4 0V5a2 2 0 0 0-4 0zm-4.5 6a.5.5 0 0 1 .5.5 6 6 0 0 0 12 0 .5.5 0 0 1 1 0 7 7 0 0 1-6.5 6.97V21h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.53A7 7 0 0 1 5 11.5a.5.5 0 0 1 .5-.5z"/>
-      </svg>
-    </button>
-    <div id="mic-status" class="dim">tap to speak</div>
-
-    <!-- Type instead toggle -->
-    <div style="display:flex;gap:12px;align-items:center;">
-      <button onclick="toggleTextRow()" style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#2e2820;background:transparent;border:none;cursor:pointer;transition:color 0.15s;" onmouseover="this.style.color='#5a4a38'" onmouseout="this.style.color='#2e2820'">Type instead</button>
-    </div>
-
   </div>
 
 </div>
 
 <script>
-var BASE_URL       = 'https://signal-lab-rebuild.vercel.app';
-var ASSISTANT_URL  = BASE_URL + '/api/assistant';
-var ANALYSE_URL    = BASE_URL + '/api/stem-analyse';
-var TRANSCRIBE_URL = BASE_URL + '/api/transcribe';
+var BASE_URL    = 'https://signal-lab-rebuild.vercel.app';
+var ANALYSE_URL = BASE_URL + '/api/stem-analyse';
 
-// ── State ─────────────────────────────────────────────────────────────────────
-var pendingFile      = null;
-var audioCtx         = null;
-var isRecording      = false;
-var mediaRecorder    = null;
-var audioChunks      = [];
-var micStream        = null;
-var isBusy           = false;
-var convoHistory     = [];      // [{q, a}] last 3 exchanges for context
-var textRowVisible   = false;
-var installedPlugins = [];      // loaded from /api/plugins/sync on startup
+var selectedType  = 'kick';
+var pendingFile   = null;
+var audioCtx      = null;
+var isBusy        = false;
+var installedPlugins = [];
 
-// ── Load installed plugins ────────────────────────────────────────────────────
+// ── Load installed plugins ────────────────────────────────────────────────
 (function() {
-  fetch(BASE_URL + '/api/plugins/sync')
+  fetch(BASE_URL + '/api/plugins/list')
     .then(function(r) { return r.json(); })
     .then(function(d) { if (Array.isArray(d.plugins) && d.plugins.length) installedPlugins = d.plugins; })
     .catch(function() {});
 })();
 
-// ── Sonic World — persist in localStorage ─────────────────────────────────────
-var swKey  = document.getElementById('sw-key');
-var swBpm  = document.getElementById('sw-bpm');
-var swRefs = document.getElementById('sw-refs');
+// ── Stem type selector ────────────────────────────────────────────────────
+document.querySelectorAll('.stem-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.stem-btn').forEach(function(b){ b.classList.remove('selected'); });
+    btn.classList.add('selected');
+    selectedType = btn.dataset.type;
+  });
+});
 
-(function() {
-  try {
-    swKey.value  = localStorage.getItem('sg_key')  || '';
-    swBpm.value  = localStorage.getItem('sg_bpm')  || '';
-    swRefs.value = localStorage.getItem('sg_refs') || '';
-  } catch(e) {}
-})();
+// ── Drop zone ─────────────────────────────────────────────────────────────
+var dropArea  = document.getElementById('drop-area');
+var fileInput = document.getElementById('file-input');
+var dropLabel = document.getElementById('drop-label');
+var runBtn    = document.getElementById('run-btn');
+var statusDot = document.getElementById('status-dot');
 
-function saveSW() {
-  try {
-    localStorage.setItem('sg_key',  swKey.value);
-    localStorage.setItem('sg_bpm',  swBpm.value);
-    localStorage.setItem('sg_refs', swRefs.value);
-  } catch(e) {}
+dropArea.addEventListener('click', function() { fileInput.click(); });
+
+dropArea.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  dropArea.classList.add('drag');
+});
+dropArea.addEventListener('dragleave', function() {
+  dropArea.classList.remove('drag');
+});
+dropArea.addEventListener('drop', function(e) {
+  e.preventDefault();
+  dropArea.classList.remove('drag');
+  var f = e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+
+fileInput.addEventListener('change', function() {
+  if (fileInput.files[0]) setFile(fileInput.files[0]);
+});
+
+function setFile(f) {
+  pendingFile = f;
+  dropArea.classList.add('has-file');
+  var name = f.name.length > 32 ? f.name.slice(0, 30) + '…' : f.name;
+  dropLabel.textContent = name;
+  runBtn.disabled = false;
+  statusDot.className = 'active';
 }
-swKey.addEventListener('change', saveSW);
-swBpm.addEventListener('change', saveSW);
-swRefs.addEventListener('change', saveSW);
 
-function getSonicWorld() {
-  var out = {};
-  if (swKey.value.trim())  out.key  = swKey.value.trim();
-  if (swBpm.value.trim())  out.bpm  = parseInt(swBpm.value) || undefined;
-  if (swRefs.value.trim()) out.sounds_like = swRefs.value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-  return out;
+// ── Audio measurement (FFT + acoustic analysis) ───────────────────────────
+
+function computeFFT(realIn) {
+  var n = realIn.length;
+  var real = new Float32Array(n), imag = new Float32Array(n);
+  for (var i = 0; i < n; i++) real[i] = realIn[i] * 0.5 * (1 - Math.cos(6.283185307 * i / (n - 1)));
+  var j = 0;
+  for (var ii = 1; ii < n; ii++) {
+    var bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (ii < j) { var t = real[ii]; real[ii] = real[j]; real[j] = t; }
+  }
+  for (var len = 2; len <= n; len <<= 1) {
+    var ang = -2 * Math.PI / len;
+    var wRe = Math.cos(ang), wIm = Math.sin(ang);
+    for (var ki = 0; ki < n; ki += len) {
+      var cRe = 1, cIm = 0;
+      for (var k = 0; k < len / 2; k++) {
+        var uR = real[ki+k], uI = imag[ki+k];
+        var vR = real[ki+k+len/2]*cRe - imag[ki+k+len/2]*cIm;
+        var vI = real[ki+k+len/2]*cIm + imag[ki+k+len/2]*cRe;
+        real[ki+k] = uR+vR; imag[ki+k] = uI+vI;
+        real[ki+k+len/2] = uR-vR; imag[ki+k+len/2] = uI-vI;
+        var nr = cRe*wRe - cIm*wIm; cIm = cRe*wIm + cIm*wRe; cRe = nr;
+      }
+    }
+  }
+  var mags = new Float32Array(n/2);
+  for (var mi = 0; mi < n/2; mi++) mags[mi] = Math.sqrt(real[mi]*real[mi]+imag[mi]*imag[mi])/n;
+  return mags;
 }
 
-// ── Utilities ─────────────────────────────────────────────────────────────────
+function measureBuffer(buf, filename) {
+  var ch = buf.numberOfChannels, sr = buf.sampleRate, len = buf.length;
+  var mono = new Float32Array(len);
+  for (var c = 0; c < ch; c++) {
+    var d = buf.getChannelData(c);
+    for (var i = 0; i < len; i++) mono[i] += d[i] / ch;
+  }
+  var peak = 0, sumSq = 0;
+  for (var i = 0; i < len; i++) {
+    var a = Math.abs(mono[i]);
+    if (a > peak) peak = a;
+    sumSq += mono[i] * mono[i];
+  }
+  var rms = Math.sqrt(sumSq / len);
+  var peak_db = peak > 1e-10 ? 20*Math.log10(peak) : -96;
+  var rms_db  = rms  > 1e-10 ? 20*Math.log10(rms)  : -96;
+  var crest_db = peak_db - rms_db;
+
+  var fftSize = 16384;
+  var mid = Math.max(0, Math.floor(len/2) - fftSize/2);
+  var padded = new Float32Array(fftSize);
+  padded.set(mono.subarray(mid, mid + fftSize));
+  var mags = computeFFT(padded);
+  var numBins = mags.length, binHz = sr / fftSize;
+
+  var tot = 0, ws = 0;
+  for (var k = 1; k < numBins; k++) { tot += mags[k]; ws += k * binHz * mags[k]; }
+  var centroid = tot > 0 ? ws / tot : 1000;
+
+  var lowBin = Math.ceil(200 / binHz), highBin = Math.floor(4000 / binHz);
+  var low = 0, high = 0, all = 0;
+  for (var k = 1; k < numBins; k++) {
+    var e = mags[k] * mags[k];
+    all += e;
+    if (k < lowBin) low += e;
+    if (k >= highBin) high += e;
+  }
+
+  var logS = 0, arS = 0, vB = 0;
+  for (var k = 1; k < numBins; k++) {
+    if (mags[k] > 1e-12) { logS += Math.log(mags[k]); arS += mags[k]; vB++; }
+  }
+  var flat = vB > 0 && arS > 0 ? Math.min(1, Math.exp(logS/vB) / (arS/vB)) : 0;
+
+  var fMin = Math.floor(30 / binHz), fMax = Math.ceil(600 / binHz);
+  var fPk = 0, fBin = 1;
+  for (var k = fMin; k < Math.min(fMax, numBins); k++) {
+    if (mags[k] > fPk) { fPk = mags[k]; fBin = k; }
+  }
+
+  var envWin = Math.max(1, Math.round(sr * 0.002));
+  var nF = Math.floor(len / envWin);
+  var env = new Float32Array(nF);
+  for (var f = 0; f < nF; f++) {
+    var r = 0;
+    for (var s = f*envWin; s < (f+1)*envWin && s < len; s++) r += mono[s]*mono[s];
+    env[f] = Math.sqrt(r / envWin);
+  }
+  var maxR = 0;
+  for (var f = 1; f < nF; f++) { var rise = env[f] - env[f-1]; if (rise > maxR) maxR = rise; }
+
+  return {
+    filename: filename,
+    duration_ms: Math.round(buf.duration * 1000),
+    sample_rate: sr,
+    channels: ch,
+    peak_db: Math.round(peak_db * 10) / 10,
+    rms_db: Math.round(rms_db * 10) / 10,
+    dynamic_range_db: Math.round((peak_db - rms_db) * 10) / 10,
+    spectral_centroid_hz: Math.round(centroid),
+    low_energy_ratio: all > 0 ? Math.round(low/all * 1000) / 1000 : 0,
+    high_energy_ratio: all > 0 ? Math.round(high/all * 1000) / 1000 : 0,
+    transient_sharpness: Math.min(1, Math.round(maxR * 4 * 1000) / 1000),
+    fundamental_hz: Math.round(fBin * binHz),
+    crest_factor_db: Math.round(crest_db * 10) / 10,
+    spectral_flatness: Math.round(flat * 1000) / 1000,
+  };
+}
+
+// ── Render chain result ───────────────────────────────────────────────────
+function renderResult(data) {
+  var ra = document.getElementById('result-area');
+
+  var html = '';
+
+  if (data.type || data.subtype) {
+    html += '<div class="result-meta">';
+    html += '<div class="result-type">' + esc((data.subtype || data.type || '').toUpperCase()) + '</div>';
+    if (data.character) {
+      html += '<div class="result-char">' + esc(data.character) + '</div>';
+    }
+    html += '</div>';
+  }
+
+  if (data.detected_issues && data.detected_issues.length) {
+    html += '<div class="result-issues">';
+    data.detected_issues.forEach(function(issue) {
+      html += '<div class="issue-chip">' + esc(issue) + '</div>';
+    });
+    html += '</div>';
+  }
+
+  if (data.chain && data.chain.length) {
+    html += '<div class="chain-label">Signal chain</div>';
+    data.chain.forEach(function(step, i) {
+      html += '<div class="chain-step">';
+      html += '<div class="step-num">' + (i + 1) + '</div>';
+      html += '<div class="step-body">';
+      html += '<div class="step-plugin">' + esc(step.plugin || '') + '</div>';
+      if (step.role) html += '<div class="step-role">' + esc(step.role) + '</div>';
+      if (step.hint) html += '<div class="step-hint">' + esc(step.hint) + '</div>';
+      else if (step.params && step.params.description) {
+        html += '<div class="step-hint">' + esc(step.params.description) + '</div>';
+      }
+      html += '</div></div>';
+    });
+  }
+
+  if (data.match_summary) {
+    html += '<div style="margin-top:8px;font-size:9px;color:#5a4a38;font-style:italic;line-height:1.5;">' + esc(data.match_summary) + '</div>';
+  }
+
+  ra.innerHTML = html;
+}
+
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-function getToday() {
-  var d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
 
-// ── Mic state ─────────────────────────────────────────────────────────────────
-var micBtn    = document.getElementById('mic-btn');
-var micStatus = document.getElementById('mic-status');
-
-function setMicState(state, label) {
-  micBtn.className = state || '';
-  micStatus.textContent = label || '';
-  if (state === 'recording') { micStatus.className = 'active'; }
-  else if (state === 'busy') { micStatus.className = 'amber'; }
-  else { micStatus.className = 'dim'; micStatus.textContent = label || 'tap to speak'; }
-}
-
-// ── Conversation display ──────────────────────────────────────────────────────
-var convoEl   = document.getElementById('convo');
-var idleEl    = document.getElementById('idle');
-var thinkingEl = document.getElementById('thinking');
-var thinkLabel = document.getElementById('thinking-label');
-
-function showThinking(label, green) {
-  idleEl.style.display = 'none';
-  thinkingEl.className = 'visible';
-  thinkLabel.textContent = label || 'Thinking';
-  if (green) { thinkingEl.querySelectorAll('.dot').forEach(function(d){ d.classList.add('green'); }); }
-  else { thinkingEl.querySelectorAll('.dot').forEach(function(d){ d.classList.remove('green'); }); }
-  thinkingEl.style.display = 'flex';
-  scrollConvo();
-}
-
-function hideThinking() {
-  thinkingEl.className = '';
-  thinkingEl.style.display = 'none';
-}
-
-function scrollConvo() {
-  setTimeout(function(){ convoEl.scrollTop = convoEl.scrollHeight; }, 50);
-}
-
-function addMessage(qText, aHtml, badgeText, badgeGreen) {
-  idleEl.style.display = 'none';
-  hideThinking();
-
-  var wrap = document.createElement('div');
-  wrap.className = 'msg';
-
-  // Question bubble
-  var q = document.createElement('div');
-  q.className = 'msg-q';
-  q.textContent = qText;
-  wrap.appendChild(q);
-
-  // Answer
-  var aWrap = document.createElement('div');
-  aWrap.className = 'msg-a';
-
-  var badge = document.createElement('div');
-  badge.className = 'msg-badge' + (badgeGreen ? ' green' : '');
-  badge.textContent = badgeText || 'Signal Genius';
-  aWrap.appendChild(badge);
-
-  var aDiv = document.createElement('div');
-  aDiv.className = 'msg-text' + (badgeGreen ? ' green' : '');
-  aDiv.innerHTML = aHtml;
-  aWrap.appendChild(aDiv);
-
-  wrap.appendChild(aWrap);
-
-  // Insert before thinking indicator
-  convoEl.insertBefore(wrap, thinkingEl);
-  scrollConvo();
-}
-
-function addErrorMessage(qText, errMsg) {
-  idleEl.style.display = 'none';
-  hideThinking();
-  var wrap = document.createElement('div');
-  wrap.className = 'msg';
-  var q = document.createElement('div');
-  q.className = 'msg-q';
-  q.textContent = qText;
-  wrap.appendChild(q);
-  var aWrap = document.createElement('div');
-  aWrap.className = 'msg-a';
-  var badge = document.createElement('div');
-  badge.className = 'msg-badge';
-  badge.textContent = 'Error';
-  aWrap.appendChild(badge);
-  var aDiv = document.createElement('div');
-  aDiv.className = 'msg-text error';
-  aDiv.textContent = errMsg;
-  aWrap.appendChild(aDiv);
-  wrap.appendChild(aWrap);
-  convoEl.insertBefore(wrap, thinkingEl);
-  scrollConvo();
-}
-
-// ── Renderers ─────────────────────────────────────────────────────────────────
-function renderBlueprint(data) {
-  var bp = data.blueprint || data;
-  var html = '';
-
-  if (data.answer) {
-    html += '<div style="margin-bottom:8px;line-height:1.55;font-size:12px;color:#c9b888;">' + esc(data.answer) + '</div>';
-  }
-
-  html += '<div class="bp-grid">';
-  html += '<div class="bp-cell"><div class="bp-label">BPM</div><div class="bp-value">' + esc(bp.bpm || '—') + '</div></div>';
-  html += '<div class="bp-cell"><div class="bp-label">Key</div><div class="bp-value" style="font-size:11px;">' + esc(bp.key || '—') + '</div></div>';
-  html += '<div class="bp-cell"><div class="bp-label">Camelot</div><div class="bp-value">' + esc(bp.camelot || '—') + '</div></div>';
-  html += '<div class="bp-cell"><div class="bp-label">Energy</div><div class="bp-value">' + esc(bp.energy_level || bp.energy || '—') + '</div></div>';
-  html += '</div>';
-
-  var genres = bp.genre_tags || bp.genres;
-  if (genres) {
-    if (typeof genres === 'string') genres = genres.split(/[,/]+/).map(function(s){ return s.trim(); });
-    if (genres.length) {
-      html += '<div class="bp-row"><div class="bp-row-label">Genre</div><div class="bp-row-value">';
-      genres.forEach(function(g){ if(g) html += '<span class="chip">' + esc(g) + '</span>'; });
-      html += '</div></div>';
-    }
-  }
-
-  var palette = bp.sound_palette || bp.palette;
-  if (palette) {
-    if (typeof palette === 'string') palette = palette.split(/[,\n]+/).map(function(s){ return s.trim(); }).filter(Boolean);
-    if (palette.length) {
-      html += '<div class="bp-row"><div class="bp-row-label">Palette</div><div class="bp-row-value" style="color:#a8987a;font-size:11px;">' + palette.slice(0,4).map(esc).join(' · ') + '</div></div>';
-    }
-  }
-
-  var refs = bp.reference_tracks || bp.references;
-  if (refs) {
-    if (typeof refs === 'string') refs = refs.split(/[,\n]+/).map(function(s){ return s.trim(); }).filter(Boolean);
-    if (refs.length) {
-      html += '<div class="bp-row"><div class="bp-row-label">Refs</div><div class="bp-row-value" style="color:#c9a46e;font-size:11px;">' + refs.slice(0,3).map(esc).join(' · ') + '</div></div>';
-    }
-  }
-
-  if (bp.structure_hints) {
-    html += '<div class="bp-row"><div class="bp-row-label">Structure</div><div class="bp-row-value" style="font-size:11px;">' + esc(bp.structure_hints) + '</div></div>';
-  }
-  if (bp.mix_notes) {
-    html += '<div class="bp-row"><div class="bp-row-label">Notes</div><div class="bp-row-value" style="font-size:11px;color:#9a8a6a;">' + esc(bp.mix_notes) + '</div></div>';
-  }
-
-  return html;
-}
-
-function renderGeneral(data) {
-  return '<div style="line-height:1.6;font-size:12px;">' + esc(data.answer || '') + '</div>';
-}
-
-function renderChain(data) {
-  var html = '';
-  if (data.character) {
-    html += '<div style="margin-bottom:10px;line-height:1.55;font-size:12px;color:#8ecba0;">' + esc(data.character) + '</div>';
-  }
-  if (data.detected_issues && data.detected_issues.length) {
-    data.detected_issues.forEach(function(issue) {
-      html += '<div style="font-size:11px;color:#c07050;padding:3px 8px;background:#180e0a;border-left:2px solid #804030;border-radius:0 3px 3px 0;margin-bottom:4px;">⚠ ' + esc(issue) + '</div>';
-    });
-  }
-  if (data.chain && data.chain.length) {
-    data.chain.forEach(function(step, i) {
-      html += '<div class="chain-step"><div class="chain-num">' + (i+1) + '</div><div style="flex:1"><div class="chain-plugin">' + esc(step.plugin) + '</div>';
-      if (step.role) html += '<div class="chain-role">' + esc(step.role) + '</div>';
-      if (step.hint) html += '<div class="chain-hint">' + esc(step.hint) + '</div>';
-      html += '</div></div>';
-    });
-  }
-  return html;
-}
-
-// ── API calls ─────────────────────────────────────────────────────────────────
-function buildContextPrompt(query) {
-  // Attach last 2 exchanges as context for conversational continuity
-  var ctx = '';
-  if (convoHistory.length > 0) {
-    ctx = '\n\n[CONVERSATION CONTEXT — for reference only, do not repeat]\n';
-    convoHistory.slice(-2).forEach(function(h) {
-      ctx += 'User asked: ' + h.q + '\nYou responded: ' + h.a + '\n';
-    });
-    ctx += '[END CONTEXT]\n\nNow answer this follow-up: ';
-  }
-  return ctx + query;
-}
-
-function submitQuery(text) {
-  text = (text || '').trim();
-  if (!text || isBusy) return;
-  isBusy = true;
-  document.getElementById('text-input').value = '';
-
-  showThinking('Thinking', false);
-  setMicState('busy', 'thinking…');
-
-  var prompt = buildContextPrompt(text);
-  var sw = getSonicWorld();
-
-  fetch(ASSISTANT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: prompt, context_date: getToday(), sonic_world: sw })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    isBusy = false;
-    var intent = (data.intent || '').toLowerCase();
-    var answerText = data.answer || '';
-    var html, badge, green;
-
-    if (intent === 'production_blueprint' || intent === 'blueprint') {
-      html  = renderBlueprint(data);
-      badge = 'Production Blueprint';
-      green = false;
-    } else if (intent === 'chain_advice') {
-      html  = renderChain(data);
-      badge = 'Signal Chain';
-      green = true;
-    } else if (intent === 'off_topic') {
-      html  = renderGeneral(data);
-      badge = 'Out of scope';
-      green = false;
-    } else {
-      html  = renderGeneral(data);
-      badge = 'Signal Genius';
-      green = false;
-    }
-
-    addMessage(text, html, badge, green);
-
-    // Store in history
-    convoHistory.push({ q: text, a: answerText });
-    if (convoHistory.length > 4) convoHistory.shift();
-
-    setMicState('', 'tap to speak');
-  })
-  .catch(function(err) {
-    isBusy = false;
-    addErrorMessage(text, err.message || 'Network error');
-    setMicState('', 'tap to speak');
-  });
-}
-
-function submitStemAnalysis(measurements) {
-  showThinking('Analysing audio…', true);
-  setMicState('busy', 'analysing…');
-  var sw = getSonicWorld();
-  var body = { stem: measurements, sonic_world: sw };
-  if (installedPlugins.length) body.available_plugins = installedPlugins.slice(0, 60);
-  fetch(ANALYSE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    isBusy = false;
-    if (data.error) {
-      addErrorMessage('Audio analysis', data.error);
-    } else {
-      addMessage('Audio chain analysis', renderChain(data), 'Mix Chain', true);
-    }
-    setMicState('', 'tap to speak');
-  })
-  .catch(function(err) {
-    isBusy = false;
-    addErrorMessage('Audio analysis', err.message || 'Analysis failed');
-    setMicState('', 'tap to speak');
-  });
-}
-
-// ── Voice input ───────────────────────────────────────────────────────────────
-var AUDIO_RE = /\.(wav|aif|aiff|mp3|m4a|flac|ogg|caf)$/i;
-
-micBtn.addEventListener('click', function() {
-  if (isBusy) return;
-  if (isRecording) stopRecording();
-  else             startRecording();
+// ── Run ───────────────────────────────────────────────────────────────────
+runBtn.addEventListener('click', function() {
+  if (isBusy || !pendingFile) return;
+  runAnalysis(pendingFile);
 });
 
-function startRecording() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    setMicState('', 'mic unavailable');
-    setTimeout(function(){ setMicState('','tap to speak'); }, 2500);
-    return;
-  }
-  setMicState('busy', 'starting…');
-  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-    .then(function(stream) {
-      micStream   = stream;
-      audioChunks = [];
-      var mime = ['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg']
-        .find(function(t){ return MediaRecorder.isTypeSupported(t); }) || '';
-      try { mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream); }
-      catch(e) { mediaRecorder = new MediaRecorder(stream); }
-
-      mediaRecorder.ondataavailable = function(e) {
-        if (e.data && e.data.size > 0) audioChunks.push(e.data);
-      };
-      mediaRecorder.onstop = function() {
-        if (micStream) { micStream.getTracks().forEach(function(t){ t.stop(); }); micStream = null; }
-        var type  = mediaRecorder.mimeType || 'audio/mp4';
-        var total = audioChunks.reduce(function(s,c){ return s + c.size; }, 0);
-        if (total < 1000) {
-          setMicState('', 'no audio');
-          setTimeout(function(){ setMicState('','tap to speak'); }, 2000);
-          return;
-        }
-        transcribeBlob(new Blob(audioChunks, { type: type }), type);
-      };
-      mediaRecorder.start(250);
-      isRecording = true;
-      setMicState('recording', '● recording');
-    })
-    .catch(function() {
-      setMicState('', 'mic denied');
-      setTimeout(function(){ setMicState('','tap to speak'); }, 3000);
-    });
-}
-
-function stopRecording() {
-  isRecording = false;
+function runAnalysis(file) {
   isBusy = true;
-  setMicState('busy', 'transcribing…');
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-}
+  runBtn.disabled = true;
+  runBtn.innerHTML = '<div class="spinner"></div> Measuring…';
+  statusDot.className = 'active';
 
-function transcribeBlob(blob, mimeType) {
-  var ext = mimeType.includes('mp4') ? 'audio.mp4' : mimeType.includes('ogg') ? 'audio.ogg' : 'audio.webm';
-  var fd = new FormData();
-  fd.append('audio', blob, ext);
-  fetch(TRANSCRIBE_URL, { method: 'POST', body: fd })
-    .then(function(r){ return r.json(); })
+  var ra = document.getElementById('result-area');
+  ra.innerHTML = '<div class="idle-msg"><div class="idle-title">Measuring audio…</div></div>';
+
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  file.arrayBuffer()
+    .then(function(ab) {
+      return audioCtx.decodeAudioData(ab);
+    })
+    .then(function(buf) {
+      runBtn.innerHTML = '<div class="spinner"></div> Building chain…';
+      ra.innerHTML = '<div class="idle-msg"><div class="idle-title">Building chain…</div></div>';
+
+      var measurements = measureBuffer(buf, file.name);
+
+      var body = {
+        stem: measurements,
+        available_plugins: installedPlugins.length ? installedPlugins : undefined
+      };
+
+      return fetch(ANALYSE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    })
+    .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data.error) {
-        isBusy = false;
-        setMicState('', 'error');
-        // Show error inline briefly
-        var tmp = document.createElement('div');
-        tmp.style.cssText = 'font-size:10px;color:#904040;text-align:center;padding:4px 0;';
-        tmp.textContent = data.error;
-        convoEl.insertBefore(tmp, thinkingEl);
-        scrollConvo();
-        setTimeout(function(){ if (tmp.parentNode) tmp.parentNode.removeChild(tmp); setMicState('','tap to speak'); }, 4000);
-        return;
-      }
-      var text = (data.text || '').trim();
-      if (!text) {
-        isBusy = false;
-        setMicState('', 'try again');
-        setTimeout(function(){ setMicState('','tap to speak'); }, 2000);
-        return;
-      }
-      submitQuery(text);
+      if (data.error) throw new Error(data.error);
+      renderResult(data);
+      statusDot.className = 'green';
     })
     .catch(function(err) {
+      var ra = document.getElementById('result-area');
+      ra.innerHTML = '<div class="err-msg">' + esc(err.message || 'Analysis failed') + '</div>';
+      statusDot.className = '';
+    })
+    .finally(function() {
       isBusy = false;
-      setMicState('', 'failed');
-      setTimeout(function(){ setMicState('','tap to speak'); }, 3000);
+      runBtn.disabled = false;
+      runBtn.innerHTML = 'Get chain';
     });
-}
-
-// ── Text input ─────────────────────────────────────────────────────────────────
-function toggleTextRow() {
-  textRowVisible = !textRowVisible;
-  document.getElementById('text-row').className = textRowVisible ? 'visible' : '';
-}
-
-document.getElementById('text-send').addEventListener('click', function() {
-  submitQuery(document.getElementById('text-input').value);
-});
-document.getElementById('text-input').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') submitQuery(this.value);
-});
-
-// Tap idle examples
-document.querySelectorAll('.idle-example').forEach(function(el) {
-  el.addEventListener('click', function() {
-    submitQuery(this.getAttribute('data-query'));
-  });
-});
-
-// ── Audio file analysis ───────────────────────────────────────────────────────
-var audioModeBtn = document.getElementById('mode-toggle');
-var audioZone    = document.getElementById('audio-zone');
-var dropZone     = document.getElementById('drop-zone');
-var dropText     = document.getElementById('drop-text');
-var analyseBtn   = document.getElementById('analyse-btn');
-var fileInput    = document.getElementById('file-input');
-
-audioModeBtn.addEventListener('click', function() {
-  var open = audioZone.className === 'visible';
-  audioZone.className = open ? '' : 'visible';
-  audioModeBtn.className = open ? '' : 'active';
-});
-
-function setDropFile(file) {
-  pendingFile = file;
-  if (file) {
-    dropZone.classList.add('has-file');
-    dropText.textContent = file.name;
-    analyseBtn.className = 'visible';
-  } else {
-    dropZone.classList.remove('has-file');
-    dropText.textContent = 'Click to load audio';
-    analyseBtn.className = '';
-  }
-}
-
-fileInput.addEventListener('click', function(){ this.value = ''; });
-fileInput.addEventListener('change', function() {
-  if (this.files && this.files[0]) setDropFile(this.files[0]);
-});
-
-analyseBtn.addEventListener('click', function(e) {
-  e.stopPropagation();
-  if (pendingFile && !isBusy) {
-    isBusy = true;
-    analyseFileAudio(pendingFile);
-    setDropFile(null);
-    audioZone.className = '';
-    audioModeBtn.className = '';
-  }
-});
-
-dropZone.addEventListener('dragover', function(e){ e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', function(){ dropZone.classList.remove('drag-over'); });
-dropZone.addEventListener('drop', function(e){
-  e.preventDefault(); dropZone.classList.remove('drag-over');
-  var f = e.dataTransfer && e.dataTransfer.files[0];
-  if (f && AUDIO_RE.test(f.name)) setDropFile(f);
-});
-
-// ── Audio analysis engine ─────────────────────────────────────────────────────
-function getAudioContext() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
-
-function computeFFT(realIn) {
-  var n = realIn.length, real = new Float32Array(n), imag = new Float32Array(n);
-  for (var i = 0; i < n; i++) { real[i] = realIn[i] * 0.5 * (1 - Math.cos(6.283185307 * i / (n-1))); }
-  var j = 0;
-  for (var i = 1; i < n; i++) {
-    var bit = n >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) { var t = real[i]; real[i] = real[j]; real[j] = t; t = imag[i]; imag[i] = imag[j]; imag[j] = t; }
-  }
-  for (var len = 2; len <= n; len <<= 1) {
-    var ang = -6.283185307/len, wRe = Math.cos(ang), wIm = Math.sin(ang);
-    for (var i = 0; i < n; i += len) {
-      var re = 1, im = 0;
-      for (var jj = 0; jj < len>>1; jj++) {
-        var uRe=real[i+jj],uIm=imag[i+jj],vRe=real[i+jj+(len>>1)]*re-imag[i+jj+(len>>1)]*im,vIm=real[i+jj+(len>>1)]*im+imag[i+jj+(len>>1)]*re;
-        real[i+jj]=uRe+vRe; imag[i+jj]=uIm+vIm; real[i+jj+(len>>1)]=uRe-vRe; imag[i+jj+(len>>1)]=uIm-vIm;
-        var nRe=re*wRe-im*wIm; im=re*wIm+im*wRe; re=nRe;
-      }
-    }
-  }
-  var mags = new Float32Array(n>>1);
-  for (var i = 0; i < (n>>1); i++) mags[i] = Math.sqrt(real[i]*real[i]+imag[i]*imag[i]);
-  return mags;
-}
-
-function measureAudio(buf) {
-  var ch = buf.numberOfChannels, sr = buf.sampleRate, len = buf.length;
-  var mono = new Float32Array(len);
-  for (var c = 0; c < ch; c++) { var d = buf.getChannelData(c); for (var i = 0; i < len; i++) mono[i] += d[i]/ch; }
-  var peak=0, sumSq=0;
-  for (var i = 0; i < len; i++) { var a=Math.abs(mono[i]); if(a>peak) peak=a; sumSq+=mono[i]*mono[i]; }
-  var rms=Math.sqrt(sumSq/len);
-  var peak_db=peak>1e-10?20*Math.log10(peak):-96, rms_db=rms>1e-10?20*Math.log10(rms):-96;
-  var fftSize=16384, mid=Math.max(0,Math.floor(len/2)-fftSize/2);
-  var chunk=mono.subarray(mid,mid+fftSize), padded=new Float32Array(fftSize); padded.set(chunk);
-  var mags=computeFFT(padded), numBins=mags.length, binHz=sr/fftSize;
-  var lowBin=Math.ceil(200/binHz), highBin=Math.floor(4000/binHz);
-  var tot=0,ws=0; for(var k=1;k<numBins;k++){tot+=mags[k];ws+=k*binHz*mags[k];}
-  var centroid=tot>0?ws/tot:1000;
-  var low=0,high=0,all=0;
-  for(var k=1;k<numBins;k++){var e=mags[k]*mags[k];all+=e;if(k<lowBin)low+=e;if(k>=highBin)high+=e;}
-  var logS=0,arS=0,vB=0;
-  for(var k=1;k<numBins;k++){if(mags[k]>1e-12){logS+=Math.log(mags[k]);arS+=mags[k];vB++;}}
-  var flat=vB>0&&arS>0?Math.min(1,Math.exp(logS/vB)/(arS/vB)):0;
-  var fMin=Math.floor(30/binHz),fMax=Math.ceil(600/binHz),fPk=0,fBin=1;
-  for(var k=fMin;k<Math.min(fMax,numBins);k++){if(mags[k]>fPk){fPk=mags[k];fBin=k;}}
-  var envWin=Math.max(1,Math.round(sr*0.002)),nF=Math.floor(len/envWin),env=new Float32Array(nF);
-  for(var f=0;f<nF;f++){var r=0;for(var s=f*envWin;s<(f+1)*envWin&&s<len;s++)r+=mono[s]*mono[s];env[f]=Math.sqrt(r/envWin);}
-  var maxR=0;for(var f=1;f<nF;f++){var rise=env[f]-env[f-1];if(rise>maxR)maxR=rise;}
-  return {
-    filename: pendingFile ? pendingFile.name : 'audio',
-    duration_ms: Math.round(buf.duration*1000),
-    sample_rate: sr, channels: ch,
-    peak_db: Math.round(peak_db*10)/10, rms_db: Math.round(rms_db*10)/10,
-    dynamic_range_db: Math.round((peak_db-rms_db)*10)/10,
-    spectral_centroid_hz: Math.round(centroid),
-    low_energy_ratio: Math.round(low/all*1000)/1000,
-    high_energy_ratio: Math.round(high/all*1000)/1000,
-    transient_sharpness: Math.min(1, Math.round(maxR*4*1000)/1000),
-    fundamental_hz: Math.round(fBin*binHz),
-    spectral_flatness: Math.round(flat*1000)/1000
-  };
-}
-
-function analyseFileAudio(file) {
-  var ctx = getAudioContext();
-  showThinking('Reading audio…', true);
-  setMicState('busy', 'analysing…');
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    ctx.decodeAudioData(e.target.result,
-      function(buf) {
-        try { submitStemAnalysis(measureAudio(buf)); }
-        catch(err) { isBusy=false; addErrorMessage('Audio analysis','Measurement error: '+err.message); setMicState('','tap to speak'); }
-      },
-      function() { isBusy=false; addErrorMessage('Audio analysis','Could not decode audio. Try WAV or AIFF.'); setMicState('','tap to speak'); }
-    );
-  };
-  reader.onerror = function(){ isBusy=false; addErrorMessage('Audio analysis','Could not read file.'); setMicState('','tap to speak'); };
-  reader.readAsArrayBuffer(file);
 }
 </script>
 </body>
