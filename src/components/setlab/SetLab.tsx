@@ -755,7 +755,7 @@ Return corrected JSON:
         endTime: i < segmentStarts.length - 1 ? segmentStarts[i + 1] : duration,
       })).slice(0, 30) // cap at 30 tracks
 
-      const results: Array<{ time_in: string; title: string; artist: string; confidence: number; found: boolean }> = []
+      const results: Array<{ time_in: string; title: string; artist: string; confidence: number; found: boolean; acrCode?: number; acrMsg?: string }> = []
 
       for (let i = 0; i < segments.length; i++) {
         setScanProgress(`Identifying track ${i + 1} of ${segments.length}…`)
