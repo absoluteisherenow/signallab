@@ -63,7 +63,7 @@ export function Navigation() {
           const active = moduleActive(mod)
           return (
             <div key={mod.href} style={{ marginBottom: '16px' }}>
-              <Link href={mod.href} style={{ display: 'block', padding: '6px 18px', fontSize: '12px', letterSpacing: '0.08em', textDecoration: 'none', color: active ? mod.color : '#52504c', transition: 'color 0.15s' }}
+              <Link href={mod.href} style={{ display: 'block', padding: '6px 18px', fontSize: '24px', letterSpacing: '0.06em', fontFamily: "'Unbounded', sans-serif", fontWeight: 300, textDecoration: 'none', color: active ? mod.color : '#52504c', transition: 'color 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.color = mod.color }}
                 onMouseLeave={e => { e.currentTarget.style.color = active ? mod.color : '#52504c' }}
               >{mod.label}</Link>

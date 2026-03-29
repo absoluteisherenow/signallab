@@ -107,8 +107,46 @@ const SAMPLE_LIBRARY: Track[] = [
   { id: '8', title: 'Jungle', artist: 'Drake feat. Tems', bpm: 120, key: 'G minor', camelot: '6A', energy: 7, genre: 'Afrobeats', duration: '3:45', notes: 'Crowd pleaser — use sparingly', analysed: true, moment_type: 'builder', position_score: 'build', mix_in: 'Acappella over outgoing track, then drop', mix_out: 'Cut during verse, blend next track percussion', crowd_reaction: 'Instant recognition — phones out, singing', similar_to: '', producer_style: 'Smooth Afrobeats production, vocal-driven' },
 ]
 
+// ── WAV snippet encoder — for ACRCloud fingerprinting ─────────────────────
+// ACRCloud recommends 8000 Hz mono 16-bit PCM for best recognition
+const ACR_SAMPLE_RATE = 8000
+
+function encodeWAVSnippet(mono: Float32Array, sampleRate: number, startSample: number, numSamples: number): Blob {
+  const srcCount = Math.min(numSamples, Math.max(0, mono.length - startSample))
+  if (srcCount === 0) return new Blob([], { type: 'audio/wav' })
+
+  // Downsample to ACR_SAMPLE_RATE using simple linear interpolation
+  const ratio      = sampleRate / ACR_SAMPLE_RATE
+  const outCount   = Math.floor(srcCount / ratio)
+  const resampled  = new Float32Array(outCount)
+  for (let i = 0; i < outCount; i++) {
+    const srcIdx = i * ratio
+    const lo     = Math.floor(srcIdx)
+    const hi     = Math.min(lo + 1, srcCount - 1)
+    const frac   = srcIdx - lo
+    resampled[i] = mono[startSample + lo] * (1 - frac) + mono[startSample + hi] * frac
+  }
+
+  const count = outCount
+  const buf   = new ArrayBuffer(44 + count * 2)
+  const v     = new DataView(buf)
+  const ws    = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)) }
+  ws(0, 'RIFF'); v.setUint32(4, 36 + count * 2, true); ws(8, 'WAVE')
+  ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
+  v.setUint32(24, ACR_SAMPLE_RATE, true); v.setUint32(28, ACR_SAMPLE_RATE * 2, true)
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true)
+  ws(36, 'data'); v.setUint32(40, count * 2, true)
+  let off = 44
+  for (let i = 0; i < count; i++) {
+    const s = Math.max(-1, Math.min(1, resampled[i]))
+    v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true)
+    off += 2
+  }
+  return new Blob([buf], { type: 'audio/wav' })
+}
+
 export function SetLab() {
-  const [activeTab, setActiveTab] = useState<'library' | 'builder' | 'history' | 'discover'>('library')
+  const [activeTab, setActiveTab] = useState<'library' | 'builder' | 'history' | 'discover' | 'scanner'>('library')
   const [library, setLibrary] = useState<Track[]>([])
   const [libraryLoading, setLibraryLoading] = useState(true)
   const [editingTrack, setEditingTrack] = useState<Track | null>(null)
@@ -141,6 +179,19 @@ export function SetLab() {
   const [discoverCallCount, setDiscoverCallCount] = useState(0)
   const audioInputRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
+  // ── Mix Scanner state ───────────────────────────────────────────────────
+  const [scannerFile, setScannerFile] = useState<File | null>(null)
+  const [scannerDragOver, setScannerDragOver] = useState(false)
+  const [scannerTracklist, setScannerTracklist] = useState('')
+  const [scannerContext, setScannerContext] = useState('')
+  const [scanning, setScanning] = useState(false)
+  const [scanProgress, setScanProgress] = useState('')
+  const [scanResult, setScanResult] = useState<any>(null)
+  const [scanError, setScanError] = useState('')
+  const scannerFileRef = useRef<HTMLInputElement>(null)
+  const [scanPhase, setScanPhase] = useState<'upload' | 'detecting' | 'fingerprinting' | 'review' | 'analysing'>('upload')
+  const [detectedTracks, setDetectedTracks] = useState<Array<{time_in: string, title: string, artist: string, confidence: number, found: boolean, acrCode?: number, acrMsg?: string}>>([])
+  const scanAudioRef = useRef<any>(null)
 
   const showToast = (msg: string, tag = 'Info') => {
     setToast({ msg, tag })
@@ -591,6 +642,208 @@ Return corrected JSON:
     showToast('Track updated', 'Done')
   }
 
+  // ── Mix Scanner — Phase 1: Decode + Detect + Fingerprint ───────────────
+  async function analyseMix() {
+    if (!scannerFile) { showToast('No mix file loaded', 'Error'); return }
+    setScanPhase('detecting')
+    setScanning(true)
+    setScanResult(null)
+    setScanError('')
+    setDetectedTracks([])
+
+    try {
+      // 1. Decode audio
+      setScanProgress('Decoding audio…')
+      const arrayBuffer = await scannerFile.arrayBuffer()
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+      const audioCtx = new AudioCtx()
+      let decoded: AudioBuffer
+      try {
+        decoded = await audioCtx.decodeAudioData(arrayBuffer)
+      } catch {
+        throw new Error('Could not decode audio — try MP3, WAV, or FLAC')
+      }
+      audioCtx.close()
+
+      const duration   = decoded.duration
+      const sampleRate = decoded.sampleRate
+
+      // Mix down to mono
+      setScanProgress('Analysing energy envelope…')
+      const mono = new Float32Array(decoded.length)
+      for (let c = 0; c < decoded.numberOfChannels; c++) {
+        const ch = decoded.getChannelData(c)
+        for (let i = 0; i < decoded.length; i++) mono[i] += ch[i] / decoded.numberOfChannels
+      }
+
+      // RMS in 1-second windows
+      const windowSize   = sampleRate
+      const energyWindows: number[] = []
+      for (let i = 0; i < mono.length; i += windowSize) {
+        let sum = 0; const end = Math.min(i + windowSize, mono.length)
+        for (let j = i; j < end; j++) sum += mono[j] * mono[j]
+        energyWindows.push(Math.sqrt(sum / (end - i)))
+      }
+      const maxEnergy  = Math.max(...energyWindows) || 1
+      const normEnergy = energyWindows.map(e => e / maxEnergy)
+      const avgEnergy  = normEnergy.reduce((a, b) => a + b, 0) / normEnergy.length
+      const peakEnergy = Math.max(...normEnergy)
+
+      // Smooth + detect transitions
+      setScanProgress('Finding tracks…')
+      const smoothWindow = 4
+      const smoothed: number[] = []
+      for (let i = 0; i < normEnergy.length; i++) {
+        let sum = 0, count = 0
+        for (let j = Math.max(0, i - smoothWindow); j <= Math.min(normEnergy.length - 1, i + smoothWindow); j++) {
+          sum += normEnergy[j]; count++
+        }
+        smoothed.push(sum / count)
+      }
+      const transitions: { time_seconds: number; energy_before: number; energy_after: number; energy_dip: number }[] = []
+      let lastAt = -60
+      for (let i = smoothWindow; i < smoothed.length - smoothWindow; i++) {
+        const before = smoothed.slice(Math.max(0, i - 8), i).reduce((a, b) => a + b, 0) / 8
+        const after  = smoothed.slice(i + 1, Math.min(smoothed.length, i + 9)).reduce((a, b) => a + b, 0) / 8
+        const here   = smoothed[i]
+        const dip    = ((before + after) / 2) - here
+        const isMin  = smoothed[i - 1] >= here && smoothed[i + 1] >= here
+        if (isMin && dip > 0.05 && (i - lastAt) >= 60) {
+          transitions.push({ time_seconds: i, energy_before: before, energy_after: after, energy_dip: dip })
+          lastAt = i
+        }
+      }
+      const topTransitions = transitions.sort((a, b) => b.energy_dip - a.energy_dip).slice(0, 25).sort((a, b) => a.time_seconds - b.time_seconds)
+
+      // BPM estimate
+      let bpmEstimate: number | null = null
+      if (duration < 7200) {
+        const midStart  = Math.floor((mono.length / 2) - sampleRate * 30)
+        const snippet   = mono.slice(Math.max(0, midStart), midStart + sampleRate * 60)
+        const hopSize   = Math.round(sampleRate / 20)
+        const onsets: number[] = []
+        for (let i = hopSize; i < snippet.length; i += hopSize) {
+          let s = 0; for (let j = 0; j < hopSize; j++) s += snippet[i + j] * snippet[i + j]
+          onsets.push(Math.sqrt(s / hopSize))
+        }
+        let bestBpm = 128, bestScore = -1
+        for (let bpm = 90; bpm <= 180; bpm++) {
+          const period = (60 / bpm) * 20; let score = 0
+          for (let i = 0; i < onsets.length; i++) {
+            const j = Math.round(i + period) % onsets.length; score += onsets[i] * onsets[j]
+          }
+          if (score > bestScore) { bestScore = score; bestBpm = bpm }
+        }
+        bpmEstimate = bestBpm
+      }
+
+      // Store audio analysis data for later Claude call
+      scanAudioRef.current = {
+        filename:          scannerFile.name,
+        duration_seconds:  Math.round(duration),
+        avg_energy:        parseFloat(avgEnergy.toFixed(3)),
+        peak_energy:       parseFloat(peakEnergy.toFixed(3)),
+        transition_points: topTransitions,
+        bpm_estimate:      bpmEstimate,
+      }
+
+      // 2. Fingerprint each segment
+      setScanPhase('fingerprinting')
+      const segmentStarts = [0, ...topTransitions.map(t => t.time_seconds)]
+      const segments = segmentStarts.map((startTime, i) => ({
+        startTime,
+        endTime: i < segmentStarts.length - 1 ? segmentStarts[i + 1] : duration,
+      })).slice(0, 30) // cap at 30 tracks
+
+      const results: Array<{ time_in: string; title: string; artist: string; confidence: number; found: boolean }> = []
+
+      for (let i = 0; i < segments.length; i++) {
+        setScanProgress(`Identifying track ${i + 1} of ${segments.length}…`)
+        const seg      = segments[i]
+        const segLen   = seg.endTime - seg.startTime
+        // Sample from 8 seconds after segment start (skip blend zone), for 15 seconds
+        const sampleStartSec = seg.startTime + Math.min(8, segLen * 0.25)
+        const sampleDurSec   = Math.min(15, segLen - (sampleStartSec - seg.startTime))
+
+        const mm = Math.floor(seg.startTime / 60).toString().padStart(2, '0')
+        const ss = Math.floor(seg.startTime % 60).toString().padStart(2, '0')
+        const timeIn = `${mm}:${ss}`
+
+        if (sampleDurSec < 5) {
+          results.push({ time_in: timeIn, title: 'Unknown', artist: '', confidence: 0, found: false })
+          continue
+        }
+
+        try {
+          const startSample = Math.floor(sampleStartSec * sampleRate)
+          const numSamples  = Math.floor(sampleDurSec * sampleRate)
+          const wavBlob     = encodeWAVSnippet(mono, sampleRate, startSample, numSamples)
+
+          const fd = new FormData()
+          fd.append('audio', wavBlob, 'snippet.wav')
+          const resp = await fetch('/api/fingerprint', { method: 'POST', body: fd })
+          const data = await resp.json()
+
+          console.log(`[ACR] T${i + 1} @ ${timeIn}:`, data)
+          if (data.found) {
+            results.push({ time_in: timeIn, title: data.title, artist: data.artist, confidence: data.confidence, found: true })
+          } else {
+            results.push({ time_in: timeIn, title: 'Unknown / White label', artist: '', confidence: 0, found: false, acrCode: data.code, acrMsg: data.msg })
+          }
+        } catch {
+          results.push({ time_in: timeIn, title: 'Unknown', artist: '', confidence: 0, found: false })
+        }
+      }
+
+      setDetectedTracks(results)
+
+      // Auto-populate the tracklist textarea
+      const autoTracklist = results.map((t, i) =>
+        `${i + 1}. ${t.time_in}  ${t.found ? `${t.artist} - ${t.title}` : 'Unknown / White label'}`
+      ).join('\n')
+      setScannerTracklist(autoTracklist)
+
+      setScanPhase('review')
+      setScanning(false)
+      setScanProgress('')
+
+    } catch (err: any) {
+      setScanError(err.message || 'Analysis failed')
+      setScanning(false)
+      setScanProgress('')
+      setScanPhase('upload')
+    }
+  }
+
+  // ── Mix Scanner — Phase 2: Claude Analysis ──────────────────────────────
+  async function runClaudeAnalysis() {
+    if (!scanAudioRef.current) { showToast('No scan data — re-upload the mix', 'Error'); return }
+    setScanPhase('analysing')
+    setScanning(true)
+    setScanProgress('Getting AI analysis…')
+    try {
+      const resp = await fetch('/api/mix-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...scanAudioRef.current,
+          tracklist: scannerTracklist.trim() || undefined,
+          context:   scannerContext.trim()   || undefined,
+        }),
+      })
+      const data = await resp.json()
+      if (!resp.ok || data.error) throw new Error(data.error || 'Analysis failed')
+      setScanResult(data.result)
+      setScanPhase('upload') // reset for next scan
+    } catch (err: any) {
+      setScanError(err.message || 'Analysis failed')
+      setScanPhase('review') // go back to review so they can retry
+    } finally {
+      setScanning(false)
+      setScanProgress('')
+    }
+  }
+
   async function discoverTracks(pop = maxPopularity) {
     const seedTracks = library.length > 0 ? library : set
     if (seedTracks.length === 0) { setDiscoverError('Add some tracks to your library first'); return }
@@ -646,7 +899,7 @@ Return corrected JSON:
         </div>
 
         <div style={{ display: 'flex', gap: '4px' }}>
-          {(['library', 'builder', 'history', 'discover'] as const).map(tab => (
+          {(['library', 'builder', 'history', 'discover', 'scanner'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               ...btn(activeTab === tab ? s.setlab : s.goldDim, activeTab === tab ? s.setlab : 'transparent'),
               fontSize: '10px', padding: '8px 18px',
@@ -1269,6 +1522,425 @@ Return corrected JSON:
             )}
           </div>
         )}
+
+        {/* ═══ MIX SCANNER TAB ═══ */}
+        {activeTab === 'scanner' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '860px' }}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.25em', color: s.setlab, marginBottom: '6px' }}>MIX SCANNER</div>
+                <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
+                  Upload a recorded DJ mix · AI analyses energy, transitions, flow and technique · Rated out of 10
+                </div>
+              </div>
+              {scanResult && (
+                <button onClick={() => { setScanResult(null); setScannerFile(null); setScanError(''); setScanPhase('upload'); setDetectedTracks([]) }}
+                  style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '8px 14px' }}>
+                  Scan another mix
+                </button>
+              )}
+            </div>
+
+            {/* Upload zone — only shown when no file and no result */}
+            {!scannerFile && !scanResult && scanPhase === 'upload' && (
+              <div
+                onDragOver={e => { e.preventDefault(); setScannerDragOver(true) }}
+                onDragLeave={() => setScannerDragOver(false)}
+                onDrop={e => {
+                  e.preventDefault(); setScannerDragOver(false)
+                  const f = e.dataTransfer.files[0]
+                  if (f && /\.(mp3|wav|flac|aac|m4a|ogg|aiff?)$/i.test(f.name)) setScannerFile(f)
+                  else showToast('Drop an audio file — MP3, WAV, or FLAC', 'Error')
+                }}
+                onClick={() => scannerFileRef.current?.click()}
+                style={{
+                  border: `2px dashed ${scannerDragOver ? s.setlab : s.border}`,
+                  background: scannerDragOver ? 'rgba(154,106,90,0.06)' : s.panel,
+                  padding: '64px 32px', textAlign: 'center', cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}>
+                <input ref={scannerFileRef} type="file" accept=".mp3,.wav,.flac,.aac,.m4a,.ogg,.aif,.aiff"
+                  style={{ display: 'none' }} onChange={e => {
+                    const f = e.target.files?.[0]
+                    if (f) setScannerFile(f)
+                  }} />
+                <div style={{ fontSize: '28px', marginBottom: '16px', opacity: 0.3 }}>◎</div>
+                <div style={{ fontSize: '12px', letterSpacing: '0.18em', color: s.text, textTransform: 'uppercase', marginBottom: '8px' }}>
+                  Drop mix file here or click to browse
+                </div>
+                <div style={{ fontSize: '10px', color: s.textDimmer }}>
+                  MP3 · WAV · FLAC · M4A · up to 2 hours
+                </div>
+              </div>
+            )}
+
+            {/* Scanning progress — shown during detect + fingerprint phases */}
+            {(scanPhase === 'detecting' || scanPhase === 'fingerprinting') && (
+              <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '40px 32px', textAlign: 'center' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>
+                  {scanPhase === 'detecting' ? 'Analysing mix' : 'Identifying tracks'}
+                </div>
+                <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '8px' }}>{scanProgress}</div>
+                {scanPhase === 'fingerprinting' && (
+                  <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '8px' }}>
+                    Using ACRCloud audio fingerprinting · {detectedTracks.length} tracks found so far
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* File loaded — ready to analyse */}
+            {scannerFile && !scanResult && scanPhase === 'upload' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                {/* File info bar */}
+                <div style={{ background: s.panel, border: `1px solid ${s.borderBright}`, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.setlab, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '12px', color: s.text, letterSpacing: '0.05em' }}>{scannerFile.name}</div>
+                      <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>
+                        {(scannerFile.size / 1024 / 1024).toFixed(1)} MB
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => setScannerFile(null)}
+                    style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '6px 12px' }}>
+                    Remove
+                  </button>
+                </div>
+
+                {/* Tracklist note */}
+                <div style={{ background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '12px 16px', fontSize: '11px', color: s.textDim, lineHeight: '1.6' }}>
+                  <span style={{ color: s.gold }}>For accurate analysis, add your tracklist below.</span>{' '}
+                  Without it, the scanner can only read loudness and timing — it cannot assess track selection, key mixing, or set narrative.
+                </div>
+
+                {/* Optional context */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Set context <span style={{ opacity: 0.5 }}>(optional)</span>
+                    </div>
+                    <input
+                      value={scannerContext}
+                      onChange={e => setScannerContext(e.target.value)}
+                      placeholder="e.g. 2hr techno set, club warm-up, festival peak time..."
+                      style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.gold, textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Tracklist <span style={{ color: s.textDimmer }}>— recommended for real analysis</span>
+                    </div>
+                    <textarea
+                      value={scannerTracklist}
+                      onChange={e => setScannerTracklist(e.target.value)}
+                      placeholder={'1. Artist - Title\n2. Artist - Title\n3. Artist - Title\n...'}
+                      rows={4}
+                      style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '10px 14px', outline: 'none', resize: 'vertical', boxSizing: 'border-box', lineHeight: '1.6' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Analyse button */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <button
+                    onClick={analyseMix}
+                    disabled={scanning}
+                    style={{
+                      ...btn(s.setlab),
+                      fontSize: '11px', padding: '14px 32px',
+                      opacity: scanning ? 0.5 : 1, cursor: scanning ? 'wait' : 'pointer',
+                    }}>
+                    {scanning ? scanProgress || 'Analysing...' : 'Analyse mix →'}
+                  </button>
+                  {scanning && (
+                    <div style={{ fontSize: '10px', color: s.textDimmer, letterSpacing: '0.1em' }}>
+                      This takes 30–60 seconds for a long mix
+                    </div>
+                  )}
+                </div>
+
+                {scanError && (
+                  <div style={{ background: 'rgba(192,64,64,0.1)', border: '1px solid rgba(192,64,64,0.3)', padding: '14px 18px', fontSize: '12px', color: '#c04040' }}>
+                    {scanError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Review phase: detected tracklist ── */}
+            {scanPhase === 'review' && !scanResult && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                {/* Detected tracks list */}
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '4px' }}>
+                        Detected tracklist — {detectedTracks.filter(t => t.found).length} of {detectedTracks.length} identified
+                      </div>
+                      <div style={{ fontSize: '10px', color: s.textDimmer }}>
+                        Unknown tracks are likely white labels or unreleased — edit any corrections below
+                      </div>
+                      {detectedTracks.length > 0 && detectedTracks.filter(t => !t.found && t.acrCode !== undefined && t.acrCode !== 1001).length > 0 && (
+                        <div style={{ marginTop: '6px', fontSize: '10px', color: '#c04040' }}>
+                          ACRCloud errors detected — codes: {[...new Set(detectedTracks.filter(t => t.acrCode !== undefined && t.acrCode !== 1001).map(t => `${t.acrCode} ${t.acrMsg || ''}`))].join(', ')}
+                        </div>
+                      )}
+                      {detectedTracks.length > 0 && detectedTracks.filter(t => !t.found && t.acrCode === undefined).length > 0 && (
+                        <div style={{ marginTop: '6px', fontSize: '10px', color: '#b08d57' }}>
+                          {detectedTracks.filter(t => !t.found && t.acrCode === undefined).length} network errors — check console for details
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => { setScanPhase('upload'); setScannerFile(null); setDetectedTracks([]) }}
+                      style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '6px 12px' }}>
+                      Re-upload
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px', overflowY: 'auto' }}>
+                    {detectedTracks.map((t, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 10px', background: s.black, border: `1px solid ${t.found ? 'rgba(78,203,113,0.15)' : s.border}` }}>
+                        <div style={{ fontSize: '10px', color: s.textDimmer, width: '24px', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
+                        <div style={{ fontSize: '10px', color: s.textDimmer, width: '36px', flexShrink: 0, fontFamily: 'monospace' }}>{t.time_in}</div>
+                        <div style={{ flex: 1, fontSize: '11px', color: t.found ? s.text : s.textDimmer }}>
+                          {t.found ? `${t.artist} — ${t.title}` : 'Unknown / White label'}
+                        </div>
+                        {t.found && (
+                          <div style={{ fontSize: '9px', color: '#4ecb71', letterSpacing: '0.08em', flexShrink: 0 }}>{t.confidence}%</div>
+                        )}
+                        {!t.found && (
+                          <div style={{ fontSize: '9px', color: s.textDimmer, flexShrink: 0 }}>?</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Editable tracklist */}
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>
+                    Edit tracklist <span style={{ opacity: 0.5 }}>— correct any wrong IDs before analysis</span>
+                  </div>
+                  <textarea
+                    value={scannerTracklist}
+                    onChange={e => setScannerTracklist(e.target.value)}
+                    rows={6}
+                    style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '10px 14px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' as const, lineHeight: '1.6' }}
+                  />
+                </div>
+
+                {/* Context + Analyse */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Set context <span style={{ opacity: 0.5 }}>(optional)</span>
+                    </div>
+                    <input
+                      value={scannerContext}
+                      onChange={e => setScannerContext(e.target.value)}
+                      placeholder="e.g. 2hr techno set, club warm-up, festival peak time…"
+                      style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' as const }}
+                    />
+                  </div>
+                  <button
+                    onClick={runClaudeAnalysis}
+                    disabled={scanning}
+                    style={{ ...btn(s.setlab), fontSize: '11px', padding: '14px 28px', flexShrink: 0 }}>
+                    {scanning ? (scanProgress || 'Analysing…') : 'Analyse with Claude →'}
+                  </button>
+                </div>
+
+                {scanError && (
+                  <div style={{ background: 'rgba(192,64,64,0.1)', border: '1px solid rgba(192,64,64,0.3)', padding: '14px 18px', fontSize: '12px', color: '#c04040' }}>
+                    {scanError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Results */}
+            {scanResult && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                {/* Data quality banner */}
+                {scanResult.data_quality === 'amplitude-only' && (
+                  <div style={{ background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '12px 16px', fontSize: '11px', color: s.textDim, lineHeight: '1.6' }}>
+                    <span style={{ color: s.gold, letterSpacing: '0.1em', textTransform: 'uppercase', fontSize: '9px' }}>Amplitude-only analysis</span>
+                    <br />
+                    This scan had no tracklist — results are based on loudness data only. For track-by-track feedback, key mixing analysis, and curation scoring, re-run with your tracklist added.
+                  </div>
+                )}
+
+                {/* Score hero */}
+                <div style={{ background: s.panel, border: `1px solid ${s.borderBright}`, padding: '32px 36px', display: 'flex', alignItems: 'center', gap: '48px' }}>
+                  {/* Big score */}
+                  <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                    <div style={{
+                      fontFamily: "'Unbounded', sans-serif",
+                      fontSize: '64px', fontWeight: 300, letterSpacing: '-0.02em',
+                      color: scanResult.overall_score >= 8 ? '#4ecb71' : scanResult.overall_score >= 6 ? s.gold : scanResult.overall_score >= 4 ? '#c09030' : '#c04040',
+                      lineHeight: 1,
+                    }}>
+                      {scanResult.overall_score?.toFixed(1)}
+                    </div>
+                    <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.15em', marginTop: '8px' }}>OUT OF 10</div>
+                    {scanResult.grade && (
+                      <div style={{ fontSize: '20px', color: s.gold, marginTop: '8px', fontFamily: "'Unbounded', sans-serif", fontWeight: 300 }}>
+                        {scanResult.grade}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Headline + summary */}
+                  <div style={{ flex: 1 }}>
+                    {scanResult.headline && (
+                      <div style={{ fontSize: '15px', color: s.text, lineHeight: '1.5', marginBottom: '12px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                        "{scanResult.headline}"
+                      </div>
+                    )}
+                    {scanResult.summary && (
+                      <div style={{ fontSize: '12px', color: s.textDim, lineHeight: '1.7' }}>
+                        {scanResult.summary}
+                      </div>
+                    )}
+                    {/* Quick stats row */}
+                    <div style={{ display: 'flex', gap: '24px', marginTop: '16px' }}>
+                      {scanResult.transition_quality && (
+                        <div>
+                          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '3px' }}>Transitions</div>
+                          <div style={{ fontSize: '11px', color: s.setlab, textTransform: 'capitalize' }}>{scanResult.transition_quality}</div>
+                        </div>
+                      )}
+                      {scannerFile && (
+                        <div>
+                          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '3px' }}>Duration</div>
+                          <div style={{ fontSize: '11px', color: s.textDim }}>{Math.round(scannerFile.size / 1024 / 1024)} MB</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Two-column: strengths + improvements */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  {scanResult.strengths?.length > 0 && (
+                    <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#4ecb71', textTransform: 'uppercase', marginBottom: '14px' }}>What works</div>
+                      {scanResult.strengths.map((s2: string, i: number) => (
+                        <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'flex-start' }}>
+                          <div style={{ color: '#4ecb71', fontSize: '10px', marginTop: '2px', flexShrink: 0 }}>+</div>
+                          <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.5' }}>{s2}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {scanResult.improvements?.length > 0 && (
+                    <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#c09030', textTransform: 'uppercase', marginBottom: '14px' }}>Improvements</div>
+                      {scanResult.improvements.map((imp: string, i: number) => (
+                        <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'flex-start' }}>
+                          <div style={{ color: '#c09030', fontSize: '10px', marginTop: '2px', flexShrink: 0 }}>→</div>
+                          <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.5' }}>{imp}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Technical + Structure analysis */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  {scanResult.structure_analysis && (
+                    <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Set structure</div>
+                      <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7' }}>{scanResult.structure_analysis}</div>
+                    </div>
+                  )}
+                  {scanResult.technical_assessment && (
+                    <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Technical assessment</div>
+                      <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7' }}>{scanResult.technical_assessment}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Energy arc */}
+                {scanResult.energy_arc && (
+                  <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Energy arc</div>
+                    <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7' }}>{scanResult.energy_arc}</div>
+                    {/* Transition notes inline */}
+                    {scanResult.transition_notes && (
+                      <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${s.border}` }}>
+                        <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Transition notes</div>
+                        <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7' }}>{scanResult.transition_notes}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Track-by-track (if tracklist was provided) */}
+                {scanResult.tracks?.length > 0 && (
+                  <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>Track-by-track</div>
+                    {scanResult.tracks.map((t: any, i: number) => (
+                      <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', paddingBottom: '12px', marginBottom: '12px', borderBottom: i < scanResult.tracks.length - 1 ? `1px solid ${s.border}` : 'none' }}>
+                        <div style={{ fontSize: '10px', color: s.textDimmer, flexShrink: 0, paddingTop: '2px', width: '20px', textAlign: 'right' }}>{t.position}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: t.issue ? '6px' : 0 }}>
+                            <div style={{ fontSize: '12px', color: s.text }}>{t.artist} — {t.title}</div>
+                            {t.estimated_time && <div style={{ fontSize: '10px', color: s.textDimmer }}>{t.estimated_time}</div>}
+                            {t.mix_quality && (
+                              <div style={{
+                                fontSize: '9px', letterSpacing: '0.1em', padding: '2px 8px',
+                                background: t.mix_quality === 'smooth' ? 'rgba(78,203,113,0.12)' : t.mix_quality === 'rough' ? 'rgba(192,144,48,0.12)' : 'rgba(192,64,64,0.12)',
+                                color: t.mix_quality === 'smooth' ? '#4ecb71' : t.mix_quality === 'rough' ? '#c09030' : '#c04040',
+                                textTransform: 'uppercase',
+                              }}>{t.mix_quality}</div>
+                            )}
+                          </div>
+                          {t.issue && <div style={{ fontSize: '10px', color: s.textDimmer, lineHeight: '1.5' }}>⚠ {t.issue}</div>}
+                          {t.fix && <div style={{ fontSize: '10px', color: s.setlab, marginTop: '3px', lineHeight: '1.5' }}>→ {t.fix}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Key moments */}
+                {scanResult.key_moments?.length > 0 && (
+                  <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '14px' }}>Key moments</div>
+                    {scanResult.key_moments.map((m: string, i: number) => (
+                      <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '8px', alignItems: 'flex-start' }}>
+                        <div style={{ color: s.gold, fontSize: '10px', marginTop: '2px', flexShrink: 0 }}>◎</div>
+                        <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.5' }}>{m}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Final verdict */}
+                {scanResult.overall_verdict && (
+                  <div style={{ background: s.panel, border: `1px solid ${s.borderBright}`, padding: '24px 28px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Verdict</div>
+                    <div style={{ fontSize: '13px', color: s.text, lineHeight: '1.8', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                      {scanResult.overall_verdict}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            )}
+
+          </div>
+        )}
+
       </div>
 
       {/* ── Edit Track Modal ── */}

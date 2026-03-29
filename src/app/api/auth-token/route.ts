@@ -7,7 +7,6 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
 }
 
-// OPTIONS preflight for VST plugin cross-origin requests
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
@@ -38,9 +37,8 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Resolve display name: try artist_settings profile, fall back to email
+    // Resolve display name
     let artistName: string = session.user.email ?? 'Unknown Artist'
-
     const { data: settings } = await supabase
       .from('artist_settings')
       .select('profile')
@@ -50,11 +48,18 @@ export async function GET(req: NextRequest) {
       artistName = settings.profile.name
     }
 
+    // Encode access_token + refresh_token + expiry as a base64 JSON blob.
+    // The VST parses this blob and auto-refreshes via /api/vst/refresh when needed.
+    const blob = Buffer.from(
+      JSON.stringify({
+        at:  session.access_token,
+        rt:  session.refresh_token ?? '',
+        exp: Math.floor(Date.now() / 1000) + (session.expires_in ?? 3600),
+      })
+    ).toString('base64')
+
     return NextResponse.json(
-      {
-        token: session.access_token,
-        artist: artistName,
-      },
+      { token: blob, artist: artistName },
       { headers: CORS_HEADERS }
     )
   } catch (err: any) {

@@ -94,8 +94,7 @@ export default function ConnectVST() {
               lineHeight: 1.6,
             }}
           >
-            Generate a token below and paste it into Sonix Lab to link the plugin
-            to your Artist OS account.
+            Generate a permanent connection token and paste it into Sonix Lab once. It refreshes automatically — you never need to reconnect.
           </p>
         </div>
 
@@ -246,7 +245,7 @@ export default function ConnectVST() {
           </div>
           {[
             { step: '01', text: 'Install the VST and load Sonix Lab Suite in Ableton.' },
-            { step: '02', text: 'Come back to this page and copy the token below.' },
+            { step: '02', text: 'Click Generate Token and copy it. This is a one-time setup — the token refreshes itself automatically.' },
             {
               step: '03',
               text: 'In Ableton, open the Sonix Lab plugin. Click the Settings tab, paste the token into the field at the bottom, and click SAVE.',
