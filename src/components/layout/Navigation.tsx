@@ -7,27 +7,15 @@ import { NotificationBell } from '@/components/ui/NotificationBell'
 
 const NAV_GROUPS = [
   {
-    label: 'TOUR',
+    label: 'Tour Lab',
     items: [
-      {
-        label: 'Dashboard', href: '/dashboard',
-        sub: [],
-      },
-      {
-        label: 'Gigs', href: '/gigs',
-        sub: [
-          { label: 'All Gigs', href: '/gigs' },
-          { label: 'Add Gig', href: '/gigs/new' },
-        ],
-      },
-      {
-        label: 'Logistics', href: '/logistics',
-        sub: [],
-      },
+      { label: 'Dashboard', href: '/dashboard', sub: [] },
+      { label: 'Gigs', href: '/gigs', sub: [] },
+      { label: 'Logistics', href: '/logistics', sub: [] },
     ],
   },
   {
-    label: 'CREATE',
+    label: '',
     items: [
       {
         label: 'Broadcast Lab', href: '/broadcast',
@@ -43,6 +31,7 @@ const NAV_GROUPS = [
         sub: [
           { label: 'Library', href: '/setlab' },
           { label: 'Builder', href: '/setlab/builder' },
+          { label: 'Mix Scanner', href: '/setlab/scanner' },
           { label: 'Rekordbox', href: '/setlab/rekordbox' },
         ],
       },
@@ -57,20 +46,10 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: 'BUSINESS',
+    label: '',
     items: [
-      {
-        label: 'Finances', href: '/business/finances',
-        sub: [],
-      },
-      {
-        label: 'Contracts', href: '/contracts',
-        sub: [],
-      },
-      {
-        label: 'Settings', href: '/business/settings',
-        sub: [],
-      },
+      { label: 'Finances', href: '/business/finances', sub: [] },
+      { label: 'Contracts', href: '/contracts', sub: [] },
     ],
   },
 ]
@@ -141,19 +120,22 @@ export function Navigation() {
       </div>
 
       {/* Nav body */}
-      <div style={{ flex: 1, padding: '8px 0 16px', display: 'flex', flexDirection: 'column', gap: 32 }}>
-        {NAV_GROUPS.map(group => (
-          <div key={group.label}>
-            <div style={{
-              fontSize: 8,
-              letterSpacing: '0.28em',
-              color: '#2e2c29',
-              textTransform: 'uppercase',
-              padding: '0 24px',
-              marginBottom: 8,
-            }}>
-              {group.label}
-            </div>
+      <div style={{ flex: 1, padding: '8px 0 16px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={group.label || gi} style={{ marginTop: gi > 0 ? 8 : 0 }}>
+            {group.label ? (
+              <div style={{
+                fontSize: 8,
+                letterSpacing: '0.28em',
+                color: '#3a3830',
+                textTransform: 'uppercase',
+                padding: '16px 24px 8px',
+              }}>
+                {group.label}
+              </div>
+            ) : (
+              <div style={{ height: 1, background: '#131210', margin: '8px 0' }} />
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {group.items.map(item => {
@@ -248,18 +230,35 @@ export function Navigation() {
         </div>
       )}
 
-      {/* Bottom bell */}
+      {/* Footer: artist name, settings, bell */}
       <div style={{
         borderTop: '1px solid #131210',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 24px',
+        padding: '14px 24px',
       }}>
         <span style={{ fontSize: 9, letterSpacing: '0.14em', color: '#2e2c29', textTransform: 'uppercase' }}>
           Night Manoeuvres
         </span>
-        <NotificationBell />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link href="/business/settings" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 26, height: 26,
+            border: '1px solid #131210',
+            borderRadius: 4,
+            color: '#2e2c29',
+            fontSize: 13,
+            textDecoration: 'none',
+            transition: 'color 0.15s, border-color 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#b08d57'; e.currentTarget.style.borderColor = '#3a3020' }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#2e2c29'; e.currentTarget.style.borderColor = '#131210' }}
+          >
+            ⚙
+          </Link>
+          <NotificationBell />
+        </div>
       </div>
     </nav>
   )
