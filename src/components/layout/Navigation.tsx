@@ -10,45 +10,15 @@ const NAV_GROUPS = [
     label: '',
     items: [
       { label: 'Dashboard', href: '/dashboard', sub: [] },
-      {
-        label: 'Signal Lab', href: '/broadcast',
-        sub: [
-          { label: 'Tone Intelligence', href: '/broadcast' },
-          { label: 'Calendar', href: '/broadcast/calendar' },
-          { label: 'Content Intelligence', href: '/broadcast/scanner' },
-          { label: 'Media Library', href: '/broadcast/media' },
-        ],
-      },
+      { label: 'Signal Lab', href: '/broadcast', sub: [] },
     ],
   },
   {
     label: '',
     items: [
-      {
-        label: 'Set Lab', href: '/setlab',
-        sub: [
-          { label: 'Library', href: '/setlab' },
-          { label: 'Builder', href: '/setlab/builder' },
-          { label: 'Mix Scanner', href: '/setlab/scanner' },
-          { label: 'Rekordbox', href: '/setlab/rekordbox' },
-        ],
-      },
-      {
-        label: 'SONIX Lab', href: '/sonix',
-        sub: [
-          { label: 'Studio', href: '/sonix' },
-          { label: 'Arrange', href: '/sonix/arrange' },
-          { label: 'Compose', href: '/sonix/compose' },
-        ],
-      },
-      {
-        label: 'Tour Lab', href: '/gigs',
-        sub: [
-          { label: 'Gigs', href: '/gigs' },
-          { label: 'Logistics', href: '/logistics' },
-          { label: 'Finances', href: '/business/finances' },
-        ],
-      },
+      { label: 'Set Lab', href: '/setlab', sub: [] },
+      { label: 'SONIX Lab', href: '/sonix', sub: [] },
+      { label: 'Tour Lab', href: '/gigs', sub: [] },
     ],
   },
 ]
@@ -221,32 +191,24 @@ export function Navigation() {
       )}
 
       {/* Footer */}
-      <div style={{
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '20px 28px',
-      }}>
-        <span style={{ fontSize: 10, color: 'rgba(234,229,220,0.14)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          Night Manoeuvres
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Link href="/business/settings" style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 26, height: 26,
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: 4,
-            color: 'rgba(234,229,220,0.2)',
-            fontSize: 13,
-            textDecoration: 'none',
-            transition: 'color 0.12s, border-color 0.12s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#c9a96e'; e.currentTarget.style.borderColor = 'rgba(201,169,110,0.4)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(234,229,220,0.2)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)' }}
-          >
-            ⚙
-          </Link>
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '8px 0' }}>
+        <Link href="/business/settings" style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 28px',
+          textDecoration: 'none',
+          fontSize: 12.5,
+          color: pathname === '/business/settings' ? '#c9a96e' : 'rgba(234,229,220,0.45)',
+          borderLeft: pathname === '/business/settings' ? '2px solid #c9a96e' : '2px solid transparent',
+          background: pathname === '/business/settings' ? 'rgba(201,169,110,0.08)' : 'transparent',
+          transition: 'color 0.12s',
+        }}
+        onMouseEnter={e => { if (pathname !== '/business/settings') e.currentTarget.style.color = '#eae5dc' }}
+        onMouseLeave={e => { if (pathname !== '/business/settings') e.currentTarget.style.color = 'rgba(234,229,220,0.45)' }}
+        >
+          Settings
+        </Link>
+        <div style={{ padding: '2px 28px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 9, color: 'rgba(234,229,220,0.14)', letterSpacing: '0.1em' }}>Night Manoeuvres</span>
           <NotificationBell />
         </div>
       </div>

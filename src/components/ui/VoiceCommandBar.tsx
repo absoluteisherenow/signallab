@@ -94,28 +94,33 @@ export function VoiceCommandBar() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        title="Ask Artist OS  (⌘.)"
         style={{
           position: 'fixed',
           bottom: '24px',
           right: '24px',
           zIndex: 9999,
-          width: '44px',
-          height: '44px',
-          borderRadius: '50%',
+          height: '38px',
+          padding: '0 14px',
+          borderRadius: '2px',
           background: '#1a1410',
           border: `1px solid ${isListening ? '#c04040' : '#4a3e2c'}`,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
+          gap: '8px',
+          fontFamily: "'DM Mono', monospace",
+          fontSize: '10px',
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: '#b08d57',
           boxShadow: isListening
             ? '0 0 16px rgba(192,64,64,0.4)'
             : '0 2px 12px rgba(0,0,0,0.6)',
           transition: 'all 0.2s',
+          whiteSpace: 'nowrap',
         }}
       >
-        <MicIcon active={isListening} />
+        <MicIcon active={isListening} /> Artist OS
       </button>
     )
   }

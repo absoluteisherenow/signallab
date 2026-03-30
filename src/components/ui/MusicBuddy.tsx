@@ -90,22 +90,24 @@ export function MusicBuddy() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          title="Music buddy"
           style={{
             ...btnBase,
             position: 'fixed',
-            bottom: '72px',
+            bottom: '76px',
             right: '24px',
-            width: '38px',
-            height: '38px',
+            height: '34px',
+            padding: '0 14px',
             background: '#0a0908',
             border: '1px solid #2e2c29',
             color: '#b08d57',
-            fontSize: '17px',
+            fontSize: '10px',
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: '7px',
             zIndex: 9990,
+            whiteSpace: 'nowrap',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.borderColor = '#b08d57'
@@ -116,7 +118,7 @@ export function MusicBuddy() {
             e.currentTarget.style.background  = '#0a0908'
           }}
         >
-          ≋
+          <span style={{ fontSize: '14px', lineHeight: 1 }}>≋</span> Music Buddy
         </button>
       )}
 
