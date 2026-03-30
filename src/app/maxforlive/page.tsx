@@ -1,5 +1,5 @@
-import { MaxForLive } from '@/components/maxforlive/MaxForLive'
+import { redirect } from 'next/navigation'
 
 export default function MaxForLivePage() {
-  return <MaxForLive />
+  redirect('/sonix')
 }

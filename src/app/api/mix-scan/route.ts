@@ -131,7 +131,7 @@ IMPORTANT: Flat RMS amplitude is NOT evidence of bad mixing. Do not penalise a m
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-6',
         max_tokens: 2000,
         system: 'You are an expert DJ, electronic music producer, and booker with 20+ years of experience. You analyse DJ mixes with precision and honesty. Return ONLY valid JSON, no markdown, no code fences.',
         messages: [{ role: 'user', content: userPrompt }],

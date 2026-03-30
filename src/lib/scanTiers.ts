@@ -20,5 +20,25 @@ export const CREDIT_PACKS = [
   { scans: 200, price: '£60' },
 ]
 
-// TODO: replace with real tier lookup from Supabase user profile before launch
-export const DEFAULT_TIER: PlanTier = 'artist'
+// Default tier for unauthenticated or new users — intentionally the lowest paid tier
+export const DEFAULT_TIER: PlanTier = 'creator'
+
+// Fetch the real tier for a user from Supabase artist_settings
+export async function getUserTier(userId: string): Promise<PlanTier> {
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data } = await supabase
+      .from('artist_settings')
+      .select('tier')
+      .eq('user_id', userId)
+      .single()
+    const tier = data?.tier as PlanTier
+    return SCAN_TIERS[tier] ? tier : DEFAULT_TIER
+  } catch {
+    return DEFAULT_TIER
+  }
+}

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { NotificationBell } from '@/components/ui/NotificationBell'
 
 const MODULES = [
   { label: 'Signal Lab', href: '/broadcast', color: '#3d6b4a', sub: [
@@ -11,17 +12,13 @@ const MODULES = [
     { label: 'Content Intelligence', href: '/broadcast/scanner' },
     { label: 'Media Library', href: '/broadcast/media' },
   ]},
-  { label: 'Tour Lab', href: '/logistics', color: '#b08d57', sub: [
-    { label: 'Gigs', href: '/logistics' },
+  { label: 'Tour Lab', href: '/gigs', color: '#b08d57', sub: [
+    { label: 'Gigs', href: '/gigs' },
     { label: 'Finances', href: '/business/finances' },
-      { label: 'Contracts', href: '/contracts' },
+    { label: 'Contracts', href: '/contracts' },
   ]},
   { label: 'SONIX Lab', href: '/sonix', color: '#6a7a9a', sub: [] },
-  { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [
-    { label: 'Library', href: '/setlab' },
-    { label: 'Set Builder', href: '/setlab' },
-    { label: 'Rekordbox', href: '/setlab/rekordbox' },
-  ]},
+  { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [] },
 ]
 
 export function Navigation() {
@@ -53,17 +50,18 @@ export function Navigation() {
     <nav className="sidebar-nav" style={{ width: '200px', background: '#070706', borderRight: '1px solid #1a1917', display: 'flex', flexDirection: 'column', fontFamily: "'DM Mono', monospace", flexShrink: 0, overflowY: 'auto' }}>
       <div style={{ padding: '20px 18px 18px', borderBottom: '1px solid #1a1917' }}>
         <Link href='/dashboard' style={{ textDecoration: 'none' }}>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '11px', fontWeight: 200, letterSpacing: '0.15em', color: '#b08d57', lineHeight: 1.3 }}>Artist OS</div>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 400, letterSpacing: '0.18em', color: '#8a8780', textTransform: 'uppercase', lineHeight: 1.3, marginBottom: '4px' }}>Night Manoeuvres</div>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '9px', fontWeight: 200, letterSpacing: '0.15em', color: '#3a3830', lineHeight: 1.3 }}>Artist OS</div>
         </Link>
       </div>
       <div style={{ flex: 1, padding: '16px 0' }}>
         {MODULES.map(mod => {
           const active = moduleActive(mod)
           return (
-            <div key={mod.href} style={{ marginBottom: '16px' }}>
-              <Link href={mod.href} style={{ display: 'block', padding: '6px 18px', fontSize: '24px', letterSpacing: '0.06em', fontFamily: "'Unbounded', sans-serif", fontWeight: 300, textDecoration: 'none', color: active ? mod.color : '#52504c', transition: 'color 0.15s' }}
+            <div key={mod.href} style={{ marginBottom: '16px', borderLeft: active ? `2px solid ${mod.color}` : '2px solid transparent', transition: 'border-color 0.2s' }}>
+              <Link href={mod.href} style={{ display: 'block', padding: '6px 18px', fontSize: '24px', letterSpacing: '0.06em', fontFamily: "'Unbounded', sans-serif", fontWeight: 300, textDecoration: 'none', color: active ? mod.color : mod.color + 'a0', transition: 'color 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.color = mod.color }}
-                onMouseLeave={e => { e.currentTarget.style.color = active ? mod.color : '#52504c' }}
+                onMouseLeave={e => { e.currentTarget.style.color = active ? mod.color : mod.color + 'a0' }}
               >{mod.label}</Link>
               {active && mod.sub.map(s => (
                 <Link key={s.href + s.label} href={s.href} style={{ display: 'block', padding: '5px 18px 5px 28px', fontSize: '11px', letterSpacing: '0.06em', textDecoration: 'none', color: isActive(s.href) ? mod.color : '#2e2c29', transition: 'color 0.15s' }}
@@ -99,11 +97,12 @@ export function Navigation() {
           </div>
         </div>
       )}
-      <div style={{ borderTop: '1px solid #1a1917' }}>
-        <Link href='/business/settings' style={{ display: 'block', padding: '12px 18px', fontSize: '11px', letterSpacing: '0.08em', textDecoration: 'none', color: pathname === '/business/settings' ? '#b08d57' : '#2e2c29', transition: 'color 0.15s' }}
+      <div style={{ borderTop: '1px solid #1a1917', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px 4px 18px' }}>
+        <Link href='/business/settings' style={{ fontSize: '11px', letterSpacing: '0.08em', textDecoration: 'none', color: pathname === '/business/settings' ? '#b08d57' : '#2e2c29', transition: 'color 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#8a8780' }}
           onMouseLeave={e => { e.currentTarget.style.color = pathname === '/business/settings' ? '#b08d57' : '#2e2c29' }}
         >Settings</Link>
+        <NotificationBell />
       </div>
     </nav>
   )

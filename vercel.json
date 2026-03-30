@@ -5,12 +5,24 @@
   "outputDirectory": ".next",
   "crons": [
     {
-      "path": "/api/invoices/reminders",
+      "path": "/api/gmail/process",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/agents/advance-chaser",
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/gmail/process",
-      "schedule": "0 8 * * *"
+      "path": "/api/invoices/reminders",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/agents/weekly-content",
+      "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/agents/post-gig",
+      "schedule": "0 23 * * *"
     }
   ]
 }

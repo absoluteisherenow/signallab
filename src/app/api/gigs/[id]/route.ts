@@ -1,0 +1,113 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { createNotification } from '@/lib/notifications'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const { data, error } = await supabase
+      .from('gigs')
+      .select('*')
+      .eq('id', params.id)
+      .single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 404 })
+    return NextResponse.json({ gig: data })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const body = await req.json()
+
+    // Fetch current gig to detect changes
+    const { data: current } = await supabase
+      .from('gigs')
+      .select('*')
+      .eq('id', params.id)
+      .single()
+
+    const { data, error } = await supabase
+      .from('gigs')
+      .update({
+        title: body.title,
+        venue: body.venue,
+        location: body.location,
+        date: body.date,
+        time: body.time,
+        fee: parseInt(body.fee) || 0,
+        currency: body.currency || 'EUR',
+        audience: parseInt(body.audience) || 0,
+        status: body.status,
+        promoter_email: body.promoter_email || null,
+        notes: body.notes || null,
+      })
+      .eq('id', params.id)
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Fire notifications for significant changes
+    if (current) {
+      const title = data.title || current.title
+
+      // Set time changed
+      if (body.time && body.time !== current.time) {
+        await createNotification({
+          type: 'set_time_changed',
+          title: `Set time changed — ${title}`,
+          message: `${current.time} → ${body.time} at ${current.venue}`,
+          href: `/gigs/${params.id}`,
+          gig_id: params.id,
+          metadata: { old_time: current.time, new_time: body.time },
+          sendEmail: true,
+        })
+      }
+
+      // Date changed
+      if (body.date && body.date !== current.date) {
+        await createNotification({
+          type: 'set_time_changed',
+          title: `Show date changed — ${title}`,
+          message: `${new Date(current.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} → ${new Date(body.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+          href: `/gigs/${params.id}`,
+          gig_id: params.id,
+          metadata: { old_date: current.date, new_date: body.date },
+          sendEmail: true,
+        })
+      }
+
+      // Status changed to cancelled
+      if (body.status === 'cancelled' && current.status !== 'cancelled') {
+        await createNotification({
+          type: 'gig_cancelled',
+          title: `Show cancelled — ${title}`,
+          message: `${current.venue} · ${new Date(current.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
+          href: `/gigs/${params.id}`,
+          gig_id: params.id,
+          sendEmail: true,
+        })
+      }
+    }
+
+    return NextResponse.json({ gig: data })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const { error } = await supabase.from('gigs').delete().eq('id', params.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}

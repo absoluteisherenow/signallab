@@ -157,6 +157,9 @@ export function SonixLab() {
   const [toast, setToast] = useState<{ msg: string; tag: string } | null>(null)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
 
+  // ── Mode — null = tile home, else active tool ─────────────────────────
+  const [mode, setMode] = useState<null | 'reference' | 'track' | 'ask'>(null)
+
   // ── Sonic World (persistent) ─────────────────────────────────────────
   const [sonicWorld, setSonicWorld] = useState(DEFAULT_SONIC_WORLD)
   const [newRef, setNewRef] = useState('')
@@ -240,6 +243,22 @@ export function SonixLab() {
       .then(r => r.json())
       .then(d => { if (Array.isArray(d.plugins) && d.plugins.length) setInstalledPlugins(d.plugins) })
       .catch(() => {})
+  }, [])
+
+  // ── Load sound profile from artist settings (silent, background) ──────
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(d => {
+      const p = d.settings?.profile
+      if (!p) return
+      setSonicWorld(s => ({
+        ...s,
+        soundsLike: p.soundsLike?.length ? p.soundsLike : s.soundsLike,
+        key: p.keyCenter || s.key,
+        bpm: p.bpmRange?.split('–')[0] || s.bpm,
+        genre: p.genre || s.genre,
+        making: p.making || s.making,
+      }))
+    }).catch(() => {})
   }, [])
 
   // ── Sonic World helpers ───────────────────────────────────────────────
@@ -567,403 +586,208 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
   const fieldLabel: React.CSSProperties = { fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }
   const inputStyle: React.CSSProperties = { width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none' }
 
+
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
 
-      {/* ── Page header ── */}
-      <div style={{ padding: '52px 56px 44px', borderBottom: '1px solid var(--border-dim)' }}>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
-          <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
-          Artist OS — Modular Suite
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-          <div>
-            <div className="display" style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 200, lineHeight: 1.0 }}>Sonix Lab.</div>
-            <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginTop: '10px' }}>Production tools — composition, chains &amp; analysis</div>
-          </div>
-          {installedPlugins.length > 0 && (
-            <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--green)', textTransform: 'uppercase' }}>
-              {installedPlugins.length} plugins loaded
-            </div>
+      {/* ── Header ── */}
+      <div style={{ padding: '44px 56px 36px', borderBottom: '1px solid var(--border-dim)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        <div>
+          {mode && (
+            <button onClick={() => setMode(null)} style={{ background: 'none', border: 'none', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', padding: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              ← Back
+            </button>
           )}
+          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+            <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
+            {mode ? { reference: 'Reference intel', track: 'Track analysis', ask: 'Ask anything' }[mode] : 'Sonix Lab'}
+          </div>
+          <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', fontWeight: 200, lineHeight: 1.0 }}>
+            {mode ? { reference: 'Break down a track.', track: 'Analyse my track.', ask: 'Ask anything.' }[mode] : 'What are you\nworking on?'}
+          </div>
         </div>
+        {installedPlugins.length > 0 && !mode && (
+          <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--green)', textTransform: 'uppercase' }}>
+            {installedPlugins.length} plugins loaded
+          </div>
+        )}
       </div>
 
       <div style={{ padding: '44px 56px' }}>
 
-        {/* ── Sonic World ── */}
-        <div style={{ ...cardGold, marginBottom: '32px' }}>
-          {secHead('Sonic World — session context')}
-          <div style={{ marginBottom: '20px' }}>
-            <div style={fieldLabel}>Sounds like <span style={{ color: 'var(--text-dimmest)', textTransform: 'none', letterSpacing: 0 }}>(up to 6)</span></div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-              {sonicWorld.soundsLike.map((ref, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(176,141,87,0.07)', border: '1px solid rgba(176,141,87,0.22)', padding: '5px 12px', fontSize: '12px', color: 'var(--gold)' }}>
-                  {ref}
-                  <button onClick={() => removeRef(i)} style={{ background: 'none', border: 'none', color: 'var(--text-dimmer)', cursor: 'pointer', fontSize: '14px', padding: '0', lineHeight: '1' }}>×</button>
-                </div>
-              ))}
-              {sonicWorld.soundsLike.length < 6 && (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input value={newRef} onChange={e => setNewRef(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') addRef() }}
-                    placeholder="Artist — Track (Enter to add)"
-                    style={{ ...inputStyle, width: '260px' }} />
-                  <button onClick={addRef} style={{ ...btn(false), padding: '8px 16px' }}>Add</button>
-                </div>
-              )}
-            </div>
+        {/* ── HOME — 3 tiles ── */}
+        {!mode && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', maxWidth: '960px' }}>
+            {([
+              { id: 'reference', sub: 'How did they do that?', title: 'Break down\na reference', desc: 'Enter any track — get BPM, key, production techniques, key sounds and mix character. Specific and actionable.' },
+              { id: 'track',     sub: 'Upload audio → next steps', title: 'Analyse\nmy track', desc: 'Drop in a file. Get acoustic measurements and a prioritised list of what to work on next — with exact plugin settings.' },
+              { id: 'ask',       sub: 'Quick production Q&A', title: 'Ask\nanything', desc: 'Why is my kick clashing? How do Four Tet get that bass width? Direct answer, 2–3 sentences.' },
+            ] as const).map(tile => (
+              <button key={tile.id} onClick={() => setMode(tile.id)}
+                style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '40px 32px', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'var(--font-mono)' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(176,141,87,0.4)'; (e.currentTarget as HTMLButtonElement).style.background = '#111009' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--panel)' }}
+              >
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>{tile.sub}</div>
+                <div className="display" style={{ fontSize: '22px', fontWeight: 200, color: 'var(--text)', marginBottom: '16px', lineHeight: 1.2, whiteSpace: 'pre-line' }}>{tile.title}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', lineHeight: '1.7', marginBottom: '28px' }}>{tile.desc}</div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>Open →</div>
+              </button>
+            ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-            <div>
-              <div style={fieldLabel}>Key</div>
-              <select value={sonicWorld.key} onChange={e => setSonicWorld(s => ({ ...s, key: e.target.value }))} style={inputStyle}>
-                {['A minor','C major','D minor','E minor','F major','G major','B minor','Eb major','F# minor','Bb major','C# minor','Ab major'].map(k => <option key={k}>{k}</option>)}
-              </select>
-            </div>
-            <div>
-              <div style={fieldLabel}>BPM</div>
-              <input value={sonicWorld.bpm} onChange={e => setSonicWorld(s => ({ ...s, bpm: e.target.value }))} placeholder="125" type="number" style={inputStyle} />
-            </div>
-            <div>
-              <div style={fieldLabel}>Genre</div>
-              <select value={sonicWorld.genre} onChange={e => setSonicWorld(s => ({ ...s, genre: e.target.value }))} style={inputStyle}>
-                {['Electronic','Deep House','Techno','Ambient','Drum & Bass','UK Garage','Afrobeats','Hip Hop','Pop','R&B','Jazz'].map(g => <option key={g}>{g}</option>)}
-              </select>
-            </div>
-            <div>
-              <div style={fieldLabel}>Making</div>
-              <input value={sonicWorld.making} onChange={e => setSonicWorld(s => ({ ...s, making: e.target.value }))} placeholder="6-min DJ tool, dark techno…" style={inputStyle} />
-            </div>
-          </div>
+        )}
 
-          {/* Context live — quick actions */}
-          {(sonicWorld.soundsLike.length > 0 || sonicWorld.making) && (
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-dim)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 6px rgba(61,107,74,0.8)' }} />
-                <span style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Context set — generate now</span>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button onClick={generateChords} disabled={generatingChords} style={btn(generatingChords)}>
-                  {generatingChords && spinner}{generatingChords ? '…' : 'Generate chord voicings →'}
-                </button>
-                <button onClick={generateArrangement} disabled={generatingArrange} style={btn(generatingArrange, false, 'green')}>
-                  {generatingArrange && spinner}{generatingArrange ? '…' : 'Build arrangement →'}
-                </button>
-                {sonicWorld.soundsLike.length > 0 && (
-                  <button onClick={() => analyseReference(sonicWorld.soundsLike[0])} disabled={analysingRef} style={btn(analysingRef, false, 'dim')}>
-                    {analysingRef && spinner}{analysingRef ? '…' : `Break down ${sonicWorld.soundsLike[0].split('—')[0].trim()} →`}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ── Ask anything ── */}
-        <div style={{ ...card, marginBottom: '32px' }}>
-          {secHead('Ask anything')}
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <input value={question} onChange={e => setQuestion(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') askQuestion() }}
-              placeholder={`Why is my kick clashing? / How do ${sonicWorld.soundsLike[0] || 'Bicep'} get that bass width?`}
-              style={{ ...inputStyle, flex: 1 }} />
-            <button onClick={askQuestion} disabled={askingQuestion || !question.trim()} style={btn(askingQuestion, !question.trim())}>
-              {askingQuestion && spinner}
-              {askingQuestion ? 'Thinking…' : 'Ask →'}
-            </button>
-          </div>
-          {questionResult && (
-            <div style={{ marginTop: '16px', padding: '16px 20px', background: 'var(--bg)', border: '1px solid var(--border-dim)' }}>
-              <div style={{ fontSize: '14px', lineHeight: '1.8', color: 'var(--text-warm)', letterSpacing: '0.03em' }}>{questionResult}</div>
-            </div>
-          )}
-        </div>
-
-        {/* ── Reference Intel ── */}
-        <div style={{ ...card, marginBottom: '32px' }}>
-          {secHead('Reference Intel — break down any track')}
-          <div style={{ display: 'flex', gap: '12px', marginBottom: referenceIntel ? '24px' : '0' }}>
-            <input value={refInput} onChange={e => setRefInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') analyseReference() }}
-              placeholder="Artist — Track (e.g. Bicep — Glue, Jon Hopkins — Emerald Rush)"
-              style={{ ...inputStyle, flex: 1 }} />
-            <button onClick={analyseReference} disabled={analysingRef} style={btn(analysingRef)}>
-              {analysingRef && spinner}
-              {analysingRef ? 'Analysing…' : 'Analyse →'}
-            </button>
-          </div>
-
-          {referenceIntel && (
-            <div>
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                {[{ label: 'BPM', value: String(referenceIntel.bpm) }, { label: 'Key', value: referenceIntel.key }].map(b => (
-                  <div key={b.label} style={{ background: 'var(--bg)', border: '1px solid rgba(176,141,87,0.2)', padding: '10px 20px', minWidth: '80px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>{b.label}</div>
-                    <div style={{ fontSize: '18px', color: 'var(--gold)' }}>{b.value}</div>
-                  </div>
-                ))}
-                {referenceIntel.energy_arc.length > 0 && (
-                  <div style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '10px 16px', flex: 1 }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.25em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Energy arc</div>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '28px' }}>
-                      {referenceIntel.energy_arc.map((v, i) => (
-                        <div key={i} style={{ flex: 1, height: `${(v / 10) * 100}%`, background: v > 7 ? 'var(--gold)' : v > 4 ? 'var(--green)' : 'var(--border)', transition: 'height 0.3s' }} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {referenceIntel.key_sounds.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
-                  {referenceIntel.key_sounds.map((s, i) => (
-                    <div key={i} style={{ fontSize: '11px', background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '4px 10px', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{s}</div>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
-                {referenceIntel.techniques.map((t, i) => (
-                  <div key={i} style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '14px 16px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '8px' }}>{t.name}</div>
-                    <div style={{ fontSize: '12px', lineHeight: '1.6', color: 'var(--text-dim)' }}>{t.detail}</div>
-                  </div>
-                ))}
-              </div>
-              {referenceIntel.mix_notes && (
-                <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', fontStyle: 'italic', borderTop: '1px solid var(--border-dim)', paddingTop: '14px' }}>
-                  {referenceIntel.mix_notes}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Composition ── */}
-        <div style={{ ...card, marginBottom: '32px' }}>
-          {secHead('Composition — chords, melody & arrangement')}
-
-          <div style={{ marginBottom: '28px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ ...fieldLabel, marginBottom: 0 }}>
-                Real voicings — {sonicWorld.key}
-                {sonicWorld.soundsLike.length > 0 && <span style={{ color: 'var(--text-dimmest)', textTransform: 'none', letterSpacing: 0 }}> · {sonicWorld.soundsLike[0]}</span>}
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={generateChords} disabled={generatingChords} style={btn(generatingChords)}>
-                  {generatingChords && spinner}{generatingChords ? '…' : 'Generate voicings'}
-                </button>
-                <button onClick={generateMelody} disabled={generatingMelody || chordVoicings.length === 0} style={btn(generatingMelody, chordVoicings.length === 0, 'green')}>
-                  {generatingMelody && spinner}{generatingMelody ? '…' : 'Melody ideas'}
-                </button>
-              </div>
-            </div>
-            {chordVoicings.length > 0 && (
-              <div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '14px' }}>
-                  {chordVoicings.map((c, i) => (
-                    <div key={i} style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '14px 16px' }}>
-                      <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: 'var(--gold)', marginBottom: '8px' }}>{c.name}</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '8px', letterSpacing: '0.05em' }}>{c.notes}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', fontStyle: 'italic', lineHeight: '1.4' }}>{c.character}</div>
-                    </div>
-                  ))}
-                </div>
-                {motifResult && (
-                  <div style={{ background: 'var(--bg)', border: '1px solid rgba(176,141,87,0.15)', padding: '14px 18px' }}>
-                    <div style={fieldLabel}>Motif idea</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-warm)', lineHeight: '1.6' }}>{motifResult}</div>
-                  </div>
-                )}
-              </div>
-            )}
-            {melodyResult && (
-              <div style={{ marginTop: '14px', background: 'var(--bg)', border: '1px solid rgba(61,107,74,0.3)', padding: '20px 24px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--green)', textTransform: 'uppercase', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid rgba(61,107,74,0.2)' }}>Melody ideas</div>
-                <div style={{ fontSize: '13px', lineHeight: '1.9', color: 'var(--text-warm)', whiteSpace: 'pre-wrap' }}>{melodyResult}</div>
-              </div>
-            )}
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--border-dim)', paddingTop: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ ...fieldLabel, marginBottom: 0 }}>Arrangement — {sonicWorld.making || sonicWorld.genre}</div>
-              <button onClick={generateArrangement} disabled={generatingArrange} style={btn(generatingArrange)}>
-                {generatingArrange && spinner}{generatingArrange ? '…' : 'Generate arrangement'}
+        {/* ── REFERENCE INTEL ── */}
+        {mode === 'reference' && (
+          <div style={{ maxWidth: '720px' }}>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '28px' }}>
+              <input value={refInput} onChange={e => setRefInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') analyseReference() }}
+                placeholder="Artist — Track  (e.g. Bicep — Glue, Jon Hopkins — Emerald Rush)"
+                style={{ ...inputStyle, flex: 1, fontSize: '14px', padding: '14px 18px' }}
+                autoFocus
+              />
+              <button onClick={() => analyseReference()} disabled={analysingRef || !refInput.trim()} style={btn(analysingRef, !refInput.trim())}>
+                {analysingRef && spinner}{analysingRef ? 'Analysing…' : 'Analyse →'}
               </button>
             </div>
-            {energyArc.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '48px', marginBottom: '20px' }}>
-                {energyArc.map((v, i) => (
-                  <div key={i} style={{ flex: 1, height: `${(v / 10) * 100}%`, background: v > 7 ? 'var(--gold)' : v > 4 ? 'var(--green)' : 'var(--border)', transition: 'height 0.3s', position: 'relative' }}>
-                    <div style={{ position: 'absolute', bottom: '-18px', left: '50%', transform: 'translateX(-50%)', fontSize: '9px', color: 'var(--text-dimmest)' }}>{v}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {arrangeSections.length > 0 && (
-              <div style={{ marginTop: energyArc.length ? '24px' : '0' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
-                  {arrangeSections.map((s, i) => (
-                    <div key={i} style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '12px 14px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: s.energy > 7 ? 'var(--gold)' : 'var(--text-dim)' }}>{s.name}</div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>{s.bars}b</div>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '6px', lineHeight: '1.4' }}>{s.elements}</div>
-                      {s.notes && <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', fontStyle: 'italic', lineHeight: '1.4' }}>{s.notes}</div>}
+            {analysingRef && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>Analysing — takes about 15 seconds…</div>}
+            {referenceIntel && !analysingRef && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', marginBottom: '2px' }}>
+                  {[{ l: 'BPM', v: String(referenceIntel.bpm) }, { l: 'Key', v: referenceIntel.key }].map(item => (
+                    <div key={item.l} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px' }}>
+                      <div style={fieldLabel}>{item.l}</div>
+                      <div className="display" style={{ fontSize: '32px', fontWeight: 200 }}>{item.v}</div>
                     </div>
                   ))}
                 </div>
-                {arrangeExtra && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    {arrangeExtra.key_moments.length > 0 && (
-                      <div style={{ background: 'var(--bg)', border: '1px solid rgba(176,141,87,0.15)', padding: '14px 18px' }}>
-                        <div style={fieldLabel}>Key moments</div>
-                        {arrangeExtra.key_moments.map((m, i) => <div key={i} style={{ fontSize: '12px', color: 'var(--text-warm)', lineHeight: '1.6', marginBottom: '6px' }}>→ {m}</div>)}
-                      </div>
-                    )}
-                    {arrangeExtra.production_tips.length > 0 && (
-                      <div style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '14px 18px' }}>
-                        <div style={fieldLabel}>Production tips</div>
-                        {arrangeExtra.production_tips.map((t, i) => <div key={i} style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6', marginBottom: '6px' }}>→ {t}</div>)}
-                      </div>
-                    )}
+                <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px', marginBottom: '2px' }}>
+                  <div style={fieldLabel}>Energy arc</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '44px' }}>
+                    {referenceIntel.energy_arc.map((e, i) => (
+                      <div key={i} style={{ flex: 1, background: 'var(--gold)', height: `${e * 10}%`, minHeight: '3px', opacity: 0.5 + e * 0.05 }} />
+                    ))}
                   </div>
-                )}
+                </div>
+                <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px', marginBottom: '2px' }}>
+                  <div style={fieldLabel}>Techniques</div>
+                  {referenceIntel.techniques.map((t, i) => (
+                    <div key={i} style={{ paddingBottom: '14px', marginBottom: '14px', borderBottom: i < referenceIntel.techniques.length - 1 ? '1px solid var(--border-dim)' : 'none' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--gold)', marginBottom: '4px', letterSpacing: '0.1em' }}>{t.name}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{t.detail}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px' }}>
+                  <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px' }}>
+                    <div style={fieldLabel}>Key sounds</div>
+                    {referenceIntel.key_sounds.map((s, i) => (
+                      <div key={i} style={{ fontSize: '13px', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                        <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--gold)', display: 'inline-block', flexShrink: 0 }} />{s}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px' }}>
+                    <div style={fieldLabel}>Mix character</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-dim)', lineHeight: '1.7' }}>{referenceIntel.mix_notes}</div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
-        </div>
+        )}
 
-        {/* ── Signal Chains ── */}
-        <div style={{ ...card, marginBottom: '32px' }}>
-          {secHead(`Signal Chains${installedPlugins.length > 0 ? ` — ${installedPlugins.length} plugins loaded` : ''}`)}
+        {/* ── TRACK ANALYSIS ── */}
+        {mode === 'track' && (
+          <div style={{ maxWidth: '720px' }}>
+            {!nextStepsResult && !generatingNextSteps && (
+              <div
+                onDragOver={e => { e.preventDefault(); setNextStepsDrag(true) }}
+                onDragLeave={() => setNextStepsDrag(false)}
+                onDrop={e => { e.preventDefault(); setNextStepsDrag(false); const f = e.dataTransfer.files[0]; if (f) { setNextStepsFile(f); analyseAndSuggestNextSteps(f) } }}
+                onClick={() => nextStepsInputRef.current?.click()}
+                style={{ border: `2px dashed ${nextStepsDrag ? 'var(--gold)' : 'var(--border-dim)'}`, padding: '72px 40px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: nextStepsDrag ? 'rgba(176,141,87,0.04)' : 'transparent' }}
+              >
+                <div className="display" style={{ fontSize: '20px', fontWeight: 200, color: 'var(--text-dim)', marginBottom: '14px' }}>Drop your track here</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>
+                  Or click to browse — WAV, AIFF, MP3<br />
+                  <span style={{ fontSize: '11px', color: '#3a3830' }}>Works on stems, loops, or full mixes</span>
+                </div>
+                <input ref={nextStepsInputRef} type="file" accept=".wav,.aiff,.aif,.mp3,.flac" style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) { setNextStepsFile(f); analyseAndSuggestNextSteps(f) } }} />
+              </div>
+            )}
+            {generatingNextSteps && (
+              <div style={{ padding: '56px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '20px' }}>
+                  {[0,1,2].map(i => <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gold)', animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }} />)}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-dimmer)' }}>Measuring your audio…</div>
+                {nextStepsFile && <div style={{ fontSize: '11px', color: '#3a3830', marginTop: '8px' }}>{nextStepsFile.name}</div>}
+              </div>
+            )}
+            {nextStepsResult && !generatingNextSteps && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', marginBottom: '2px' }}>
+                  <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px' }}>
+                    <div style={fieldLabel}>Detected</div>
+                    <div style={{ fontSize: '14px', color: 'var(--text-dim)' }}>{nextStepsResult.detected_type}</div>
+                  </div>
+                  <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px' }}>
+                    <div style={fieldLabel}>Current state</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{nextStepsResult.current_state}</div>
+                  </div>
+                </div>
+                <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px', marginBottom: '16px' }}>
+                  <div style={fieldLabel}>Next steps</div>
+                  {nextStepsResult.next_steps.map((step, i) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '28px 1fr', gap: '16px', padding: '16px 0', borderBottom: i < nextStepsResult.next_steps.length - 1 ? '1px solid var(--border-dim)' : 'none' }}>
+                      <div className="display" style={{ fontSize: '24px', fontWeight: 200, color: 'var(--gold)', lineHeight: 1 }}>{step.priority}</div>
+                      <div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline', marginBottom: '6px', flexWrap: 'wrap' }}>
+                          <div style={{ fontSize: '13px', color: 'var(--text)' }}>{step.action}</div>
+                          <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{step.area}</div>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{step.detail}</div>
+                        {step.plugin && <div style={{ fontSize: '10px', color: 'var(--gold)', marginTop: '6px', opacity: 0.7 }}>{step.plugin}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => { setNextStepsResult(null); setNextStepsFile(null); setNextStepsMeasurements(null) }} style={btn(false, false, 'dim')}>
+                  Analyse another →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-          <div style={{ marginBottom: '24px', padding: '16px 20px', background: 'var(--bg)', border: '1px solid var(--border-dim)' }}>
-            <div style={{ ...fieldLabel, marginBottom: '12px' }}>Stem analysis</div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-              {(['kick','bass','vocals','synths','drums','full_mix'] as const).map(t => (
-                <button key={t} onClick={() => setStemType(t)} style={{
-                  background: stemType === t ? 'rgba(176,141,87,0.08)' : 'transparent',
-                  border: `1px solid ${stemType === t ? 'var(--gold)' : 'var(--border-dim)'}`,
-                  color: stemType === t ? 'var(--gold)' : 'var(--text-dimmer)',
-                  fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.1em',
-                  padding: '6px 14px', cursor: 'pointer', textTransform: 'uppercase', transition: 'all 0.15s',
-                }}>{t.replace('_',' ')}</button>
-              ))}
-              <button onClick={analyseStem} disabled={analysingStem} style={{ ...btn(analysingStem), marginLeft: 'auto', padding: '6px 20px' }}>
-                {analysingStem && spinner}{analysingStem ? '…' : 'Analyse stem'}
+        {/* ── ASK ANYTHING ── */}
+        {mode === 'ask' && (
+          <div style={{ maxWidth: '720px' }}>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '28px' }}>
+              <input value={question} onChange={e => setQuestion(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') askQuestion() }}
+                placeholder={`Why is my kick clashing with the bass? How do ${sonicWorld.soundsLike[0] || 'Bicep'} get that pad width?`}
+                style={{ ...inputStyle, flex: 1, fontSize: '14px', padding: '14px 18px' }}
+                autoFocus
+              />
+              <button onClick={askQuestion} disabled={askingQuestion || !question.trim()} style={btn(askingQuestion, !question.trim())}>
+                {askingQuestion && spinner}{askingQuestion ? 'Thinking…' : 'Ask →'}
               </button>
             </div>
-            {stemAnalysis && <div style={{ fontSize: '13px', lineHeight: '1.8', color: 'var(--text-warm)', whiteSpace: 'pre-wrap' }}>{stemAnalysis}</div>}
-          </div>
-        </div>
-
-        {/* ── Next Steps ── */}
-        <div style={{ ...card, marginBottom: '32px' }}>
-          {secHead('Next Steps — upload what you\'ve made')}
-          <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginBottom: '20px' }}>
-            Drop audio you&apos;re working on. Get concrete next steps based on real acoustic measurements and your sonic world.
-          </div>
-
-          <div
-            onDragOver={e => { e.preventDefault(); setNextStepsDrag(true) }}
-            onDragLeave={() => setNextStepsDrag(false)}
-            onDrop={e => {
-              e.preventDefault(); setNextStepsDrag(false)
-              const f = e.dataTransfer.files[0]
-              if (f) { setNextStepsFile(f); setNextStepsResult(null); setNextStepsMeasurements(null) }
-            }}
-            onClick={() => nextStepsInputRef.current?.click()}
-            style={{
-              border: `1px dashed ${nextStepsDrag ? 'var(--gold)' : 'var(--border)'}`,
-              padding: '28px', textAlign: 'center', cursor: 'pointer', marginBottom: '16px',
-              background: nextStepsDrag ? 'rgba(176,141,87,0.03)' : 'transparent',
-              transition: 'all 0.15s',
-            }}
-          >
-            <input ref={nextStepsInputRef} type="file" accept="audio/*,.wav,.aif,.aiff,.mp3,.flac" style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) { setNextStepsFile(f); setNextStepsResult(null); setNextStepsMeasurements(null) } }}
-            />
-            {nextStepsFile ? (
+            {askingQuestion && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>Thinking…</div>}
+            {questionResult && !askingQuestion && (
               <div>
-                <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '4px' }}>{nextStepsFile.name}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>{(nextStepsFile.size / 1024 / 1024).toFixed(1)} MB · click to change</div>
-              </div>
-            ) : (
-              <div>
-                <div style={{ fontSize: '13px', color: 'var(--text-dim)', marginBottom: '6px' }}>Drop audio here or click to browse</div>
-                <div style={{ fontSize: '10px', color: 'var(--text-dimmest)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>WAV · AIFF · MP3 · FLAC</div>
+                <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '32px', marginBottom: '20px' }}>
+                  <div style={{ fontSize: '15px', color: 'var(--text-warm)', lineHeight: '1.85', letterSpacing: '0.03em' }}>{questionResult}</div>
+                </div>
+                <button onClick={() => { setQuestionResult(''); setQuestion('') }} style={btn(false, false, 'dim')}>Ask another →</button>
               </div>
             )}
           </div>
-
-          {nextStepsFile && (
-            <button onClick={() => analyseAndSuggestNextSteps(nextStepsFile)} disabled={generatingNextSteps} style={btn(generatingNextSteps)}>
-              {generatingNextSteps && spinner}
-              {generatingNextSteps ? 'Analysing audio…' : 'Analyse & suggest next steps →'}
-            </button>
-          )}
-
-          {nextStepsMeasurements && (
-            <div style={{ display: 'flex', gap: '8px', marginTop: '20px', flexWrap: 'wrap' }}>
-              {[
-                { label: 'Peak',       value: `${nextStepsMeasurements.peak_db.toFixed(1)} dBFS` },
-                { label: 'RMS',        value: `${nextStepsMeasurements.rms_db.toFixed(1)} dBFS` },
-                { label: 'Centroid',   value: `${nextStepsMeasurements.spectral_centroid_hz} Hz` },
-                { label: 'Sub energy', value: `${(nextStepsMeasurements.low_energy_ratio * 100).toFixed(0)}%` },
-                { label: 'Transients', value: nextStepsMeasurements.transient_sharpness.toFixed(2) },
-                { label: 'Dyn range',  value: `${nextStepsMeasurements.dynamic_range_db.toFixed(1)} dB` },
-              ].map(b => (
-                <div key={b.label} style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '8px 14px', textAlign: 'center', minWidth: '80px' }}>
-                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmest)', textTransform: 'uppercase', marginBottom: '4px' }}>{b.label}</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{b.value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {nextStepsResult && (
-            <div style={{ marginTop: '24px' }}>
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ background: 'rgba(176,141,87,0.07)', border: '1px solid rgba(176,141,87,0.2)', padding: '5px 14px', fontSize: '11px', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0 }}>
-                  {nextStepsResult.detected_type}
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--text-warm)', flex: 1, lineHeight: '1.5' }}>
-                  {nextStepsResult.current_state}
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                {nextStepsResult.next_steps.map((step, i) => (
-                  <div key={i} style={{
-                    background: 'var(--bg)',
-                    border: `1px solid ${step.priority === 1 ? 'rgba(176,141,87,0.3)' : step.priority === 2 ? 'rgba(61,107,74,0.25)' : 'var(--border-dim)'}`,
-                    padding: '14px 18px', display: 'flex', gap: '16px', alignItems: 'flex-start',
-                  }}>
-                    <div style={{ flexShrink: 0, width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: step.priority === 1 ? 'rgba(176,141,87,0.12)' : step.priority === 2 ? 'rgba(61,107,74,0.15)' : 'rgba(255,255,255,0.03)', fontSize: '11px', fontWeight: 700, color: step.priority === 1 ? 'var(--gold)' : step.priority === 2 ? 'var(--green)' : 'var(--text-dimmer)' }}>
-                      {step.priority}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: step.priority === 1 ? 'var(--gold)' : step.priority === 2 ? 'var(--green)' : 'var(--text-dimmer)' }}>{step.area}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text)' }}>{step.action}</div>
-                        {step.plugin && <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '2px 8px', letterSpacing: '0.08em' }}>{step.plugin}</div>}
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{step.detail}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ padding: '12px 18px', background: 'var(--bg)', border: '1px solid var(--border-dim)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmest)', textTransform: 'uppercase', flexShrink: 0 }}>Reference comparison</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-dimmest)', fontStyle: 'italic' }}>Upload a reference track alongside your audio for a real measurement-based comparison</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <TrackUploader />
+        )}
 
       </div>
 
@@ -974,6 +798,7 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
           <div style={{ fontSize: '13px', color: 'var(--text)' }}>{toast.msg}</div>
         </div>
       )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } } @keyframes pulse { 0%,100%{opacity:0.3;transform:scale(0.8)} 50%{opacity:1;transform:scale(1)} }`}</style>
     </div>
   )
 }

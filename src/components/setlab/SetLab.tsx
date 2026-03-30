@@ -319,6 +319,7 @@ export function SetLab() {
   const [maxPopularity, setMaxPopularity] = useState(35)
   const [discoverMeta, setDiscoverMeta] = useState<{ targetCamelot: string; targetBpm: number; debug?: any } | null>(null)
   const [discoverCallCount, setDiscoverCallCount] = useState(0)
+  const [raChartedCount, setRaChartedCount] = useState(0)
   const audioInputRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
   // ── Mix Scanner state ───────────────────────────────────────────────────
@@ -745,10 +746,10 @@ Provide:
           producer_style: t.producer_style || '',
         })))
       } else {
-        setLibrary(SAMPLE_LIBRARY)
+        setLibrary([])
       }
     } catch {
-      setLibrary(SAMPLE_LIBRARY)
+      setLibrary([])
     } finally {
       setLibraryLoading(false)
     }
@@ -970,7 +971,6 @@ Return corrected JSON:
           const resp = await fetch('/api/fingerprint', { method: 'POST', body: fd })
           const data = await resp.json()
 
-          console.log(`[ACR] T${i + 1} @ ${timeIn}:`, data)
           if (data.found) {
             results.push({ time_in: timeIn, title: data.title, artist: data.artist, confidence: data.confidence, found: true })
           } else {
@@ -1036,16 +1036,61 @@ Return corrected JSON:
     setDiscoverLoading(true)
     setDiscoverError('')
     setDiscoverResults([])
+
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
+    const raKey = (artist: string, title: string) => `${normalize(artist)}::${normalize(title)}`
+
     try {
-      const res = await fetch('/api/spotify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracks: seedTracks.slice(0, 8), maxPopularity: pop, limit: 20 }),
+      const [beatportSettled, raSettled] = await Promise.allSettled([
+        fetch('/api/beatport', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tracks: seedTracks.slice(0, 12), maxPopularity: pop, limit: 20 }),
+        }).then(r => r.json()),
+        fetch('/api/ra-charts').then(r => r.json()),
+      ])
+
+      const data = beatportSettled.status === 'fulfilled' ? beatportSettled.value : null
+      if (!data || data.error) throw new Error(data?.error || 'Beatport fetch failed')
+
+      // Build RA track set for cross-referencing
+      const raData = raSettled.status === 'fulfilled' ? raSettled.value : null
+      const raTrackSet: Set<string> = new Set(
+        Array.isArray(raData?.tracks) ? raData.tracks as string[] : []
+      )
+
+      const results: any[] = (data.tracks || []).map((track: any) => {
+        const key = raKey(track.artist || '', track.title || '')
+        // Exact match
+        let ra_charted = raTrackSet.has(key)
+
+        // Partial / substring match for remixes etc.
+        if (!ra_charted && raTrackSet.size > 0) {
+          const normArtist = normalize(track.artist || '')
+          const normTitle  = normalize(track.title || '')
+          for (const entry of raTrackSet) {
+            if (entry.includes(normArtist) && entry.includes(normTitle)) {
+              ra_charted = true
+              break
+            }
+          }
+        }
+
+        return { ...track, ra_charted }
       })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setDiscoverResults(data.tracks || [])
-      setDiscoverMeta({ targetCamelot: data.targetCamelot, targetBpm: data.targetBpm, debug: data.debug })
+
+      // Sort: RA-charted first within each popularity tier, then by release date
+      results.sort((a, b) => {
+        const tierA = a.popularity < 20 ? 0 : a.popularity < 40 ? 1 : a.popularity < 65 ? 2 : 3
+        const tierB = b.popularity < 20 ? 0 : b.popularity < 40 ? 1 : b.popularity < 65 ? 2 : 3
+        if (tierA !== tierB) return tierA - tierB
+        if (a.ra_charted !== b.ra_charted) return a.ra_charted ? -1 : 1
+        return (b.release_date || '').localeCompare(a.release_date || '')
+      })
+
+      setDiscoverResults(results)
+      setDiscoverMeta({ targetCamelot: data.targetCamelot, targetBpm: data.targetBpm })
+      setRaChartedCount(results.filter((t: any) => t.ra_charted).length)
       setDiscoverCallCount(c => c + 1)
     } catch (err: any) {
       setDiscoverError(err.message)
@@ -1172,6 +1217,13 @@ Return corrected JSON:
                   <div key={h} style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase' }}>{h}</div>
                 ))}
               </div>
+              {!libraryLoading && filteredLibrary.length === 0 && (
+                <div style={{ padding: '56px 40px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '16px' }}>Library empty</div>
+                  <div style={{ fontSize: '14px', color: s.textDim, marginBottom: '8px' }}>Add your first track to start building sets.</div>
+                  <div style={{ fontSize: '12px', color: s.textDimmer }}>Type a track name in the search above, or use the Track Lookup tab in Sonix Lab.</div>
+                </div>
+              )}
               {filteredLibrary.map(track => (
                 <div key={track.id}>
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer' }}
@@ -1506,12 +1558,12 @@ Return corrected JSON:
                 <div>
                   <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, marginBottom: '6px' }}>DISCOVER</div>
                   <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
-                    Finds tracks that fit your set's key, BPM, and sound — ranked rarest first.<br/>
-                    {discoverMeta && <span style={{ color: s.goldDim }}>Seeded from {discoverMeta.targetCamelot} · {discoverMeta.targetBpm} BPM</span>}
+                    Real tracks from Beatport × RA charts — filtered to your key, BPM, and underground depth.<br/>
+                    {discoverMeta && <span style={{ color: s.goldDim }}>Matching {discoverMeta.targetCamelot} · ~{discoverMeta.targetBpm} BPM</span>}
                   </div>
                 </div>
                 <div style={{ fontSize: '10px', color: s.textDimmer, textAlign: 'right', lineHeight: '1.7' }}>
-                  <div>Spotify-powered</div>
+                  <div>Beatport catalogue</div>
                   <div>Camelot-filtered</div>
                 </div>
               </div>
@@ -1576,7 +1628,7 @@ Return corrected JSON:
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: `1px solid ${s.border}` }}>
                   <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>
-                    {discoverResults.length} matches — sorted rarest first
+                    {discoverResults.length} matches{raChartedCount > 0 ? ` — ${raChartedCount} RA charted` : ''} — sorted rarest first
                   </div>
                   {discoverMeta && (
                     <div style={{ fontSize: '10px', color: s.textDimmer }}>
@@ -1612,21 +1664,30 @@ Return corrected JSON:
                       {/* Tags */}
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                         <div style={{ fontSize: '10px', padding: '3px 8px', background: `${popColor}20`, border: `1px solid ${popColor}50`, color: popColor, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{popLabel}</div>
+                        {track.ra_charted && (
+                          <div style={{
+                            fontSize: '9px', padding: '3px 7px',
+                            background: 'rgba(220,38,38,0.12)',
+                            border: '1px solid rgba(220,38,38,0.35)',
+                            color: '#dc2626',
+                            letterSpacing: '0.14em',
+                            textTransform: 'uppercase',
+                            fontWeight: 600,
+                          }}>
+                            RA
+                          </div>
+                        )}
                         {track.camelot && <div style={{ fontSize: '11px', color: s.gold, minWidth: '32px', textAlign: 'center' }}>{track.camelot}</div>}
                         {track.bpm && <div style={{ fontSize: '11px', color: s.textDim, minWidth: '36px', textAlign: 'center' }}>{track.bpm}</div>}
-                        <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.1em' }}>{track.source === 'lastfm' ? 'LAST.FM' : 'AI'}</div>
+                        {track.label && <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.08em', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.label}</div>}
                       </div>
 
-                      {/* Preview + links */}
+                      {/* Links */}
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                        {track.preview_url && (
-                          <audio controls src={track.preview_url}
-                            style={{ height: '28px', width: '160px', filter: 'invert(0.8) sepia(0.4) hue-rotate(10deg)' }} />
-                        )}
-                        {track.spotify_url && (
-                          <a href={track.spotify_url} target="_blank" rel="noreferrer"
-                            style={{ fontSize: '10px', color: '#1DB954', textDecoration: 'none', letterSpacing: '0.1em', border: '1px solid #1DB95440', padding: '4px 8px' }}>
-                            Open ↗
+                        {track.beatport_url && (
+                          <a href={track.beatport_url} target="_blank" rel="noreferrer"
+                            style={{ fontSize: '10px', color: s.setlab, textDecoration: 'none', letterSpacing: '0.1em', border: `1px solid ${s.setlab}40`, padding: '5px 10px', whiteSpace: 'nowrap' }}>
+                            Beatport ↗
                           </a>
                         )}
                       </div>

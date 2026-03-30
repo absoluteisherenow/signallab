@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createNotification } from '@/lib/notifications'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +40,32 @@ export async function POST(req: NextRequest) {
       }])
       .select()
     if (error) throw error
-    return NextResponse.json({ success: true, gig: data?.[0] })
+    const gig = data?.[0]
+    if (gig) {
+      await createNotification({
+        type: 'gig_added',
+        title: `New gig added — ${gig.title}`,
+        message: `${gig.venue} · ${new Date(gig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+        href: `/gigs/${gig.id}`,
+        gig_id: gig.id,
+      })
+
+      // Auto-create invoice if fee is set
+      if (gig.fee && gig.fee > 0) {
+        const gigDate = new Date(gig.date)
+        const dueDate = new Date(gigDate.getTime() + 30 * 86400000) // 30 days after gig
+        await supabase.from('invoices').insert([{
+          gig_id: gig.id,
+          gig_title: gig.title,
+          amount: gig.fee,
+          currency: gig.currency || 'EUR',
+          type: 'full',
+          status: 'pending',
+          due_date: dueDate.toISOString().split('T')[0],
+        }])
+      }
+    }
+    return NextResponse.json({ success: true, gig })
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }

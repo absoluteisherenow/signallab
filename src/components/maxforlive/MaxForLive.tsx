@@ -54,14 +54,33 @@ const DEVICES = [
     color: 'var(--blue)',
     colorRaw: '#6a7a9a',
   },
+  {
+    id: 'arrangement',
+    name: 'Arrangement',
+    version: '1.0.0',
+    type: 'MIDI Effect',
+    description: 'Generates section structure and pushes energy curves directly into Ableton arrangement markers. Drops, builds, peaks and breakdowns are shaped by a per-section energy curve — not just a flat marker — so the tension arc of your set is visible and editable in the timeline.',
+    params: [
+      { name: 'Source', range: 'Reference track / SetLab arc / Manual', default: 'SetLab arc' },
+      { name: 'Sections', range: '4 – 32', default: '8' },
+      { name: 'Curve shape', range: 'Linear / Exponential / S-curve', default: 'S-curve' },
+      { name: 'Peak position', range: '0 – 100%', default: '72%' },
+      { name: 'Drop depth', range: '0 – 100%', default: '55%' },
+      { name: 'Marker style', range: 'Locator / Clip colour / Both', default: 'Both' },
+    ],
+    midi_in: 'Transport sync',
+    midi_out: 'Arrangement markers + clip colours',
+    color: '#8a6a9a',
+    colorRaw: '#8a6a9a',
+  },
 ]
 
 const INSTALL_STEPS = [
-  { n: '01', title: 'Download the package', body: 'Download the Artist OS M4L package below. Contains all three devices as .amxd files.' },
+  { n: '01', title: 'Download the package', body: 'Download the Artist OS M4L package below. Contains all four devices as .amxd files.' },
   { n: '02', title: 'Open Ableton Live', body: 'Open Live 11 or 12. Max for Live must be included (Suite edition or add-on).' },
-  { n: '03', title: 'Add to User Library', body: 'Drag the .amxd files into your User Library → Max for Live folder in the browser sidebar.' },
+  { n: '03', title: 'Drop into SONIX Lab folder', body: 'A dedicated SONIX Lab folder already exists in your User Library. In Ableton browser: Places → User Library → SONIX Lab. All four devices live here in one place.' },
   { n: '04', title: 'Connect to Artist OS', body: 'In each device, enter your Artist OS API key from Settings → Integrations. Devices sync in real time.' },
-  { n: '05', title: 'Start playing', body: 'Drop Chord Engine on a MIDI track, Energy Arc on the Master, Mix Chain on any audio channel.' },
+  { n: '05', title: 'Start playing', body: 'Chord Engine on a MIDI track, Energy Arc + Arrangement on the Master, Mix Chain on any audio channel.' },
 ]
 
 export function MaxForLive() {
@@ -110,7 +129,7 @@ export function MaxForLive() {
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
             <div className="display" style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 200, lineHeight: 1.0 }}>Max for Live.</div>
-            <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginTop: '10px' }}>3 devices · Live 11 / 12 · M4L required</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginTop: '10px' }}>4 devices · Live 11 / 12 · M4L required</div>
           </div>
           <button
             onClick={() => window.location.href = '/api/download'}

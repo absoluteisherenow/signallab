@@ -50,8 +50,8 @@ export default function Finances() {
         setInvoices(data.invoices)
         updateMonthlyChart(data.invoices)
       }
-    } catch (err) {
-      console.error('Failed to load invoices:', err)
+    } catch {
+      // Invoices load failed silently — empty state will show
     } finally {
       setLoading(false)
     }
@@ -229,7 +229,12 @@ export default function Finances() {
         {loading ? (
           <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>Loading invoices...</div>
         ) : invoices.length === 0 ? (
-          <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>No invoices yet</div>
+          <div style={{ padding: '64px 40px', textAlign: 'center' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '16px' }}>No invoices yet</div>
+            <div style={{ fontSize: '14px', color: 'var(--text-dim)', marginBottom: '8px' }}>Invoices are created automatically when you add a gig.</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', marginBottom: '28px' }}>Or create one manually using the button above.</div>
+            <a href="/gigs/new" style={{ display: 'inline-block', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(176, 141, 87, 0.4)', padding: '12px 24px', textDecoration: 'none' }}>Add a gig →</a>
+          </div>
         ) : (
           invoices.map((inv, i) => (
             <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 120px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>

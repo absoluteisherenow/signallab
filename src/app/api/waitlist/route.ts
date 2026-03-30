@@ -50,7 +50,6 @@ export async function POST(req: NextRequest) {
       id: data?.[0]?.id,
     })
   } catch (err: any) {
-    console.error('Waitlist error:', err)
     return NextResponse.json(
       { success: false, error: err.message || 'Failed to join waitlist' },
       { status: 500 }

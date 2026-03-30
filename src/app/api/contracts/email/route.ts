@@ -11,10 +11,7 @@ const supabase = createClient(
 let resend: Resend | null = null
 function getResend() {
   if (!resend) {
-    if (!process.env.RESEND_API_KEY) {
-      console.warn('⚠️ RESEND_API_KEY not configured. Email notifications will be skipped.')
-      return null
-    }
+    if (!process.env.RESEND_API_KEY) return null
     resend = new Resend(process.env.RESEND_API_KEY)
   }
   return resend
@@ -56,6 +53,8 @@ async function extractContractWithClaude(
   promoterEmail: string
   promoterName: string
   notes: string
+  techRider: string | null
+  hospitalityRider: string | null
 }> {
   const combinedText = [emailBody, ...attachmentTexts].join('\n\n')
 
@@ -67,9 +66,15 @@ async function extractContractWithClaude(
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1000,
-      system: `You are a contract parser. Extract gig details from contract emails and attachments. Return ONLY valid JSON (no markdown or explanation). If a field is missing, use null. Date format: YYYY-MM-DD. Time format: HH:MM (24h). Fee as number. Return:
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1400,
+      system: `You are a contract parser for a music artist. Extract all gig and rider details from booking emails and attachments. Return ONLY valid JSON (no markdown or explanation). If a field is missing, use null. Date format: YYYY-MM-DD. Time format: HH:MM (24h). Fee as number.
+
+For techRider: extract the technical setup being provided by the venue — DJ equipment (CDJ model, mixer model), PA system, booth dimensions, monitor setup, soundcheck time. Write as concise bullet-point lines joined with newlines.
+For hospitalityRider: extract what the promoter is providing — hotel nights, catering, transport/airport pickup, green room, guest list allocation. Write as concise bullet-point lines joined with newlines.
+If no rider info is present, use null.
+
+Return:
 {
   "title": "event/festival name",
   "venue": "venue name",
@@ -78,9 +83,11 @@ async function extractContractWithClaude(
   "time": "HH:MM",
   "fee": number,
   "currency": "EUR" or "GBP" or "USD",
-  "promoterEmail": "promoter@example.com",
-  "promoterName": "Promoter Name",
-  "notes": "any special requirements or details"
+  "promoterEmail": "email",
+  "promoterName": "name",
+  "notes": "any other requirements not covered by riders",
+  "techRider": "line 1\nline 2\nline 3" or null,
+  "hospitalityRider": "line 1\nline 2\nline 3" or null
 }`,
       messages: [
         {
@@ -118,9 +125,6 @@ export async function POST(req: NextRequest) {
     // Normalise: Resend wraps inbound emails in { type: "email.received", data: {...} }
     const body: EmailPayload = (raw as ResendInboundEvent).data ?? (raw as EmailPayload)
 
-    console.log('📧 Contract email received from:', body.from)
-    console.log('Subject:', body.subject)
-
     // Extract text from email
     const emailText = body.text || body.html || ''
     if (!emailText) {
@@ -134,7 +138,6 @@ export async function POST(req: NextRequest) {
     const attachmentTexts: string[] = []
     if (body.attachments && body.attachments.length > 0) {
       for (const attachment of body.attachments) {
-        console.log(`Processing attachment: ${attachment.filename}`)
         const mimeType = attachment.contentType || attachment.content_type || ''
         if (
           attachment.filename.toLowerCase().endsWith('.pdf') ||
@@ -149,23 +152,38 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract gig details using Claude
-    console.log('🤖 Parsing contract with Claude...')
     const gigDetails = await extractContractWithClaude(emailText, attachmentTexts)
 
-    // Validate extracted data
-    if (!gigDetails.title || !gigDetails.venue || !gigDetails.date) {
+    // Validate extracted data — title falls back to venue if missing
+    if (!gigDetails.venue && !gigDetails.date) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Could not extract required fields (title, venue, date)',
+          error: 'Could not extract required fields (venue, date)',
           extracted: gigDetails,
         },
         { status: 400 }
       )
     }
+    if (!gigDetails.title) gigDetails.title = gigDetails.venue || 'Untitled Gig'
 
-    // Create gig in Supabase
-    console.log('💾 Creating gig in Supabase...')
+    // Build notes with rider sections if extracted
+    const notesParts: string[] = []
+    if (gigDetails.promoterName) notesParts.push(`Promoter: ${gigDetails.promoterName}`)
+    if (gigDetails.notes) notesParts.push(gigDetails.notes)
+
+    const hasRider = gigDetails.techRider || gigDetails.hospitalityRider
+    if (hasRider) {
+      notesParts.push('')
+      if (gigDetails.techRider) {
+        notesParts.push(`TECH RIDER:\n${gigDetails.techRider}`)
+      }
+      if (gigDetails.hospitalityRider) {
+        notesParts.push(`HOSPITALITY:\n${gigDetails.hospitalityRider}`)
+      }
+      notesParts.push('RIDER STATUS: needs confirmation')
+    }
+
     const { data: newGig, error: gigError } = await supabase
       .from('gigs')
       .insert([
@@ -179,8 +197,7 @@ export async function POST(req: NextRequest) {
           currency: gigDetails.currency || 'EUR',
           status: 'confirmed',
           promoter_email: gigDetails.promoterEmail,
-          promoter_name: gigDetails.promoterName,
-          notes: gigDetails.notes,
+          notes: notesParts.filter(Boolean).join('\n'),
           created_at: new Date().toISOString(),
         },
       ])
@@ -190,9 +207,21 @@ export async function POST(req: NextRequest) {
 
     const gig = newGig?.[0]
 
+    // Fire rider confirmation notification if rider data was extracted
+    if (gig && hasRider) {
+      await supabase.from('notifications').insert([{
+        type: 'rider_confirmation',
+        title: `Rider details found — ${gig.title}`,
+        message: `Tech and/or hospitality rider extracted from booking email. Review and confirm before the advance.`,
+        href: `/gigs/${gig.id}`,
+        read: false,
+        gig_id: gig.id,
+        created_at: new Date().toISOString(),
+      }])
+    }
+
     // Send artist notification email
     if (gig) {
-      console.log('📬 Sending artist notification...')
       const gigDate = new Date(gig.date).toLocaleDateString('en-GB', {
         weekday: 'long',
         day: 'numeric',
@@ -229,12 +258,9 @@ Night Manoeuvres
             subject: `New gig confirmed: ${gig.title} on ${gigDate}`,
             text: notificationEmail,
           })
-          console.log('✅ Notification email sent')
-        } else {
-          console.log('⚠️ Skipping notification email (RESEND_API_KEY not configured)')
         }
-      } catch (emailErr: any) {
-        console.error('Failed to send notification email:', emailErr)
+      } catch {
+        // Email failure is non-critical
         // Don't fail the whole request if email fails
       }
     }
@@ -251,7 +277,6 @@ Night Manoeuvres
       },
     })
   } catch (err: any) {
-    console.error('❌ Contract email error:', err)
     return NextResponse.json(
       {
         success: false,

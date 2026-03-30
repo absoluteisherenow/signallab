@@ -36,16 +36,34 @@ export function GigsList() {
   const searchParams = useSearchParams()
   const openId = searchParams.get('open')
 
-  const [gigs, setGigs] = useState<Gig[]>(FALLBACK)
+  const [gigs, setGigs] = useState<Gig[] | null>(null)
   const [selected, setSelected] = useState<string | null>(openId)
-  const [advanceStatus, setAdvanceStatus] = useState<Record<string, string>>({ '1': 'complete', '2': 'sent' })
+  const [advanceStatus, setAdvanceStatus] = useState<Record<string, string>>({})
   const [showEmailInput, setShowEmailInput] = useState<string | null>(null)
   const [promoterEmail, setPromoterEmail] = useState('')
   const [sending, setSending] = useState<string | null>(null)
   const [toast, setToast] = useState('')
 
   useEffect(() => {
-    fetch('/api/gigs').then(r => r.json()).then(d => { if (d.gigs?.length > 0) setGigs(d.gigs) }).catch(() => {})
+    fetch('/api/gigs')
+      .then(r => r.json())
+      .then(d => setGigs(d.gigs || []))
+      .catch(() => setGigs(FALLBACK))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/advance')
+      .then(r => r.json())
+      .then(d => {
+        if (d.requests) {
+          const map: Record<string, string> = {}
+          d.requests.forEach((req: { gig_id: string; completed: boolean }) => {
+            map[req.gig_id] = req.completed ? 'complete' : 'sent'
+          })
+          setAdvanceStatus(map)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -79,7 +97,8 @@ export function GigsList() {
 
   const aColor = (s: string) => s === 'complete' ? f.green : s === 'sent' ? f.gold : f.dimmer
   const aLabel = (s: string) => s === 'complete' ? 'Advance complete' : s === 'sent' ? 'Sent — awaiting' : 'Not sent'
-  const totalFees = gigs.filter(g => g.status === 'confirmed').reduce((a, g) => a + g.fee, 0)
+  const gigList = gigs || []
+  const totalFees = gigList.filter(g => g.status === 'confirmed').reduce((a, g) => a + g.fee, 0)
 
   return (
     <div style={{ background: f.bg, color: f.text, fontFamily: f.font, minHeight: '100vh', padding: '48px 56px' }}>
@@ -90,7 +109,7 @@ export function GigsList() {
             <span style={{ display: 'block', width: '28px', height: '1px', background: f.gold }} />Tour Lab — Gigs
           </div>
           <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 200 }}>Gigs</div>
-          <div style={{ fontSize: '13px', color: f.dimmer, marginTop: '6px' }}>{gigs.filter(g => g.status === 'confirmed').length} confirmed · €{totalFees.toLocaleString()} total · Click any row to expand</div>
+          <div style={{ fontSize: '13px', color: f.dimmer, marginTop: '6px' }}>{gigList.filter(g => g.status === 'confirmed').length} confirmed · €{totalFees.toLocaleString()} total · Click any row to expand</div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <Link href="/contracts" style={{ textDecoration: 'none', border: `1px solid ${f.border}`, color: f.dimmer, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 20px', display: 'inline-block' }}>Upload contract</Link>
@@ -105,8 +124,24 @@ export function GigsList() {
         {['Show', 'Date', 'Location', 'Status', 'Cap.', 'Fee', 'Advance'].map(h => <div key={h}>{h}</div>)}
       </div>
 
+      {gigs === null && (
+        <div style={{ padding: '60px 24px', textAlign: 'center', color: f.dimmer, fontSize: '13px' }}>Loading...</div>
+      )}
+
+      {gigs !== null && gigList.length === 0 && (
+        <div style={{ background: f.panel, border: `1px solid ${f.border}`, padding: '64px 40px', textAlign: 'center' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: f.dimmer, textTransform: 'uppercase', marginBottom: '20px' }}>No gigs yet</div>
+          <div style={{ fontSize: '15px', color: f.dim, marginBottom: '8px' }}>Your upcoming shows will appear here.</div>
+          <div style={{ fontSize: '12px', color: f.dimmer, marginBottom: '32px' }}>Paste a booking email to create your first gig automatically, or add one manually.</div>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <Link href="/contracts" style={{ textDecoration: 'none', background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: `1px solid ${f.gold}`, color: f.gold, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', display: 'inline-block' }}>Parse booking email →</Link>
+            <button onClick={() => router.push('/gigs/new')} style={{ background: 'transparent', border: `1px solid ${f.border}`, color: f.dimmer, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 24px', cursor: 'pointer' }}>Add manually</button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        {gigs.map(gig => {
+        {gigList.map(gig => {
           const isOpen = selected === gig.id
           const gigDate = new Date(gig.date)
           const daysTo = Math.ceil((gigDate.getTime() - Date.now()) / 86400000)
@@ -210,9 +245,11 @@ export function GigsList() {
                     <div>
                       <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: f.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Quick actions</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <Link href={`/gigs/${gig.id}`}
+                          style={{ fontSize: '12px', color: f.gold, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${f.gold}30`, display: 'block' }}>Edit / full detail →</Link>
                         <Link href={`/broadcast?gig=${gig.id}&title=${encodeURIComponent(gig.title)}&venue=${encodeURIComponent(gig.venue)}&location=${encodeURIComponent(gig.location)}&date=${gig.date}`}
                           style={{ fontSize: '12px', color: f.green, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${f.green}30`, display: 'block' }}>Create post →</Link>
-                        <Link href="/contracts" style={{ fontSize: '12px', color: f.gold, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${f.gold}30`, display: 'block' }}>Upload contract →</Link>
+                        <Link href="/contracts" style={{ fontSize: '12px', color: f.dimmer, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${f.border}`, display: 'block' }}>Upload contract →</Link>
                         <Link href="/business/finances" style={{ fontSize: '12px', color: f.dimmer, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${f.border}`, display: 'block' }}>View invoices →</Link>
                       </div>
                     </div>

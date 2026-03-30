@@ -31,8 +31,8 @@ export default function Settings() {
         if (data.settings.team) setTeam(data.settings.team)
         if (data.settings.advance) setAdvance(data.settings.advance)
       }
-    } catch (err) {
-      console.error('Failed to load settings:', err)
+    } catch {
+      // Settings load failed silently — empty state will show
     } finally {
       setLoading(false)
     }
@@ -51,8 +51,8 @@ export default function Settings() {
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
       }
-    } catch (err) {
-      console.error('Failed to save settings:', err)
+    } catch {
+      // Save failed silently
     } finally {
       setIsSaving(false)
     }

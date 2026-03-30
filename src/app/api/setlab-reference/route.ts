@@ -501,7 +501,7 @@ Identify the single track being referenced. Return only the JSON.`
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-6',
         max_tokens: 600,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],

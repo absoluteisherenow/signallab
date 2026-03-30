@@ -43,11 +43,6 @@ export default function Login() {
     }
   }
 
-  // Demo bypass
-  function demoLogin() {
-    window.location.href = '/dashboard'
-  }
-
   return (
     <div style={{ minHeight: '100vh', background: s.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: s.font, padding: '40px' }}>
 
@@ -123,17 +118,8 @@ export default function Login() {
           </div>
         </div>
 
-        {/* DEMO ACCESS */}
         <div style={{ marginTop: '16px', textAlign: 'center' }}>
-          <button
-            onClick={demoLogin}
-            style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 28px', cursor: 'pointer', width: '100%', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.color = s.dim; e.currentTarget.style.borderColor = s.dimmer }}
-            onMouseLeave={e => { e.currentTarget.style.color = s.dimmer; e.currentTarget.style.borderColor = s.border }}
-          >
-            Demo — enter without account
-          </button>
-          <div style={{ fontSize: '10px', color: '#1a1917', marginTop: '10px', letterSpacing: '0.08em' }}>Private beta · v0.1</div>
+          <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em' }}>Private beta · v0.1</div>
         </div>
       </div>
 

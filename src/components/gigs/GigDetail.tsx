@@ -1,884 +1,403 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Mail, Phone, MapPin, Building, User, FileText, DollarSign, FileCheck, Clock, Car, Utensils, Music } from 'lucide-react'
-import { Header } from '@/components/dashboard/Header'
+
+interface Gig {
+  id: string
+  title: string
+  venue: string
+  location: string
+  date: string
+  time: string
+  fee: number
+  currency: string
+  audience: number
+  status: string
+  promoter_email: string | null
+  notes: string | null
+}
 
 interface GigDetailProps {
   gigId: string
 }
 
+const s = {
+  label: { fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase' as const, marginBottom: '6px' },
+  value: { fontSize: '14px', color: 'var(--text)', lineHeight: 1.4 },
+  input: {
+    width: '100%', background: '#0c0b09', border: '1px solid var(--border-dim)', color: 'var(--text)',
+    fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' as const,
+  },
+  select: {
+    width: '100%', background: '#0c0b09', border: '1px solid var(--border-dim)', color: 'var(--text)',
+    fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none',
+  },
+}
+
+function Field({ label, value, edit, name, type = 'text', options }: {
+  label: string; value: string | number; edit: boolean; name: string; type?: string; options?: string[]
+}) {
+  if (!edit) return (
+    <div>
+      <div style={s.label}>{label}</div>
+      <div style={s.value}>{value || '—'}</div>
+    </div>
+  )
+  if (options) return (
+    <div>
+      <div style={s.label}>{label}</div>
+      <select name={name} defaultValue={String(value)} style={s.select}>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  )
+  return (
+    <div>
+      <div style={s.label}>{label}</div>
+      <input name={name} defaultValue={String(value || '')} type={type} style={s.input} />
+    </div>
+  )
+}
+
 export function GigDetail({ gigId }: GigDetailProps) {
-  const [activeTab, setActiveTab] = useState<'logistics' | 'invoicing'>('logistics')
+  const [gig, setGig] = useState<Gig | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState('')
+  const [advanceStatus, setAdvanceStatus] = useState<string | null>(null)
+  const [sendingAdvance, setSendingAdvance] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-  // Mock gig data
-  const gig = {
-    id: gigId,
-    title: 'Electric Nights Festival',
-    date: '2026-04-15',
-    time: '22:00',
-    location: 'Berlin, Germany',
-    venue: 'Tresor Club',
-    status: 'confirmed',
-    audience: 2500,
-    fee: 5000,
+  // Parse rider sections from notes
+  function parseRider(notes: string | null): { tech: string | null; hospitality: string | null; confirmed: boolean } | null {
+    if (!notes || !notes.includes('RIDER STATUS:')) return null
+    const techMatch = notes.match(/TECH RIDER:\n([\s\S]*?)(?=\nHOSPITALITY:|\nRIDER STATUS:|$)/)
+    const hospMatch = notes.match(/HOSPITALITY:\n([\s\S]*?)(?=\nRIDER STATUS:|$)/)
+    const confirmed = notes.includes('RIDER STATUS: confirmed')
+    return {
+      tech: techMatch ? techMatch[1].trim() : null,
+      hospitality: hospMatch ? hospMatch[1].trim() : null,
+      confirmed,
+    }
   }
 
-  // Complete logistics data with all 40+ fields
-  const logistics = {
-    // VENUE INFORMATION (8 fields)
-    venue: {
-      name: 'Tresor Club',
-      address: 'Köpenicker Straße 70, 10179 Berlin',
-      city: 'Berlin',
-      country: 'Germany',
-      phone: '+49 30 2625 0721',
-      email: 'info@tresor.de',
-      capacity: 2500,
-      notes: 'Main stage venue',
-    },
+  useEffect(() => {
+    fetch(`/api/gigs/${gigId}`)
+      .then(r => r.json())
+      .then(d => { if (d.gig) setGig(d.gig) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
 
-    // VENUE CONTACT (6 fields)
-    venueManager: {
-      name: 'Klaus Mueller',
-      email: 'klaus@tresor.de',
-      phone: '+49 30 2625 0721',
-      mobile: '+49 160 1234567',
-      office: '+49 30 2625 0720',
-      fax: '+49 30 2625 0722',
-      role: 'Venue Manager',
-    },
+    fetch(`/api/advance?gigId=${gigId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.requests?.length > 0) {
+          setAdvanceStatus(d.requests[0].completed ? 'complete' : 'sent')
+        }
+      })
+      .catch(() => {})
+  }, [gigId])
 
-    // ACCOMMODATION (5 fields)
-    hotel: {
-      name: 'Hotel Berlin Mitte',
-      address: 'Spandauer Straße 3, 10178 Berlin',
-      phone: '+49 30 5555 5555',
-      checkInTime: '15:00',
-      checkOutTime: '11:00',
-      reservationName: 'NIGHT MANOEUVRES',
-      confirmationNumber: 'HBM-202604-12345',
-    },
-
-    // TRAVEL & TRANSPORT (7 fields)
-    travel: {
-      method: 'Flight + Car Service',
-      flightNumber: 'LH2451',
-      departureCity: 'London',
-      arrivalAirport: 'BER',
-      travelDate: '2026-04-14',
-      travelTime: '14:00',
-      notes: 'Direct flight, car pickup at airport',
-    },
-
-    // DRIVER INFORMATION (4 fields)
-    driver: {
-      name: 'Hans Mueller',
-      phone: '+49 170 7777777',
-      mobile: '+49 151 8888888',
-      company: 'Berlin Luxury Transport',
-      carType: 'Mercedes S-Class',
-    },
-
-    // LOAD-IN & PERFORMANCE TIMING (5 fields)
-    schedule: {
-      loadInTime: '2026-04-15 17:00',
-      soundCheckTime: '2026-04-15 19:00',
-      stageTime: '2026-04-15 22:00',
-      performanceDuration: '90 minutes',
-      loadOutTime: '2026-04-15 23:45',
-    },
-
-    // CATERING & HOSPITALITY (5 fields)
-    catering: {
-      provider: 'Berlin Catering Services',
-      contact: 'Julia Hoffmann',
-      phone: '+49 30 4444 4444',
-      mealTypes: 'Breakfast, Lunch, Dinner, Snacks',
-      specialRequirements: 'Vegetarian/Vegan options, No shellfish',
-    },
-
-    // TECHNICAL TEAM (3 fields)
-    soundEngineer: {
-      name: 'Marcus Weber',
-      email: 'marcus@tresor.de',
-      phone: '+49 30 3333 4444',
-      mobile: '+49 173 5555666',
-      office: '+49 30 3333 4440',
-      fax: '+49 30 3333 4445',
-      role: 'Sound Engineer',
-      credentials: 'Pro Audio Certification, 15+ years',
-    },
-
-    lightingEngineer: {
-      name: 'Anna Volkova',
-      email: 'anna.v@tresor.de',
-      phone: '+49 30 3333 4446',
-      mobile: '+49 173 5555667',
-      role: 'Lighting Engineer',
-      credentials: 'Lighting Design Specialist',
-    },
-
-    // LOGISTICS COORDINATION (5 fields)
-    logisticsCoord: {
-      name: 'Thomas Keller',
-      email: 'thomas@tresor.de',
-      phone: '+49 30 5555 6666',
-      mobile: '+49 151 7777888',
-      office: '+49 30 5555 6660',
-      fax: '+49 30 5555 6667',
-      role: 'Logistics Coordinator',
-      warehouse: 'Warehouse address for equipment storage',
-    },
-
-    // PROMOTER INFORMATION (6 fields)
-    promoter: {
-      name: 'Anna Schmidt',
-      email: 'anna@electricnights.de',
-      phone: '+49 30 1111 2222',
-      mobile: '+49 170 9876543',
-      office: '+49 30 1111 2220',
-      fax: '+49 30 1111 2223',
-      role: 'Festival Promoter',
-      company: 'Electric Nights GmbH',
-    },
-
-    // HOST/EMCEE (3 fields)
-    hostEmcee: {
-      name: 'DJ Berlin',
-      email: 'dj@berlin-nights.de',
-      phone: '+49 30 7777 8888',
-      mobile: '+49 178 9999000',
-      role: 'Host / Emcee',
-      socialMedia: '@djberlin',
-    },
-
-    // SECURITY (4 fields)
-    securityLead: {
-      name: 'Stefan Hoffmann',
-      email: 'stefan@tresor-security.de',
-      phone: '+49 30 9999 0000',
-      mobile: '+49 175 1111222',
-      role: 'Security Lead',
-      company: 'Tresor Security',
-      teamSize: '15 personnel',
-    },
-
-    // PERMITS & REGULATIONS (3 fields)
-    regulations: {
-      name: 'Petra Braun',
-      email: 'petra@berlin-events.de',
-      phone: '+49 30 2222 3333',
-      role: 'Permits & Regulations',
-      agency: 'Berlin Event Licensing',
-      permitNumber: 'BEL-2026-04-0415',
-    },
-
-    // INSURANCE & LEGAL (3 fields)
-    insurance: {
-      provider: 'EventSure Insurance',
-      policyNumber: 'POL-2026-ENG-004',
-      contact: 'Michael Berg',
-      phone: '+49 30 6666 6666',
-    },
-
-    // SOUND SYSTEM SPECS (4 fields)
-    soundSystem: {
-      systemType: 'Full PA + Subwoofer Array',
-      power: '25kW+ capacity',
-      technician: 'Marcus Weber',
-      backupAvailable: 'Yes - full redundancy',
-    },
-
-    // LIGHTING RIG (4 fields)
-    lightingRig: {
-      systemType: '400+ intelligent fixtures',
-      riggingPoints: '48 points',
-      designFile: 'Electric_Nights_2026_V3.mad',
-      supportEngineer: 'Anna Volkova',
-    },
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 3000)
   }
 
-  // Invoicing data
-  const invoicing = {
-    contracts: [
-      {
-        id: 1,
-        name: 'Performance Agreement',
-        status: 'signed',
-        date: '2026-03-10',
-        value: 5000,
-      },
-      {
-        id: 2,
-        name: 'Technical Rider',
-        status: 'signed',
-        date: '2026-03-10',
-      },
-    ],
-    invoices: [
-      {
-        id: 1,
-        number: 'INV-2026-0415-001',
-        status: 'issued',
-        date: '2026-03-15',
-        amount: 5000,
-        dueDate: '2026-04-15',
-      },
-    ],
-    payments: [
-      {
-        id: 1,
-        date: '2026-04-15',
-        amount: 5000,
-        status: 'pending',
-        method: 'bank transfer',
-      },
-    ],
-    expenses: [
-      {
-        id: 1,
-        description: 'Travel: Flight Berlin',
-        amount: 250,
-        date: '2026-04-14',
-        category: 'travel',
-      },
-      {
-        id: 2,
-        description: 'Accommodation: Hotel (2 nights)',
-        amount: 400,
-        date: '2026-04-14',
-        category: 'accommodation',
-      },
-      {
-        id: 3,
-        description: 'Equipment Transport',
-        amount: 150,
-        date: '2026-04-14',
-        category: 'equipment',
-      },
-    ],
+  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!gig) return
+    setSaving(true)
+    const fd = new FormData(e.currentTarget)
+    const updates = Object.fromEntries(fd.entries())
+    try {
+      const res = await fetch(`/api/gigs/${gigId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      const d = await res.json()
+      if (d.gig) {
+        setGig(d.gig)
+        setEditing(false)
+        showToast('Saved')
+      }
+    } catch {
+      showToast('Save failed')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const totalExpenses = invoicing.expenses.reduce((sum, exp) => sum + exp.amount, 0)
-  const profitMargin = gig.fee - totalExpenses
+  async function handleSendAdvance() {
+    if (!gig?.promoter_email) { showToast('Add a promoter email first'); return }
+    setSendingAdvance(true)
+    try {
+      await fetch('/api/advance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gigId: gig.id,
+          gigTitle: gig.title,
+          venue: gig.venue,
+          date: gig.date,
+          promoterEmail: gig.promoter_email,
+        }),
+      })
+      setAdvanceStatus('sent')
+      showToast('Advance sent to promoter')
+    } catch {
+      showToast('Failed to send advance')
+    } finally {
+      setSendingAdvance(false)
+    }
+  }
+
+  async function confirmRider() {
+    if (!gig) return
+    const updatedNotes = (gig.notes || '').replace('RIDER STATUS: needs confirmation', 'RIDER STATUS: confirmed')
+    const res = await fetch(`/api/gigs/${gig.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: updatedNotes }),
+    })
+    if (res.ok) {
+      setGig(prev => prev ? { ...prev, notes: updatedNotes } : prev)
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm('Delete this gig? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      await fetch(`/api/gigs/${gigId}`, { method: 'DELETE' })
+      window.location.href = '/gigs'
+    } catch {
+      showToast('Delete failed')
+      setDeleting(false)
+    }
+  }
+
+  if (loading) return (
+    <div style={{ padding: '80px 56px', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '12px', letterSpacing: '0.1em' }}>Loading…</div>
+  )
+
+  if (!gig) return (
+    <div style={{ padding: '80px 56px', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)' }}>
+      <div style={{ fontSize: '12px', letterSpacing: '0.1em', marginBottom: '16px' }}>Gig not found.</div>
+      <Link href="/gigs" style={{ fontSize: '11px', color: 'var(--gold)', textDecoration: 'none' }}>← Back to gigs</Link>
+    </div>
+  )
+
+  const gigDate = new Date(gig.date)
+  const daysTo = Math.ceil((gigDate.getTime() - Date.now()) / 86400000)
 
   return (
-    <div className="min-h-screen bg-night-black">
-      {/* Header with back link */}
-      <div className="border-b border-night-dark-gray bg-night-gray">
-        <div className="p-8">
-          <Link href="/gigs" className="inline-flex items-center gap-2 text-night-light hover:text-night-silver transition-colors mb-4">
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Gigs</span>
-          </Link>
-          <h1 className="text-5xl font-bold text-night-silver tracking-tight">{gig.title}</h1>
-          <p className="text-night-light mt-3 text-lg">{gig.venue}, {gig.location}</p>
+    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: '32px', right: '32px', background: '#1a1811', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '12px 20px', fontSize: '11px', letterSpacing: '0.15em', zIndex: 100 }}>
+          {toast}
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{ padding: '52px 56px 44px', borderBottom: '1px solid var(--border-dim)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '28px' }}>
+          <Link href="/gigs" style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textDecoration: 'none', textTransform: 'uppercase' }}>← Gigs</Link>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '12px' }}>
+              {gig.status === 'confirmed' ? '● Confirmed' : gig.status === 'cancelled' ? '○ Cancelled' : '◎ Pending'}
+            </div>
+            <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 46px)', lineHeight: 1.0, marginBottom: '10px' }}>{gig.title}</div>
+            <div style={{ fontSize: '14px', color: 'var(--text-dim)' }}>{gig.venue} · {gig.location}</div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {!editing && (
+              <button onClick={() => setEditing(true)}
+                style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer' }}>
+                Edit
+              </button>
+            )}
+            <button onClick={handleDelete} disabled={deleting}
+              style={{ background: 'transparent', border: '1px solid rgba(138, 74, 58, 0.3)', color: '#8a4a3a', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer', opacity: deleting ? 0.5 : 1 }}>
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Gig Overview */}
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-              <p className="text-night-silver text-xs font-semibold uppercase tracking-wide mb-2">Date & Time</p>
-              <p className="text-night-light font-semibold">{new Date(gig.date).toLocaleDateString('en-GB')} at {gig.time}</p>
+      <div style={{ padding: '44px 56px' }}>
+
+        {/* Stats row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', marginBottom: '44px' }}>
+          {[
+            { label: 'Date', value: gigDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }) },
+            { label: 'Days away', value: daysTo >= 0 ? `${daysTo}d` : 'Past' },
+            { label: 'Fee', value: `${gig.currency === 'EUR' ? '€' : gig.currency}${(gig.fee || 0).toLocaleString()}` },
+            { label: 'Capacity', value: (gig.audience || 0).toLocaleString() },
+          ].map(stat => (
+            <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
+              <div className="display" style={{ fontSize: '26px', lineHeight: 1, color: 'var(--text)' }}>{stat.value}</div>
             </div>
-            <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-              <p className="text-night-silver text-xs font-semibold uppercase tracking-wide mb-2">Expected Audience</p>
-              <p className="text-night-light font-semibold">{gig.audience.toLocaleString()}</p>
+          ))}
+        </div>
+
+        {/* Main edit/view form */}
+        <form onSubmit={handleSave}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+
+            {/* Gig details */}
+            <div className="card" style={{ padding: '32px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Gig details</div>
+              <div style={{ display: 'grid', gap: '20px' }}>
+                <Field label="Title" value={gig.title} edit={editing} name="title" />
+                <Field label="Venue" value={gig.venue} edit={editing} name="venue" />
+                <Field label="Location" value={gig.location} edit={editing} name="location" />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <Field label="Date" value={gig.date} edit={editing} name="date" type="date" />
+                  <Field label="Set time" value={gig.time} edit={editing} name="time" type="time" />
+                </div>
+                <Field label="Status" value={gig.status} edit={editing} name="status" options={['confirmed', 'pending', 'cancelled']} />
+              </div>
             </div>
-            <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-              <p className="text-night-silver text-xs font-semibold uppercase tracking-wide mb-2">Performance Fee</p>
-              <p className="text-night-light font-semibold">€{gig.fee.toLocaleString()}</p>
+
+            {/* Financials & contact */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="card" style={{ padding: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Financials</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <Field label="Fee" value={gig.fee} edit={editing} name="fee" type="number" />
+                  <Field label="Currency" value={gig.currency} edit={editing} name="currency" options={['EUR', 'GBP', 'USD', 'CHF']} />
+                  <Field label="Capacity" value={gig.audience} edit={editing} name="audience" type="number" />
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Promoter</div>
+                <Field label="Email" value={gig.promoter_email || ''} edit={editing} name="promoter_email" type="email" />
+              </div>
             </div>
-            <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-              <p className="text-night-silver text-xs font-semibold uppercase tracking-wide mb-2">Status</p>
-              <span className="inline-block px-3 py-1 rounded text-xs font-semibold uppercase bg-green-900/30 text-green-400">
-                {gig.status}
+          </div>
+
+          {/* Notes — strip rider sections for display */}
+          <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Notes</div>
+            {editing ? (
+              <textarea name="notes" defaultValue={gig.notes || ''} rows={5}
+                style={{ ...s.input, resize: 'vertical', display: 'block' }} />
+            ) : (
+              <div style={{ fontSize: '13px', color: 'var(--text-dim)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                {(gig.notes || '').split('\nTECH RIDER:')[0].split('\nHOSPITALITY:')[0].trim() || 'No notes yet.'}
+              </div>
+            )}
+          </div>
+
+          {/* Rider — shown when extracted from booking email */}
+          {(() => {
+            const rider = parseRider(gig.notes)
+            if (!rider) return null
+            return (
+              <div className="card" style={{ padding: '32px', marginBottom: '20px', borderColor: rider.confirmed ? 'rgba(61,107,74,0.3)' : 'rgba(176,141,87,0.25)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Rider</div>
+                  {rider.confirmed ? (
+                    <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--green)', background: 'rgba(61,107,74,0.1)', padding: '4px 12px' }}>✓ Confirmed</span>
+                  ) : (
+                    <button onClick={confirmRider}
+                      style={{ background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer' }}>
+                      Confirm rider →
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: rider.tech && rider.hospitality ? '1fr 1fr' : '1fr', gap: '24px' }}>
+                  {rider.tech && (
+                    <div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Tech</div>
+                      {rider.tech.split('\n').map((line, i) => (
+                        <div key={i} style={{ fontSize: '13px', color: 'var(--text-dim)', padding: '8px 0', borderBottom: '1px solid var(--border-dim)', lineHeight: 1.5 }}>{line}</div>
+                      ))}
+                    </div>
+                  )}
+                  {rider.hospitality && (
+                    <div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Hospitality</div>
+                      {rider.hospitality.split('\n').map((line, i) => (
+                        <div key={i} style={{ fontSize: '13px', color: 'var(--text-dim)', padding: '8px 0', borderBottom: '1px solid var(--border-dim)', lineHeight: 1.5 }}>{line}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {!rider.confirmed && (
+                  <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginTop: '16px', fontStyle: 'italic' }}>
+                    Extracted from booking email — confirm once you&#39;ve reviewed
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
+          {editing && (
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '44px' }}>
+              <button type="submit" disabled={saving}
+                style={{ background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+              <button type="button" onClick={() => setEditing(false)}
+                style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </form>
+
+        {/* Advance section */}
+        <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Advance</div>
+            {advanceStatus && (
+              <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: advanceStatus === 'complete' ? 'var(--green)' : 'var(--gold)', background: advanceStatus === 'complete' ? 'rgba(61,107,74,0.1)' : 'rgba(176,141,87,0.1)', padding: '4px 12px' }}>
+                {advanceStatus === 'complete' ? '✓ Complete' : '⟳ Sent'}
               </span>
+            )}
+          </div>
+          {!advanceStatus ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
+                {gig.promoter_email ? `Send advance form to ${gig.promoter_email}` : 'Add a promoter email above, then send the advance form.'}
+              </div>
+              <button onClick={handleSendAdvance} disabled={sendingAdvance || !gig.promoter_email}
+                style={{ background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: gig.promoter_email ? 'pointer' : 'not-allowed', opacity: sendingAdvance || !gig.promoter_email ? 0.5 : 1 }}>
+                {sendingAdvance ? 'Sending…' : 'Send advance'}
+              </button>
             </div>
-          </div>
-
-          {/* Tab Navigation */}
-          <div className="flex gap-4 mb-8 border-b border-night-dark-gray">
-            <button
-              onClick={() => setActiveTab('logistics')}
-              className={`px-6 py-3 font-semibold text-sm border-b-2 transition-colors ${
-                activeTab === 'logistics'
-                  ? 'border-night-silver text-night-silver'
-                  : 'border-transparent text-night-light hover:text-night-silver'
-              }`}
-            >
-              LOGISTICS
-            </button>
-            <button
-              onClick={() => setActiveTab('invoicing')}
-              className={`px-6 py-3 font-semibold text-sm border-b-2 transition-colors ${
-                activeTab === 'invoicing'
-                  ? 'border-night-silver text-night-silver'
-                  : 'border-transparent text-night-light hover:text-night-silver'
-              }`}
-            >
-              INVOICING
-            </button>
-          </div>
-
-          {/* LOGISTICS Tab */}
-          {activeTab === 'logistics' && (
-            <div className="space-y-8">
-              {/* VENUE SECTION */}
-              <div>
-                <h2 className="text-2xl font-bold text-night-silver mb-4 flex items-center gap-2">
-                  <Building className="w-6 h-6 text-night-silver" />
-                  Venue Information
-                </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Venue Name</p>
-                      <p className="text-night-light text-lg">{logistics.venue.name}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Address</p>
-                      <p className="text-night-light text-sm">{logistics.venue.address}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Phone</p>
-                      <a href={`tel:${logistics.venue.phone}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.venue.phone}</a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Email</p>
-                      <a href={`mailto:${logistics.venue.email}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.venue.email}</a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Capacity</p>
-                      <p className="text-night-light">{logistics.venue.capacity} persons</p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-night-silver mb-4">Venue Manager</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Name</p>
-                        <p className="text-night-light">{logistics.venueManager.name}</p>
-                      </div>
-                      <div className="border-t border-night-dark-gray pt-3">
-                        <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Email</p>
-                        <a href={`mailto:${logistics.venueManager.email}`} className="text-night-light hover:text-night-silver transition-colors flex items-center gap-2">
-                          <Mail className="w-4 h-4" />
-                          {logistics.venueManager.email}
-                        </a>
-                      </div>
-                      <div className="border-t border-night-dark-gray pt-3">
-                        <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Mobile</p>
-                        <a href={`tel:${logistics.venueManager.mobile}`} className="text-night-light hover:text-night-silver transition-colors flex items-center gap-2">
-                          <Phone className="w-4 h-4" />
-                          {logistics.venueManager.mobile}
-                        </a>
-                      </div>
-                      <div className="border-t border-night-dark-gray pt-3">
-                        <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Office</p>
-                        <p className="text-night-light">{logistics.venueManager.office}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
+                {advanceStatus === 'complete' ? 'All advance information received from promoter.' : 'Advance form sent — waiting for promoter to complete.'}
               </div>
-
-              {/* ACCOMMODATION SECTION */}
-              <div>
-                <h2 className="text-2xl font-bold text-night-silver mb-4 flex items-center gap-2">
-                  <MapPin className="w-6 h-6 text-night-silver" />
-                  Hotel & Accommodation
-                </h2>
-                <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Hotel Name</p>
-                      <p className="text-night-light text-lg">{logistics.hotel.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Confirmation #</p>
-                      <p className="text-night-light">{logistics.hotel.confirmationNumber}</p>
-                    </div>
-                  </div>
-                  <div className="border-t border-night-dark-gray pt-3">
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Address</p>
-                    <p className="text-night-light">{logistics.hotel.address}</p>
-                  </div>
-                  <div className="border-t border-night-dark-gray pt-3 grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Check-in</p>
-                      <p className="text-night-light">{logistics.hotel.checkInTime}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Check-out</p>
-                      <p className="text-night-light">{logistics.hotel.checkOutTime}</p>
-                    </div>
-                  </div>
-                  <div className="border-t border-night-dark-gray pt-3">
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Phone</p>
-                    <a href={`tel:${logistics.hotel.phone}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.hotel.phone}</a>
-                  </div>
-                </div>
-              </div>
-
-              {/* TRAVEL & TRANSPORT SECTION */}
-              <div>
-                <h2 className="text-2xl font-bold text-night-silver mb-4 flex items-center gap-2">
-                  <Car className="w-6 h-6 text-night-silver" />
-                  Travel & Transport
-                </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Travel Method</p>
-                      <p className="text-night-light">{logistics.travel.method}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Flight Number</p>
-                      <p className="text-night-light">{logistics.travel.flightNumber}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Route</p>
-                      <p className="text-night-light">{logistics.travel.departureCity} → {logistics.travel.arrivalAirport}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Travel Date & Time</p>
-                      <p className="text-night-light">{logistics.travel.travelDate} at {logistics.travel.travelTime}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <h3 className="text-lg font-semibold text-night-silver mb-4">Driver Information</h3>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Driver Name</p>
-                      <p className="text-night-light">{logistics.driver.name}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Phone</p>
-                      <a href={`tel:${logistics.driver.phone}`} className="text-night-light hover:text-night-silver transition-colors flex items-center gap-2">
-                        <Phone className="w-4 h-4" />
-                        {logistics.driver.phone}
-                      </a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Mobile</p>
-                      <a href={`tel:${logistics.driver.mobile}`} className="text-night-light hover:text-night-silver transition-colors flex items-center gap-2">
-                        <Phone className="w-4 h-4" />
-                        {logistics.driver.mobile}
-                      </a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Vehicle</p>
-                      <p className="text-night-light">{logistics.driver.carType}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* SCHEDULE SECTION */}
-              <div>
-                <h2 className="text-2xl font-bold text-night-silver mb-4 flex items-center gap-2">
-                  <Clock className="w-6 h-6 text-night-silver" />
-                  Performance Schedule
-                </h2>
-                <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Load-in Time</p>
-                      <p className="text-night-light">{logistics.schedule.loadInTime}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Sound Check</p>
-                      <p className="text-night-light">{logistics.schedule.soundCheckTime}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Stage Time</p>
-                      <p className="text-night-light text-lg font-bold">{logistics.schedule.stageTime}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Duration</p>
-                      <p className="text-night-light">{logistics.schedule.performanceDuration}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Load-out Time</p>
-                      <p className="text-night-light">{logistics.schedule.loadOutTime}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CATERING SECTION */}
-              <div>
-                <h2 className="text-2xl font-bold text-night-silver mb-4 flex items-center gap-2">
-                  <Utensils className="w-6 h-6 text-night-silver" />
-                  Catering & Hospitality
-                </h2>
-                <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Catering Provider</p>
-                    <p className="text-night-light">{logistics.catering.provider}</p>
-                  </div>
-                  <div className="border-t border-night-dark-gray pt-3">
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Contact Person</p>
-                    <p className="text-night-light">{logistics.catering.contact}</p>
-                  </div>
-                  <div className="border-t border-night-dark-gray pt-3">
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Phone</p>
-                    <a href={`tel:${logistics.catering.phone}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.catering.phone}</a>
-                  </div>
-                  <div className="border-t border-night-dark-gray pt-3">
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Meal Types</p>
-                    <p className="text-night-light">{logistics.catering.mealTypes}</p>
-                  </div>
-                  <div className="border-t border-night-dark-gray pt-3">
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Special Requirements</p>
-                    <p className="text-night-light">{logistics.catering.specialRequirements}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* TECHNICAL TEAM SECTION */}
-              <div>
-                <h2 className="text-2xl font-bold text-night-silver mb-4 flex items-center gap-2">
-                  <Music className="w-6 h-6 text-night-silver" />
-                  Technical Team
-                </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Sound Engineer */}
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Sound Engineer</p>
-                      <p className="text-night-light text-lg">{logistics.soundEngineer.name}</p>
-                      <p className="text-night-silver text-xs mt-1">{logistics.soundEngineer.credentials}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Email</p>
-                      <a href={`mailto:${logistics.soundEngineer.email}`} className="text-night-light hover:text-night-silver transition-colors flex items-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        {logistics.soundEngineer.email}
-                      </a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Mobile</p>
-                      <a href={`tel:${logistics.soundEngineer.mobile}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.soundEngineer.mobile}</a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Office</p>
-                      <p className="text-night-light">{logistics.soundEngineer.office}</p>
-                    </div>
-                  </div>
-
-                  {/* Lighting Engineer */}
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Lighting Engineer</p>
-                      <p className="text-night-light text-lg">{logistics.lightingEngineer.name}</p>
-                      <p className="text-night-silver text-xs mt-1">{logistics.lightingEngineer.credentials}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Email</p>
-                      <a href={`mailto:${logistics.lightingEngineer.email}`} className="text-night-light hover:text-night-silver transition-colors flex items-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        {logistics.lightingEngineer.email}
-                      </a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Mobile</p>
-                      <a href={`tel:${logistics.lightingEngineer.mobile}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.lightingEngineer.mobile}</a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Role</p>
-                      <p className="text-night-light">{logistics.lightingEngineer.role}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* LOGISTICS & SUPPORT */}
-              <div>
-                <h2 className="text-2xl font-bold text-night-silver mb-4 flex items-center gap-2">
-                  <Building className="w-6 h-6 text-night-silver" />
-                  Logistics & Support
-                </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Logistics Coordinator */}
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Logistics Coordinator</p>
-                      <p className="text-night-light">{logistics.logisticsCoord.name}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Mobile</p>
-                      <a href={`tel:${logistics.logisticsCoord.mobile}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.logisticsCoord.mobile}</a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Email</p>
-                      <a href={`mailto:${logistics.logisticsCoord.email}`} className="text-night-light hover:text-night-silver transition-colors text-sm">{logistics.logisticsCoord.email}</a>
-                    </div>
-                  </div>
-
-                  {/* Promoter */}
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Festival Promoter</p>
-                      <p className="text-night-light">{logistics.promoter.name}</p>
-                      <p className="text-night-silver text-xs mt-1">{logistics.promoter.company}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Email</p>
-                      <a href={`mailto:${logistics.promoter.email}`} className="text-night-light hover:text-night-silver transition-colors flex items-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        {logistics.promoter.email}
-                      </a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Phone</p>
-                      <a href={`tel:${logistics.promoter.phone}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.promoter.phone}</a>
-                    </div>
-                  </div>
-
-                  {/* Security Lead */}
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Security Lead</p>
-                      <p className="text-night-light">{logistics.securityLead.name}</p>
-                      <p className="text-night-silver text-xs mt-1">{logistics.securityLead.teamSize}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Email</p>
-                      <a href={`mailto:${logistics.securityLead.email}`} className="text-night-light hover:text-night-silver transition-colors flex items-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        {logistics.securityLead.email}
-                      </a>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Phone</p>
-                      <a href={`tel:${logistics.securityLead.phone}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.securityLead.phone}</a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* PERMITS & REGULATIONS */}
-              <div>
-                <h2 className="text-2xl font-bold text-night-silver mb-4 flex items-center gap-2">
-                  <FileText className="w-6 h-6 text-night-silver" />
-                  Permits, Regulations & Legal
-                </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Permit Authority</p>
-                      <p className="text-night-light">{logistics.regulations.agency}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Permit Number</p>
-                      <p className="text-night-light">{logistics.regulations.permitNumber}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Contact</p>
-                      <p className="text-night-light">{logistics.regulations.name}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Phone</p>
-                      <a href={`tel:${logistics.regulations.phone}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.regulations.phone}</a>
-                    </div>
-                  </div>
-
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Insurance Provider</p>
-                      <p className="text-night-light">{logistics.insurance.provider}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Policy Number</p>
-                      <p className="text-night-light">{logistics.insurance.policyNumber}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Contact</p>
-                      <p className="text-night-light">{logistics.insurance.contact}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Phone</p>
-                      <a href={`tel:${logistics.insurance.phone}`} className="text-night-light hover:text-night-silver transition-colors">{logistics.insurance.phone}</a>
-                    </div>
-                  </div>
-
-                  <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Sound System</p>
-                      <p className="text-night-light">{logistics.soundSystem.systemType}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Power</p>
-                      <p className="text-night-light">{logistics.soundSystem.power}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Technician</p>
-                      <p className="text-night-light">{logistics.soundSystem.technician}</p>
-                    </div>
-                    <div className="border-t border-night-dark-gray pt-3">
-                      <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Backup</p>
-                      <p className="text-night-light">{logistics.soundSystem.backupAvailable}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* LIGHTING RIG SPECS */}
-              <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 space-y-3">
-                <h3 className="text-lg font-semibold text-night-silver mb-4">Lighting Rig Specifications</h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">System Type</p>
-                    <p className="text-night-light">{logistics.lightingRig.systemType}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Rigging Points</p>
-                    <p className="text-night-light">{logistics.lightingRig.riggingPoints}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Design File</p>
-                    <p className="text-night-light text-sm">{logistics.lightingRig.designFile}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-night-silver font-semibold mb-1">Support Engineer</p>
-                    <p className="text-night-light">{logistics.lightingRig.supportEngineer}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cross-links */}
-              <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6 mt-8">
-                <h3 className="text-lg font-semibold text-night-silver mb-4">Related Services</h3>
-                <div className="flex gap-4 flex-wrap">
-                  <a
-                    href="#broadcast-lab"
-                    className="px-4 py-2 bg-night-dark-gray hover:bg-night-dark-gray/70 text-night-light rounded transition-colors text-sm"
-                  >
-                    → Signal Lab Integration
-                  </a>
-                  <a
-                    href="#sonix"
-                    className="px-4 py-2 bg-night-dark-gray hover:bg-night-dark-gray/70 text-night-light rounded transition-colors text-sm"
-                  >
-                    → SONIX Automation
-                  </a>
-                </div>
-              </div>
+              <Link href={`/advance/${gigId}`} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '10px 18px', textDecoration: 'none' }}>
+                View form →
+              </Link>
             </div>
           )}
+        </div>
 
-          {/* INVOICING Tab */}
-          {activeTab === 'invoicing' && (
-            <div className="space-y-6">
-              {/* Contracts */}
-              <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-night-silver mb-4 flex items-center gap-2">
-                  <FileCheck className="w-5 h-5" />
-                  Contracts
-                </h3>
-                <div className="space-y-3">
-                  {invoicing.contracts.map((contract) => (
-                    <div key={contract.id} className="flex items-center justify-between p-4 bg-night-dark-gray rounded border border-night-dark-gray/50">
-                      <div>
-                        <p className="text-night-light font-semibold">{contract.name}</p>
-                        <p className="text-night-light text-sm">Signed {new Date(contract.date).toLocaleDateString('en-GB')}</p>
-                      </div>
-                      <span className="px-3 py-1 bg-green-900/30 text-green-400 text-xs rounded font-semibold uppercase">
-                        {contract.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Invoices */}
-              <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-night-silver mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Invoices
-                </h3>
-                <div className="space-y-3">
-                  {invoicing.invoices.map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between p-4 bg-night-dark-gray rounded border border-night-dark-gray/50">
-                      <div>
-                        <p className="text-night-light font-semibold">{invoice.number}</p>
-                        <p className="text-night-light text-sm">Issued {new Date(invoice.date).toLocaleDateString('en-GB')} • Due {new Date(invoice.dueDate).toLocaleDateString('en-GB')}</p>
-                      </div>
-                      <span className="text-right">
-                        <p className="text-night-light font-bold">€{invoice.amount.toLocaleString()}</p>
-                        <span className="text-xs text-night-light">{invoice.status}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Payments */}
-              <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-night-silver mb-4 flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" />
-                  Payments
-                </h3>
-                <div className="space-y-3">
-                  {invoicing.payments.map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between p-4 bg-night-dark-gray rounded border border-night-dark-gray/50">
-                      <div>
-                        <p className="text-night-light font-semibold">{payment.method}</p>
-                        <p className="text-night-light text-sm">{new Date(payment.date).toLocaleDateString('en-GB')}</p>
-                      </div>
-                      <span className="text-right">
-                        <p className="text-night-light font-bold">€{payment.amount.toLocaleString()}</p>
-                        <span className="text-xs text-yellow-400">{payment.status}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Expenses */}
-              <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-night-silver mb-4 flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" />
-                  Expenses
-                </h3>
-                <div className="space-y-3 mb-6">
-                  {invoicing.expenses.map((expense) => (
-                    <div key={expense.id} className="flex items-center justify-between p-4 bg-night-dark-gray rounded border border-night-dark-gray/50">
-                      <div>
-                        <p className="text-night-light font-semibold">{expense.description}</p>
-                        <p className="text-night-light text-sm">{new Date(expense.date).toLocaleDateString('en-GB')} • {expense.category}</p>
-                      </div>
-                      <span className="text-night-light font-bold">-€{expense.amount.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Profit Summary */}
-                <div className="border-t border-night-dark-gray pt-6 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-night-light">Gross Income</span>
-                    <span className="text-night-light font-semibold">€{gig.fee.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-night-light">Total Expenses</span>
-                    <span className="text-night-light font-semibold">-€{totalExpenses.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold pt-2 border-t border-night-dark-gray">
-                    <span className="text-night-light">Net Profit</span>
-                    <span className={profitMargin > 0 ? 'text-green-400' : 'text-red-400'}>€{profitMargin.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Quick actions */}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Link href={`/broadcast?gig=${gig.id}&title=${encodeURIComponent(gig.title)}&date=${gig.date}`}
+            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--green)', border: '1px solid rgba(61,107,74,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
+            Create post
+          </Link>
+          <Link href="/business/finances"
+            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '12px 20px', textDecoration: 'none' }}>
+            Finances
+          </Link>
         </div>
       </div>
     </div>

@@ -249,7 +249,7 @@ Respond with the appropriate JSON structure. Be specific, direct, and actionable
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1400,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],

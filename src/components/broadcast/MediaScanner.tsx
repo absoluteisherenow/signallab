@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { SCAN_TIERS, DEFAULT_TIER } from '@/lib/scanTiers'
+import { supabase } from '@/lib/supabase'
 
-// TODO: replace with real user ID + tier from auth session before launch
-const USER_ID = 'dev-user'
 const USER_TIER = DEFAULT_TIER  // 'artist' — 10 per batch, 60/month
 
 interface MediaMoment {
@@ -56,7 +55,7 @@ async function callClaude(system: string, userPrompt: string, maxTokens = 600): 
   const res = await fetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ system, max_tokens: maxTokens, messages: [{ role: 'user', content: userPrompt }] }),
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', system, max_tokens: maxTokens, messages: [{ role: 'user', content: userPrompt }] }),
   })
   const data = await res.json()
   if (!res.ok || data.error) throw new Error(data.error || `API error ${res.status}`)
@@ -116,15 +115,20 @@ export function MediaScanner() {
   const [selectedScan, setSelectedScan] = useState(0)
   const [error, setError] = useState('')
   const [usageInfo, setUsageInfo] = useState<{ used: number; remaining: number; monthlyLimit: number; credits: number } | null>(null)
+  const [userId, setUserId] = useState('dev-user')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const tierLimits = SCAN_TIERS[USER_TIER]
 
   useEffect(() => {
-    fetch(`/api/scan-usage?userId=${USER_ID}&tier=${USER_TIER}`)
-      .then(r => r.json())
-      .then(d => setUsageInfo({ used: d.used, remaining: d.remaining, monthlyLimit: d.monthlyLimit, credits: d.credits }))
-      .catch(() => {})
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const id = session?.user?.id || 'dev-user'
+      setUserId(id)
+      fetch(`/api/scan-usage?userId=${id}&tier=${USER_TIER}`)
+        .then(r => r.json())
+        .then(d => setUsageInfo({ used: d.used, remaining: d.remaining, monthlyLimit: d.monthlyLimit, credits: d.credits }))
+        .catch(() => {})
+    })
   }, [])
 
   const s = {
@@ -254,7 +258,7 @@ Return JSON:
       await fetch('/api/scan-usage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: USER_ID, tier: USER_TIER, count: files.length }),
+        body: JSON.stringify({ userId, tier: USER_TIER, count: files.length }),
       }).then(r => r.json()).then(d => {
         if (d.remaining !== undefined) setUsageInfo(prev => prev ? { ...prev, used: prev.used + files.length, remaining: d.remaining } : null)
       }).catch(() => {})
