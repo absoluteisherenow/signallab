@@ -179,37 +179,13 @@ export default function Settings() {
 
       {/* INTEGRATIONS TAB */}
       {activeTab === 'integrations' && (
-        <div style={{ maxWidth: '640px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {[
-            { name: 'Buffer', desc: 'Publishing to Instagram, TikTok, Threads', status: 'connected', color: 'var(--green)', action: null },
-            { name: 'Supabase', desc: 'Data persistence — artist profiles, sets, posts', status: 'connected', color: 'var(--green)', action: null },
-            { name: 'Vercel Blob', desc: 'Media storage — photos and video clips', status: 'connected', color: 'var(--green)', action: null },
-            { name: 'Resend', desc: 'Advance request emails', status: 'connected', color: 'var(--green)', action: null },
-            { name: 'Rekordbox', desc: 'Import your DJ library via XML export', status: 'ready', color: '#b08d57', action: '/setlab/rekordbox' },
-            { name: 'Instagram Insights', desc: 'Engagement data for caption intelligence — coming in v2', status: 'coming soon', color: 'var(--text-dimmer)', action: null },
-          ].map(integration => (
-            <div key={integration.name} className="card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                <div>
-                  <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '4px' }}>{integration.name}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', letterSpacing: '0.04em' }}>{integration.desc}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: integration.color }}>{integration.status}</span>
-                  {integration.action && (
-                    <button onClick={() => window.location.href = integration.action!} className="btn-secondary" style={{ fontSize: '10px', padding: '6px 14px' }}>
-                      {integration.status === 'ready' ? 'Import →' : 'Connect'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-          {/* Connected Gmail Accounts */}
-          <div className="card" style={{ marginTop: '16px' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '6px' }}>Connected email accounts</div>
+        <div style={{ maxWidth: '640px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Gmail — Connected Accounts */}
+          <div className="card">
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '4px' }}>Gmail</div>
             <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '20px', lineHeight: '1.7' }}>
-              All connected accounts are scanned for bookings, invoice requests, and expenses.
+              Scanned for bookings, invoice requests, and expenses. Add as many accounts as you need.
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               {connectedAccounts.length === 0 && (
@@ -222,9 +198,9 @@ export default function Settings() {
                     <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', letterSpacing: '0.08em', marginTop: '2px' }}>{account.label}</div>
                   </div>
                   <button onClick={() => disconnectAccount(account.id)}
-                    style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer' }}
-                    onMouseEnter={e => { (e.target as HTMLElement).style.color = '#ef4444'; (e.target as HTMLElement).style.borderColor = '#ef4444' }}
-                    onMouseLeave={e => { (e.target as HTMLElement).style.color = 'var(--text-dimmer)'; (e.target as HTMLElement).style.borderColor = 'var(--border-dim)' }}>
+                    style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}>
                     Disconnect
                   </button>
                 </div>
@@ -244,7 +220,7 @@ export default function Settings() {
                     style={inputStyle} />
                 </div>
                 <a href={`/api/gmail/auth?label=${encodeURIComponent(newAccountLabel || 'Primary')}`}
-                  style={{ background: 'var(--gold)', color: '#070706', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '13px 18px', textDecoration: 'none', whiteSpace: 'nowrap', display: 'block' }}>
+                  style={{ background: 'var(--gold)', color: '#070706', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '13px 18px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                   Connect Gmail →
                 </a>
                 <button onClick={() => { setShowAddAccount(false); setNewAccountLabel('') }}
@@ -255,11 +231,42 @@ export default function Settings() {
             )}
           </div>
 
-          <div className="card" style={{ marginTop: '16px' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Subscription</div>
-            <div className="display" style={{ fontSize: '20px', color: 'var(--gold)', marginBottom: '4px' }}>Pro</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-dimmer)' }}>£59/month · All features unlocked</div>
+          {/* Buffer */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '4px' }}>Buffer</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>Schedules posts to Instagram, TikTok, and Threads from Signal Lab.</div>
+              </div>
+              <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--green)', flexShrink: 0, marginLeft: '24px' }}>Connected</span>
+            </div>
           </div>
+
+          {/* Rekordbox */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '4px' }}>Rekordbox</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>Import your full DJ library via XML export into Set Lab.</div>
+              </div>
+              <button onClick={() => window.location.href = '/setlab/rekordbox'}
+                style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer', flexShrink: 0, marginLeft: '24px' }}>
+                Import →
+              </button>
+            </div>
+          </div>
+
+          {/* Instagram Insights */}
+          <div className="card" style={{ opacity: 0.5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>Instagram Insights</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>Real engagement data to sharpen caption intelligence — coming in v2.</div>
+              </div>
+              <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-dimmer)', flexShrink: 0, marginLeft: '24px' }}>Soon</span>
+            </div>
+          </div>
+
         </div>
       )}
 
