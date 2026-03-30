@@ -74,18 +74,37 @@ Return this exact JSON:
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, handle } = await req.json()
+    const { name, handle, manualCaptions } = await req.json()
     if (!name) return NextResponse.json({ success: false, error: 'Artist name required' }, { status: 400 })
 
+    // Manual caption paste path — user provides real captions directly
+    if (manualCaptions && Array.isArray(manualCaptions) && manualCaptions.length > 0) {
+      const profile = await analyseWithClaude(name, manualCaptions)
+      return NextResponse.json({
+        success: true,
+        profile: {
+          name,
+          ...profile,
+          data_source: 'manual',
+          post_count_analysed: manualCaptions.length,
+          last_scanned: new Date().toISOString().split('T')[0],
+        },
+      })
+    }
+
     if (!process.env.APIFY_API_KEY) {
-      return NextResponse.json({ success: false, error: 'Instagram scanning requires Apify — add APIFY_API_KEY to enable real post analysis' }, { status: 503 })
+      return NextResponse.json({ success: false, error: 'Instagram scanning requires Apify — add APIFY_API_KEY to enable real post analysis', canPaste: true }, { status: 503 })
     }
 
     const targetUsername = (handle || name).toLowerCase().replace(/[^a-z0-9_.]/g, '')
     const { captions, postCount } = await scrapeInstagramPosts(targetUsername)
 
     if (captions.length === 0) {
-      return NextResponse.json({ success: false, error: `Could not scrape posts for ${name}. Instagram is blocking the request — try adding residential proxies to Apify.` }, { status: 404 })
+      return NextResponse.json({
+        success: false,
+        error: `Instagram is blocking the scraper for ${name}. Paste their captions manually to build the voice profile.`,
+        canPaste: true,
+      }, { status: 404 })
     }
 
     const profile = await analyseWithClaude(name, captions)

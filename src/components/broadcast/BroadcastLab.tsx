@@ -14,7 +14,7 @@ interface ArtistProfile {
   chips: string[]
   highlight_chips: number[]
   style_rules?: string
-  data_source?: 'apify' | 'claude'
+  data_source?: 'apify' | 'manual' | 'claude'
   post_count_analysed?: number
   last_scanned?: string
 }
@@ -78,6 +78,8 @@ export function BroadcastLab() {
   const [addingArtist, setAddingArtist] = useState(false)
   const [newArtistName, setNewArtistName] = useState('')
   const [scanningArtist, setScanningArtist] = useState<string | null>(null)
+  const [pastingFor, setPastingFor] = useState<string | null>(null)
+  const [pastedCaptions, setPastedCaptions] = useState('')
   const [platform, setPlatform] = useState('Instagram')
   const [context, setContext] = useState('')
 
@@ -203,9 +205,9 @@ export function BroadcastLab() {
 
   const getArtistNames = () => artists.map(a => a.name)
 
-  async function scanArtist(name: string) {
+  async function scanArtist(name: string, manualCaptionList?: string[]) {
     const existing = artists.find(a => a.name.toLowerCase() === name.toLowerCase())
-    if (existing?.last_scanned) {
+    if (!manualCaptionList && existing?.last_scanned) {
       const daysAgo = daysSince(existing.last_scanned)
       if (daysAgo < 30) {
         showToast(`${name} — scanned ${daysAgo} days ago. Refresh available in ${30 - daysAgo} days.`, 'Cooldown')
@@ -213,27 +215,56 @@ export function BroadcastLab() {
       }
     }
     setScanningArtist(name)
-    showToast(`Scanning ${name}...`, 'Research')
+    showToast(manualCaptionList ? `Analysing ${name} captions...` : `Scanning ${name}...`, 'Research')
     try {
+      const body: Record<string, unknown> = { name }
+      if (manualCaptionList) body.manualCaptions = manualCaptionList
       const res = await fetch('/api/artist-scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
-      if (!data.success) throw new Error(data.error)
+      if (!data.success) {
+        if (data.canPaste) {
+          setScanningArtist(null)
+          setPastingFor(name)
+          setPastedCaptions('')
+          return
+        }
+        throw new Error(data.error)
+      }
       const artist = data.profile as ArtistProfile
-      setArtists(prev => [...prev, artist])
+      setArtists(prev => {
+        const filtered = prev.filter(a => a.name.toLowerCase() !== name.toLowerCase())
+        return [...filtered, artist]
+      })
       saveArtist(artist)
       const sourceMsg = artist.data_source === 'apify'
         ? `${artist.post_count_analysed} real posts analysed`
+        : artist.data_source === 'manual'
+        ? `${artist.post_count_analysed} captions analysed`
         : 'Voice profile built'
       showToast(`${name} — ${sourceMsg}`, 'Done')
+      setPastingFor(null)
+      setPastedCaptions('')
     } catch (err: any) {
       showToast(`Could not scan ${name} — ${err.message || 'try again'}`, 'Error')
     } finally {
       setScanningArtist(null)
     }
+  }
+
+  async function submitManualCaptions(name: string) {
+    const lines = pastedCaptions
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 5)
+    if (lines.length < 3) {
+      showToast('Paste at least 3 captions — one per line', 'Error')
+      return
+    }
+    await scanArtist(name, lines)
   }
 
   async function loadTrends(): Promise<Trend[]> {
@@ -515,10 +546,10 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
                     <div style={{ fontSize: '10px', color: '#2e2c29', letterSpacing: '0.08em' }} className="mt-0.5">Last scanned {daysSince(artist.last_scanned)} days ago</div>
                   )}
                 </div>
-                {artist.data_source === 'apify' && artist.post_count_analysed && (
+                {(artist.data_source === 'apify' || artist.data_source === 'manual') && artist.post_count_analysed && (
                   <div className="text-[10px] tracking-[.12em] uppercase flex items-center gap-1 flex-shrink-0 text-[#3d6b4a]">
                     <div className="w-1 h-1 rounded-full bg-[#3d6b4a]" />
-                    {artist.post_count_analysed} posts
+                    {artist.post_count_analysed} {artist.data_source === 'manual' ? 'pasted' : 'posts'}
                   </div>
                 )}
               </div>
@@ -545,14 +576,49 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
               </div>
             </div>
           ))}
-          <div onClick={() => !addingArtist && setAddingArtist(true)}
-            className="bg-[#0e0d0b] border border-dashed border-white/13 p-5 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-[#b08d57] hover:bg-[#141310] transition-colors min-h-[176px]">
+          {/* Paste panel — shown when scan is blocked */}
+          {pastingFor && (
+            <div className="bg-[#0e0d0b] border border-[#b08d57]/40 p-5 flex flex-col gap-3 col-span-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] tracking-[.1em] text-[#b08d57] uppercase mb-0.5">Paste captions — {pastingFor}</div>
+                  <div className="text-[10px] text-[#8a8780]">Go to their Instagram, copy captions one per line</div>
+                </div>
+                <button onClick={() => { setPastingFor(null); setPastedCaptions('') }}
+                  className="text-[#8a8780] hover:text-[#f0ebe2] text-lg leading-none transition-colors">×</button>
+              </div>
+              <textarea
+                autoFocus
+                value={pastedCaptions}
+                onChange={e => setPastedCaptions(e.target.value)}
+                placeholder={"caption one\ncaption two\ncaption three\n..."}
+                rows={6}
+                className="w-full bg-[#1a1917] border border-white/10 text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29] resize-none focus:border-[#b08d57]/50 transition-colors"
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => submitManualCaptions(pastingFor)}
+                  disabled={!!scanningArtist}
+                  className="text-[10px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {scanningArtist ? <><div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />Analysing...</> : 'Analyse captions'}
+                </button>
+                <span className="text-[10px] text-[#2e2c29]">{pastedCaptions.split('\n').filter(l => l.trim().length > 5).length} captions ready</span>
+              </div>
+            </div>
+          )}
+
+          <div onClick={() => !addingArtist && !pastingFor && setAddingArtist(true)}
+            className={`bg-[#0e0d0b] border border-dashed border-white/13 p-5 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-[#b08d57] hover:bg-[#141310] transition-colors min-h-[176px] ${pastingFor ? 'opacity-40 pointer-events-none' : ''}`}>
             {!addingArtist ? (
               <><div className="text-2xl text-[#2e2c29]">+</div><div className="text-[10px] tracking-[.15em] uppercase text-[#8a8780]">Add reference artist</div></>
             ) : (
               <div className="w-full flex flex-col gap-2" onClick={e => e.stopPropagation()}>
                 <input ref={addInputRef} value={newArtistName} onChange={e => setNewArtistName(e.target.value)}
-                  onKeyDown={e => { if(e.key==='Enter'&&newArtistName.trim()){scanArtist(newArtistName.trim());setNewArtistName('');setAddingArtist(false)} if(e.key==='Escape'){setAddingArtist(false);setNewArtistName('')} }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newArtistName.trim()) { scanArtist(newArtistName.trim()); setNewArtistName(''); setAddingArtist(false) }
+                    if (e.key === 'Escape') { setAddingArtist(false); setNewArtistName('') }
+                  }}
                   placeholder="Artist name — press Enter"
                   className="w-full bg-[#1a1917] border border-[#b08d57] text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29]" />
                 <div className="text-[10px] tracking-[.1em] text-[#2e2c29] text-center">Enter to scan · Escape to cancel</div>
@@ -572,7 +638,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
             {l:'Lowercase',v:`${Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1)),s:'Lane average across reference artists'},
             {l:'Under 10 words',v:`${Math.round(artists.reduce((a,b)=>a+b.short_caption_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.short_caption_pct,0)/(artists.length||1)),s:'Short captions in your lane'},
             {l:'No hashtags',v:`${Math.round(artists.reduce((a,b)=>a+b.no_hashtags_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.no_hashtags_pct,0)/(artists.length||1)),s:'Lane standard — hashtags hurt tone',t:true},
-            {l:'Artists profiled',v:`${artists.length}`,p:Math.min(artists.length*20,100),s:artists.filter(a=>a.data_source==='apify').length>0?`${artists.filter(a=>a.data_source==='apify').length} from real posts`:'Analysed from public posts'},
+            {l:'Artists profiled',v:`${artists.length}`,p:Math.min(artists.length*20,100),s:artists.filter(a=>a.data_source==='apify'||a.data_source==='manual').length>0?`${artists.filter(a=>a.data_source==='apify'||a.data_source==='manual').length} from real captions`:'Add artists to build your lane'},
             {l:'Voice alignment',v:'High',p:84,s:'Based on style rules depth',t:true},
             {l:'Tone register',v:'Raw',p:79,s:'Detached · observational'},
           ].map(m => (
