@@ -1139,36 +1139,47 @@ Return corrected JSON:
     <div style={{ minHeight: '100vh', background: s.bg, color: s.text, fontFamily: s.font }}>
 
       {/* HEADER */}
-      <div style={{ background: s.panel, borderBottom: `2px solid ${s.borderBright}`, padding: '20px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div style={{ background: s.panel, border: `1px solid ${s.borderBright}`, padding: '10px 20px' }}>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, textShadow: `0 0 20px rgba(154,106,90,0.2)` }}>SET<span style={{ color: s.goldDim }}>LAB</span></div>
-            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.goldDim, marginTop: '2px' }}>INTELLIGENT DJ COMPANION</div>
+      <div style={{ padding: '48px 48px 0', borderBottom: `1px solid ${s.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
+          <div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Set Lab</div>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(36px, 4vw, 52px)', fontWeight: 400, letterSpacing: '-0.03em', lineHeight: 1, color: s.text }}>
+              Your sets
+            </div>
           </div>
-          <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: s.textDimmer }}>
-            {library.length} tracks · {set.length} in set · {setLength}min slot
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '4px' }}>
+            <div style={{ fontSize: '12px', color: s.textDimmer, marginRight: '8px' }}>
+              {library.length} tracks · {set.length} in set · {setLength}min
+            </div>
+            <button onClick={saveSet} className="btn-secondary" style={{ fontSize: '10px', height: '36px', padding: '0 18px' }}>Save set</button>
+            <button onClick={exportToRekordbox} className="btn-primary" style={{ fontSize: '10px', height: '36px', padding: '0 18px' }}>
+              Export →
+            </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '4px' }}>
+        {/* Tabs — underline style */}
+        <div style={{ display: 'flex', gap: '0' }}>
           {(['library', 'builder', 'history', 'discover', 'scanner'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              ...btn(activeTab === tab ? s.setlab : s.goldDim, activeTab === tab ? s.setlab : 'transparent'),
-              fontSize: '10px', padding: '8px 18px',
-              color: activeTab === tab ? s.bg : s.setlab,
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === tab ? `2px solid ${s.gold}` : '2px solid transparent',
+              color: activeTab === tab ? s.text : s.textDimmer,
+              fontFamily: s.font,
+              fontSize: '11px',
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              padding: '0 20px 14px',
+              cursor: 'pointer',
+              transition: 'color 0.15s',
+              marginBottom: '-1px',
             }}>{tab}</button>
           ))}
         </div>
-
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={saveSet} style={{ ...btn(s.gold), fontSize: '10px', padding: '8px 18px' }}>Save set</button>
-          <button onClick={exportToRekordbox} style={{ ...btn('#3d6b4a', s.panel), fontSize: '10px', padding: '8px 18px' }}>
-            Export to Rekordbox →
-          </button>
-        </div>
       </div>
 
-      <div style={{ padding: '28px 32px' }}>
+      <div style={{ padding: '32px 48px' }}>
 
         {/* ═══ LIBRARY TAB ═══ */}
         {activeTab === 'library' && (
