@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const auddForm = new FormData()
   auddForm.append('api_token', apiToken)
-  auddForm.append('audio', audio, 'snippet.wav')
+  auddForm.append('file', audio, 'snippet.wav')
   auddForm.append('return', 'spotify,apple_music')
 
   try {

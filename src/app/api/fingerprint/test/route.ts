@@ -30,20 +30,20 @@ export async function GET() {
 
   const form = new FormData()
   form.append('api_token', apiToken)
-  form.append('audio', wavBlob, 'test.wav')
+  form.append('file', wavBlob, 'test.wav')
 
   try {
     const resp = await fetch('https://api.audd.io/', { method: 'POST', body: form })
     const data = await resp.json()
 
-    // status=success + result=null means silence = no match = API is working fine
-    const ok = data.status === 'success'
+    // status=success (no match) OR error_code=300 (can't fingerprint silence) both mean auth is working
+    const authOk = data.status === 'success' || data.error?.error_code === 300
 
     return NextResponse.json({
-      ok,
+      ok: authOk,
       configured: true,
       status: data.status,
-      detail: ok
+      detail: authOk
         ? 'AudD connected — API token valid'
         : `AudD error: ${data.error?.error_message || JSON.stringify(data)}`,
     })
