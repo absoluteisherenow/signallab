@@ -1919,7 +1919,14 @@ Return corrected JSON:
                       </div>
                       {detectedTracks.length > 0 && detectedTracks.filter(t => !t.found && t.acrCode !== undefined && t.acrCode !== 1001).length > 0 && (
                         <div style={{ marginTop: '6px', fontSize: '10px', color: '#c04040' }}>
-                          Some tracks could not be read — check your connection and try re-uploading
+                          {(() => {
+                            const errTracks = detectedTracks.filter(t => !t.found && t.acrCode !== undefined && t.acrCode !== 1001)
+                            const code = errTracks[0]?.acrCode
+                            const msg = errTracks[0]?.acrMsg
+                            if (code === 3000 || code === 3001) return `ACRCloud auth error (${code}) — check credentials`
+                            if (code === 3003) return `ACRCloud rate limit hit (${code}) — wait and retry`
+                            return `ACRCloud error ${code}: ${msg || 'unknown'} — check connection`
+                          })()}
                         </div>
                       )}
                     </div>
