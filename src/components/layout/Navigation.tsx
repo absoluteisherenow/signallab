@@ -10,7 +10,15 @@ const NAV_GROUPS = [
     label: '',
     items: [
       { label: 'Dashboard', href: '/dashboard', sub: [] },
-      { label: 'Signal Lab', href: '/broadcast', sub: [] },
+      {
+        label: 'Signal Lab', href: '/broadcast',
+        sub: [
+          { label: 'Tone Intelligence', href: '/broadcast' },
+          { label: 'Calendar', href: '/broadcast/calendar' },
+          { label: 'Content Intelligence', href: '/broadcast/scanner' },
+          { label: 'Media Library', href: '/broadcast/media' },
+        ],
+      },
     ],
   },
   {
