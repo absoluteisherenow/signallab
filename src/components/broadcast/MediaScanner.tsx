@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { SignalLabHeader } from './SignalLabHeader'
 import { SCAN_TIERS, DEFAULT_TIER } from '@/lib/scanTiers'
 import { supabase } from '@/lib/supabase'
 
@@ -387,31 +388,19 @@ Return JSON exactly:
   const activeScan = scans[selectedScan] || null
 
   return (
-    <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '32px' }}>
+    <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh' }}>
 
-      {/* HEADER */}
-      <div style={{ marginBottom: '32px' }}>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-          <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
-          Signal Lab — Intelligent Media Scanner
-        </div>
-        <div style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '0.04em' }}>
-          Media <span style={{ color: s.gold }}>scanner</span>
-        </div>
-        <div style={{ fontSize: '12px', color: s.textDim, marginTop: '8px', letterSpacing: '0.06em' }}>
-          Upload multiple show clips — scanner ranks them and surfaces the strongest
-        </div>
-        {usageInfo && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '14px', fontSize: '10px', color: s.textDimmer, letterSpacing: '0.1em' }}>
-            <span>{usageInfo.used} / {usageInfo.monthlyLimit} scans used this month</span>
-            {usageInfo.credits > 0 && <span style={{ color: s.gold }}>+{usageInfo.credits} credits</span>}
-            <div style={{ flex: 1, maxWidth: '120px', height: '2px', background: s.border }}>
-              <div style={{ height: '2px', background: usageInfo.remaining < 5 ? '#8a4a3a' : s.gold, width: `${Math.min(100, (usageInfo.used / usageInfo.monthlyLimit) * 100)}%`, transition: 'width 0.5s' }} />
-            </div>
-            <span style={{ color: usageInfo.remaining < 5 ? '#8a4a3a' : s.textDimmer }}>{usageInfo.remaining} remaining</span>
+      <SignalLabHeader right={usageInfo ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '10px', color: s.textDimmer, letterSpacing: '0.1em' }}>
+          <span>{usageInfo.used} / {usageInfo.monthlyLimit} scans</span>
+          {usageInfo.credits > 0 && <span style={{ color: s.gold }}>+{usageInfo.credits} credits</span>}
+          <div style={{ width: '80px', height: '2px', background: s.border }}>
+            <div style={{ height: '2px', background: usageInfo.remaining < 5 ? '#8a4a3a' : s.gold, width: `${Math.min(100, (usageInfo.used / usageInfo.monthlyLimit) * 100)}%` }} />
           </div>
-        )}
-      </div>
+        </div>
+      ) : undefined} />
+
+      <div style={{ padding: '32px' }}>
 
       <div style={{ display: 'grid', gridTemplateColumns: scans.length > 0 ? '1fr 1fr' : '1fr', gap: '24px' }}>
 
@@ -741,6 +730,8 @@ Return JSON exactly:
           </div>
         )}
       </div>
+
+      </div>{/* end inner padding */}
     </div>
   )
 }

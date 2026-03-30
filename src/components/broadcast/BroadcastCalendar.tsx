@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { SignalLabHeader } from './SignalLabHeader'
 
 interface ScheduledPost {
   id: string
@@ -118,22 +119,10 @@ export function BroadcastCalendar() {
   }
 
   return (
-    <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '32px' }}>
+    <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh' }}>
 
-      {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '28px' }}>
-        <div>
-          <div style={{ fontSize: '9px', letterSpacing: '0.35em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '16px' }}>
-            Signal Lab — Calendar
-          </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 300, letterSpacing: '-0.01em', lineHeight: 1, color: s.text }}>
-            Week of
-          </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 300, letterSpacing: '-0.01em', lineHeight: 1.1, color: s.gold }}>
-            {weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <SignalLabHeader right={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ fontSize: '11px', color: s.dim, textAlign: 'right', lineHeight: '2' }}>
             <div>{totalScheduled} scheduled · {totalPosted} posted</div>
             {totalGigs > 0 && <div style={{ color: '#b08d57' }}>{totalGigs} gigs</div>}
@@ -144,7 +133,9 @@ export function BroadcastCalendar() {
             <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: s.panel, border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '14px', padding: '8px 14px', cursor: 'pointer' }}>→</button>
           </div>
         </div>
-      </div>
+      } />
+
+      <div style={{ padding: '32px' }}>
 
       {/* PLATFORM FILTER */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
@@ -241,6 +232,8 @@ export function BroadcastCalendar() {
           Loading posts...
         </div>
       )}
+
+      </div>{/* end inner padding */}
     </div>
   )
 }

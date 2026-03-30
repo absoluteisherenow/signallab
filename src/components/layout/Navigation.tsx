@@ -5,20 +5,15 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 
-const NAV_GROUPS = [
+type NavItem = { label: string; href: string; sub: { label: string; href: string }[] }
+type NavGroup = { label: string; items: NavItem[] }
+
+const NAV_GROUPS: NavGroup[] = [
   {
     label: '',
     items: [
       { label: 'Dashboard', href: '/dashboard', sub: [] },
-      {
-        label: 'Signal Lab', href: '/broadcast',
-        sub: [
-          { label: 'Tone Intelligence', href: '/broadcast' },
-          { label: 'Calendar', href: '/broadcast/calendar' },
-          { label: 'Content Intelligence', href: '/broadcast/scanner' },
-          { label: 'Media Library', href: '/broadcast/media' },
-        ],
-      },
+      { label: 'Signal Lab', href: '/broadcast', sub: [] },
     ],
   },
   {

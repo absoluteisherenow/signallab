@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { SignalLabHeader } from './SignalLabHeader'
 
 interface ArtistProfile {
   name: string
@@ -482,31 +483,17 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
   }
 
   return (
-    <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono p-8 flex flex-col gap-7">
+    <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono flex flex-col">
 
-      {/* HEADER */}
-      <div className="flex items-end justify-between">
-        <div>
-          <div className="text-[10px] tracking-[.3em] uppercase text-[#b08d57] flex items-center gap-3 mb-3">
-            <span className="block w-7 h-px bg-[#b08d57]" />
-            Signal Lab — Tone Intelligence
-          </div>
-          <div className="text-3xl tracking-[.04em] font-light">
-            Tone <span className="italic text-[#b08d57]" style={{}}>intelligence</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right text-[10px] tracking-[.13em] uppercase text-[#8a8780] leading-7 mr-4">
-            <div>Last scan — {artists.filter(a => a.last_scanned).sort((a,b) => (b.last_scanned||'').localeCompare(a.last_scanned||''))[0]?.last_scanned || 'not yet'}</div>
-            <div>Artists — <span className="text-[#b08d57]">{artists.length} profiled</span></div>
-          </div>
-          <button onClick={generateFullWeek} disabled={generatingWeek}
-            className="text-[10px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50 flex items-center gap-2">
-            {generatingWeek && <div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />}
-            {generatingWeek ? 'Generating...' : 'Generate week'}
-          </button>
-        </div>
-      </div>
+      <SignalLabHeader right={
+        <button onClick={generateFullWeek} disabled={generatingWeek}
+          className="text-[10px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50 flex items-center gap-2">
+          {generatingWeek && <div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />}
+          {generatingWeek ? 'Generating...' : 'Generate week'}
+        </button>
+      } />
+
+      <div className="flex flex-col gap-7 p-8">
 
       {/* REFERENCE ARTISTS */}
       <div>
@@ -787,6 +774,8 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
           {toast.msg}
         </div>
       )}
+
+      </div>{/* end inner p-8 */}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { SignalLabHeader } from './SignalLabHeader'
 
 interface MediaItem {
   url: string
@@ -55,40 +56,32 @@ export function MediaLibrary() {
   }
 
   return (
-    <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '40px 48px' }}>
+    <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh' }}>
       <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }}
         onChange={e => e.target.files && uploadFiles(e.target.files)} />
-      <div style={{ marginBottom: '40px' }}>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-          <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
-          Signal Lab — Media Library
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 300 }}>Media library</div>
-            <div style={{ fontSize: '13px', color: s.dimmer, marginTop: '6px' }}>{items.length} items{uploading && ' · uploading...'}</div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => fileRef.current?.click()} style={{
+
+      <SignalLabHeader right={
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => fileRef.current?.click()} style={{
+            background: 'transparent', border: `1px solid ${s.gold}`,
+            color: s.gold, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
+            textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
+          }}>
+            + Upload media
+          </button>
+          {selected.size > 0 && (
+            <button onClick={() => window.location.href = '/broadcast'} style={{
               background: 'transparent', border: `1px solid ${s.gold}`,
               color: s.gold, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
               textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
             }}>
-              + Upload media
+              Use {selected.size} in post →
             </button>
-            {selected.size > 0 && (
-              <button onClick={() => window.location.href = '/broadcast'} style={{
-                background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-                border: '1px solid #b08d57', color: '#b08d57',
-                fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
-                textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
-              }}>
-                Use {selected.size} in post →
-              </button>
-            )}
-          </div>
+          )}
         </div>
-      </div>
+      } />
+
+      <div style={{ padding: '40px 48px' }}>
 
       {loading ? (
         <div style={{ fontSize: '13px', color: s.dimmer, padding: '40px 0' }}>Loading media...</div>
@@ -129,6 +122,8 @@ export function MediaLibrary() {
           ))}
         </div>
       )}
+
+      </div>{/* end inner padding */}
     </div>
   )
 }
