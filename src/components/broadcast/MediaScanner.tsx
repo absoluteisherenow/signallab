@@ -104,9 +104,9 @@ async function extractFrames(file: File, count = 12): Promise<{ dataUrl: string;
       canvas.width = 480
       canvas.height = 270
       const duration = video.duration
-      // Skip first and last 5% — intros/outros rarely have the best moment
-      const start = duration * 0.05
-      const end = duration * 0.95
+      // Sample full duration — the opening frames may be the strongest hook
+      const start = 0
+      const end = duration
       const range = end - start
       const interval = range / (count - 1)
       let captured = 0
@@ -214,7 +214,11 @@ export function MediaScanner() {
     const duration = frames[frames.length - 1]?.timestamp ?? 0
 
     const raw = await callClaudeVision(
-      `You are an expert video editor and social media strategist for electronic music artists — Bicep, Floating Points, fred again.., Four Tet, Bonobo. You deeply understand what show footage performs in this world: raw, human, unpolished, in-the-room. You are looking at actual frames extracted from a show video. Analyse what you genuinely see in each frame. Return ONLY valid JSON — no markdown, no explanation.`,
+      `You are an expert video editor and social media strategist for electronic music artists — Bicep, Floating Points, fred again.., Four Tet, Bonobo. You deeply understand what show footage performs in this world: raw, human, unpolished, in-the-room. You are looking at actual frames extracted from a show video.
+
+CRITICAL SOCIAL MEDIA RULE: The clip MUST start on the strongest, most attention-grabbing frame. The first 1-3 seconds decide everything on TikTok and Instagram Reels. Never bury the best moment in the middle — set best_clip_start AT or just before best_moment.timestamp so the hook is the opening frame. A strong hook = more loops = more reach.
+
+Analyse what you genuinely see in each frame. Return ONLY valid JSON — no markdown, no explanation.`,
       frames,
       `You are looking at ${frames.length} frames extracted from a show video called "${file.name}" (duration ~${duration.toFixed(0)}s).
 
@@ -243,8 +247,8 @@ Return JSON exactly:
     { "timestamp": <ts>, "frame_number": <n>, "score": <0-100>, "reason": "<what you see>", "type": "peak|crowd|lighting|transition|intimate" }
   ],
   "overall_energy": <1-10>,
-  "best_clip_start": <start timestamp for 15-30s clip>,
-  "best_clip_end": <end timestamp for 15-30s clip>,
+  "best_clip_start": <timestamp of best_moment or 1-2s before it — this IS the hook/opening frame>,
+  "best_clip_end": <best_clip_start + 15 to 30 seconds>,
   "visual_quality": "<one sentence on actual image quality, lighting conditions, shakiness>",
   "caption_context": "<one sentence describing what is genuinely happening in the footage>",
   "post_recommendation": "<specific recommendation based on what you actually see>",
