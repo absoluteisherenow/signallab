@@ -12,9 +12,9 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest) {
-  const accessKey    = process.env.ACRCLOUD_ACCESS_KEY
-  const accessSecret = process.env.ACRCLOUD_ACCESS_SECRET
-  const host         = process.env.ACRCLOUD_HOST || 'identify-eu-west-1.acrcloud.com'
+  const accessKey    = process.env.ACRCLOUD_ACCESS_KEY?.trim()
+  const accessSecret = process.env.ACRCLOUD_ACCESS_SECRET?.trim()
+  const host         = (process.env.ACRCLOUD_HOST || 'identify-eu-west-1.acrcloud.com').trim()
 
   if (!accessKey || !accessSecret) {
     return NextResponse.json({ error: 'ACRCloud not configured — add ACRCLOUD_ACCESS_KEY and ACRCLOUD_ACCESS_SECRET env vars' }, { status: 500, headers: CORS })
