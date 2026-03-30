@@ -3,6 +3,15 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
+interface ScheduledPost {
+  id: string
+  platform: string
+  caption: string
+  scheduled_at: string
+  status: string
+  gig_title?: string
+}
+
 interface Gig {
   id: string
   title: string
@@ -18,11 +27,68 @@ interface Gig {
 
 interface UrgentItem { text: string; href: string; due: string; type: 'gold' | 'red' }
 
+function WeekStrip({ gigs, scheduledPosts }: { gigs: Gig[]; scheduledPosts: ScheduledPost[] }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return null
+
+  const today = new Date()
+  const fmt = (d: Date) => d.toISOString().slice(0, 10)
+  const todayKey = fmt(today)
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today)
+    const monday = today.getDate() - ((today.getDay() + 6) % 7)
+    d.setDate(monday + i)
+    return d
+  })
+
+  return (
+    <div style={{ borderBottom: '1px solid var(--border-dim)', display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+      {days.map((d, i) => {
+        const key = fmt(d)
+        const isToday = key === todayKey
+        const dayGigs = gigs.filter(g => g.date === key)
+        const dayPosts = scheduledPosts.filter(p => p.scheduled_at?.slice(0, 10) === key)
+        return (
+          <div key={i} style={{
+            padding: '12px 16px 10px',
+            borderRight: i < 6 ? '1px solid var(--border-dim)' : 'none',
+            background: isToday ? 'rgba(201,169,110,0.04)' : 'transparent',
+            borderTop: isToday ? '1px solid var(--gold)' : '1px solid transparent',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '7px' }}>
+              <div style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: isToday ? 'var(--gold)' : 'var(--text-dimmer)' }}>
+                {d.toLocaleDateString('en-GB', { weekday: 'short' })}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: isToday ? 'var(--gold)' : 'var(--text-dimmer)' }}>
+                {d.getDate()}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              {dayGigs.map((g, j) => (
+                <Link key={j} href={`/gigs/${g.id}`} style={{ display: 'block', fontSize: '9px', color: 'var(--gold)', textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  ● {g.venue || g.title}
+                </Link>
+              ))}
+              {dayPosts.map((p, j) => (
+                <div key={j} style={{ fontSize: '9px', color: 'var(--green)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  ● {p.platform || 'Post'}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [gigs, setGigs] = useState<Gig[]>([])
   const [gigsLoading, setGigsLoading] = useState(true)
   const [urgent, setUrgent] = useState<UrgentItem[]>([])
   const [advanceStatuses, setAdvanceStatuses] = useState<Record<string, string>>({})
+  const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([])
   const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => { setNow(new Date()) }, [])
@@ -31,6 +97,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetch('/api/gigs').then(r => r.json()).then(d => { setGigs(d.gigs || []) }).catch(() => {}).finally(() => setGigsLoading(false))
+    fetch('/api/schedule').then(r => r.json()).then(d => { setScheduledPosts(d.posts || []) }).catch(() => {})
     fetch('/api/advance').then(r => r.json()).then(d => {
       if (d.requests) {
         const map: Record<string, string> = {}
@@ -95,6 +162,9 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Week strip */}
+      <WeekStrip gigs={gigs} scheduledPosts={scheduledPosts} />
 
       <div style={{ padding: '40px 52px' }}>
 
