@@ -250,8 +250,8 @@ function estimateBPM(mono: Float32Array, sampleRate: number): number | null {
 }
 
 // ── WAV snippet encoder — for ACRCloud fingerprinting ─────────────────────
-// ACRCloud recommends 8000 Hz mono 16-bit PCM for best recognition
-const ACR_SAMPLE_RATE = 8000
+// ACRCloud works best at 16000 Hz mono 16-bit PCM (8000 Hz causes poor recognition)
+const ACR_SAMPLE_RATE = 16000
 
 function encodeWAVSnippet(mono: Float32Array, sampleRate: number, startSample: number, numSamples: number): Blob {
   const srcCount = Math.min(numSamples, Math.max(0, mono.length - startSample))
@@ -941,14 +941,16 @@ Return corrected JSON:
         setScanProgress(`Identifying track ${i + 1} of ${segments.length}…`)
         const seg      = segments[i]
         const segLen   = seg.endTime - seg.startTime
-        const sampleStartSec = seg.startTime + Math.min(8, segLen * 0.25)
-        const sampleDurSec   = Math.min(15, segLen - (sampleStartSec - seg.startTime))
+        // Sample from the middle third of the segment to avoid transition noise at edges
+        const segThird = segLen / 3
+        const sampleStartSec = seg.startTime + segThird
+        const sampleDurSec   = Math.min(20, segThird)
 
         const mm = Math.floor(seg.startTime / 60).toString().padStart(2, '0')
         const ss = Math.floor(seg.startTime % 60).toString().padStart(2, '0')
         const timeIn = `${mm}:${ss}`
 
-        if (sampleDurSec < 5) {
+        if (sampleDurSec < 8) {
           results.push({ time_in: timeIn, title: 'Unknown', artist: '', confidence: 0, found: false })
           continue
         }
