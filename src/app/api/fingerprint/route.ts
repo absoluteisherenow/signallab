@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -12,12 +11,10 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest) {
-  const accessKey    = process.env.ACRCLOUD_ACCESS_KEY?.trim()
-  const accessSecret = process.env.ACRCLOUD_ACCESS_SECRET?.trim()
-  const host         = (process.env.ACRCLOUD_HOST || 'identify-eu-west-1.acrcloud.com').trim()
+  const apiToken = process.env.AUDD_API_TOKEN?.trim()
 
-  if (!accessKey || !accessSecret) {
-    return NextResponse.json({ error: 'ACRCloud not configured — add ACRCLOUD_ACCESS_KEY and ACRCLOUD_ACCESS_SECRET env vars' }, { status: 500, headers: CORS })
+  if (!apiToken) {
+    return NextResponse.json({ error: 'AUDD_API_TOKEN not configured' }, { status: 500, headers: CORS })
   }
 
   let formData: FormData
@@ -32,40 +29,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No audio provided' }, { status: 400, headers: CORS })
   }
 
-  const timestamp     = Math.floor(Date.now() / 1000).toString()
-  const stringToSign  = `POST\n/v1/identify\n${accessKey}\naudio\n1\n${timestamp}`
-  const signature     = crypto.createHmac('sha1', accessSecret).update(stringToSign).digest('base64')
-
-  const acrForm = new FormData()
-  acrForm.append('sample', audio, 'audio.wav')
-  acrForm.append('sample_bytes', audio.size.toString())
-  acrForm.append('access_key', accessKey)
-  acrForm.append('data_type', 'audio')
-  acrForm.append('signature_version', '1')
-  acrForm.append('signature', signature)
-  acrForm.append('timestamp', timestamp)
+  const auddForm = new FormData()
+  auddForm.append('api_token', apiToken)
+  auddForm.append('audio', audio, 'snippet.wav')
+  auddForm.append('return', 'spotify,apple_music')
 
   try {
-    const resp = await fetch(`https://${host}/v1/identify`, {
+    const resp = await fetch('https://api.audd.io/', {
       method: 'POST',
-      body: acrForm,
+      body: auddForm,
     })
     const data = await resp.json()
 
-    if (data.status?.code === 0 && data.metadata?.music?.[0]) {
-      const track = data.metadata.music[0]
+    if (data.status === 'success' && data.result) {
+      const track = data.result
       return NextResponse.json({
-        found: true,
+        found:        true,
         title:        track.title        || '',
-        artist:       track.artists?.[0]?.name || '',
-        album:        track.album?.name   || '',
-        label:        track.label         || '',
-        release_date: track.release_date  || '',
-        confidence:   Math.round(track.score || 100),
+        artist:       track.artist       || '',
+        album:        track.album        || '',
+        label:        track.label        || '',
+        release_date: track.release_date || '',
+        confidence:   85, // AudD doesn't return a score — 85 signals a solid match
       }, { headers: CORS })
+    } else if (data.status === 'success' && !data.result) {
+      return NextResponse.json({ found: false, msg: 'No match found' }, { headers: CORS })
     } else {
-      // code 1001 = no result, others = errors
-      return NextResponse.json({ found: false, code: data.status?.code, msg: data.status?.msg }, { headers: CORS })
+      return NextResponse.json({ found: false, code: data.error?.error_code, msg: data.error?.error_message }, { headers: CORS })
     }
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500, headers: CORS })
