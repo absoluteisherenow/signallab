@@ -123,14 +123,14 @@ export function BroadcastCalendar() {
       {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '28px' }}>
         <div>
-          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
+          <div style={{ fontSize: '9px', letterSpacing: '0.35em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '16px' }}>
             Signal Lab — Calendar
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '0.04em' }}>
-            Week of <span style={{ fontStyle: 'italic', color: s.gold, fontFamily: 'Georgia, serif' }}>
-              {weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
-            </span>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 300, letterSpacing: '-0.01em', lineHeight: 1, color: s.text }}>
+            Week of
+          </div>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 300, letterSpacing: '-0.01em', lineHeight: 1.1, color: s.gold }}>
+            {weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
