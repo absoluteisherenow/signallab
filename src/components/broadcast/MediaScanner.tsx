@@ -51,11 +51,36 @@ interface FileScan {
   composite: number
 }
 
-async function callClaude(system: string, userPrompt: string, maxTokens = 600): Promise<string> {
+// Vision-capable Claude call — sends actual frame images alongside the prompt
+async function callClaudeVision(
+  system: string,
+  frames: { dataUrl: string; timestamp: number }[],
+  textPrompt: string,
+  maxTokens = 2000
+): Promise<string> {
+  // Build content array: one image block per frame, then the text prompt
+  const content: object[] = frames.map(f => ({
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: 'image/jpeg',
+      data: f.dataUrl.replace(/^data:image\/jpeg;base64,/, ''),
+    },
+  }))
+
+  // Add timestamp labels as a text block before the prompt
+  const frameLabels = frames.map((f, i) => `Frame ${i + 1}: ${f.timestamp.toFixed(1)}s`).join(' | ')
+  content.push({ type: 'text', text: `Frame timestamps: ${frameLabels}\n\n${textPrompt}` })
+
   const res = await fetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-6', system, max_tokens: maxTokens, messages: [{ role: 'user', content: userPrompt }] }),
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      system,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content }],
+    }),
   })
   const data = await res.json()
   if (!res.ok || data.error) throw new Error(data.error || `API error ${res.status}`)
@@ -64,7 +89,7 @@ async function callClaude(system: string, userPrompt: string, maxTokens = 600): 
   return text
 }
 
-async function extractFrames(file: File, count = 8): Promise<{ dataUrl: string; timestamp: number }[]> {
+async function extractFrames(file: File, count = 12): Promise<{ dataUrl: string; timestamp: number }[]> {
   return new Promise((resolve) => {
     const video = document.createElement('video')
     const canvas = document.createElement('canvas')
@@ -75,27 +100,32 @@ async function extractFrames(file: File, count = 8): Promise<{ dataUrl: string; 
     video.src = URL.createObjectURL(file)
 
     video.onloadedmetadata = () => {
-      canvas.width = 320
-      canvas.height = 180
+      // Higher resolution for better visual analysis
+      canvas.width = 480
+      canvas.height = 270
       const duration = video.duration
-      const interval = duration / count
+      // Skip first and last 5% — intros/outros rarely have the best moment
+      const start = duration * 0.05
+      const end = duration * 0.95
+      const range = end - start
+      const interval = range / (count - 1)
       let captured = 0
 
       const captureFrame = (time: number) => { video.currentTime = time }
 
       video.onseeked = () => {
-        ctx.drawImage(video, 0, 0, 320, 180)
-        frames.push({ dataUrl: canvas.toDataURL('image/jpeg', 0.7), timestamp: video.currentTime })
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        frames.push({ dataUrl: canvas.toDataURL('image/jpeg', 0.75), timestamp: video.currentTime })
         captured++
         if (captured < count) {
-          captureFrame(captured * interval)
+          captureFrame(start + captured * interval)
         } else {
           URL.revokeObjectURL(video.src)
           resolve(frames)
         }
       }
 
-      captureFrame(0)
+      captureFrame(start)
     }
   })
 }
@@ -181,50 +211,63 @@ export function MediaScanner() {
     setProgressLabel(`Analysing ${file.name} (${index + 1} of ${total})...`)
     setProgress(Math.round((index / total) * 100 + 30))
 
-    const frameDescriptions = frames.map((f, i) => `Frame ${i + 1} at ${f.timestamp.toFixed(1)}s`).join(', ')
+    const duration = frames[frames.length - 1]?.timestamp ?? 0
 
-    const raw = await callClaude(
-      'You are an expert video editor and social media strategist for electronic music artists like Bicep, Floating Points, fred again.., and Four Tet. You understand what content performs well in this space — raw, unpolished, observational. No corporate energy. Analyse video content and score it for engagement potential and brand alignment. Return ONLY valid JSON.',
-      `Analyse this show video for social media content:
-File: ${file.name}
-Duration: approx ${frames[frames.length - 1]?.timestamp.toFixed(0)}s
-Frames extracted at: ${frameDescriptions}
+    const raw = await callClaudeVision(
+      `You are an expert video editor and social media strategist for electronic music artists — Bicep, Floating Points, fred again.., Four Tet, Bonobo. You deeply understand what show footage performs in this world: raw, human, unpolished, in-the-room. You are looking at actual frames extracted from a show video. Analyse what you genuinely see in each frame. Return ONLY valid JSON — no markdown, no explanation.`,
+      frames,
+      `You are looking at ${frames.length} frames extracted from a show video called "${file.name}" (duration ~${duration.toFixed(0)}s).
 
-Based on typical show footage patterns and what performs well for electronic artists on social media, identify the best moments and score the content.
+Each image is a real frame from the footage. Look carefully at:
+- CROWD: density, energy, movement, hands up, phones out, faces
+- LIGHTING: quality, colour, drama, whether it enhances the shot
+- COMPOSITION: is the artist visible, is the crowd in frame, angle quality
+- MOMENT TYPE: is this a peak drop, breakdown, crowd swell, lighting change, intimate moment
+- EMOTIONAL QUALITY: raw vs polished, authentic vs staged
+- PLATFORM FIT: would this stop a scroll on TikTok? Instagram?
 
-Return JSON:
+Identify which SPECIFIC FRAME NUMBER (1-${frames.length}) contains the single best moment for social media. Be specific about what you actually see.
+
+Return JSON exactly:
 {
-  "best_moment": { "timestamp": number, "score": 95, "reason": "Peak crowd energy with strong lighting", "type": "crowd" },
-  "moments": [
-    { "timestamp": number, "score": number, "reason": "description", "type": "peak|crowd|lighting|transition" },
-    { "timestamp": number, "score": number, "reason": "description", "type": "peak|crowd|lighting|transition" },
-    { "timestamp": number, "score": number, "reason": "description", "type": "peak|crowd|lighting|transition" }
-  ],
-  "overall_energy": number 1-10,
-  "best_clip_start": number,
-  "best_clip_end": number,
-  "caption_context": "one sentence describing what happened — for caption generation",
-  "post_recommendation": "one sentence on why this is the best moment to post",
-  "content_score": {
-    "engagement": number 0-100,
-    "brand_alignment": number 0-100,
-    "virality": number 0-100,
-    "reasoning": "one sentence explaining the scores"
+  "best_moment": {
+    "timestamp": <exact timestamp of best frame>,
+    "frame_number": <1-${frames.length}>,
+    "score": <0-100>,
+    "reason": "<describe exactly what you see in this frame — crowd state, lighting, composition, why it works>",
+    "type": "peak|crowd|lighting|transition|intimate"
   },
-  "tags": ["venue name from filename if detectable", "photographer: [credit placeholder]"],
-  "tone_match": "which reference artist (Bicep/Floating Points/fred again../Four Tet) this content aligns with most and why in one sentence",
+  "moments": [
+    { "timestamp": <ts>, "frame_number": <n>, "score": <0-100>, "reason": "<what you see>", "type": "peak|crowd|lighting|transition|intimate" },
+    { "timestamp": <ts>, "frame_number": <n>, "score": <0-100>, "reason": "<what you see>", "type": "peak|crowd|lighting|transition|intimate" },
+    { "timestamp": <ts>, "frame_number": <n>, "score": <0-100>, "reason": "<what you see>", "type": "peak|crowd|lighting|transition|intimate" }
+  ],
+  "overall_energy": <1-10>,
+  "best_clip_start": <start timestamp for 15-30s clip>,
+  "best_clip_end": <end timestamp for 15-30s clip>,
+  "visual_quality": "<one sentence on actual image quality, lighting conditions, shakiness>",
+  "caption_context": "<one sentence describing what is genuinely happening in the footage>",
+  "post_recommendation": "<specific recommendation based on what you actually see>",
+  "content_score": {
+    "engagement": <0-100>,
+    "brand_alignment": <0-100>,
+    "virality": <0-100>,
+    "reasoning": "<based on what you see: crowd reaction, lighting, composition>"
+  },
+  "tags": ["<venue/event if detectable from context>", "<show footage>", "<live electronic>"],
+  "tone_match": "<which reference artist this footage feels closest to, and specifically why based on what you see>",
   "platform_cuts": {
-    "instagram": "0:00 – 0:30 (best crowd moment)",
-    "tiktok": "0:15 – 0:45 (peak energy section)",
-    "story": "0:00 – 0:15 (strong opening)"
+    "instagram": "<timestamp range e.g. 0:15 – 0:45 — why>",
+    "tiktok": "<timestamp range — why>",
+    "story": "<timestamp range — why>"
   },
   "platform_ranking": [
-    { "platform": "TikTok", "score": 92, "reason": "Raw crowd energy performs best here" },
-    { "platform": "Instagram Reel", "score": 85, "reason": "Strong visual moment" },
-    { "platform": "Instagram Story", "score": 78, "reason": "Good for day-after posting" }
+    { "platform": "TikTok", "score": <0-100>, "reason": "<based on what you see>" },
+    { "platform": "Instagram Reel", "score": <0-100>, "reason": "<based on what you see>" },
+    { "platform": "Instagram Story", "score": <0-100>, "reason": "<based on what you see>" }
   ]
 }`,
-      1500
+      2000
     )
 
     const data = JSON.parse(raw.replace(/```json|```/g, '').trim())
@@ -281,6 +324,53 @@ Return JSON:
     if (!scan) return
     const params = new URLSearchParams({ context: scan.result.caption_context })
     window.location.href = '/broadcast?' + params.toString()
+  }
+
+  async function downloadClip(scan: FileScan) {
+    const { best_clip_start, best_clip_end } = scan.result
+    const startSec = best_clip_start ?? 0
+    const endSec   = best_clip_end   ?? Math.min(startSec + 30, 999)
+
+    // Use MediaRecorder to extract the clip client-side
+    const video = document.createElement('video')
+    video.src = URL.createObjectURL(scan.file)
+    video.muted = false
+
+    await new Promise<void>(res => { video.onloadedmetadata = () => res() })
+
+    const stream  = (video as HTMLVideoElement & { captureStream(): MediaStream }).captureStream()
+    const chunks: BlobPart[] = []
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm'
+    const recorder = new MediaRecorder(stream, { mimeType })
+
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: mimeType })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `${scan.file.name.replace(/\.[^.]+$/, '')}_best_${startSec.toFixed(0)}s-${endSec.toFixed(0)}s.webm`
+      a.click()
+      URL.revokeObjectURL(url)
+      URL.revokeObjectURL(video.src)
+    }
+
+    video.currentTime = startSec
+    await new Promise<void>(res => { video.onseeked = () => res() })
+
+    recorder.start()
+    video.play()
+
+    await new Promise<void>(res => setTimeout(res, (endSec - startSec) * 1000 + 200))
+    recorder.stop()
+    video.pause()
+  }
+
+  const [downloading, setDownloading] = useState(false)
+
+  async function handleDownload(scan: FileScan) {
+    setDownloading(true)
+    try { await downloadClip(scan) } finally { setDownloading(false) }
   }
 
   const typeColors: Record<string, string> = {
@@ -501,9 +591,37 @@ Return JSON:
 
             {/* Best moment */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Best moment</div>
-              <div style={{ fontSize: '28px', fontWeight: 300, color: s.gold, marginBottom: '6px' }}>{activeScan.result.best_moment.timestamp.toFixed(1)}s</div>
-              <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '12px', lineHeight: '1.6', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{activeScan.result.best_moment.reason}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase' }}>Best moment</div>
+                <button
+                  onClick={() => handleDownload(activeScan)}
+                  disabled={downloading}
+                  style={{
+                    background: downloading ? 'transparent' : 'rgba(176,141,87,0.08)',
+                    border: `1px solid ${downloading ? s.border : s.gold + '80'}`,
+                    color: downloading ? s.textDimmer : s.gold,
+                    fontFamily: s.font,
+                    fontSize: '9px',
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    padding: '6px 14px',
+                    cursor: downloading ? 'default' : 'pointer',
+                  }}
+                >
+                  {downloading ? 'Extracting...' : `↓ Download clip (${activeScan.result.best_clip_start?.toFixed(0) ?? '?'}s – ${activeScan.result.best_clip_end?.toFixed(0) ?? '?'}s)`}
+                </button>
+              </div>
+              <div style={{ fontSize: '36px', fontWeight: 300, color: s.gold, marginBottom: '6px', fontFamily: "'Unbounded', sans-serif", letterSpacing: '-0.02em' }}>
+                {activeScan.result.best_moment.timestamp.toFixed(1)}s
+              </div>
+              <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '14px', lineHeight: '1.7', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                {activeScan.result.best_moment.reason}
+              </div>
+              {(activeScan.result as ScanResult & { visual_quality?: string }).visual_quality && (
+                <div style={{ fontSize: '11px', color: s.textDimmer, marginBottom: '12px', lineHeight: '1.6', paddingTop: '12px', borderTop: `1px solid ${s.border}` }}>
+                  {(activeScan.result as ScanResult & { visual_quality?: string }).visual_quality}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: s.textDimmer }}>
                 <span>Energy: <span style={{ color: s.gold }}>{activeScan.result.overall_energy}/10</span></span>
                 <span>Type: <span style={{ color: typeColors[activeScan.result.best_moment.type] || s.gold }}>{activeScan.result.best_moment.type}</span></span>
@@ -580,21 +698,41 @@ Return JSON:
             {/* CTA */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
               <div style={{ fontSize: '11px', color: s.textDim, marginBottom: '14px', lineHeight: '1.6', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{activeScan.result.post_recommendation}</div>
-              <div style={{ fontSize: '10px', color: s.textDimmer, marginBottom: '14px' }}>Caption context: <span style={{ color: s.textDim }}>{activeScan.result.caption_context}</span></div>
-              <button onClick={useInBroadcast} style={{
-                width: '100%',
-                background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-                border: `1px solid ${s.gold}`,
-                color: s.gold,
-                fontFamily: s.font,
-                fontSize: '10px',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                padding: '14px',
-                cursor: 'pointer',
-              }}>
-                Generate caption in Signal Lab →
-              </button>
+              <div style={{ fontSize: '10px', color: s.textDimmer, marginBottom: '18px' }}>Caption context: <span style={{ color: s.textDim }}>{activeScan.result.caption_context}</span></div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={useInBroadcast} style={{
+                  flex: 1,
+                  background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+                  border: `1px solid ${s.gold}`,
+                  color: s.gold,
+                  fontFamily: s.font,
+                  fontSize: '10px',
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  padding: '14px',
+                  cursor: 'pointer',
+                }}>
+                  Write caption →
+                </button>
+                <button
+                  onClick={() => handleDownload(activeScan)}
+                  disabled={downloading}
+                  style={{
+                    background: 'transparent',
+                    border: `1px solid ${s.border}`,
+                    color: downloading ? s.textDimmer : s.textDim,
+                    fontFamily: s.font,
+                    fontSize: '10px',
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    padding: '14px 18px',
+                    cursor: downloading ? 'default' : 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {downloading ? 'Extracting...' : '↓ Best clip'}
+                </button>
+              </div>
             </div>
           </div>
         )}
