@@ -67,15 +67,25 @@ export async function POST(req: NextRequest) {
   try {
     const { name, handle } = await req.json()
     if (!name) return NextResponse.json({ success: false, error: 'Artist name required' }, { status: 400 })
+
+    if (!process.env.APIFY_API_KEY) {
+      return NextResponse.json({ success: false, error: 'Instagram scanning requires Apify — add APIFY_API_KEY to enable real post analysis' }, { status: 503 })
+    }
+
     const targetUsername = (handle || name).toLowerCase().replace(/[^a-z0-9_.]/g, '')
     const { captions, postCount } = await scrapeInstagramPosts(targetUsername)
+
+    if (captions.length === 0) {
+      return NextResponse.json({ success: false, error: `No posts found for ${name} — check the Instagram handle is correct` }, { status: 404 })
+    }
+
     const profile = await analyseWithClaude(name, captions)
     return NextResponse.json({
       success: true,
       profile: {
         name,
         ...profile,
-        data_source: captions.length > 0 ? 'apify' : 'claude',
+        data_source: 'apify',
         post_count_analysed: captions.length || postCount,
         last_scanned: new Date().toISOString().split('T')[0],
       },

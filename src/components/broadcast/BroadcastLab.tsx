@@ -228,17 +228,8 @@ export function BroadcastLab() {
         ? `${artist.post_count_analysed} real posts analysed`
         : 'Voice profile built'
       showToast(`${name} — ${sourceMsg}`, 'Done')
-    } catch {
-      const fallback: ArtistProfile = {
-        name, handle: `@${name.toLowerCase().replace(/\s/g, '')}`, genre: 'Electronic',
-        lowercase_pct: 84, short_caption_pct: 69, no_hashtags_pct: 77,
-        chips: ['Electronic', 'Independent'], highlight_chips: [0],
-        style_rules: 'Electronic music artist. Lowercase, minimal captions, no hashtags. Independent aesthetic.',
-        data_source: 'claude', last_scanned: new Date().toISOString().split('T')[0],
-      }
-      setArtists(prev => [...prev, fallback])
-      saveArtist(fallback)
-      showToast(`${name} added — scan again to refresh`, 'Done')
+    } catch (err: any) {
+      showToast(`Could not scan ${name} — ${err.message || 'try again'}`, 'Error')
     } finally {
       setScanningArtist(null)
     }
