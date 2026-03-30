@@ -2,6 +2,12 @@
 
 import { useState, useEffect } from 'react'
 
+interface ConnectedAccount {
+  id: string
+  email: string
+  label: string
+}
+
 export default function Settings() {
   const [profile, setProfile] = useState({ name: 'NIGHT manoeuvres', genre: 'Electronic', country: 'Australia', bio: 'Electronic music artist based in Melbourne.' })
   const [team, setTeam] = useState([
@@ -15,6 +21,21 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance'>('profile')
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
+  const [newAccountLabel, setNewAccountLabel] = useState('')
+  const [showAddAccount, setShowAddAccount] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/gmail/accounts')
+      .then(r => r.json())
+      .then(d => { if (d.accounts) setConnectedAccounts(d.accounts) })
+      .catch(() => {})
+  }, [])
+
+  async function disconnectAccount(id: string) {
+    await fetch(`/api/gmail/accounts?id=${id}`, { method: 'DELETE' })
+    setConnectedAccounts(prev => prev.filter(a => a.id !== id))
+  }
 
   // Load settings from Supabase
   useEffect(() => {
@@ -184,6 +205,56 @@ export default function Settings() {
               </div>
             </div>
           ))}
+          {/* Connected Gmail Accounts */}
+          <div className="card" style={{ marginTop: '16px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '6px' }}>Connected email accounts</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '20px', lineHeight: '1.7' }}>
+              All connected accounts are scanned for bookings, invoice requests, and expenses.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              {connectedAccounts.length === 0 && (
+                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>No accounts connected yet.</div>
+              )}
+              {connectedAccounts.map(account => (
+                <div key={account.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dim)' }}>
+                  <div>
+                    <div style={{ fontSize: '12px', color: 'var(--text)' }}>{account.email}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', letterSpacing: '0.08em', marginTop: '2px' }}>{account.label}</div>
+                  </div>
+                  <button onClick={() => disconnectAccount(account.id)}
+                    style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer' }}
+                    onMouseEnter={e => { (e.target as HTMLElement).style.color = '#ef4444'; (e.target as HTMLElement).style.borderColor = '#ef4444' }}
+                    onMouseLeave={e => { (e.target as HTMLElement).style.color = 'var(--text-dimmer)'; (e.target as HTMLElement).style.borderColor = 'var(--border-dim)' }}>
+                    Disconnect
+                  </button>
+                </div>
+              ))}
+            </div>
+            {!showAddAccount ? (
+              <button onClick={() => setShowAddAccount(true)}
+                style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '8px 18px', cursor: 'pointer' }}>
+                + Connect account
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ ...labelStyle, marginBottom: '6px' }}>Label</div>
+                  <input value={newAccountLabel} onChange={e => setNewAccountLabel(e.target.value)}
+                    placeholder="e.g. Management, Bookings, Personal"
+                    style={inputStyle} />
+                </div>
+                <a href={`/api/gmail/auth?label=${encodeURIComponent(newAccountLabel || 'Primary')}`}
+                  style={{ background: 'var(--gold)', color: '#070706', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '13px 18px', textDecoration: 'none', whiteSpace: 'nowrap', display: 'block' }}>
+                  Connect Gmail →
+                </a>
+                <button onClick={() => { setShowAddAccount(false); setNewAccountLabel('') }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '11px', padding: '8px', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="card" style={{ marginTop: '16px' }}>
             <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Subscription</div>
             <div className="display" style={{ fontSize: '20px', color: 'var(--gold)', marginBottom: '4px' }}>Pro</div>
