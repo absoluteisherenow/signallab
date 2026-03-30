@@ -337,6 +337,8 @@ export function SetLab() {
   const [scanPhase, setScanPhase] = useState<'upload' | 'detecting' | 'fingerprinting' | 'review' | 'analysing'>('upload')
   const [detectedTracks, setDetectedTracks] = useState<Array<{time_in: string, title: string, artist: string, confidence: number, found: boolean, acrCode?: number, acrMsg?: string}>>([])
   const scanAudioRef = useRef<any>(null)
+  const [tracklistImgParsing, setTracklistImgParsing] = useState(false)
+  const tracklistImgRef = useRef<HTMLInputElement>(null)
 
   const showToast = (msg: string, tag = 'Info') => {
     setToast({ msg, tag })
@@ -1020,6 +1022,48 @@ Return corrected JSON:
       setScanProgress('')
       setScanPhase('upload')
     }
+  }
+
+  // ── Mix Scanner — Tracklist Screenshot Parser ────────────────────────────
+  async function parseTracklistImage(file: File) {
+    setTracklistImgParsing(true)
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string
+      const base64 = dataUrl.split(',')[1]
+      const mediaType = (file.type || 'image/jpeg') as any
+      try {
+        const res = await fetch('/api/claude', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 1500,
+            system: 'You are a tracklist extraction assistant. Return ONLY plain text, no markdown, no numbering.',
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+                { type: 'text', text: `Extract every track visible in this screenshot. Return one track per line in this exact format:\nARTIST - TITLE\n\nRules:\n- No numbering or timestamps\n- No blank lines\n- Skip anything that isn't a clear artist/title pair` },
+              ],
+            }],
+          }),
+        })
+        const data = await res.json()
+        const text = data.content?.[0]?.text || ''
+        if (text.trim()) {
+          setScannerTracklist(text.trim())
+          showToast('Tracklist extracted from screenshot', 'Signal Lab')
+        } else {
+          showToast('No tracks found in screenshot', 'Error')
+        }
+      } catch {
+        showToast('Could not read screenshot', 'Error')
+      } finally {
+        setTracklistImgParsing(false)
+      }
+    }
+    reader.readAsDataURL(file)
   }
 
   // ── Mix Scanner — Phase 2: Claude Analysis ──────────────────────────────
@@ -1893,8 +1937,18 @@ Return corrected JSON:
                     />
                   </div>
                   <div>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.gold, textTransform: 'uppercase', marginBottom: '8px' }}>
-                      Tracklist <span style={{ color: s.textDimmer }}>— recommended for real analysis</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.gold, textTransform: 'uppercase' }}>
+                        Tracklist <span style={{ color: s.textDimmer }}>— recommended for real analysis</span>
+                      </div>
+                      <button
+                        onClick={() => tracklistImgRef.current?.click()}
+                        disabled={tracklistImgParsing}
+                        style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: s.setlab, background: 'transparent', border: `1px solid ${s.setlab}50`, padding: '4px 10px', cursor: tracklistImgParsing ? 'wait' : 'pointer', fontFamily: s.font, opacity: tracklistImgParsing ? 0.5 : 1 }}
+                      >
+                        {tracklistImgParsing ? 'Reading...' : '↑ Screenshot'}
+                      </button>
+                      <input ref={tracklistImgRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) parseTracklistImage(f) }} style={{ display: 'none' }} />
                     </div>
                     <textarea
                       value={scannerTracklist}
@@ -2018,8 +2072,17 @@ Return corrected JSON:
 
                 {/* Editable tracklist */}
                 <div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>
-                    Edit tracklist <span style={{ opacity: 0.5 }}>— correct any wrong IDs before analysis</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase' }}>
+                      Edit tracklist <span style={{ opacity: 0.5 }}>— correct any wrong IDs before analysis</span>
+                    </div>
+                    <button
+                      onClick={() => tracklistImgRef.current?.click()}
+                      disabled={tracklistImgParsing}
+                      style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: s.setlab, background: 'transparent', border: `1px solid ${s.setlab}50`, padding: '4px 10px', cursor: tracklistImgParsing ? 'wait' : 'pointer', fontFamily: s.font, opacity: tracklistImgParsing ? 0.5 : 1 }}
+                    >
+                      {tracklistImgParsing ? 'Reading...' : '↑ Screenshot'}
+                    </button>
                   </div>
                   <textarea
                     value={scannerTracklist}

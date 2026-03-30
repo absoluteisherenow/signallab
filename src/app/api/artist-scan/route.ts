@@ -4,18 +4,23 @@ async function scrapeInstagramPosts(username: string): Promise<{ captions: strin
   if (!process.env.APIFY_API_KEY) return { captions: [], postCount: 0 }
   try {
     const res = await fetch(
-      `https://api.apify.com/v2/acts/apify~instagram-profile-scraper/run-sync-get-dataset-items?token=${process.env.APIFY_API_KEY}&timeout=45`,
+      `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${process.env.APIFY_API_KEY}&timeout=60`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usernames: [username.replace('@', '')], resultsLimit: 30 }),
+        body: JSON.stringify({
+          directUrls: [`https://www.instagram.com/${username.replace('@', '')}/`],
+          resultsType: 'posts',
+          resultsLimit: 30,
+        }),
         signal: AbortSignal.timeout(50000),
       }
     )
     if (!res.ok) return { captions: [], postCount: 0 }
     const data = await res.json()
-    const posts: any[] = data[0]?.latestPosts || []
-    const captions = posts.map((p: any) => p.caption || '').filter((c: string) => c.length > 0).slice(0, 30)
+    // apify~instagram-scraper returns a flat array of post objects
+    const posts: any[] = Array.isArray(data) ? data : (data[0]?.latestPosts || [])
+    const captions = posts.map((p: any) => p.caption || p.text || '').filter((c: string) => c.length > 0).slice(0, 30)
     return { captions, postCount: posts.length }
   } catch {
     return { captions: [], postCount: 0 }
