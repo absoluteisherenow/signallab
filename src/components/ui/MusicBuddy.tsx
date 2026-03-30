@@ -90,35 +90,35 @@ export function MusicBuddy() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
+          title="Music Buddy"
           style={{
             ...btnBase,
             position: 'fixed',
-            bottom: '76px',
+            bottom: '80px',
             right: '24px',
-            height: '34px',
-            padding: '0 14px',
+            width: '44px',
+            height: '44px',
             background: '#0a0908',
-            border: '1px solid #2e2c29',
+            border: '1.5px solid #b08d57',
             color: '#b08d57',
-            fontSize: '10px',
-            letterSpacing: '0.16em',
-            textTransform: 'uppercase',
+            fontSize: '20px',
             display: 'flex',
             alignItems: 'center',
-            gap: '7px',
+            justifyContent: 'center',
             zIndex: 9990,
-            whiteSpace: 'nowrap',
+            borderRadius: '4px',
+            boxShadow: '0 0 0 1px rgba(176,141,87,0.12), 0 4px 16px rgba(0,0,0,0.7)',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.borderColor = '#b08d57'
-            e.currentTarget.style.background  = '#141310'
+            e.currentTarget.style.background = '#141310'
+            e.currentTarget.style.boxShadow = '0 0 0 2px rgba(176,141,87,0.3), 0 4px 16px rgba(0,0,0,0.7)'
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.borderColor = '#2e2c29'
-            e.currentTarget.style.background  = '#0a0908'
+            e.currentTarget.style.background = '#0a0908'
+            e.currentTarget.style.boxShadow = '0 0 0 1px rgba(176,141,87,0.12), 0 4px 16px rgba(0,0,0,0.7)'
           }}
         >
-          <span style={{ fontSize: '14px', lineHeight: 1 }}>≋</span> Music Buddy
+          ≋
         </button>
       )}
 
