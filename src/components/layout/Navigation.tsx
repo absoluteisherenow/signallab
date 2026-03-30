@@ -13,12 +13,12 @@ const NAV_GROUPS: NavGroup[] = [
     label: '',
     items: [
       { label: 'Dashboard', href: '/dashboard', sub: [] },
-      { label: 'Signal Lab', href: '/broadcast', sub: [] },
     ],
   },
   {
     label: '',
     items: [
+      { label: 'Signal Lab', href: '/broadcast', sub: [] },
       { label: 'Set Lab', href: '/setlab', sub: [] },
       { label: 'SONIX Lab', href: '/sonix', sub: [] },
       { label: 'Tour Lab', href: '/gigs', sub: [] },
