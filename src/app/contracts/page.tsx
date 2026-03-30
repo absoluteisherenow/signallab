@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 interface Extracted {
   title:string;venue:string;location:string;date:string;time:string
@@ -24,6 +25,7 @@ function Sec({label}:{label:string}) {
 
 export default function Contracts() {
   const router = useRouter()
+  const pathname = usePathname()
   const [rawText,setRawText]=useState('')
   const [extracting,setExtracting]=useState(false)
   const [extracted,setExtracted]=useState<Extracted|null>(null)
@@ -119,14 +121,24 @@ export default function Contracts() {
   }
 
   return (
-    <div style={{background:'var(--bg)',color:'var(--text)',fontFamily:'var(--font-mono)',minHeight:'100vh',padding:'40px 48px'}}>
-      <div style={{marginBottom:'40px'}}>
-        <div style={{fontSize:'10px',letterSpacing:'0.3em',color:'var(--gold)',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
-          <span style={{display:'block',width:'28px',height:'1px',background:'var(--gold)'}}/>Tour Lab — Contracts
-        </div>
-        <div className="display" style={{fontSize:'28px'}}>Contract parser</div>
-        <div style={{fontSize:'13px',color:'var(--text-dimmer)',marginTop:'8px'}}>Paste a booking email or contract — extracts venue, times, hotel, backline, fee and deposits, creates the gig and invoices automatically</div>
-      </div>
+    <div style={{background:'var(--bg)',color:'var(--text)',fontFamily:'var(--font-mono)',minHeight:'100vh'}}>
+
+      <PageHeader
+        section="Tour Lab"
+        title="Contracts"
+        tabs={[
+          { label: 'Gigs', href: '/gigs', active: pathname === '/gigs' || pathname.startsWith('/gigs/') },
+          { label: 'Finances', href: '/business/finances', active: pathname === '/business/finances' },
+          { label: 'Contracts', href: '/contracts', active: pathname === '/contracts' },
+        ]}
+        right={
+          <button onClick={() => router.push('/gigs/new')} style={{ background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '12px 24px', cursor: 'pointer' }}>
+            + New gig
+          </button>
+        }
+      />
+
+      <div style={{padding:'40px 48px'}}>
 
       {/* EMAIL WORKFLOW BANNER */}
       <div style={{background:'rgba(176, 141, 87, 0.06)',border:'1px solid rgba(176, 141, 87, 0.25)',padding:'20px 24px',marginBottom:'32px',borderRadius:'4px'}}>
@@ -243,6 +255,8 @@ export default function Contracts() {
       )}
       {toast&&<div className="toast"><div className="toast-label">Contracts</div>{toast}</div>}
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
+      </div>{/* end inner padding */}
     </div>
   )
 }

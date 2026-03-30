@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { PageHeader } from '@/components/ui/PageHeader'
 
 interface Invoice {
@@ -34,6 +35,8 @@ export default function Finances() {
   const [newInvoice, setNewInvoice] = useState({ gig_title: '', amount: '', currency: 'EUR', type: 'full', due_date: '' })
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(true)
+  const [financeTab, setFinanceTab] = useState<'invoices' | 'expenses'>('invoices')
+  const pathname = usePathname()
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -136,15 +139,40 @@ export default function Finances() {
       <PageHeader
         section="Tour Lab"
         title="Finances"
+        tabs={[
+          { label: 'Gigs', href: '/gigs', active: pathname === '/gigs' },
+          { label: 'Finances', href: '/business/finances', active: pathname === '/business/finances' },
+          { label: 'Contracts', href: '/contracts', active: pathname === '/contracts' },
+        ]}
         right={
           <>
             <button onClick={exportCSV} className="btn-secondary" style={{ padding: '10px 20px', fontSize: '10px' }}>Export CSV</button>
             <button onClick={() => setShowAdd(!showAdd)} className="btn-gold" style={{ padding: '10px 20px', fontSize: '10px' }}>+ Add invoice</button>
+            <a href="/gigs/new" style={{ textDecoration: 'none', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '10px 20px', display: 'inline-block' }}>+ New gig</a>
           </>
         }
       />
 
       <div style={{ padding: '40px 48px' }}>
+
+      {/* Secondary tab — Invoices / Expenses */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '32px' }}>
+        {(['invoices', 'expenses'] as const).map(t => (
+          <button key={t} onClick={() => setFinanceTab(t)} style={{
+            background: 'transparent', border: 'none',
+            padding: '8px 0', marginRight: '20px',
+            fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: financeTab === t ? 'var(--text)' : 'rgba(240,235,226,0.3)',
+            borderBottom: `2px solid ${financeTab === t ? 'var(--gold)' : 'transparent'}`,
+            fontFamily: 'var(--font-mono)', fontWeight: financeTab === t ? 500 : 400,
+            cursor: 'pointer', transition: 'color 0.12s',
+          }}>
+            {t === 'invoices' ? 'Invoices' : 'Expenses'}
+          </button>
+        ))}
+      </div>
+
+      {financeTab === 'invoices' && (<>
 
       {/* STATS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', marginBottom: '32px' }}>
@@ -258,6 +286,16 @@ export default function Finances() {
           ))
         )}
       </div>
+
+      </>)}
+
+      {financeTab === 'expenses' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', textAlign: 'center' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '16px' }}>Expenses</div>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 400, color: 'var(--text)', marginBottom: '12px' }}>No expenses yet</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', maxWidth: '360px', lineHeight: '1.7' }}>Track studio time, equipment, travel, and other costs against your income.</div>
+        </div>
+      )}
 
       {toast && (
         <div className="toast">

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
 
@@ -29,6 +29,7 @@ const f = {
 export function GigsList() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const openId = searchParams.get('open')
 
   const [gigs, setGigs] = useState<Gig[] | null>(null)
@@ -101,6 +102,11 @@ export function GigsList() {
       <PageHeader
         section="Tour Lab"
         title="Your gigs"
+        tabs={[
+          { label: 'Gigs', href: '/gigs', active: pathname === '/gigs' || pathname.startsWith('/gigs/') },
+          { label: 'Finances', href: '/business/finances', active: pathname === '/business/finances' },
+          { label: 'Contracts', href: '/contracts', active: pathname === '/contracts' },
+        ]}
         right={
           <>
             <Link href="/contracts" style={{ textDecoration: 'none', border: `1px solid ${f.border}`, color: f.dimmer, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 20px', display: 'inline-block', fontFamily: f.font }}>Upload contract</Link>
