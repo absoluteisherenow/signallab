@@ -12,6 +12,10 @@ async function scrapeInstagramPosts(username: string): Promise<{ captions: strin
           directUrls: [`https://www.instagram.com/${username.replace('@', '')}/`],
           resultsType: 'posts',
           resultsLimit: 30,
+          proxy: {
+            useApifyProxy: true,
+            apifyProxyGroups: ['RESIDENTIAL'],
+          },
         }),
         signal: AbortSignal.timeout(50000),
       }
@@ -81,7 +85,7 @@ export async function POST(req: NextRequest) {
     const { captions, postCount } = await scrapeInstagramPosts(targetUsername)
 
     if (captions.length === 0) {
-      return NextResponse.json({ success: false, error: `No posts found for ${name} — check the Instagram handle is correct` }, { status: 404 })
+      return NextResponse.json({ success: false, error: `Could not scrape posts for ${name}. Instagram is blocking the request — try adding residential proxies to Apify.` }, { status: 404 })
     }
 
     const profile = await analyseWithClaude(name, captions)
