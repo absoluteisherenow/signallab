@@ -203,7 +203,7 @@ export default function Onboarding() {
               What do you sound like?
             </div>
             <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
-              This feeds every AI tool — captions, Sonix Lab, content planning. Set it once.
+              This feeds captions, Sonix Lab, and content planning. Set it once.
             </div>
 
             {/* Sounds like */}

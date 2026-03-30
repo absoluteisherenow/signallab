@@ -1225,7 +1225,7 @@ Return corrected JSON:
                     {dragOver ? 'Drop audio files here' : 'Drop MP3, WAV, or FLAC files here — or click to browse'}
                   </div>
                   <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                    Extracts BPM from audio waveform · Claude adds key, energy, mix techniques, crowd reaction
+                    Extracts BPM from audio waveform · adds key, energy, mix techniques, crowd reaction
                   </div>
                 </div>
               )}

@@ -198,7 +198,7 @@ If any field is not found, use null for strings and 0 for numbers.`
           Contract <span style={{ color: s.gold }}>parser</span>
         </div>
         <div style={{ fontSize: '14px', color: s.dimmer, lineHeight: '1.7' }}>
-          Upload a performance contract PDF — Claude reads it and creates the gig record and invoices automatically.
+          Upload a performance contract PDF — it reads it and creates the gig record and invoices automatically.
         </div>
       </div>
 

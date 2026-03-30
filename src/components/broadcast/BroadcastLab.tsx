@@ -226,7 +226,7 @@ export function BroadcastLab() {
       saveArtist(artist)
       const sourceMsg = artist.data_source === 'apify'
         ? `${artist.post_count_analysed} real posts analysed`
-        : 'AI voice profile built'
+        : 'Voice profile built'
       showToast(`${name} — ${sourceMsg}`, 'Done')
     } catch {
       const fallback: ArtistProfile = {
@@ -472,7 +472,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
   function useTrend(trendContext: string) {
     setContext(trendContext)
     setTimeout(generateCaptions, 300)
-    showToast('Trend applied — generating captions', 'AI')
+    showToast('Trend applied — generating captions', 'Signal Lab')
   }
 
   function formatScore(score: number) {
@@ -594,7 +594,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
             {l:'Lowercase',v:`${Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1)),s:'Lane average across reference artists'},
             {l:'Under 10 words',v:`${Math.round(artists.reduce((a,b)=>a+b.short_caption_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.short_caption_pct,0)/(artists.length||1)),s:'Short captions in your lane'},
             {l:'No hashtags',v:`${Math.round(artists.reduce((a,b)=>a+b.no_hashtags_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.no_hashtags_pct,0)/(artists.length||1)),s:'Lane standard — hashtags hurt tone',t:true},
-            {l:'Artists profiled',v:`${artists.length}`,p:Math.min(artists.length*20,100),s:artists.filter(a=>a.data_source==='apify').length>0?`${artists.filter(a=>a.data_source==='apify').length} from real posts`:'All AI profiles'},
+            {l:'Artists profiled',v:`${artists.length}`,p:Math.min(artists.length*20,100),s:artists.filter(a=>a.data_source==='apify').length>0?`${artists.filter(a=>a.data_source==='apify').length} from real posts`:'Analysed from public posts'},
             {l:'Voice alignment',v:'High',p:84,s:'Based on style rules depth',t:true},
             {l:'Tone register',v:'Raw',p:79,s:'Detached · observational'},
           ].map(m => (
@@ -663,7 +663,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
       {/* CAPTION GENERATOR */}
       <div className="bg-[#0e0d0b] border border-white/7 p-8 caption-panel">
         <div className="flex items-center gap-2 mb-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
-          Caption generator — real AI, tuned to your voice<div className="flex-1 h-px bg-white/10" />
+          Caption generator — tuned to your voice<div className="flex-1 h-px bg-white/10" />
         </div>
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div>

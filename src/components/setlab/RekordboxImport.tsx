@@ -366,7 +366,7 @@ Return as JSON array: [{...}, {...}, ...]` }],
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '32px' }}>
         {[
           { step: '01', title: 'Screenshot anything', body: 'Spotify, Apple Music, Beatport, Tidal, SoundCloud, a handwritten setlist — any platform, any format.' },
-          { step: '02', title: 'Claude reads it', body: 'Vision AI extracts every track instantly — title, artist, BPM, key, duration — no manual typing.' },
+          { step: '02', title: 'Reads it instantly', body: 'Every track extracted automatically — title, artist, BPM, key, duration — no manual typing.' },
           { step: '03', title: 'Enriched automatically', body: 'Energy level, mix-in/out technique, crowd reaction and set position added for every track in your library.' },
         ].map(f => (
           <div key={f.step} style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
@@ -494,7 +494,7 @@ Return as JSON array: [{...}, {...}, ...]` }],
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px', marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>
-                  {importing ? 'Saving tracks...' : `Enriching with Claude — ${enrichProgress.done}/${enrichProgress.total}`}
+                  {importing ? 'Saving tracks...' : `Analysing tracks — ${enrichProgress.done}/${enrichProgress.total}`}
                 </div>
                 <div style={{ fontSize: '10px', color: s.dim }}>
                   {enriching ? `${Math.round((enrichProgress.done / enrichProgress.total) * 100)}%` : ''}
