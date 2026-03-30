@@ -166,7 +166,7 @@ export default function PricingPage() {
             {TESTIMONIALS.map((item, idx) => (
               <div key={idx} style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, padding: '32px', position: 'relative' }}>
                 <div style={{ fontSize: '20px', marginBottom: '16px', color: COLORS.gold }}>«</div>
-                <p style={{ fontSize: '12px', color: COLORS.textDim, lineHeight: '1.7', marginBottom: '20px', fontStyle: 'italic' }}>{item.quote}</p>
+                <p style={{ fontSize: '12px', color: COLORS.textDim, lineHeight: '1.7', marginBottom: '20px' }}>{item.quote}</p>
                 <div style={{ fontSize: '10px', color: COLORS.textDimmer, letterSpacing: '0.08em' }}>— {item.author}</div>
               </div>
             ))}

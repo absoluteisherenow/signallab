@@ -195,7 +195,7 @@ If any field is not found, use null for strings and 0 for numbers.`
           Tour Lab — Contracts
         </div>
         <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 300, letterSpacing: '0.03em', marginBottom: '8px' }}>
-          Contract <span style={{ fontStyle: 'italic', fontFamily: 'Georgia, serif', color: s.gold }}>parser</span>
+          Contract <span style={{ color: s.gold }}>parser</span>
         </div>
         <div style={{ fontSize: '14px', color: s.dimmer, lineHeight: '1.7' }}>
           Upload a performance contract PDF — Claude reads it and creates the gig record and invoices automatically.

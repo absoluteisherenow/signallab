@@ -334,7 +334,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
                   )}
                 </div>
                 {!rider.confirmed && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginTop: '16px', fontStyle: 'italic' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginTop: '16px' }}>
                     Extracted from booking email — confirm once you&#39;ve reviewed
                   </div>
                 )}

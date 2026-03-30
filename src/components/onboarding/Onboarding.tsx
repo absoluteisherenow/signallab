@@ -163,7 +163,7 @@ export default function Onboarding() {
             </div>
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(28px, 5vw, 52px)', fontWeight: 300, letterSpacing: '0.03em', lineHeight: 1.1, marginBottom: '24px' }}>
               Let&apos;s set up<br />
-              <span style={{ color: s.gold, fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>your OS.</span>
+              <span style={{ color: s.gold }}>your OS.</span>
             </div>
             <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.9', marginBottom: '40px', letterSpacing: '0.04em' }}>
               Two quick steps. Takes 2 minutes. The whole system uses what you tell us — content, advances, analysis, everything.
@@ -381,7 +381,7 @@ export default function Onboarding() {
 
             {analysis && (
               <div style={{ background: s.panel, border: `1px solid ${s.gold}40`, padding: '28px 32px', marginBottom: '20px' }}>
-                <div style={{ fontSize: '14px', color: s.dim, lineHeight: '1.9', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                <div style={{ fontSize: '14px', color: s.dim, lineHeight: '1.9' }}>
                   {analysis}
                 </div>
               </div>

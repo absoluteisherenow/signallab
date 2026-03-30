@@ -226,8 +226,6 @@ a { color: inherit; }
   font-size: 10px;
   color: var(--text-dimmer);
   margin-top: 3px;
-  font-style: italic;
-  font-family: var(--font-serif);
 }
 
 /* TAB BAR — underline style */

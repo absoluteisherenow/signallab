@@ -396,7 +396,7 @@ Return JSON exactly:
           Signal Lab — Intelligent Media Scanner
         </div>
         <div style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '0.04em' }}>
-          Media <span style={{ fontStyle: 'italic', color: s.gold, fontFamily: 'Georgia, serif' }}>scanner</span>
+          Media <span style={{ color: s.gold }}>scanner</span>
         </div>
         <div style={{ fontSize: '12px', color: s.textDim, marginTop: '8px', letterSpacing: '0.06em' }}>
           Upload multiple show clips — scanner ranks them and surfaces the strongest
@@ -588,7 +588,7 @@ Return JSON exactly:
                   </div>
                 ))}
               </div>
-              <div style={{ fontSize: '12px', color: s.textDim, lineHeight: '1.7', fontStyle: 'italic', fontFamily: 'Georgia, serif', paddingTop: '16px', borderTop: `1px solid ${s.border}` }}>
+              <div style={{ fontSize: '12px', color: s.textDim, lineHeight: '1.7', paddingTop: '16px', borderTop: `1px solid ${s.border}` }}>
                 {activeScan.result.content_score.reasoning}
               </div>
             </div>
@@ -618,7 +618,7 @@ Return JSON exactly:
               <div style={{ fontSize: '36px', fontWeight: 300, color: s.gold, marginBottom: '6px', fontFamily: "'Unbounded', sans-serif", letterSpacing: '-0.02em' }}>
                 {activeScan.result.best_moment.timestamp.toFixed(1)}s
               </div>
-              <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '14px', lineHeight: '1.7', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+              <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '14px', lineHeight: '1.7' }}>
                 {activeScan.result.best_moment.reason}
               </div>
               {(activeScan.result as ScanResult & { visual_quality?: string }).visual_quality && (
@@ -694,14 +694,14 @@ Return JSON exactly:
                       <span style={{ fontSize: '12px', color: s.gold }}>{moment.score}</span>
                     </div>
                   </div>
-                  <div style={{ fontSize: '10px', color: s.textDimmer, fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{moment.reason}</div>
+                  <div style={{ fontSize: '10px', color: s.textDimmer }}>{moment.reason}</div>
                 </div>
               ))}
             </div>
 
             {/* CTA */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-              <div style={{ fontSize: '11px', color: s.textDim, marginBottom: '14px', lineHeight: '1.6', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{activeScan.result.post_recommendation}</div>
+              <div style={{ fontSize: '11px', color: s.textDim, marginBottom: '14px', lineHeight: '1.6' }}>{activeScan.result.post_recommendation}</div>
               <div style={{ fontSize: '10px', color: s.textDimmer, marginBottom: '18px' }}>Caption context: <span style={{ color: s.textDim }}>{activeScan.result.caption_context}</span></div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={useInBroadcast} style={{

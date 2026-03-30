@@ -501,7 +501,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
             Signal Lab — Tone Intelligence
           </div>
           <div className="text-3xl tracking-[.04em] font-light">
-            Tone <span className="italic text-[#b08d57]" style={{fontFamily:'Georgia,serif'}}>intelligence</span>
+            Tone <span className="italic text-[#b08d57]" style={{}}>intelligence</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -545,7 +545,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
                 )}
               </div>
               {artist.style_rules && (
-                <div className="text-[11px] leading-relaxed text-[#8a8780] mb-4 border-l border-white/7 pl-3" style={{fontFamily:'Georgia,serif',fontStyle:'italic'}}>
+                <div className="text-[11px] leading-relaxed text-[#8a8780] mb-4 border-l border-white/7 pl-3" style={{}}>
                   {artist.style_rules}
                 </div>
               )}
@@ -630,7 +630,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
         <div className="flex items-center gap-2 mb-2 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
           Trend engine — filtered for your lane<div className="flex-1 h-px bg-white/10" />
         </div>
-        <div className="text-[10px] tracking-[.07em] text-[#8a8780] mb-5 italic" style={{fontFamily:'Georgia,serif'}}>Only trends already moving in electronic / dance. Never mainstream pop.</div>
+        <div className="text-[10px] tracking-[.07em] text-[#8a8780] mb-5 italic" style={{}}>Only trends already moving in electronic / dance. Never mainstream pop.</div>
         {loadingTrends && (
           <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
             <div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.2s'}} /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.4s'}} />
@@ -643,7 +643,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
               {trend.hot && <div className="absolute top-2.5 right-2.5 text-[7px] tracking-[.16em] text-[#b08d57] bg-[#b08d57]/10 px-1.5 py-0.5">HOT</div>}
               <div className="text-[10px] tracking-[.15em] uppercase text-[#8a8780] mb-2">{trend.platform}</div>
               <div className="text-[11px] tracking-[.06em] mb-2 leading-snug">{trend.name}</div>
-              <div className="text-[10px] text-[#8a8780] leading-relaxed mb-3 italic min-h-[32px]" style={{fontFamily:'Georgia,serif'}}>{trendCaptions[trend.id] || 'Loading...'}</div>
+              <div className="text-[10px] text-[#8a8780] leading-relaxed mb-3 italic min-h-[32px]" style={{}}>{trendCaptions[trend.id] || 'Loading...'}</div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-[10px] tracking-[.1em] text-[#8a8780]">Lane fit</span>
                 <div className="flex-1 h-px bg-white/10 relative"><div className="absolute top-0 left-0 h-px bg-[#b08d57]" style={{width:`${trend.fit}%`}} /></div>
@@ -755,7 +755,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
                         Copy
                       </button>
                     </div>
-                    <div className="text-[10px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{fontFamily:'Georgia,serif'}}>{v?.reasoning||''}</div>
+                    <div className="text-[10px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{}}>{v?.reasoning||''}</div>
                     <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
                       <button onClick={e=>{e.stopPropagation();publish(v?.text||'',platform,mediaUrls)}}
                         className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">
@@ -771,7 +771,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
         </div>
         {captionError && <div className="bg-red-900/20 border border-red-800/40 text-red-300 text-[10px] px-4 py-3 mb-4">{captionError}</div>}
         <div className="flex items-center justify-between pt-4 border-t border-white/7">
-          <div className="text-[9.5px] text-[#8a8780] italic flex-1 mr-4" style={{fontFamily:'Georgia,serif'}}>
+          <div className="text-[9.5px] text-[#8a8780] italic flex-1 mr-4" style={{}}>
             Tuned to: {getArtistNames().join(' · ')} · your past posts
           </div>
           <div className="flex gap-2.5">

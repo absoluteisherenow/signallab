@@ -67,7 +67,7 @@ export default function RekordboxImport() {
   const [needsAudio, setNeedsAudio] = useState<{ artist: string; title: string }[]>([])
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [importMode, setImportMode] = useState<'xml' | 'screenshot'>('screenshot')
+
   const [screenshotDragging, setScreenshotDragging] = useState(false)
   const [screenshotParsing, setScreenshotParsing] = useState(false)
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null)
@@ -358,118 +358,93 @@ Return as JSON array: [{...}, {...}, ...]` }],
 
       <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.setlab, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
         <span style={{ display: 'block', width: '28px', height: '1px', background: s.setlab }} />
-        Set Lab — Rekordbox Import
+        Set Lab — Import
       </div>
-      <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '24px', fontWeight: 300, letterSpacing: '0.06em', marginBottom: '8px' }}>Import library</div>
-      <div style={{ fontSize: '13px', color: s.dim, marginBottom: '24px', lineHeight: '1.7' }}>
-        Screenshot any playlist — Spotify, Apple Music, Beatport, Tidal, a paper setlist. Claude reads it and pulls the tracks out.
-      </div>
+      <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '14px' }}>Import any playlist or setlist</div>
 
-      {/* Mode switcher */}
-      {tracks.length === 0 && (
-        <div style={{ display: 'flex', gap: '0', marginBottom: '24px', border: `1px solid ${s.border}`, width: 'fit-content' }}>
-          {(['screenshot', 'xml'] as const).map(mode => (
-            <button key={mode} onClick={() => { setImportMode(mode); setError('') }} style={{
-              background: importMode === mode ? s.setlab + '20' : 'transparent',
-              border: 'none',
-              borderRight: mode === 'screenshot' ? `1px solid ${s.border}` : 'none',
-              color: importMode === mode ? s.setlab : s.dimmer,
-              fontFamily: s.font,
-              fontSize: '10px',
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              padding: '10px 20px',
-              cursor: 'pointer',
-            }}>
-              {mode === 'screenshot' ? '📸  Screenshot' : 'XML Export'}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Feature sell — three columns */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '32px' }}>
+        {[
+          { step: '01', title: 'Screenshot anything', body: 'Spotify, Apple Music, Beatport, Tidal, SoundCloud, a handwritten setlist — any platform, any format.' },
+          { step: '02', title: 'Claude reads it', body: 'Vision AI extracts every track instantly — title, artist, BPM, key, duration — no manual typing.' },
+          { step: '03', title: 'Enriched automatically', body: 'Energy level, mix-in/out technique, crowd reaction and set position added for every track in your library.' },
+        ].map(f => (
+          <div key={f.step} style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', marginBottom: '10px' }}>{f.step}</div>
+            <div style={{ fontSize: '13px', color: s.text, marginBottom: '8px', letterSpacing: '0.02em' }}>{f.title}</div>
+            <div style={{ fontSize: '11px', color: s.dim, lineHeight: '1.7' }}>{f.body}</div>
+          </div>
+        ))}
+      </div>
 
       {tracks.length === 0 ? (
         <div>
-          {importMode === 'screenshot' ? (
-            <div>
-              <div
-                onDragOver={e => { e.preventDefault(); setScreenshotDragging(true) }}
-                onDragLeave={() => setScreenshotDragging(false)}
-                onDrop={handleScreenshotDrop}
-                onClick={() => !screenshotParsing && screenshotInputRef.current?.click()}
-                style={{
-                  border: `1px dashed ${screenshotDragging ? s.setlab : s.border}`,
-                  padding: screenshotPreview ? '0' : '60px',
-                  textAlign: 'center',
-                  cursor: screenshotParsing ? 'wait' : 'pointer',
-                  background: s.panel,
-                  marginBottom: '16px',
-                  transition: 'all 0.15s',
-                  overflow: 'hidden',
-                  position: 'relative',
-                }}
-              >
-                <input ref={screenshotInputRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) parseScreenshot(f) }} style={{ display: 'none' }} />
-                {screenshotPreview ? (
-                  <div style={{ position: 'relative' }}>
-                    <img src={screenshotPreview} alt="Playlist screenshot" style={{ width: '100%', display: 'block', opacity: screenshotParsing ? 0.4 : 1 }} />
-                    {screenshotParsing && (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                        <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>Reading playlist...</div>
-                        <div style={{ height: '1px', width: '120px', background: s.border, position: 'relative', overflow: 'hidden' }}>
-                          <div style={{ position: 'absolute', top: 0, left: '-40%', width: '40%', height: '1px', background: s.setlab, animation: 'scan 1.2s ease-in-out infinite' }} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : screenshotParsing ? (
-                  <div>
-                    <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Reading playlist...</div>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ fontSize: '32px', color: s.dimmer, marginBottom: '12px' }}>📸</div>
-                    <div style={{ fontSize: '14px', color: s.dim, marginBottom: '8px' }}>Drop a playlist screenshot here</div>
-                    <div style={{ fontSize: '11px', color: s.dimmer }}>Spotify · Apple Music · Beatport · Tidal · SoundCloud · anything</div>
+          {/* Primary — Screenshot drop zone */}
+          <div
+            onDragOver={e => { e.preventDefault(); setScreenshotDragging(true) }}
+            onDragLeave={() => setScreenshotDragging(false)}
+            onDrop={handleScreenshotDrop}
+            onClick={() => !screenshotParsing && screenshotInputRef.current?.click()}
+            style={{
+              border: `1px dashed ${screenshotDragging ? s.setlab : s.borderBright}`,
+              padding: screenshotPreview ? '0' : '72px 40px',
+              textAlign: 'center',
+              cursor: screenshotParsing ? 'wait' : 'pointer',
+              background: s.panel,
+              marginBottom: '12px',
+              transition: 'all 0.15s',
+              overflow: 'hidden',
+              position: 'relative',
+            }}
+          >
+            <input ref={screenshotInputRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) parseScreenshot(f) }} style={{ display: 'none' }} />
+            {screenshotPreview ? (
+              <div style={{ position: 'relative' }}>
+                <img src={screenshotPreview} alt="Playlist screenshot" style={{ width: '100%', display: 'block', opacity: screenshotParsing ? 0.4 : 1 }} />
+                {screenshotParsing && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                    <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>Reading playlist...</div>
+                    <div style={{ height: '1px', width: '120px', background: s.border, position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', top: 0, left: '-40%', width: '40%', height: '1px', background: s.setlab, animation: 'scan 1.2s ease-in-out infinite' }} />
+                    </div>
                   </div>
                 )}
               </div>
-
-              {detectedSource && !screenshotParsing && (
-                <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.12em', marginBottom: '12px' }}>
-                  Detected source: <span style={{ color: s.setlab }}>{detectedSource}</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                style={{ border: `1px dashed ${s.border}`, padding: '60px', textAlign: 'center', cursor: 'pointer', background: s.panel, marginBottom: '24px', transition: 'all 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = s.setlab}
-                onMouseLeave={e => e.currentTarget.style.borderColor = s.border}
-              >
-                <input ref={fileInputRef} type="file" accept=".xml" onChange={handleFile} style={{ display: 'none' }} />
-                <div style={{ fontSize: '14px', color: s.dim, marginBottom: '8px' }}>Drop rekordbox XML here or click to browse</div>
-                <div style={{ fontSize: '11px', color: s.dimmer }}>Accepts .xml files exported from rekordbox</div>
+            ) : screenshotParsing ? (
+              <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>Reading playlist...</div>
+            ) : (
+              <div>
+                <div style={{ fontSize: '28px', marginBottom: '14px' }}>📸</div>
+                <div style={{ fontSize: '15px', color: s.text, marginBottom: '8px', letterSpacing: '0.02em' }}>Drop a playlist or setlist screenshot</div>
+                <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '4px' }}>Spotify · Apple Music · Beatport · Tidal · SoundCloud · handwritten · anything</div>
+                <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '10px', letterSpacing: '0.08em' }}>or click to browse</div>
               </div>
+            )}
+          </div>
 
-              <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>How to export from rekordbox</div>
-                {[
-                  '01 — Open rekordbox on your Mac or PC',
-                  '02 — Go to File → Export Collection in xml format',
-                  '03 — Save the .xml file anywhere',
-                  '04 — Upload it here — BPM, key, Camelot mapped automatically',
-                  '05 — Claude enriches each track: energy, mix techniques, crowd reaction',
-                  '06 — Build your set in Set Lab, then export back as rekordbox crate',
-                ].map(step => (
-                  <div key={step} style={{ fontSize: '12px', color: s.dim, padding: '8px 0', borderBottom: `1px solid ${s.border}`, letterSpacing: '0.04em' }}>{step}</div>
-                ))}
-              </div>
+          {detectedSource && !screenshotParsing && (
+            <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.12em', marginBottom: '12px' }}>
+              Detected: <span style={{ color: s.setlab }}>{detectedSource}</span>
             </div>
           )}
 
-          {error && <div style={{ fontSize: '12px', color: '#9a6a5a', padding: '14px 18px', border: '1px solid #4a2a1a', background: 'rgba(154,106,90,0.08)', marginBottom: '16px', marginTop: '8px' }}>{error}</div>}
+          {/* Secondary — Rekordbox XML (quiet link) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '4px' }}>
+            <div style={{ flex: 1, height: '1px', background: s.border }} />
+            <span style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.12em' }}>or</span>
+            <div style={{ flex: 1, height: '1px', background: s.border }} />
+          </div>
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            style={{ textAlign: 'center', padding: '16px', cursor: 'pointer', marginBottom: '4px' }}
+          >
+            <input ref={fileInputRef} type="file" accept=".xml" onChange={handleFile} style={{ display: 'none' }} />
+            <span style={{ fontSize: '11px', color: s.dimmer, letterSpacing: '0.08em' }}>
+              Import Rekordbox XML export
+            </span>
+          </div>
+
+          {error && <div style={{ fontSize: '12px', color: '#9a6a5a', padding: '14px 18px', border: '1px solid #4a2a1a', background: 'rgba(154,106,90,0.08)', marginTop: '12px' }}>{error}</div>}
         </div>
       ) : imported ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -533,7 +508,7 @@ Return as JSON array: [{...}, {...}, ...]` }],
                 }} />
               </div>
               {enriching && (
-                <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '8px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '8px' }}>
                   Analysing energy, mix techniques, crowd reaction for each track...
                 </div>
               )}

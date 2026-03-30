@@ -184,11 +184,11 @@ Return JSON:
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div>
               <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Arrangement</div>
-              <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{analysis.arrangement_notes}</div>
+              <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7' }}>{analysis.arrangement_notes}</div>
             </div>
             <div>
               <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Mix character</div>
-              <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{analysis.mix_notes}</div>
+              <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.7' }}>{analysis.mix_notes}</div>
             </div>
           </div>
 

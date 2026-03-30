@@ -1253,7 +1253,7 @@ Return corrected JSON:
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                     <div>
                       <div style={{ fontSize: '13px', letterSpacing: '0.05em', color: s.text }}>{track.title}</div>
-                      {track.notes && <div style={{ fontSize: '10px', color: s.textDimmer, fontStyle: 'italic', fontFamily: 'Georgia, serif', marginTop: '2px' }}>{track.notes}</div>}
+                      {track.notes && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{track.notes}</div>}
                     </div>
                     <div style={{ fontSize: '12px', color: s.textDim, display: 'flex', alignItems: 'center' }}>{track.artist}</div>
                     <div style={{ fontSize: '12px', color: s.textDim, display: 'flex', alignItems: 'center' }}>{track.bpm}</div>
@@ -1311,7 +1311,7 @@ Return corrected JSON:
                         <div>
                           <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '10px' }}>Production</div>
                           {track.producer_style && (
-                            <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.5', marginBottom: '12px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                            <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.5', marginBottom: '12px' }}>
                               {track.producer_style}
                             </div>
                           )}
@@ -1490,7 +1490,7 @@ Return corrected JSON:
                                 <span style={{ fontSize: '11px', color: s.textDim }}>{track.artist}</span>
                                 <span style={{ fontSize: '10px', color: getCompatibilityColor(flow) }}>{flow}% flow</span>
                               </div>
-                              <div style={{ fontSize: '10px', color: s.textDim, marginTop: '4px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{sug.reason}</div>
+                              <div style={{ fontSize: '10px', color: s.textDim, marginTop: '4px' }}>{sug.reason}</div>
                             </div>
                             <button onClick={() => addToSet(track)} style={{ ...btn(s.setlab), fontSize: '10px', padding: '6px 12px' }}>Add →</button>
                           </div>
@@ -1561,7 +1561,7 @@ Return corrected JSON:
                       <div style={{ fontSize: '10px', color: s.textDimmer }}>{new Date(ps.created_at).toLocaleDateString('en-GB')}</div>
                     </div>
                     {ps.venue && <div style={{ fontSize: '11px', color: s.textDim, marginBottom: '4px' }}>{ps.venue} · {ps.slot_type}</div>}
-                    {ps.narrative && <div style={{ fontSize: '10px', color: s.textDimmer, fontStyle: 'italic', fontFamily: 'Georgia, serif', lineHeight: '1.5', marginTop: '8px' }}>{ps.narrative.slice(0, 200)}...</div>}
+                    {ps.narrative && <div style={{ fontSize: '10px', color: s.textDimmer, lineHeight: '1.5', marginTop: '8px' }}>{ps.narrative.slice(0, 200)}...</div>}
                   </div>
                 ))
               )}
@@ -1678,7 +1678,7 @@ Return corrected JSON:
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
                         <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
-                        {track.reason && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '3px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>{track.reason}</div>}
+                        {track.reason && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '3px' }}>{track.reason}</div>}
                         {track.release_year && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{track.album} · {track.release_year}</div>}
                       </div>
 
@@ -2081,7 +2081,7 @@ Return corrected JSON:
                   {/* Headline + summary */}
                   <div style={{ flex: 1 }}>
                     {scanResult.headline && (
-                      <div style={{ fontSize: '15px', color: s.text, lineHeight: '1.5', marginBottom: '12px', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                      <div style={{ fontSize: '15px', color: s.text, lineHeight: '1.5', marginBottom: '12px' }}>
                         "{scanResult.headline}"
                       </div>
                     )}
@@ -2210,7 +2210,7 @@ Return corrected JSON:
                 {scanResult.overall_verdict && (
                   <div style={{ background: s.panel, border: `1px solid ${s.borderBright}`, padding: '24px 28px' }}>
                     <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Verdict</div>
-                    <div style={{ fontSize: '13px', color: s.text, lineHeight: '1.8', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                    <div style={{ fontSize: '13px', color: s.text, lineHeight: '1.8' }}>
                       {scanResult.overall_verdict}
                     </div>
                   </div>
