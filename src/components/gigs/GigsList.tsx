@@ -18,12 +18,6 @@ interface Gig {
   promoter_email?: string
 }
 
-const FALLBACK: Gig[] = [
-  { id: '1', title: 'Electric Nights Festival', venue: 'Tresor Club', location: 'Berlin, Germany', date: '2026-04-15', time: '22:00', fee: 5000, currency: 'EUR', audience: 2500, status: 'confirmed' },
-  { id: '2', title: 'Summer Series', venue: 'Melkweg', location: 'Amsterdam, Netherlands', date: '2026-04-22', time: '20:00', fee: 3500, currency: 'EUR', audience: 1800, status: 'confirmed' },
-  { id: '3', title: 'Techno Sessions', venue: 'Ministry of Sound', location: 'London, UK', date: '2026-05-01', time: '23:00', fee: 6000, currency: 'EUR', audience: 3000, status: 'pending' },
-  { id: '4', title: 'Open Air Summer', venue: 'Kaserne', location: 'Basel, Switzerland', date: '2026-05-15', time: '19:00', fee: 7500, currency: 'EUR', audience: 4000, status: 'confirmed' },
-]
 
 const f = {
   bg: '#070706', panel: '#0e0d0b', border: '#1a1917', mid: '#2e2c29',
@@ -48,7 +42,7 @@ export function GigsList() {
     fetch('/api/gigs')
       .then(r => r.json())
       .then(d => setGigs(d.gigs || []))
-      .catch(() => setGigs(FALLBACK))
+      .catch(() => setGigs([]))
   }, [])
 
   useEffect(() => {

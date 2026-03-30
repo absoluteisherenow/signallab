@@ -3,12 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
-const FALLBACK = [
-  { id: '1', title: 'Electric Nights Festival', venue: 'Tresor Club', location: 'Berlin, Germany', date: '2026-04-15', time: '22:00', fee: 5000, currency: 'EUR', audience: 2500, status: 'confirmed' },
-  { id: '2', title: 'Summer Series', venue: 'Melkweg', location: 'Amsterdam, Netherlands', date: '2026-04-22', time: '20:00', fee: 3500, currency: 'EUR', audience: 1800, status: 'confirmed' },
-  { id: '3', title: 'Techno Sessions', venue: 'Ministry of Sound', location: 'London, UK', date: '2026-05-01', time: '23:00', fee: 6000, currency: 'EUR', audience: 3000, status: 'pending' },
-  { id: '4', title: 'Open Air Summer', venue: 'Kaserne', location: 'Basel, Switzerland', date: '2026-05-15', time: '19:00', fee: 7500, currency: 'EUR', audience: 4000, status: 'confirmed' },
-]
 
 const QUICK = [
   { label: "This week's posts", href: '/broadcast/calendar', color: 'var(--green)' },
@@ -20,7 +14,8 @@ const QUICK = [
 interface UrgentItem { text: string; href: string; due: string; dot: string }
 
 export default function Dashboard() {
-  const [gigs, setGigs] = useState(FALLBACK)
+  const [gigs, setGigs] = useState<Array<{ id: string; title: string; venue: string; location: string; date: string; time: string; fee: number; currency: string; audience: number; status: string }>>([])
+  const [gigsLoading, setGigsLoading] = useState(true)
   const [urgent, setUrgent] = useState<UrgentItem[]>([])
   const [advanceStatuses, setAdvanceStatuses] = useState<Record<string, string>>({})
   const [now, setNow] = useState<Date | null>(null)
@@ -28,7 +23,7 @@ export default function Dashboard() {
   const greeting = !now ? '' : now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
 
   useEffect(() => {
-    fetch('/api/gigs').then(r => r.json()).then(d => { if (d.gigs?.length > 0) setGigs(d.gigs) }).catch(() => {})
+    fetch('/api/gigs').then(r => r.json()).then(d => { setGigs(d.gigs || []) }).catch(() => {}).finally(() => setGigsLoading(false))
     fetch('/api/advance').then(r => r.json()).then(d => {
       if (d.requests) {
         const map: Record<string, string> = {}
@@ -153,6 +148,12 @@ export default function Dashboard() {
             <Link href="/gigs" style={{ fontSize: '10px', color: 'var(--text-dimmer)', textDecoration: 'none' }}>View all →</Link>
           </div>
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)' }}>
+            {gigsLoading && (
+              <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: 12 }}>Loading...</div>
+            )}
+            {!gigsLoading && gigs.length === 0 && (
+              <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: 12 }}>No gigs yet — <a href="/gigs/new" style={{ color: 'var(--gold)', textDecoration: 'none' }}>add your first show →</a></div>
+            )}
             {gigs.map((gig, i) => {
               const d = new Date(gig.date)
               const days = now ? Math.ceil((d.getTime() - now.getTime()) / 86400000) : 0

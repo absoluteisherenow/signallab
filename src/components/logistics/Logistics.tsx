@@ -15,18 +15,8 @@ interface Gig {
   promoter_email?: string
 }
 
-const FALLBACK: Gig[] = [
-  { id: '1', title: 'Electric Nights Festival', venue: 'Tresor Club', location: 'Berlin, Germany', date: '2026-04-15', time: '22:00', status: 'confirmed', fee: 5000, promoter_email: '' },
-  { id: '2', title: 'Summer Series', venue: 'Melkweg', location: 'Amsterdam, Netherlands', date: '2026-04-22', time: '20:00', status: 'confirmed', fee: 3500, promoter_email: '' },
-  { id: '3', title: 'Techno Sessions', venue: 'Ministry of Sound', location: 'London, UK', date: '2026-05-01', time: '23:00', status: 'pending', fee: 6000, promoter_email: '' },
-  { id: '4', title: 'Open Air Summer', venue: 'Kaserne', location: 'Basel, Switzerland', date: '2026-05-15', time: '19:00', status: 'confirmed', fee: 7500, promoter_email: '' },
-]
-
-// CSS variables are used instead of a local styles object
-// See globals.css for the design system
-
 export default function Logistics() {
-  const [gigs, setGigs] = useState<Gig[]>([])
+  const [gigs, setGigs] = useState<Gig[] | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [promoterEmail, setPromoterEmail] = useState('')
   const [showEmailInput, setShowEmailInput] = useState<string | null>(null)
@@ -37,8 +27,8 @@ export default function Logistics() {
   useEffect(() => {
     fetch('/api/gigs')
       .then(r => r.json())
-      .then(d => setGigs(d.gigs?.length > 0 ? d.gigs : FALLBACK))
-      .catch(() => setGigs(FALLBACK))
+      .then(d => setGigs(d.gigs || []))
+      .catch(() => setGigs([]))
   }, [])
 
   function showToast(msg: string) {
@@ -99,7 +89,7 @@ export default function Logistics() {
         {[
           { label: 'Advances complete', value: Object.values(advanceStatus).filter(v => v === 'complete').length, color: 'var(--green)' },
           { label: 'Awaiting response', value: Object.values(advanceStatus).filter(v => v === 'sent').length, color: 'var(--gold)' },
-          { label: 'Not yet sent', value: gigs.length - Object.keys(advanceStatus).length, color: 'var(--text-dimmer)' },
+          { label: 'Not yet sent', value: (gigs?.length ?? 0) - Object.keys(advanceStatus).length, color: 'var(--text-dimmer)' },
         ].map(stat => (
           <div key={stat.label} className="card">
             <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
@@ -109,8 +99,17 @@ export default function Logistics() {
       </div>
 
       {/* GIG LIST */}
+      {gigs === null && (
+        <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: 13 }}>Loading...</div>
+      )}
+      {gigs !== null && gigs.length === 0 && (
+        <div className="card" style={{ padding: '48px', textAlign: 'center' }}>
+          <div style={{ fontSize: 10, letterSpacing: '0.28em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: 12 }}>No gigs yet</div>
+          <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Add your first gig to start tracking logistics and advance requests.</div>
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        {gigs.map(gig => {
+        {(gigs || []).map(gig => {
           const advStatus = advanceStatus[gig.id] || 'not_sent'
           const isOpen = selected === gig.id
           const gigDate = new Date(gig.date)
@@ -257,7 +256,7 @@ export default function Logistics() {
         })}
         
         {/* NET TOTAL ROW */}
-        {gigs.length > 0 && (
+        {(gigs?.length ?? 0) > 0 && (
           <div style={{
             background: 'var(--panel)',
             border: 'rgba(176, 141, 87, 0.25)',
@@ -272,7 +271,7 @@ export default function Logistics() {
             <div></div>
             <div></div>
             <div style={{ fontSize: '14px', color: 'var(--gold)', textAlign: 'right', fontWeight: '600' }}>
-              €{gigs.filter(g => g.status === 'confirmed').reduce((sum, g) => sum + (g.fee || 0), 0).toLocaleString()}
+              €{(gigs ?? []).filter(g => g.status === 'confirmed').reduce((sum, g) => sum + (g.fee || 0), 0).toLocaleString()}
             </div>
           </div>
         )}
