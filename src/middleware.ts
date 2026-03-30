@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/', '/login', '/onboarding', '/advance', '/dashboard', '/broadcast', '/logistics', '/business', '/sonix', '/setlab', '/contracts', '/maxforlive', '/gigs', '/calendar', '/notifications']
+const PUBLIC_PATHS = ['/', '/login', '/onboarding', '/advance', '/dashboard', '/broadcast', '/logistics', '/business', '/sonix', '/setlab', '/contracts', '/maxforlive', '/gigs', '/calendar', '/notifications', '/pricing']
 
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
   
   // Check if path is public or API (includes subroutes)
   const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
+    || pathname.startsWith('/api/social')   // social OAuth callbacks — must be public
     || pathname.startsWith('/api')
     || pathname.startsWith('/_next')
     || pathname === '/signal-genius.html'   // M4L jweb — public, no auth needed
+    || pathname === '/mockup.html'          // Design mockups — no auth needed
   
   if (isPublic) {
     return NextResponse.next()

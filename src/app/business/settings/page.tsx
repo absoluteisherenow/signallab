@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import SocialConnect from '@/components/social/SocialConnect'
 
 interface ConnectedAccount {
   id: string
@@ -231,22 +232,10 @@ export default function Settings() {
             )}
           </div>
 
-          {/* Social platforms */}
-          {[
-            { name: 'Instagram', desc: 'Posts, Reels, and Stories from Signal Lab.', status: 'coming soon' },
-            { name: 'TikTok', desc: 'Short video and caption scheduling.', status: 'coming soon' },
-            { name: 'X / Twitter', desc: 'Posts and threads from Signal Lab.', status: 'coming soon' },
-          ].map(s => (
-            <div key={s.name} className="card" style={{ opacity: 0.55 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>{s.name}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>{s.desc}</div>
-                </div>
-                <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-dimmer)', flexShrink: 0, marginLeft: '24px' }}>Soon</span>
-              </div>
-            </div>
-          ))}
+          {/* Social accounts — direct OAuth, no third-party */}
+          <div className="card">
+            <SocialConnect />
+          </div>
 
           {/* Rekordbox */}
           <div className="card">

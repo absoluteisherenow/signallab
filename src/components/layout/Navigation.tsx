@@ -5,36 +5,41 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 
-const MODULES = [
-  { label: 'Signal Lab', href: '/broadcast', color: '#3d6b4a', sub: [
-    { label: 'Tone Intelligence', href: '/broadcast' },
-    { label: 'Calendar', href: '/broadcast/calendar' },
-    { label: 'Content Intelligence', href: '/broadcast/scanner' },
-    { label: 'Media Library', href: '/broadcast/media' },
-  ]},
-  { label: 'Tour Lab', href: '/gigs', color: '#b08d57', sub: [
-    { label: 'Gigs', href: '/gigs' },
-    { label: 'Finances', href: '/business/finances' },
-    { label: 'Contracts', href: '/contracts' },
-  ]},
-  { label: 'SONIX Lab', href: '/sonix', color: '#6a7a9a', sub: [] },
-  { label: 'Set Lab', href: '/setlab', color: '#9a6a5a', sub: [] },
+const NAV_GROUPS = [
+  {
+    label: 'TOUR',
+    items: [
+      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'Gigs', href: '/gigs' },
+      { label: 'Logistics', href: '/logistics' },
+    ],
+  },
+  {
+    label: 'CREATE',
+    items: [
+      { label: 'Broadcast', href: '/broadcast' },
+      { label: 'Set Lab', href: '/setlab' },
+      { label: 'Sonix', href: '/sonix' },
+    ],
+  },
+  {
+    label: 'BUSINESS',
+    items: [
+      { label: 'Finances', href: '/business/finances' },
+      { label: 'Contracts', href: '/contracts' },
+      { label: 'Settings', href: '/business/settings' },
+    ],
+  },
 ]
 
 export function Navigation() {
   const pathname = usePathname()
-  const isActive = (href: string) => pathname === href
-  const moduleActive = (mod: typeof MODULES[0]) => {
-    if (mod.href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
-    return pathname === mod.href || mod.sub.some(s => pathname === s.href)
-  }
   const [apiUsage, setApiUsage] = useState<{ percentUsed: number; totalCostUsd: number; warning: boolean; critical: boolean } | null>(null)
 
   useEffect(() => {
     fetch('/api/usage').then(r => r.json()).then(d => {
       if (!d.error) setApiUsage(d)
     }).catch(() => {})
-    // Refresh every 5 minutes
     const t = setInterval(() => {
       fetch('/api/usage').then(r => r.json()).then(d => { if (!d.error) setApiUsage(d) }).catch(() => {})
     }, 5 * 60 * 1000)
@@ -45,63 +50,140 @@ export function Navigation() {
   if (pathname === '/' || pathname === '/pricing' || pathname === '/login' || pathname === '/onboarding') {
     return null
   }
-  
+
+  function isActive(href: string) {
+    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
+    // Match exact or sub-paths (e.g. /gigs/123 matches /gigs)
+    return pathname === href || pathname.startsWith(href + '/')
+  }
+
   return (
-    <nav className="sidebar-nav" style={{ width: '200px', background: '#070706', borderRight: '1px solid #1a1917', display: 'flex', flexDirection: 'column', fontFamily: "'DM Mono', monospace", flexShrink: 0, overflowY: 'auto' }}>
-      <div style={{ padding: '20px 18px 18px', borderBottom: '1px solid #1a1917' }}>
-        <Link href='/dashboard' style={{ textDecoration: 'none' }}>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 400, letterSpacing: '0.18em', color: '#8a8780', textTransform: 'uppercase', lineHeight: 1.3, marginBottom: '4px' }}>Night Manoeuvres</div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '9px', fontWeight: 200, letterSpacing: '0.15em', color: '#3a3830', lineHeight: 1.3 }}>Artist OS</div>
+    <nav style={{
+      width: 220,
+      background: '#070706',
+      borderRight: '1px solid #1a1917',
+      display: 'flex',
+      flexDirection: 'column',
+      fontFamily: "'DM Mono', monospace",
+      flexShrink: 0,
+      overflowY: 'auto',
+    }}>
+
+      {/* Logo */}
+      <div style={{ padding: '28px 24px 24px' }}>
+        <Link href="/dashboard" style={{ textDecoration: 'none', display: 'block' }}>
+          <div style={{
+            fontFamily: "'Unbounded', sans-serif",
+            fontSize: 10,
+            fontWeight: 300,
+            letterSpacing: '0.22em',
+            color: '#b08d57',
+            textTransform: 'uppercase',
+            lineHeight: 1.4,
+          }}>
+            Signal OS
+          </div>
+          <div style={{
+            fontSize: 9,
+            letterSpacing: '0.18em',
+            color: '#3a3830',
+            textTransform: 'uppercase',
+            marginTop: 3,
+          }}>
+            Night Manoeuvres
+          </div>
         </Link>
       </div>
-      <div style={{ flex: 1, padding: '16px 0' }}>
-        {MODULES.map(mod => {
-          const active = moduleActive(mod)
-          return (
-            <div key={mod.href} style={{ marginBottom: '16px', borderLeft: active ? `2px solid ${mod.color}` : '2px solid transparent', transition: 'border-color 0.2s' }}>
-              <Link href={mod.href} style={{ display: 'block', padding: '6px 18px', fontSize: '24px', letterSpacing: '0.06em', fontFamily: "'Unbounded', sans-serif", fontWeight: 300, textDecoration: 'none', color: active ? mod.color : mod.color + 'a0', transition: 'color 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.color = mod.color }}
-                onMouseLeave={e => { e.currentTarget.style.color = active ? mod.color : mod.color + 'a0' }}
-              >{mod.label}</Link>
-              {active && mod.sub.map(s => (
-                <Link key={s.href + s.label} href={s.href} style={{ display: 'block', padding: '5px 18px 5px 28px', fontSize: '11px', letterSpacing: '0.06em', textDecoration: 'none', color: isActive(s.href) ? mod.color : '#2e2c29', transition: 'color 0.15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.color = mod.color }}
-                  onMouseLeave={e => { e.currentTarget.style.color = isActive(s.href) ? mod.color : '#2e2c29' }}
-                >{s.label}</Link>
-              ))}
+
+      {/* Nav body */}
+      <div style={{ flex: 1, padding: '8px 0 16px', display: 'flex', flexDirection: 'column', gap: 36 }}>
+        {NAV_GROUPS.map(group => (
+          <div key={group.label}>
+            {/* Group label */}
+            <div style={{
+              fontSize: 8,
+              letterSpacing: '0.28em',
+              color: '#2e2c29',
+              textTransform: 'uppercase',
+              padding: '0 24px',
+              marginBottom: 10,
+            }}>
+              {group.label}
             </div>
-          )
-        })}
+
+            {/* Items */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {group.items.map(item => {
+                const active = isActive(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '6px 24px',
+                      textDecoration: 'none',
+                      color: active ? '#f0ebe2' : '#52504c',
+                      fontSize: 11,
+                      letterSpacing: '0.06em',
+                      transition: 'color 0.15s',
+                    }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#8a8780' }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#52504c' }}
+                  >
+                    {/* Bullet dot */}
+                    <div style={{
+                      width: 5,
+                      height: 5,
+                      borderRadius: '50%',
+                      background: active ? '#b08d57' : '#2a2825',
+                      flexShrink: 0,
+                      transition: 'background 0.15s',
+                    }} />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </div>
+
       {/* API usage bar */}
       {apiUsage && (
-        <div style={{ padding: '10px 18px', borderTop: '1px solid #1a1917' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-            <span style={{ fontSize: '9px', letterSpacing: '0.15em', color: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#2e2c29', textTransform: 'uppercase' }}>
-              {apiUsage.critical ? '⚠ API CRITICAL' : apiUsage.warning ? '⚠ API WARNING' : 'API usage'}
+        <div style={{ padding: '10px 24px 12px', borderTop: '1px solid #131210' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: 8, letterSpacing: '0.18em', color: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#2e2c29', textTransform: 'uppercase' }}>
+              {apiUsage.critical ? '⚠ Critical' : apiUsage.warning ? '⚠ Warning' : 'API'}
             </span>
-            <span style={{ fontSize: '9px', color: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#2e2c29' }}>
+            <span style={{ fontSize: 8, color: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#2e2c29' }}>
               {apiUsage.percentUsed}%
             </span>
           </div>
-          <div style={{ height: '3px', background: '#1a1917', borderRadius: '2px' }}>
+          <div style={{ height: 2, background: '#1a1917', borderRadius: 2 }}>
             <div style={{
-              height: '3px', borderRadius: '2px',
+              height: 2, borderRadius: 2,
               width: `${Math.min(apiUsage.percentUsed, 100)}%`,
               background: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#3d6b4a',
               transition: 'width 0.5s ease',
             }} />
           </div>
-          <div style={{ fontSize: '9px', color: '#2e2c29', marginTop: '4px' }}>
-            £{(apiUsage.totalCostUsd * 0.79).toFixed(2)} / £{(150 * 0.79).toFixed(0)} this month
-          </div>
         </div>
       )}
-      <div style={{ borderTop: '1px solid #1a1917', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px 4px 18px' }}>
-        <Link href='/business/settings' style={{ fontSize: '11px', letterSpacing: '0.08em', textDecoration: 'none', color: pathname === '/business/settings' ? '#b08d57' : '#2e2c29', transition: 'color 0.15s' }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#8a8780' }}
-          onMouseLeave={e => { e.currentTarget.style.color = pathname === '/business/settings' ? '#b08d57' : '#2e2c29' }}
-        >Settings</Link>
+
+      {/* Bottom — artist name + bell */}
+      <div style={{
+        borderTop: '1px solid #131210',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 24px',
+      }}>
+        <span style={{ fontSize: 9, letterSpacing: '0.14em', color: '#2e2c29', textTransform: 'uppercase' }}>
+          Night Manoeuvres
+        </span>
         <NotificationBell />
       </div>
     </nav>

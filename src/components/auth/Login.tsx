@@ -11,15 +11,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const s = {
-    bg: '#070706', panel: '#0e0d0b', border: '#1a1917',
-    gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c',
-    font: "'DM Mono', monospace",
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!email || !password) { setError('Please enter email and password'); return }
+    if (!email || !password) { setError('Enter your email and password'); return }
     setLoading(true)
     setError('')
     try {
@@ -36,90 +30,163 @@ export default function Login() {
         if (error) throw error
       }
       router.push('/dashboard')
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication failed')
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div style={{ minHeight: '100vh', background: s.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: s.font, padding: '40px' }}>
+  const inputBase: React.CSSProperties = {
+    width: '100%',
+    background: 'transparent',
+    border: 'none',
+    borderBottom: '1px solid #2a2825',
+    color: '#f0ebe2',
+    fontFamily: "'DM Mono', monospace",
+    fontSize: 13,
+    padding: '10px 0',
+    outline: 'none',
+    boxSizing: 'border-box',
+    letterSpacing: '0.04em',
+    transition: 'border-color 0.2s',
+  }
 
-      {/* LOGO */}
-      <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 200, letterSpacing: '0.25em', color: s.gold, lineHeight: 1.3, marginBottom: '6px' }}>
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#070706',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: "'DM Mono', monospace",
+      padding: 40,
+    }}>
+
+      {/* Wordmark */}
+      <div style={{ textAlign: 'center', marginBottom: 56 }}>
+        <div style={{
+          fontFamily: "'Unbounded', sans-serif",
+          fontSize: 22,
+          fontWeight: 200,
+          letterSpacing: '0.28em',
+          color: '#f0ebe2',
+          lineHeight: 1.2,
+          marginBottom: 10,
+        }}>
           NIGHT MANOEUVRES
         </div>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.dimmer, textTransform: 'uppercase' }}>
-          Artist OS
+        {/* Gold rule */}
+        <div style={{ width: 32, height: 1, background: '#b08d57', margin: '0 auto 10px' }} />
+        <div style={{
+          fontSize: 9,
+          letterSpacing: '0.32em',
+          color: '#52504c',
+          textTransform: 'uppercase',
+        }}>
+          Artist OS · Private Beta
         </div>
       </div>
 
-      {/* FORM */}
-      <div style={{ width: '100%', maxWidth: '400px' }}>
-        <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '40px' }}>
+      {/* Form */}
+      <div style={{ width: '100%', maxWidth: 360 }}>
 
-          <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', marginBottom: '28px' }}>
-            {mode === 'login' ? 'Sign in' : 'Create account'}
-          </div>
-
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Email</div>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                autoComplete="email"
-                style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '12px 16px', outline: 'none', boxSizing: 'border-box' }}
-                onFocus={e => e.target.style.borderColor = s.gold + '60'}
-                onBlur={e => e.target.style.borderColor = s.border}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Password</div>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '12px 16px', outline: 'none', boxSizing: 'border-box' }}
-                onFocus={e => e.target.style.borderColor = s.gold + '60'}
-                onBlur={e => e.target.style.borderColor = s.border}
-              />
-            </div>
-
-            {error && (
-              <div style={{ fontSize: '11px', color: '#8a4a3a', padding: '10px 14px', border: '1px solid #4a2a1a', background: '#1a0a06' }}>
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={{ background: s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '15px', cursor: 'pointer', marginTop: '8px', opacity: loading ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-            >
-              {loading && <div style={{ width: '10px', height: '10px', border: `1px solid #070706`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
-              {loading ? 'Please wait...' : mode === 'login' ? 'Sign in →' : 'Create account →'}
-            </button>
-          </form>
-
-          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: `1px solid ${s.border}`, textAlign: 'center' }}>
-            <button
-              onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
-              style={{ background: 'transparent', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.08em', cursor: 'pointer' }}
-            >
-              {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-            </button>
-          </div>
+        <div style={{
+          fontSize: 9,
+          letterSpacing: '0.28em',
+          color: '#b08d57',
+          textTransform: 'uppercase',
+          marginBottom: 32,
+        }}>
+          {mode === 'login' ? 'Sign in' : 'Create account'}
         </div>
 
-        <div style={{ marginTop: '16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em' }}>Private beta · v0.1</div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+          <div>
+            <div style={{ fontSize: 8, letterSpacing: '0.22em', color: '#3a3830', textTransform: 'uppercase', marginBottom: 6 }}>Email</div>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              autoComplete="email"
+              style={inputBase}
+              onFocus={e => (e.target.style.borderBottomColor = '#b08d57')}
+              onBlur={e => (e.target.style.borderBottomColor = '#2a2825')}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 8, letterSpacing: '0.22em', color: '#3a3830', textTransform: 'uppercase', marginBottom: 6 }}>Password</div>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              style={inputBase}
+              onFocus={e => (e.target.style.borderBottomColor = '#b08d57')}
+              onBlur={e => (e.target.style.borderBottomColor = '#2a2825')}
+            />
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 10, color: '#8a4a3a', letterSpacing: '0.06em', paddingTop: 2 }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              background: 'transparent',
+              border: '1px solid #b08d57',
+              color: loading ? '#52504c' : '#b08d57',
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 9,
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              padding: '14px 24px',
+              cursor: loading ? 'default' : 'pointer',
+              marginTop: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => { if (!loading) { e.currentTarget.style.background = '#b08d57'; e.currentTarget.style.color = '#070706' } }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = loading ? '#52504c' : '#b08d57' }}
+          >
+            {loading && (
+              <div style={{ width: 8, height: 8, border: '1px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            )}
+            {loading ? 'Please wait' : mode === 'login' ? 'Sign in →' : 'Create account →'}
+          </button>
+        </form>
+
+        {/* Divider + toggle */}
+        <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid #131210', textAlign: 'center' }}>
+          <button
+            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#3a3830',
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              cursor: 'pointer',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#8a8780')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#3a3830')}
+          >
+            {mode === 'login' ? "No account? Sign up" : 'Already have an account? Sign in'}
+          </button>
         </div>
       </div>
 

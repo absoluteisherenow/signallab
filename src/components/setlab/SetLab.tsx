@@ -328,6 +328,8 @@ export function SetLab() {
   const [scannerTracklist, setScannerTracklist] = useState('')
   const [scannerContext, setScannerContext] = useState('')
   const [scanning, setScanning] = useState(false)
+  const [acrStatus, setAcrStatus] = useState<{ok: boolean, detail: string} | null>(null)
+  const [testingAcr, setTestingAcr] = useState(false)
   const [scanProgress, setScanProgress] = useState('')
   const [scanResult, setScanResult] = useState<any>(null)
   const [scanError, setScanError] = useState('')
@@ -941,16 +943,33 @@ Return corrected JSON:
         setScanProgress(`Identifying track ${i + 1} of ${segments.length}…`)
         const seg      = segments[i]
         const segLen   = seg.endTime - seg.startTime
-        // Sample from the middle third of the segment to avoid transition noise at edges
-        const segThird = segLen / 3
-        const sampleStartSec = seg.startTime + segThird
-        const sampleDurSec   = Math.min(20, segThird)
+
+        // Sample strategy: for long segments take from middle third to avoid
+        // transition noise at edges. For short segments, take whatever we can
+        // from the centre — minimum 5s needed for ACRCloud to work reliably.
+        let sampleStartSec: number
+        let sampleDurSec: number
+        if (segLen >= 30) {
+          // Long segment — middle third, up to 20s
+          const segThird = segLen / 3
+          sampleStartSec = seg.startTime + segThird
+          sampleDurSec   = Math.min(20, segThird)
+        } else if (segLen >= 15) {
+          // Medium segment — skip first 5s (mix-in), take up to 10s
+          sampleStartSec = seg.startTime + 5
+          sampleDurSec   = Math.min(10, segLen - 5)
+        } else {
+          // Short segment — take from 25% in, whatever is available
+          sampleStartSec = seg.startTime + segLen * 0.25
+          sampleDurSec   = segLen * 0.5
+        }
 
         const mm = Math.floor(seg.startTime / 60).toString().padStart(2, '0')
         const ss = Math.floor(seg.startTime % 60).toString().padStart(2, '0')
         const timeIn = `${mm}:${ss}`
 
-        if (sampleDurSec < 8) {
+        // Need at least 5s for reliable fingerprinting
+        if (sampleDurSec < 5) {
           results.push({ time_in: timeIn, title: 'Unknown', artist: '', confidence: 0, found: false })
           continue
         }
@@ -1876,8 +1895,22 @@ Return corrected JSON:
                   </div>
                 </div>
 
+                {/* ACRCloud status + test */}
+                {acrStatus && (
+                  <div style={{
+                    background: acrStatus.ok ? 'rgba(61,107,74,0.1)' : 'rgba(192,64,64,0.1)',
+                    border: `1px solid ${acrStatus.ok ? 'rgba(61,107,74,0.3)' : 'rgba(192,64,64,0.3)'}`,
+                    padding: '10px 16px', fontSize: '11px',
+                    color: acrStatus.ok ? '#6aaa7a' : '#c06060',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                  }}>
+                    <span>{acrStatus.ok ? '✓' : '✗'}</span>
+                    {acrStatus.detail}
+                  </div>
+                )}
+
                 {/* Analyse button */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <button
                     onClick={analyseMix}
                     disabled={scanning}
@@ -1888,9 +1921,26 @@ Return corrected JSON:
                     }}>
                     {scanning ? scanProgress || 'Analysing...' : 'Analyse mix →'}
                   </button>
+                  <button
+                    onClick={async () => {
+                      setTestingAcr(true)
+                      setAcrStatus(null)
+                      try {
+                        const r = await fetch('/api/fingerprint/test')
+                        const d = await r.json()
+                        setAcrStatus({ ok: d.ok, detail: d.detail || d.msg })
+                      } catch {
+                        setAcrStatus({ ok: false, detail: 'Could not reach test endpoint' })
+                      }
+                      setTestingAcr(false)
+                    }}
+                    disabled={testingAcr || scanning}
+                    style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '8px 16px', border: `1px solid ${s.border}` }}>
+                    {testingAcr ? 'Testing...' : 'Test connection'}
+                  </button>
                   {scanning && (
                     <div style={{ fontSize: '10px', color: s.textDimmer, letterSpacing: '0.1em' }}>
-                      This takes 30–60 seconds for a long mix
+                      This takes 30–60s for a long mix
                     </div>
                   )}
                 </div>

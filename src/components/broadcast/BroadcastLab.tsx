@@ -147,6 +147,20 @@ export function BroadcastLab() {
     'Your hashtag use is above your lane average — reducing will improve tone alignment',
   ])
   const [refreshingInsights, setRefreshingInsights] = useState(false)
+  const [connectedSocials, setConnectedSocials] = useState<string[]>([]) // platform ids with direct connection
+  const [publishing, setPublishing] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/social/connected')
+      .then(r => r.json())
+      .then(d => setConnectedSocials((d.accounts || []).map((a: {platform: string}) => a.platform)))
+      .catch(() => {})
+  }, [])
+
+  const platformId = (label: string) =>
+    ({ 'Instagram': 'instagram', 'X / Twitter': 'twitter', 'TikTok': 'tiktok' }[label] || '')
+
+  const hasDirectConnection = (label: string) => connectedSocials.includes(platformId(label))
 
   async function refreshLaneInsights() {
     const profilesText = artists.filter(a => a.style_rules).map(a => `${a.name}: ${a.style_rules}`).join('\n\n')
@@ -345,8 +359,7 @@ Respond ONLY with valid JSON, no markdown.`,
       })
       const data = await res.json()
       if (data.error) throw new Error(JSON.stringify(data.error))
-      
-      // Save to Supabase scheduled_posts table
+
       const bufferPostId = data.posts?.[0]?.id || null
       await supabase.from('scheduled_posts').insert({
         platform: selectedPlatform,
@@ -356,10 +369,63 @@ Respond ONLY with valid JSON, no markdown.`,
         status: 'scheduled',
         buffer_post_id: bufferPostId,
       })
-      
+
       showToast('Queued in Buffer for ' + selectedPlatform, 'Scheduled')
     } catch (err: any) {
       showToast('Buffer: ' + err.message, 'Error')
+    }
+  }
+
+  // Smart publish — direct if connected, Buffer fallback if not
+  async function publish(text: string, selectedPlatform: string, media?: string[]) {
+    if (!text) { showToast('No caption to publish', 'Error'); return }
+    setPublishing(true)
+    if (hasDirectConnection(selectedPlatform)) {
+      await publishDirect(text, selectedPlatform, media)
+    } else {
+      await scheduleToBuffer(text, selectedPlatform, media)
+    }
+    setPublishing(false)
+  }
+
+  // Direct publish via Signal Lab OS connected accounts (no third-party)
+  async function publishDirect(text: string, selectedPlatform: string, media?: string[]) {
+    if (!text) { showToast('No caption to publish', 'Error'); return }
+
+    const platformMap: Record<string, string> = {
+      'Instagram': 'instagram',
+      'X / Twitter': 'twitter',
+      'TikTok': 'tiktok',
+    }
+    const platform = platformMap[selectedPlatform]
+    if (!platform) { showToast('Platform not supported yet', 'Error'); return }
+
+    const mediaUrl = media?.[0] || null
+    try {
+      const body: Record<string, unknown> = { caption: text }
+      if (platform === 'instagram' && mediaUrl) body.image_url = mediaUrl
+      if (platform === 'tiktok' && mediaUrl) body.video_url = mediaUrl
+      if (platform === 'twitter') body.text = text
+
+      const res = await fetch(`/api/social/${platform}/post`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Publish failed')
+
+      await supabase.from('social_posts').insert({
+        platform,
+        caption: text,
+        media_urls: mediaUrl ? [mediaUrl] : [],
+        posted_at: new Date().toISOString(),
+        status: 'posted',
+      })
+
+      showToast('Published to ' + selectedPlatform, 'Posted')
+    } catch (err: any) {
+      showToast(err.message, 'Error')
     }
   }
 
@@ -667,8 +733,21 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
 
           {['Instagram','TikTok','X / Twitter'].map(p => (
             <button key={p} onClick={() => {setPlatform(p);setTimeout(generateCaptions,100)}}
-              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${platform===p?'border-[#b08d57] text-[#b08d57]':'border-white/13 text-[#8a8780] hover:border-white/20'}`}>{p}</button>
+              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${platform===p?'border-[#b08d57] text-[#b08d57]':'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
+              {p}
+              {hasDirectConnection(p) && (
+                <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#6aaa7a] align-middle" title="Direct connection" />
+              )}
+            </button>
           ))}
+          {/* Connection route indicator */}
+          <div className="ml-auto text-[9px] tracking-[.12em] text-[#4a4845] uppercase flex items-center gap-1.5">
+            {hasDirectConnection(platform) ? (
+              <><span className="w-1.5 h-1.5 rounded-full bg-[#6aaa7a] inline-block" />Direct</>
+            ) : (
+              <><span className="w-1.5 h-1.5 rounded-full bg-[#b08d57] inline-block opacity-60" />Via Buffer</>
+            )}
+          </div>
         </div>
         {generatingCaptions && (
           <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
@@ -696,8 +775,10 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
                     </div>
                     <div className="text-[10px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{fontFamily:'Georgia,serif'}}>{v?.reasoning||''}</div>
                     <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
-                      <button onClick={e=>{e.stopPropagation();scheduleToBuffer(v?.text||'',platform,mediaUrls)}}
-                        className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">Schedule -&gt;</button>
+                      <button onClick={e=>{e.stopPropagation();publish(v?.text||'',platform,mediaUrls)}}
+                        className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">
+                        {hasDirectConnection(platform) ? 'Publish →' : 'Schedule →'}
+                      </button>
                       <div className="text-[10px] text-[#8a8780]">Est. <span className={v&&v.score>1600?'text-[#3d6b4a]':v&&v.score>1200?'text-[#b08d57]':'text-[#8a8780]'}>{v?formatScore(v.score):'...'}</span></div>
                     </div>
                   </>
@@ -717,9 +798,10 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
               {generatingCaptions&&<div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
               {generatingCaptions?'Generating...':'Regenerate'}
             </button>
-            <button onClick={() => scheduleToBuffer(captions?.[selectedVariant]?.text||'', platform, mediaUrls)}
-              className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors">
-              Schedule best -&gt;
+            <button onClick={() => publish(captions?.[selectedVariant]?.text||'', platform, mediaUrls)}
+              disabled={publishing}
+              className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50">
+              {publishing ? 'Posting...' : hasDirectConnection(platform) ? 'Publish →' : 'Schedule via Buffer →'}
             </button>
           </div>
         </div>

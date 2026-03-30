@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Signal OS — Design Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Unbounded:wght@200;300;400&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #070706;
+    --panel:      #0e0d0b;
+    --panel-up:   #131210;
+    --border-dim: #1a1917;
+    --border:     #2e2c29;
+    --gold:       #b08d57;
+    --gold-hi:    #c9a46e;
+    --gold-dim:   rgba(176,141,87,0.18);
+    --gold-line:  rgba(176,141,87,0.35);
+    --text:       #f0ebe2;
+    --text-dim:   #8a8780;
+    --text-dimmer:#4a4845;
+    --green:      #3d6b4a;
+    --green-dim:  rgba(61,107,74,0.2);
+    --red:        #8a3030;
+    --red-dim:    rgba(138,48,48,0.15);
+    --mono: 'DM Mono', monospace;
+    --display: 'Unbounded', sans-serif;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── LAYOUT SHELL ─── */
+  .shell {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ─── SIDEBAR NAV ─── */
+  .nav {
+    width: 240px;
+    min-height: 100vh;
+    background: var(--bg);
+    border-right: 1px solid var(--border-dim);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .nav-logo {
+    padding: 36px 28px 32px;
+    font-family: var(--display);
+    font-weight: 200;
+    font-size: 15px;
+    letter-spacing: 0.28em;
+    color: var(--gold);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border-dim);
+    line-height: 1;
+  }
+  .nav-body {
+    flex: 1;
+    padding: 32px 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+  .nav-section {
+    padding: 0 28px 10px;
+    font-size: 8px;
+    letter-spacing: 0.32em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 11px 28px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--text-dimmer);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: color 0.15s;
+    font-family: var(--mono);
+  }
+  .nav-item:hover { color: var(--text-dim); }
+  .nav-item.active {
+    color: var(--gold);
+    background: rgba(176,141,87,0.05);
+  }
+  .nav-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.4;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .nav-item:hover .nav-dot { opacity: 0.65; }
+  .nav-item.active .nav-dot { opacity: 1; }
+
+  /* ─── MAIN CONTENT ─── */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* ─── PAGE WRAPPER ─── */
+  .page {
+    display: none;
+    padding: 0;
+  }
+  .page.active { display: block; }
+
+  /* ─── SCANNER PAGE ─── */
+  .scanner-header {
+    padding: 56px 64px 0;
+    border-bottom: 1px solid var(--border-dim);
+    padding-bottom: 40px;
+  }
+  .page-label {
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .page-title {
+    font-family: var(--display);
+    font-weight: 200;
+    font-size: 64px;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 20px;
+  }
+  .page-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    max-width: 480px;
+    line-height: 1.7;
+  }
+
+  /* ─── SCANNER STATS BAR ─── */
+  .stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 64px;
+    border-bottom: 1px solid var(--border-dim);
+  }
+  .stat-block {
+    padding: 24px 40px 24px 0;
+    margin-right: 40px;
+    border-right: 1px solid var(--border-dim);
+  }
+  .stat-block:last-child { border-right: none; }
+  .stat-num {
+    font-family: var(--display);
+    font-weight: 200;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1;
+  }
+  .stat-num.gold { color: var(--gold); }
+  .stat-num.dim { color: var(--text-dimmer); }
+  .stat-label {
+    font-size: 8px;
+    letter-spacing: 0.3em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ─── TOOLBAR ─── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 64px;
+    border-bottom: 1px solid var(--border-dim);
+  }
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toolbar-title {
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .status-pill.error {
+    background: var(--red-dim);
+    border: 1px solid rgba(138,48,48,0.35);
+    color: #c06060;
+  }
+  .status-pill.ok {
+    background: var(--green-dim);
+    border: 1px solid rgba(61,107,74,0.35);
+    color: #6aaa7a;
+  }
+  .status-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 20px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .btn-ghost:hover {
+    border-color: var(--text-dimmer);
+    color: var(--text);
+  }
+  .btn-gold {
+    background: transparent;
+    border: 1px solid var(--gold-line);
+    color: var(--gold);
+  }
+  .btn-gold:hover {
+    background: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold-hi);
+  }
+  .btn-primary {
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-line);
+    color: var(--gold-hi);
+  }
+  .btn-primary:hover {
+    background: rgba(176,141,87,0.25);
+    color: var(--text);
+  }
+
+  /* ─── TRACK LIST ─── */
+  .track-list {
+    padding: 0 64px;
+  }
+  .track-row {
+    display: grid;
+    grid-template-columns: 32px 52px 1fr auto;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-dim);
+    transition: background 0.1s;
+  }
+  .track-row:hover {
+    background: rgba(255,255,255,0.015);
+    margin: 0 -64px;
+    padding: 16px 64px;
+  }
+  .track-row.identified {
+    /* identified state — no change, blends in */
+  }
+  .track-num {
+    font-family: var(--display);
+    font-weight: 200;
+    font-size: 16px;
+    color: var(--text-dimmer);
+    text-align: right;
+    letter-spacing: -0.02em;
+  }
+  .track-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dimmer);
+    letter-spacing: 0.08em;
+    font-weight: 300;
+  }
+  .track-info {}
+  .track-title {
+    font-size: 12px;
+    color: var(--text);
+    letter-spacing: 0.04em;
+    font-weight: 400;
+  }
+  .track-artist {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    margin-top: 2px;
+  }
+  .track-unknown {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    letter-spacing: 0.06em;
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+  .track-badge {
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+  .track-badge.unknown {
+    border: 1px solid var(--border);
+    color: var(--text-dimmer);
+  }
+  .track-badge.found {
+    border: 1px solid rgba(61,107,74,0.4);
+    color: #6aaa7a;
+    background: var(--green-dim);
+  }
+  .confidence {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: #6aaa7a;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── EDIT SECTION ─── */
+  .edit-section {
+    padding: 40px 64px;
+    border-top: 1px solid var(--border-dim);
+  }
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .section-hint {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    margin-bottom: 20px;
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+  .edit-textarea {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border-dim);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.9;
+    padding: 20px 24px;
+    resize: none;
+    outline: none;
+    border-radius: 2px;
+    min-height: 200px;
+    letter-spacing: 0.04em;
+  }
+  .edit-textarea:focus { border-color: var(--border); }
+
+  .context-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+    padding: 32px 64px 48px;
+    border-top: 1px solid var(--border-dim);
+  }
+  .context-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border-dim);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 10px 0;
+    outline: none;
+    letter-spacing: 0.05em;
+    width: 100%;
+  }
+  .context-input::placeholder { color: var(--text-dimmer); }
+  .context-input:focus { border-bottom-color: var(--gold-line); }
+  .context-label {
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* ─── DASHBOARD PAGE ─── */
+  .dash-header {
+    padding: 56px 64px 48px;
+    border-bottom: 1px solid var(--border-dim);
+  }
+  .dash-greeting {
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .dash-title {
+    font-family: var(--display);
+    font-weight: 200;
+    font-size: 52px;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: var(--text);
+  }
+  .dash-title span {
+    color: var(--gold);
+  }
+
+  .dash-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--border-dim);
+  }
+  .dash-stat {
+    padding: 32px 40px;
+    border-right: 1px solid var(--border-dim);
+  }
+  .dash-stat:last-child { border-right: none; }
+  .dash-stat-num {
+    font-family: var(--display);
+    font-weight: 200;
+    font-size: 48px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .dash-stat-num.gold { color: var(--gold); }
+  .dash-stat-label {
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+  }
+  .dash-stat-sub {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    margin-top: 4px;
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+
+  .dash-body {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+  }
+  .dash-col { border-right: 1px solid var(--border-dim); }
+  .dash-col:last-child { border-right: none; }
+  .dash-section-head {
+    padding: 24px 40px 20px;
+    border-bottom: 1px solid var(--border-dim);
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+  }
+
+  .gig-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border-dim);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .gig-row:hover { background: rgba(255,255,255,0.015); }
+  .gig-date-block {
+    text-align: center;
+    flex-shrink: 0;
+    width: 44px;
+  }
+  .gig-day {
+    font-family: var(--display);
+    font-weight: 200;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--text);
+  }
+  .gig-month {
+    font-size: 8px;
+    letter-spacing: 0.25em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .gig-info { flex: 1; }
+  .gig-venue {
+    font-size: 12px;
+    color: var(--text);
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+  .gig-location {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+  }
+  .gig-status {
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .gig-status.confirmed {
+    border: 1px solid rgba(61,107,74,0.4);
+    color: #6aaa7a;
+    background: var(--green-dim);
+  }
+  .gig-status.pending {
+    border: 1px solid var(--gold-line);
+    color: var(--gold);
+    background: var(--gold-dim);
+  }
+
+  .notif-row {
+    display: flex;
+    gap: 16px;
+    padding: 16px 40px;
+    border-bottom: 1px solid var(--border-dim);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .notif-row:hover { background: rgba(255,255,255,0.015); }
+  .notif-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 2px;
+    background: var(--panel-up);
+    border: 1px solid var(--border-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .notif-text {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+  }
+  .notif-time {
+    font-size: 9px;
+    color: var(--text-dimmer);
+    letter-spacing: 0.08em;
+    margin-top: 3px;
+  }
+  .notif-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--gold);
+    flex-shrink: 0;
+    margin-top: 8px;
+  }
+
+  /* ─── GIGS PAGE ─── */
+  .gigs-header {
+    padding: 56px 64px 40px;
+    border-bottom: 1px solid var(--border-dim);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .gigs-list { padding: 0 64px; }
+  .gigs-list-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 140px 100px 100px;
+    align-items: center;
+    gap: 24px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border-dim);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .gigs-list-head {
+    display: grid;
+    grid-template-columns: 80px 1fr 140px 100px 100px;
+    gap: 24px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-dim);
+  }
+  .col-head {
+    font-size: 8px;
+    letter-spacing: 0.3em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+  }
+  .gigs-list-row:hover { background: rgba(255,255,255,0.015); margin: 0 -64px; padding: 18px 64px; }
+
+  /* ─── PAGE TABS ─── */
+  .page-tabs {
+    display: flex;
+    padding: 0 64px;
+    border-bottom: 1px solid var(--border-dim);
+    gap: 0;
+  }
+  .page-tab {
+    padding: 16px 0;
+    margin-right: 32px;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-dimmer);
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+    transition: color 0.15s;
+  }
+  .page-tab:hover { color: var(--text-dim); }
+  .page-tab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+  }
+
+  /* ─── SWITCHER ─── */
+  .switcher {
+    display: flex;
+    gap: 2px;
+    padding: 16px 64px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border-dim);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .switch-btn {
+    padding: 7px 16px;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    border: none;
+    background: transparent;
+    color: var(--text-dimmer);
+    font-family: var(--mono);
+    transition: all 0.15s;
+  }
+  .switch-btn:hover { color: var(--text-dim); }
+  .switch-btn.active {
+    background: var(--panel);
+    color: var(--gold);
+    border: 1px solid var(--border-dim);
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ─── SIDEBAR ─── -->
+  <nav class="nav">
+
+    <div class="nav-logo">Signal OS</div>
+
+    <div class="nav-body">
+
+      <!-- TOUR -->
+      <div class="nav-group">
+        <div class="nav-section">Tour</div>
+        <div class="nav-item active" onclick="show('gigs')">
+          <span class="nav-dot"></span>Gigs
+        </div>
+        <div class="nav-item" onclick="show('dashboard')">
+          <span class="nav-dot"></span>Dashboard
+        </div>
+        <div class="nav-item">
+          <span class="nav-dot"></span>Logistics
+        </div>
+      </div>
+
+      <!-- CREATE -->
+      <div class="nav-group">
+        <div class="nav-section">Create</div>
+        <div class="nav-item" onclick="show('scanner')">
+          <span class="nav-dot"></span>Broadcast
+        </div>
+        <div class="nav-item">
+          <span class="nav-dot"></span>Set Lab
+        </div>
+        <div class="nav-item">
+          <span class="nav-dot"></span>Sonix
+        </div>
+      </div>
+
+      <!-- BUSINESS -->
+      <div class="nav-group">
+        <div class="nav-section">Business</div>
+        <div class="nav-item">
+          <span class="nav-dot"></span>Finances
+        </div>
+        <div class="nav-item">
+          <span class="nav-dot"></span>Contracts
+        </div>
+        <div class="nav-item">
+          <span class="nav-dot"></span>Settings
+        </div>
+      </div>
+
+    </div>
+
+    <!-- bottom -->
+    <div style="border-top:1px solid var(--border-dim);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:9px;letter-spacing:0.2em;color:var(--text-dimmer);text-transform:uppercase;cursor:pointer;">Night Manoeuvres</div>
+      <div style="font-size:13px;cursor:pointer;color:var(--text-dimmer);">🔔</div>
+    </div>
+
+  </nav>
+
+  <!-- ─── PAGES ─── -->
+  <main class="main">
+
+    <!-- ─── PAGE SWITCHER ─── -->
+    <div class="switcher">
+      <button class="switch-btn active" onclick="show('scanner')">Mix Scanner</button>
+      <button class="switch-btn" onclick="show('scanner-identified')">Scanner (Identified)</button>
+      <button class="switch-btn" onclick="show('dashboard')">Dashboard</button>
+      <button class="switch-btn" onclick="show('gigs')">Gigs</button>
+      <button class="switch-btn" onclick="show('login')">Login</button>
+      <button class="switch-btn" onclick="show('onboarding')">Onboarding</button>
+      <button class="switch-btn" onclick="show('landing')">Landing Page</button>
+    </div>
+
+    <!-- ════════════════════════════════════
+         PAGE: SCANNER — 0 IDENTIFIED
+    ════════════════════════════════════ -->
+    <div class="page active" id="page-scanner">
+
+      <div class="scanner-header">
+        <div class="page-label">SetLab · Mix Scanner</div>
+        <div class="page-title">Mix Scanner</div>
+        <div class="page-sub">Upload a recorded DJ mix. Breaks down transitions, energy arc and flow. Rated out of 10.</div>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat-block">
+          <div class="stat-num dim">26</div>
+          <div class="stat-label">Tracks detected</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num dim">0</div>
+          <div class="stat-label">Identified</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num dim">1h 42m</div>
+          <div class="stat-label">Duration</div>
+        </div>
+        <div class="stat-block" style="margin-left:auto; border-right:none; padding-right:0; display:flex; align-items:center; gap:12px;">
+          <button class="btn btn-ghost">Re-upload</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="toolbar-title">Detected Tracklist</div>
+          <div class="status-pill error">
+            <span class="status-dot"></span>
+            0 of 26 identified — check connection
+          </div>
+        </div>
+      </div>
+
+      <div class="track-list">
+        <div class="track-row">
+          <div class="track-num">1</div>
+          <div class="track-time">00:00</div>
+          <div class="track-info"><div class="track-unknown">Unknown / White label</div></div>
+          <div class="track-badge unknown">Unidentified</div>
+        </div>
+        <div class="track-row">
+          <div class="track-num">2</div>
+          <div class="track-time">00:47</div>
+          <div class="track-info"><div class="track-unknown">Unknown / White label</div></div>
+          <div class="track-badge unknown">Unidentified</div>
+        </div>
+        <div class="track-row">
+          <div class="track-num">3</div>
+          <div class="track-time">05:52</div>
+          <div class="track-info"><div class="track-unknown">Unknown / White label</div></div>
+          <div class="track-badge unknown">Unidentified</div>
+        </div>
+        <div class="track-row">
+          <div class="track-num">4</div>
+          <div class="track-time">13:57</div>
+          <div class="track-info"><div class="track-unknown">Unknown / White label</div></div>
+          <div class="track-badge unknown">Unidentified</div>
+        </div>
+        <div class="track-row">
+          <div class="track-num">5</div>
+          <div class="track-time">17:52</div>
+          <div class="track-info"><div class="track-unknown">Unknown / White label</div></div>
+          <div class="track-badge unknown">Unidentified</div>
+        </div>
+        <div class="track-row">
+          <div class="track-num">6</div>
+          <div class="track-time">35:52</div>
+          <div class="track-info"><div class="track-unknown">Unknown / White label</div></div>
+          <div class="track-badge unknown">Unidentified</div>
+        </div>
+        <div class="track-row">
+          <div class="track-num">7</div>
+          <div class="track-time">44:47</div>
+          <div class="track-info"><div class="track-unknown">Unknown / White label</div></div>
+          <div class="track-badge unknown">Unidentified</div>
+        </div>
+      </div>
+
+      <div class="edit-section">
+        <div class="section-label">Edit Tracklist</div>
+        <div class="section-hint">Correct any wrong IDs before analysis</div>
+        <textarea class="edit-textarea" rows="8">1.  00:00  Unknown / White label
+2.  00:47  Unknown / White label
+3.  05:52  Unknown / White label
+4.  13:57  Unknown / White label
+5.  17:52  Unknown / White label
+6.  35:52  Unknown / White label
+7.  44:47  Unknown / White label</textarea>
+      </div>
+
+      <div class="context-row">
+        <div>
+          <div class="context-label">Set Context <span style="opacity:0.4">(optional)</span></div>
+          <input class="context-input" placeholder="e.g. 2hr techno set, club warm-up, festival peak time…" />
+        </div>
+        <button class="btn btn-gold" style="height:40px; padding: 0 28px; font-size:11px;">Analyse Mix →</button>
+      </div>
+
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         PAGE: SCANNER — IDENTIFIED STATE
+    ════════════════════════════════════ -->
+    <div class="page" id="page-scanner-identified">
+
+      <div class="scanner-header">
+        <div class="page-label">SetLab · Mix Scanner</div>
+        <div class="page-title">Mix Scanner</div>
+        <div class="page-sub">Upload a recorded DJ mix. Breaks down transitions, energy arc and flow. Rated out of 10.</div>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat-block">
+          <div class="stat-num">26</div>
+          <div class="stat-label">Tracks detected</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num gold">19</div>
+          <div class="stat-label">Identified</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num dim">7</div>
+          <div class="stat-label">White label</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num" style="color:#6aaa7a">73%</div>
+          <div class="stat-label">Recognition rate</div>
+        </div>
+        <div class="stat-block" style="margin-left:auto; border-right:none; padding-right:0; display:flex; align-items:center; gap:12px;">
+          <button class="btn btn-ghost">Re-upload</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="toolbar-title">Detected Tracklist</div>
+          <div class="status-pill ok">
+            <span class="status-dot"></span>
+            19 of 26 identified
+          </div>
+        </div>
+      </div>
+
+      <div class="track-list">
+        <div class="track-row identified">
+          <div class="track-num">1</div>
+          <div class="track-time">00:00</div>
+          <div class="track-info">
+            <div class="track-title">Compression</div>
+            <div class="track-artist">Surgeon</div>
+          </div>
+          <div class="confidence">94%</div>
+        </div>
+        <div class="track-row identified">
+          <div class="track-num">2</div>
+          <div class="track-time">07:14</div>
+          <div class="track-info">
+            <div class="track-title">Enter (Original Mix)</div>
+            <div class="track-artist">Rebekah</div>
+          </div>
+          <div class="confidence">88%</div>
+        </div>
+        <div class="track-row identified">
+          <div class="track-num">3</div>
+          <div class="track-time">14:33</div>
+          <div class="track-info">
+            <div class="track-title">Lost in Static</div>
+            <div class="track-artist">Paula Temple</div>
+          </div>
+          <div class="confidence">91%</div>
+        </div>
+        <div class="track-row">
+          <div class="track-num">4</div>
+          <div class="track-time">21:05</div>
+          <div class="track-info"><div class="track-unknown">Unknown / White label</div></div>
+          <div class="track-badge unknown">Unidentified</div>
+        </div>
+        <div class="track-row identified">
+          <div class="track-num">5</div>
+          <div class="track-time">28:40</div>
+          <div class="track-info">
+            <div class="track-title">Void Mechanics</div>
+            <div class="track-artist">Ancient Methods</div>
+          </div>
+          <div class="confidence">79%</div>
+        </div>
+        <div class="track-row">
+          <div class="track-num">6</div>
+          <div class="track-time">35:52</div>
+          <div class="track-info"><div class="track-unknown">Unknown / White label</div></div>
+          <div class="track-badge unknown">Unidentified</div>
+        </div>
+        <div class="track-row identified">
+          <div class="track-num">7</div>
+          <div class="track-time">44:47</div>
+          <div class="track-info">
+            <div class="track-title">Blackest Ever Black</div>
+            <div class="track-artist">Phase Fatale</div>
+          </div>
+          <div class="confidence">86%</div>
+        </div>
+      </div>
+
+      <div class="edit-section">
+        <div class="section-label">Edit Tracklist</div>
+        <div class="section-hint">Correct any wrong IDs before analysis</div>
+        <textarea class="edit-textarea" rows="8">1.  00:00  Surgeon — Compression
+2.  07:14  Rebekah — Enter (Original Mix)
+3.  14:33  Paula Temple — Lost in Static
+4.  21:05  Unknown / White label
+5.  28:40  Ancient Methods — Void Mechanics
+6.  35:52  Unknown / White label
+7.  44:47  Phase Fatale — Blackest Ever Black</textarea>
+      </div>
+
+      <div class="context-row">
+        <div>
+          <div class="context-label">Set Context <span style="opacity:0.4">(optional)</span></div>
+          <input class="context-input" value="2hr techno set, Berlin club, peak time" />
+        </div>
+        <button class="btn btn-primary" style="height:40px; padding: 0 28px; font-size:11px;">Analyse Mix →</button>
+      </div>
+
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         PAGE: DASHBOARD
+    ════════════════════════════════════ -->
+    <div class="page" id="page-dashboard">
+
+      <div class="dash-header">
+        <div class="dash-greeting">Monday · 30 March 2026</div>
+        <div class="dash-title">Good morning,<br /><span>Night Manoeuvres</span></div>
+      </div>
+
+      <div class="dash-stats">
+        <div class="dash-stat">
+          <div class="dash-stat-num gold">4</div>
+          <div class="dash-stat-label">Upcoming gigs</div>
+          <div class="dash-stat-sub">Next: Fabric, 12 Apr</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-num" style="color:#c06060">2</div>
+          <div class="dash-stat-label">Needs attention</div>
+          <div class="dash-stat-sub">Advances overdue</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-num">£3,200</div>
+          <div class="dash-stat-label">Invoiced this month</div>
+          <div class="dash-stat-sub">1 overdue</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-num dim">12</div>
+          <div class="dash-stat-label">Posts scheduled</div>
+          <div class="dash-stat-sub">Next: tomorrow 11am</div>
+        </div>
+      </div>
+
+      <div class="dash-body">
+        <div class="dash-col">
+          <div class="dash-section-head">Upcoming Gigs</div>
+          <div class="gig-row">
+            <div class="gig-date-block">
+              <div class="gig-day">12</div>
+              <div class="gig-month">Apr</div>
+            </div>
+            <div class="gig-info">
+              <div class="gig-venue">Fabric — Room 1</div>
+              <div class="gig-location">London, UK · 23:00–02:00</div>
+            </div>
+            <div class="gig-status confirmed">Confirmed</div>
+          </div>
+          <div class="gig-row">
+            <div class="gig-date-block">
+              <div class="gig-day">19</div>
+              <div class="gig-month">Apr</div>
+            </div>
+            <div class="gig-info">
+              <div class="gig-venue">Tresor</div>
+              <div class="gig-location">Berlin, DE · 01:00–06:00</div>
+            </div>
+            <div class="gig-status confirmed">Confirmed</div>
+          </div>
+          <div class="gig-row">
+            <div class="gig-date-block">
+              <div class="gig-day">03</div>
+              <div class="gig-month">May</div>
+            </div>
+            <div class="gig-info">
+              <div class="gig-venue">De School</div>
+              <div class="gig-location">Amsterdam, NL · 00:00–04:00</div>
+            </div>
+            <div class="gig-status pending">Pending</div>
+          </div>
+        </div>
+
+        <div class="dash-col" style="border-right:none">
+          <div class="dash-section-head">Notifications</div>
+          <div class="notif-row">
+            <div class="notif-dot"></div>
+            <div class="notif-icon">⚡</div>
+            <div>
+              <div class="notif-text">Advance for Fabric still not sent — show in 13 days</div>
+              <div class="notif-time">2 hours ago</div>
+            </div>
+          </div>
+          <div class="notif-row">
+            <div class="notif-dot"></div>
+            <div class="notif-icon">£</div>
+            <div>
+              <div class="notif-text">Invoice #0023 overdue by 7 days — Tresor Berlin</div>
+              <div class="notif-time">Yesterday</div>
+            </div>
+          </div>
+          <div class="notif-row">
+            <div style="width:4px; flex-shrink:0"></div>
+            <div class="notif-icon">📅</div>
+            <div>
+              <div class="notif-text">Set time updated — De School moved to 00:00</div>
+              <div class="notif-time">2 days ago</div>
+            </div>
+          </div>
+          <div class="notif-row">
+            <div style="width:4px; flex-shrink:0"></div>
+            <div class="notif-icon">✦</div>
+            <div>
+              <div class="notif-text">Weekly content ready — 5 posts drafted for next week</div>
+              <div class="notif-time">3 days ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         PAGE: GIGS
+    ════════════════════════════════════ -->
+    <div class="page" id="page-gigs">
+
+      <div class="gigs-header">
+        <div>
+          <div class="page-label">Tour Lab</div>
+          <div class="page-title" style="font-size:52px">Gigs</div>
+        </div>
+        <button class="btn btn-gold">+ New Gig</button>
+      </div>
+
+      <div class="page-tabs">
+        <div class="page-tab active">All (12)</div>
+        <div class="page-tab">Upcoming (4)</div>
+        <div class="page-tab">Confirmed (3)</div>
+        <div class="page-tab">Pending (1)</div>
+        <div class="page-tab">Past</div>
+      </div>
+
+      <div class="gigs-list">
+        <div class="gigs-list-head">
+          <div class="col-head">Date</div>
+          <div class="col-head">Venue</div>
+          <div class="col-head">Location</div>
+          <div class="col-head">Fee</div>
+          <div class="col-head">Status</div>
+        </div>
+
+        <div class="gigs-list-row">
+          <div style="font-size:11px; color:var(--text-dim)">12 Apr 26</div>
+          <div style="font-size:12px">Fabric — Room 1</div>
+          <div style="font-size:11px; color:var(--text-dim)">London, UK</div>
+          <div style="font-size:11px">£1,200</div>
+          <div class="gig-status confirmed" style="align-self:auto">Confirmed</div>
+        </div>
+        <div class="gigs-list-row">
+          <div style="font-size:11px; color:var(--text-dim)">19 Apr 26</div>
+          <div style="font-size:12px">Tresor</div>
+          <div style="font-size:11px; color:var(--text-dim)">Berlin, DE</div>
+          <div style="font-size:11px">€900</div>
+          <div class="gig-status confirmed" style="align-self:auto">Confirmed</div>
+        </div>
+        <div class="gigs-list-row">
+          <div style="font-size:11px; color:var(--text-dim)">3 May 26</div>
+          <div style="font-size:12px">De School</div>
+          <div style="font-size:11px; color:var(--text-dim)">Amsterdam, NL</div>
+          <div style="font-size:11px; color:var(--text-dimmer)">TBC</div>
+          <div class="gig-status pending" style="align-self:auto">Pending</div>
+        </div>
+        <div class="gigs-list-row">
+          <div style="font-size:11px; color:var(--text-dim)">24 May 26</div>
+          <div style="font-size:12px">Berghain</div>
+          <div style="font-size:11px; color:var(--text-dim)">Berlin, DE</div>
+          <div style="font-size:11px">€1,400</div>
+          <div class="gig-status confirmed" style="align-self:auto">Confirmed</div>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         PAGE: LOGIN
+    ════════════════════════════════════ -->
+    <div class="page" id="page-login" style="min-height:100vh; display:none; align-items:center; justify-content:center; flex-direction:column; background:var(--bg);">
+
+      <div style="width:100%; max-width:400px; padding:0 32px;">
+
+        <!-- Wordmark -->
+        <div style="text-align:center; margin-bottom:64px;">
+          <div style="font-family:var(--display); font-weight:200; font-size:28px; letter-spacing:0.12em; color:var(--text); line-height:1; margin-bottom:10px;">Night Manoeuvres</div>
+          <div style="font-size:9px; letter-spacing:0.4em; color:var(--text-dimmer); text-transform:uppercase;">Artist OS</div>
+          <div style="width:32px; height:1px; background:var(--gold); margin:20px auto 0;"></div>
+        </div>
+
+        <!-- Form -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Email</div>
+          <input type="email" placeholder="your@email.com" style="width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); padding:10px 0; font-family:var(--mono); font-size:13px; color:var(--text); outline:none; letter-spacing:0.04em; border-radius:0;" />
+        </div>
+
+        <div style="margin-bottom:40px;">
+          <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Password</div>
+          <input type="password" placeholder="••••••••••" style="width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); padding:10px 0; font-family:var(--mono); font-size:13px; color:var(--text); outline:none; letter-spacing:0.12em; border-radius:0;" />
+        </div>
+
+        <button style="width:100%; height:44px; background:transparent; border:1px solid rgba(176,141,87,0.4); color:var(--gold); font-family:var(--mono); font-size:10px; letter-spacing:0.22em; text-transform:uppercase; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.background='rgba(176,141,87,0.1)';this.style.borderColor='var(--gold)'" onmouseout="this.style.background='transparent';this.style.borderColor='rgba(176,141,87,0.4)'">
+          Sign In →
+        </button>
+
+        <div style="text-align:center; margin-top:24px;">
+          <span style="font-size:10px; color:var(--text-dimmer); letter-spacing:0.06em;">No account? </span>
+          <span style="font-size:10px; color:var(--gold); letter-spacing:0.06em; cursor:pointer;">Request access</span>
+        </div>
+
+      </div>
+
+      <!-- Version -->
+      <div style="position:fixed; bottom:32px; font-size:9px; letter-spacing:0.2em; color:var(--text-dimmer); text-transform:uppercase;">Private beta · v0.1</div>
+
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         PAGE: ONBOARDING
+    ════════════════════════════════════ -->
+    <div class="page" id="page-onboarding" style="min-height:100vh; display:none; background:var(--bg);">
+
+      <!-- Progress bar -->
+      <div style="position:fixed; top:0; left:0; right:0; height:1px; background:var(--border-dim); z-index:10;">
+        <div id="ob-progress" style="height:1px; background:var(--gold); width:33%; transition:width 0.4s ease;"></div>
+      </div>
+
+      <!-- Step indicator -->
+      <div style="display:flex; justify-content:center; padding:48px 0 0; gap:24px;">
+        <div id="ob-s1" style="font-size:9px; letter-spacing:0.25em; text-transform:uppercase; color:var(--gold); cursor:pointer;" onclick="obStep(1)">01 · Profile</div>
+        <div style="font-size:9px; color:var(--border); letter-spacing:0.1em;">—</div>
+        <div id="ob-s2" style="font-size:9px; letter-spacing:0.25em; text-transform:uppercase; color:var(--text-dimmer); cursor:pointer;" onclick="obStep(2)">02 · Riders</div>
+        <div style="font-size:9px; color:var(--border); letter-spacing:0.1em;">—</div>
+        <div id="ob-s3" style="font-size:9px; letter-spacing:0.25em; text-transform:uppercase; color:var(--text-dimmer); cursor:pointer;" onclick="obStep(3)">03 · Connect</div>
+      </div>
+
+      <!-- STEP 1: Profile -->
+      <div id="ob-page1" style="max-width:560px; margin:0 auto; padding:56px 32px;">
+        <div style="font-size:9px; letter-spacing:0.35em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:16px;">Step 1 of 3</div>
+        <div style="font-family:var(--display); font-weight:200; font-size:48px; letter-spacing:-0.01em; line-height:1; margin-bottom:12px;">Your Profile</div>
+        <div style="font-size:12px; color:var(--text-dim); margin-bottom:48px; font-style:italic; font-family:Georgia,serif;">Tell us a bit about your project so Signal OS can personalise everything.</div>
+
+        <div style="display:flex; flex-direction:column; gap:32px;">
+          <div>
+            <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Artist / Project Name</div>
+            <input placeholder="Night Manoeuvres" value="Night Manoeuvres" style="width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); padding:10px 0; font-family:var(--mono); font-size:14px; color:var(--text); outline:none; letter-spacing:0.04em; border-radius:0;" />
+          </div>
+          <div>
+            <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Primary Genre</div>
+            <input placeholder="e.g. Techno, Ambient, House…" style="width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); padding:10px 0; font-family:var(--mono); font-size:14px; color:var(--text); outline:none; letter-spacing:0.04em; border-radius:0;" />
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+            <div>
+              <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Based In</div>
+              <input placeholder="City" style="width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); padding:10px 0; font-family:var(--mono); font-size:14px; color:var(--text); outline:none; letter-spacing:0.04em; border-radius:0;" />
+            </div>
+            <div>
+              <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Country</div>
+              <input placeholder="UK" style="width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); padding:10px 0; font-family:var(--mono); font-size:14px; color:var(--text); outline:none; letter-spacing:0.04em; border-radius:0;" />
+            </div>
+          </div>
+          <div>
+            <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Management / Booking Contact <span style="opacity:0.4">(optional)</span></div>
+            <input placeholder="email@agency.com" style="width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); padding:10px 0; font-family:var(--mono); font-size:14px; color:var(--text); outline:none; letter-spacing:0.04em; border-radius:0;" />
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; margin-top:48px;">
+          <button onclick="obStep(2)" style="height:40px; padding:0 28px; background:transparent; border:1px solid rgba(176,141,87,0.35); color:var(--gold); font-family:var(--mono); font-size:10px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer;">
+            Next →
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Riders -->
+      <div id="ob-page2" style="max-width:560px; margin:0 auto; padding:56px 32px; display:none;">
+        <div style="font-size:9px; letter-spacing:0.35em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:16px;">Step 2 of 3</div>
+        <div style="font-family:var(--display); font-weight:200; font-size:48px; letter-spacing:-0.01em; line-height:1; margin-bottom:12px;">Your Riders</div>
+        <div style="font-size:12px; color:var(--text-dim); margin-bottom:48px; font-style:italic; font-family:Georgia,serif;">These get sent automatically with every advance. Add yours once, never repeat yourself.</div>
+
+        <div style="display:flex; flex-direction:column; gap:32px;">
+          <div>
+            <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Technical Rider</div>
+            <textarea rows="4" placeholder="e.g. Pioneer CDJ-3000s, DJM-900NXS2, booth monitor with separate send…" style="width:100%; background:var(--panel); border:1px solid var(--border-dim); padding:16px; font-family:var(--mono); font-size:12px; color:var(--text); outline:none; letter-spacing:0.04em; resize:vertical; line-height:1.7;"></textarea>
+          </div>
+          <div>
+            <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Hospitality Rider</div>
+            <textarea rows="3" placeholder="e.g. Still water, oat milk, green tea, fruit…" style="width:100%; background:var(--panel); border:1px solid var(--border-dim); padding:16px; font-family:var(--mono); font-size:12px; color:var(--text); outline:none; letter-spacing:0.04em; resize:vertical; line-height:1.7;"></textarea>
+          </div>
+          <div>
+            <div style="font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;">Show Rider <span style="opacity:0.4">(optional)</span></div>
+            <textarea rows="3" placeholder="e.g. No flash photography, no support act announcements during set…" style="width:100%; background:var(--panel); border:1px solid var(--border-dim); padding:16px; font-family:var(--mono); font-size:12px; color:var(--text); outline:none; letter-spacing:0.04em; resize:vertical; line-height:1.7;"></textarea>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; margin-top:48px;">
+          <button onclick="obStep(1)" style="height:40px; padding:0 20px; background:transparent; border:1px solid var(--border); color:var(--text-dimmer); font-family:var(--mono); font-size:10px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer;">← Back</button>
+          <button onclick="obStep(3)" style="height:40px; padding:0 28px; background:transparent; border:1px solid rgba(176,141,87,0.35); color:var(--gold); font-family:var(--mono); font-size:10px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer;">Next →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: Connect -->
+      <div id="ob-page3" style="max-width:560px; margin:0 auto; padding:56px 32px; display:none;">
+        <div style="font-size:9px; letter-spacing:0.35em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:16px;">Step 3 of 3</div>
+        <div style="font-family:var(--display); font-weight:200; font-size:48px; letter-spacing:-0.01em; line-height:1; margin-bottom:12px;">Connect</div>
+        <div style="font-size:12px; color:var(--text-dim); margin-bottom:48px; font-style:italic; font-family:Georgia,serif;">Link your accounts. Everything here is optional — you can connect later from Settings.</div>
+
+        <div style="display:flex; flex-direction:column; gap:12px;">
+
+          <!-- Gmail -->
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border:1px solid var(--border-dim); background:var(--panel);">
+            <div style="display:flex; align-items:center; gap:16px;">
+              <div style="width:32px; height:32px; background:rgba(176,141,87,0.08); border:1px solid var(--border-dim); display:flex; align-items:center; justify-content:center; font-size:14px;">✉</div>
+              <div>
+                <div style="font-size:12px; letter-spacing:0.04em;">Gmail</div>
+                <div style="font-size:10px; color:var(--text-dimmer); margin-top:2px; letter-spacing:0.04em;">Scan for bookings, invoices, expenses</div>
+              </div>
+            </div>
+            <button style="height:32px; padding:0 16px; background:transparent; border:1px solid rgba(61,107,74,0.4); color:#6aaa7a; font-family:var(--mono); font-size:9px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer;">Connect</button>
+          </div>
+
+          <!-- Spotify -->
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border:1px solid var(--border-dim); background:var(--panel);">
+            <div style="display:flex; align-items:center; gap:16px;">
+              <div style="width:32px; height:32px; background:rgba(176,141,87,0.08); border:1px solid var(--border-dim); display:flex; align-items:center; justify-content:center; font-size:14px;">♫</div>
+              <div>
+                <div style="font-size:12px; letter-spacing:0.04em;">Spotify</div>
+                <div style="font-size:10px; color:var(--text-dimmer); margin-top:2px; letter-spacing:0.04em;">Artist stats, streaming data, playlist reach</div>
+              </div>
+            </div>
+            <button style="height:32px; padding:0 16px; background:transparent; border:1px solid rgba(61,107,74,0.4); color:#6aaa7a; font-family:var(--mono); font-size:9px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer;">Connect</button>
+          </div>
+
+          <!-- Instagram -->
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border:1px solid var(--border-dim); background:var(--panel);">
+            <div style="display:flex; align-items:center; gap:16px;">
+              <div style="width:32px; height:32px; background:rgba(176,141,87,0.08); border:1px solid var(--border-dim); display:flex; align-items:center; justify-content:center; font-size:14px;">◈</div>
+              <div>
+                <div style="font-size:12px; letter-spacing:0.04em;">Instagram</div>
+                <div style="font-size:10px; color:var(--text-dimmer); margin-top:2px; letter-spacing:0.04em;">Audience insights, post scheduling</div>
+              </div>
+            </div>
+            <button style="height:32px; padding:0 16px; background:transparent; border:1px solid var(--border); color:var(--text-dimmer); font-family:var(--mono); font-size:9px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer; opacity:0.5;">Soon</button>
+          </div>
+
+          <!-- Last.fm -->
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border:1px solid var(--border-dim); background:var(--panel);">
+            <div style="display:flex; align-items:center; gap:16px;">
+              <div style="width:32px; height:32px; background:rgba(176,141,87,0.08); border:1px solid var(--border-dim); display:flex; align-items:center; justify-content:center; font-size:14px;">◎</div>
+              <div>
+                <div style="font-size:12px; letter-spacing:0.04em;">Last.fm</div>
+                <div style="font-size:10px; color:var(--text-dimmer); margin-top:2px; letter-spacing:0.04em;">Fan listening data, track performance</div>
+              </div>
+            </div>
+            <button style="height:32px; padding:0 16px; background:transparent; border:1px solid rgba(61,107,74,0.4); color:#6aaa7a; font-family:var(--mono); font-size:9px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer;">Connect</button>
+          </div>
+
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:48px;">
+          <button onclick="obStep(2)" style="height:40px; padding:0 20px; background:transparent; border:1px solid var(--border); color:var(--text-dimmer); font-family:var(--mono); font-size:10px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer;">← Back</button>
+          <div style="text-align:right;">
+            <button style="height:40px; padding:0 32px; background:rgba(176,141,87,0.15); border:1px solid rgba(176,141,87,0.4); color:var(--gold-bright, #c9a46e); font-family:var(--mono); font-size:10px; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer;">Enter Signal OS →</button>
+            <div style="font-size:9px; color:var(--text-dimmer); margin-top:8px; letter-spacing:0.06em; font-style:italic; font-family:Georgia,serif;">You can connect more from Settings at any time</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         PAGE: LANDING
+    ════════════════════════════════════ -->
+    <div class="page" id="page-landing" style="display:none; background:var(--bg); overflow-y:auto;">
+
+      <!-- NAV -->
+      <nav style="position:sticky;top:0;z-index:100;background:rgba(7,7,6,0.95);border-bottom:1px solid var(--border-dim);padding:18px 64px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(12px);">
+        <div style="font-family:var(--display);font-weight:200;font-size:12px;letter-spacing:0.22em;color:var(--gold);">SIGNAL LAB OS</div>
+        <div style="display:flex;align-items:center;gap:32px;">
+          <span style="font-size:9px;letter-spacing:0.2em;color:var(--text-dimmer);text-transform:uppercase;cursor:pointer;">Features</span>
+          <span style="font-size:9px;letter-spacing:0.2em;color:var(--text-dimmer);text-transform:uppercase;cursor:pointer;">Pricing</span>
+          <button style="height:34px;padding:0 20px;background:transparent;border:1px solid rgba(176,141,87,0.4);color:var(--gold);font-family:var(--mono);font-size:9px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;">Request Access →</button>
+        </div>
+      </nav>
+
+      <!-- HERO OPTIONS — pick one -->
+      <div style="background:var(--panel);border-bottom:1px solid var(--border-dim);padding:16px 64px;display:flex;align-items:center;gap:16px;">
+        <span style="font-size:9px;letter-spacing:0.25em;color:var(--text-dimmer);text-transform:uppercase;flex-shrink:0;">Hero option:</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="setHero(1)" id="hbtn1" style="height:28px;padding:0 14px;background:rgba(176,141,87,0.15);border:1px solid rgba(176,141,87,0.4);color:var(--gold);font-family:var(--mono);font-size:9px;letter-spacing:0.12em;cursor:pointer;">A</button>
+          <button onclick="setHero(2)" id="hbtn2" style="height:28px;padding:0 14px;background:transparent;border:1px solid var(--border);color:var(--text-dimmer);font-family:var(--mono);font-size:9px;letter-spacing:0.12em;cursor:pointer;">B</button>
+          <button onclick="setHero(3)" id="hbtn3" style="height:28px;padding:0 14px;background:transparent;border:1px solid var(--border);color:var(--text-dimmer);font-family:var(--mono);font-size:9px;letter-spacing:0.12em;cursor:pointer;">C</button>
+          <button onclick="setHero(4)" id="hbtn4" style="height:28px;padding:0 14px;background:transparent;border:1px solid var(--border);color:var(--text-dimmer);font-family:var(--mono);font-size:9px;letter-spacing:0.12em;cursor:pointer;">D</button>
+          <button onclick="setHero(5)" id="hbtn5" style="height:28px;padding:0 14px;background:transparent;border:1px solid var(--border);color:var(--text-dimmer);font-family:var(--mono);font-size:9px;letter-spacing:0.12em;cursor:pointer;">E</button>
+          <button onclick="setHero(6)" id="hbtn6" style="height:28px;padding:0 14px;background:transparent;border:1px solid var(--border);color:var(--text-dimmer);font-family:var(--mono);font-size:9px;letter-spacing:0.12em;cursor:pointer;">F</button>
+        </div>
+      </div>
+
+      <!-- HERO -->
+      <section style="min-height:90vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 64px;text-align:center;border-bottom:1px solid var(--border-dim);position:relative;overflow:hidden;">
+        <div style="position:absolute;inset:0;background-image:linear-gradient(var(--border-dim) 1px,transparent 1px),linear-gradient(90deg,var(--border-dim) 1px,transparent 1px);background-size:80px 80px;opacity:0.3;pointer-events:none;"></div>
+
+        <div style="position:relative;z-index:1;max-width:860px;">
+          <div style="font-size:9px;letter-spacing:0.4em;color:var(--gold);text-transform:uppercase;margin-bottom:28px;">Private Beta · For Electronic Music Artists</div>
+
+          <h1 id="hero-h1" style="font-family:var(--display);font-weight:200;font-size:clamp(42px,5.5vw,80px);letter-spacing:-0.02em;line-height:1.05;color:var(--text);margin-bottom:32px;">
+            Your gigs. Your music. Your content.<br/>Your career. <span style="color:var(--gold);">One Artist OS<br/>tailored to you.</span>
+          </h1>
+
+          <p id="hero-sub" style="font-size:14px;color:var(--text-dim);line-height:1.9;max-width:540px;margin:0 auto 48px;letter-spacing:0.03em;font-family:Georgia,serif;font-style:italic;">
+            Signal Lab OS replaces the spreadsheets, the WhatsApp threads, the five different apps. Gig management, finances, AI content, contracts, and set prep — connected, automated, and built specifically for electronic music artists.
+          </p>
+
+          <div style="display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;">
+            <button style="height:48px;padding:0 36px;background:rgba(176,141,87,0.12);border:1px solid rgba(176,141,87,0.4);color:var(--gold-bright,#c9a46e);font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;">
+              Request Early Access →
+            </button>
+            <span style="font-size:10px;color:var(--text-dimmer);letter-spacing:0.08em;">Onboarded personally · No credit card</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SOCIAL PROOF STRIP -->
+      <section style="padding:20px 64px;border-bottom:1px solid var(--border-dim);display:flex;align-items:center;gap:48px;overflow:hidden;">
+        <div style="font-size:8px;letter-spacing:0.3em;color:var(--text-dimmer);text-transform:uppercase;white-space:nowrap;flex-shrink:0;">Artists from</div>
+        <div style="display:flex;gap:32px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:10px;letter-spacing:0.15em;color:var(--text-dimmer);text-transform:uppercase;">London</span>
+          <span style="color:var(--border-dim);">·</span>
+          <span style="font-size:10px;letter-spacing:0.15em;color:var(--text-dimmer);text-transform:uppercase;">Berlin</span>
+          <span style="color:var(--border-dim);">·</span>
+          <span style="font-size:10px;letter-spacing:0.15em;color:var(--text-dimmer);text-transform:uppercase;">Amsterdam</span>
+          <span style="color:var(--border-dim);">·</span>
+          <span style="font-size:10px;letter-spacing:0.15em;color:var(--text-dimmer);text-transform:uppercase;">Dublin</span>
+          <span style="color:var(--border-dim);">·</span>
+          <span style="font-size:10px;letter-spacing:0.15em;color:var(--text-dimmer);text-transform:uppercase;">Barcelona</span>
+          <span style="color:var(--border-dim);">·</span>
+          <span style="font-size:10px;letter-spacing:0.15em;color:var(--text-dimmer);text-transform:uppercase;">Paris</span>
+          <span style="color:var(--border-dim);">·</span>
+          <span style="font-size:10px;letter-spacing:0.15em;color:var(--text-dimmer);text-transform:uppercase;">New York</span>
+        </div>
+        <div style="margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:10px;">
+          <div style="width:6px;height:6px;border-radius:50%;background:#6aaa7a;animation:pulse 2s ease-in-out infinite;"></div>
+          <span style="font-size:9px;letter-spacing:0.2em;color:var(--text-dimmer);text-transform:uppercase;">Beta open · 27 spots left</span>
+        </div>
+      </section>
+
+      <!-- THE PROBLEM -->
+      <section style="padding:100px 64px;border-bottom:1px solid var(--border-dim);">
+        <div style="max-width:1000px;margin:0 auto;">
+          <div style="font-size:9px;letter-spacing:0.35em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:20px;">The Problem</div>
+          <h2 style="font-family:var(--display);font-weight:200;font-size:clamp(32px,4vw,52px);letter-spacing:-0.01em;line-height:1.1;margin-bottom:20px;max-width:760px;">
+            You signed up to make music.<br/>Not to run a small business.
+          </h2>
+          <p style="font-size:13px;color:var(--text-dim);margin-bottom:72px;max-width:560px;line-height:1.8;font-style:italic;font-family:Georgia,serif;">But the modern music industry charges artists a hidden tax — hours every week spent on admin, content planning, and logistics that have nothing to do with the work.</p>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border-dim);">
+            <div style="background:var(--bg);padding:40px 36px;">
+              <div style="font-family:var(--display);font-weight:200;font-size:40px;color:var(--text-dimmer);letter-spacing:-0.02em;margin-bottom:16px;">3–4 hrs</div>
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.7;letter-spacing:0.04em;">lost per gig chasing advances, sending riders, formatting invoices, following up on payment</div>
+            </div>
+            <div style="background:var(--bg);padding:40px 36px;">
+              <div style="font-family:var(--display);font-weight:200;font-size:40px;color:var(--text-dimmer);letter-spacing:-0.02em;margin-bottom:16px;">5+ tools</div>
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.7;letter-spacing:0.04em;">duct-taped together just to run one show — spreadsheets, email, invoicing apps, note apps, scheduling tools</div>
+            </div>
+            <div style="background:var(--bg);padding:40px 36px;">
+              <div style="font-family:var(--display);font-weight:200;font-size:40px;color:var(--text-dimmer);letter-spacing:-0.02em;margin-bottom:16px;">£0 saved</div>
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.7;letter-spacing:0.04em;">because you forgot to invoice, missed the payment window, or didn't track the expense at all</div>
+            </div>
+            <div style="background:var(--bg);padding:40px 36px;">
+              <div style="font-family:var(--display);font-weight:200;font-size:40px;color:var(--text-dimmer);letter-spacing:-0.02em;margin-bottom:16px;">4 hrs/wk</div>
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.7;letter-spacing:0.04em;">planning content you never wanted to make — captions, schedules, posts — because the algorithm demands it</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- HOW IT WORKS -->
+      <section style="padding:100px 64px;border-bottom:1px solid var(--border-dim);background:var(--panel);">
+        <div style="max-width:1000px;margin:0 auto;">
+          <div style="font-size:9px;letter-spacing:0.35em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:20px;">How it works</div>
+          <h2 style="font-family:var(--display);font-weight:200;font-size:clamp(32px,4vw,52px);letter-spacing:-0.01em;line-height:1.1;margin-bottom:72px;max-width:600px;">
+            Up and running<br/>in 10 minutes.
+          </h2>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border-dim);">
+
+            <div style="background:var(--panel);padding:48px 40px;position:relative;">
+              <div style="font-family:var(--display);font-weight:200;font-size:72px;color:var(--border);letter-spacing:-0.03em;line-height:1;margin-bottom:24px;position:absolute;top:32px;right:36px;opacity:0.5;">01</div>
+              <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">Tell us who you are</div>
+              <div style="font-size:13px;color:var(--text);margin-bottom:12px;line-height:1.5;font-weight:300;">Your name. Your sound. Your city.</div>
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.8;">Answer a few questions during onboarding — genre, release history, how you work — and Signal Lab OS builds your profile. Every agent is calibrated to your artist identity from day one.</div>
+            </div>
+
+            <div style="background:var(--panel);padding:48px 40px;position:relative;">
+              <div style="font-family:var(--display);font-weight:200;font-size:72px;color:var(--border);letter-spacing:-0.03em;line-height:1;margin-bottom:24px;position:absolute;top:32px;right:36px;opacity:0.5;">02</div>
+              <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">Connect your world</div>
+              <div style="font-size:13px;color:var(--text);margin-bottom:12px;line-height:1.5;font-weight:300;">Gmail. Spotify. Your gig history.</div>
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.8;">Connect your Gmail and we parse your booking emails automatically. Link Spotify for release intelligence. Import your Rekordbox library for set prep. Everything talks to everything.</div>
+            </div>
+
+            <div style="background:var(--panel);padding:48px 40px;position:relative;">
+              <div style="font-family:var(--display);font-weight:200;font-size:72px;color:var(--border);letter-spacing:-0.03em;line-height:1;margin-bottom:24px;position:absolute;top:32px;right:36px;opacity:0.5;">03</div>
+              <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">Let it run</div>
+              <div style="font-size:13px;color:var(--text);margin-bottom:12px;line-height:1.5;font-weight:300;">Your OS starts working immediately.</div>
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.8;">Six agents run every day in the background — chasing advances, monitoring gigs, planning content, tracking payments. You get a notification when something needs you. Everything else handles itself.</div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- THE SOLUTION -->
+      <section style="padding:100px 64px;border-bottom:1px solid var(--border-dim);">
+        <div style="max-width:1000px;margin:0 auto;">
+          <div style="font-size:9px;letter-spacing:0.35em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:20px;">The Solution</div>
+          <h2 style="font-family:var(--display);font-weight:200;font-size:clamp(32px,4vw,52px);letter-spacing:-0.01em;line-height:1.1;margin-bottom:16px;max-width:700px;">
+            An OS that works while you're in the studio.
+          </h2>
+          <p style="font-size:13px;color:var(--text-dim);margin-bottom:72px;max-width:540px;line-height:1.8;font-style:italic;font-family:Georgia,serif;">Signal Lab OS runs six autonomous agents in the background — chasing advances, drafting invoices, planning content, and monitoring your gigs. Every day. Without you asking.</p>
+
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border-dim);">
+
+            <div style="background:var(--bg);padding:36px;display:flex;gap:24px;align-items:flex-start;">
+              <div style="width:36px;height:36px;border:1px solid var(--border-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;color:var(--gold);">⚡</div>
+              <div>
+                <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;color:var(--text);">Advance Chaser</div>
+                <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Scans your gigs daily. If a show is within 21 days with no advance sent, it sends one automatically.</div>
+              </div>
+            </div>
+
+            <div style="background:var(--bg);padding:36px;display:flex;gap:24px;align-items:flex-start;">
+              <div style="width:36px;height:36px;border:1px solid var(--border-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;color:var(--gold);">£</div>
+              <div>
+                <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;color:var(--text);">Invoice Monitor</div>
+                <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Tracks every payment. Sends reminders when invoices go overdue. Nothing falls through the cracks.</div>
+              </div>
+            </div>
+
+            <div style="background:var(--bg);padding:36px;display:flex;gap:24px;align-items:flex-start;">
+              <div style="width:36px;height:36px;border:1px solid var(--border-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;color:var(--gold);">✦</div>
+              <div>
+                <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;color:var(--text);">Weekly Content</div>
+                <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Every Monday, generates 5 posts around your upcoming shows and releases. Ready to review and post.</div>
+              </div>
+            </div>
+
+            <div style="background:var(--bg);padding:36px;display:flex;gap:24px;align-items:flex-start;">
+              <div style="width:36px;height:36px;border:1px solid var(--border-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;color:var(--gold);">✉</div>
+              <div>
+                <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;color:var(--text);">Booking Parser</div>
+                <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Reads your Gmail. When a booking confirmation arrives, it drafts the gig automatically. You just confirm.</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- MODULES -->
+      <section style="padding:100px 64px;border-bottom:1px solid var(--border-dim);">
+        <div style="max-width:1000px;margin:0 auto;">
+          <div style="font-size:9px;letter-spacing:0.35em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:20px;">What's Inside</div>
+          <h2 style="font-family:var(--display);font-weight:200;font-size:clamp(28px,3.5vw,44px);letter-spacing:-0.01em;margin-bottom:64px;">Five labs. One OS.</h2>
+
+          <div style="display:flex;flex-direction:column;gap:1px;background:var(--border-dim);">
+
+            <div style="background:var(--bg);display:grid;grid-template-columns:200px 1fr;align-items:center;gap:0;">
+              <div style="padding:28px 36px;border-right:1px solid var(--border-dim);">
+                <div style="font-family:var(--display);font-weight:300;font-size:18px;color:#b08d57;letter-spacing:0.04em;">Tour Lab</div>
+              </div>
+              <div style="padding:28px 36px;font-size:11px;color:var(--text-dim);line-height:1.7;letter-spacing:0.04em;">Gigs, advances, contracts, logistics, invoicing. Your full touring operation in one place.</div>
+            </div>
+
+            <div style="background:var(--bg);display:grid;grid-template-columns:200px 1fr;align-items:center;">
+              <div style="padding:28px 36px;border-right:1px solid var(--border-dim);">
+                <div style="font-family:var(--display);font-weight:300;font-size:18px;color:#3d6b4a;letter-spacing:0.04em;">Signal Lab</div>
+              </div>
+              <div style="padding:28px 36px;font-size:11px;color:var(--text-dim);line-height:1.7;letter-spacing:0.04em;">Content intelligence. AI caption generation, brand voice scanning, calendar scheduling.</div>
+            </div>
+
+            <div style="background:var(--bg);display:grid;grid-template-columns:200px 1fr;align-items:center;">
+              <div style="padding:28px 36px;border-right:1px solid var(--border-dim);">
+                <div style="font-family:var(--display);font-weight:300;font-size:18px;color:#9a6a5a;letter-spacing:0.04em;">Set Lab</div>
+              </div>
+              <div style="padding:28px 36px;font-size:11px;color:var(--text-dim);line-height:1.7;letter-spacing:0.04em;">Track library, set builder, mix scanner. Upload a recorded mix — it identifies tracks, maps energy arcs, rates your flow.</div>
+            </div>
+
+            <div style="background:var(--bg);display:grid;grid-template-columns:200px 1fr;align-items:center;">
+              <div style="padding:28px 36px;border-right:1px solid var(--border-dim);">
+                <div style="font-family:var(--display);font-weight:300;font-size:18px;color:#6a7a9a;letter-spacing:0.04em;">SONIX Lab</div>
+              </div>
+              <div style="padding:28px 36px;font-size:11px;color:var(--text-dim);line-height:1.7;letter-spacing:0.04em;">Studio tools. Mastering chains, mixdown analysis, Max for Live integration.</div>
+            </div>
+
+            <div style="background:var(--bg);display:grid;grid-template-columns:200px 1fr;align-items:center;">
+              <div style="padding:28px 36px;border-right:1px solid var(--border-dim);">
+                <div style="font-family:var(--display);font-weight:300;font-size:18px;color:var(--text-dim);letter-spacing:0.04em;">Business</div>
+              </div>
+              <div style="padding:28px 36px;font-size:11px;color:var(--text-dim);line-height:1.7;letter-spacing:0.04em;">Finances, expenses, contracts, tax quarters. The back office most artists never have.</div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- THE MATH -->
+      <section style="padding:100px 64px;border-bottom:1px solid var(--border-dim);">
+        <div style="max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;">
+          <div>
+            <div style="font-size:9px;letter-spacing:0.35em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:20px;">The Math</div>
+            <h2 style="font-family:var(--display);font-weight:200;font-size:clamp(28px,3.5vw,44px);letter-spacing:-0.01em;line-height:1.1;margin-bottom:24px;">Break even at 4 shows.</h2>
+            <p style="font-size:12px;color:var(--text-dim);line-height:1.9;font-style:italic;font-family:Georgia,serif;">Advancers charges £150 per show for what Signal Lab OS does automatically every day. At 20 shows per year, that's £3,000 versus £59/month.</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:1px;background:var(--border-dim);">
+            <div style="background:var(--bg);padding:32px 36px;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-size:9px;letter-spacing:0.25em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:6px;">Advancers · 20 shows</div>
+                <div style="font-family:var(--display);font-weight:200;font-size:36px;color:#c06060;letter-spacing:-0.02em;">£3,000</div>
+              </div>
+              <div style="font-size:9px;letter-spacing:0.15em;color:var(--text-dimmer);">per year</div>
+            </div>
+            <div style="background:var(--bg);padding:32px 36px;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-size:9px;letter-spacing:0.25em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:6px;">Signal Lab OS · Artist</div>
+                <div style="font-family:var(--display);font-weight:200;font-size:36px;color:#6aaa7a;letter-spacing:-0.02em;">£708</div>
+              </div>
+              <div style="font-size:9px;letter-spacing:0.15em;color:var(--text-dimmer);">per year</div>
+            </div>
+            <div style="background:var(--panel);padding:20px 36px;">
+              <div style="font-size:10px;color:var(--gold);letter-spacing:0.1em;">You save £2,292/year — and get content, set tools, studio and finances included.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BEFORE / AFTER -->
+      <section style="padding:100px 64px;border-bottom:1px solid var(--border-dim);">
+        <div style="max-width:1000px;margin:0 auto;">
+          <div style="font-size:9px;letter-spacing:0.35em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:20px;">The difference</div>
+          <h2 style="font-family:var(--display);font-weight:200;font-size:clamp(28px,3.5vw,44px);letter-spacing:-0.01em;line-height:1.1;margin-bottom:64px;max-width:600px;">Monday before.<br/>Monday after.</h2>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border-dim);">
+
+            <div style="background:var(--bg);padding:48px 40px;">
+              <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#c06060;margin-bottom:32px;">Before Signal Lab OS</div>
+              <div style="display:flex;flex-direction:column;gap:20px;">
+                <div style="display:flex;gap:16px;align-items:flex-start;">
+                  <div style="width:20px;height:20px;border:1px solid #8a3030;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:9px;color:#c06060;">✗</div>
+                  <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Remembered at 11pm that the advance for Saturday's show hasn't been sent. Wrote it from scratch in your notes app.</div>
+                </div>
+                <div style="display:flex;gap:16px;align-items:flex-start;">
+                  <div style="width:20px;height:20px;border:1px solid #8a3030;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:9px;color:#c06060;">✗</div>
+                  <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Spent an hour thinking about what to post this week. Posted something mediocre. The algorithm didn't care either.</div>
+                </div>
+                <div style="display:flex;gap:16px;align-items:flex-start;">
+                  <div style="width:20px;height:20px;border:1px solid #8a3030;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:9px;color:#c06060;">✗</div>
+                  <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Invoice from February still unpaid. You forgot to follow up. Again.</div>
+                </div>
+                <div style="display:flex;gap:16px;align-items:flex-start;">
+                  <div style="width:20px;height:20px;border:1px solid #8a3030;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:9px;color:#c06060;">✗</div>
+                  <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Set prep happened the night before. Wasn't the set you wanted to play.</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:var(--bg);padding:48px 40px;position:relative;">
+              <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#3d6b4a,transparent);"></div>
+              <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#6aaa7a;margin-bottom:32px;">After Signal Lab OS</div>
+              <div style="display:flex;flex-direction:column;gap:20px;">
+                <div style="display:flex;gap:16px;align-items:flex-start;">
+                  <div style="width:20px;height:20px;border:1px solid #3d6b4a;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:9px;color:#6aaa7a;">✓</div>
+                  <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Advance sent automatically three weeks ago. Venue confirmed sound specs. You didn't touch it.</div>
+                </div>
+                <div style="display:flex;gap:16px;align-items:flex-start;">
+                  <div style="width:20px;height:20px;border:1px solid #3d6b4a;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:9px;color:#6aaa7a;">✓</div>
+                  <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Five posts drafted and queued on Monday morning — built around your upcoming shows and your sound. You approved two in under a minute.</div>
+                </div>
+                <div style="display:flex;gap:16px;align-items:flex-start;">
+                  <div style="width:20px;height:20px;border:1px solid #3d6b4a;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:9px;color:#6aaa7a;">✓</div>
+                  <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Overdue invoice flagged automatically. Reminder sent to the promoter. Payment landed Tuesday.</div>
+                </div>
+                <div style="display:flex;gap:16px;align-items:flex-start;">
+                  <div style="width:20px;height:20px;border:1px solid #3d6b4a;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:9px;color:#6aaa7a;">✓</div>
+                  <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">Set built over two weeks in Set Lab. Every track scanned and identified. You showed up ready.</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- PRICING -->
+      <section style="padding:100px 64px;border-bottom:1px solid var(--border-dim);" id="pricing">
+        <div style="max-width:800px;margin:0 auto;">
+          <div style="font-size:9px;letter-spacing:0.35em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:20px;text-align:center;">Pricing</div>
+          <h2 style="font-family:var(--display);font-weight:200;font-size:clamp(28px,3.5vw,44px);letter-spacing:-0.01em;margin-bottom:16px;text-align:center;">Simple. Two tiers.</h2>
+          <p style="font-size:12px;color:var(--text-dim);text-align:center;margin-bottom:64px;font-style:italic;font-family:Georgia,serif;">Beta pricing. Locked in forever for early access members.</p>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border-dim);">
+
+            <!-- Artist -->
+            <div style="background:var(--bg);padding:48px 40px;">
+              <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-dimmer);margin-bottom:16px;">Artist</div>
+              <div style="font-family:var(--display);font-weight:200;font-size:56px;letter-spacing:-0.02em;color:var(--text);line-height:1;margin-bottom:6px;">£29<span style="font-size:16px;color:var(--text-dimmer);font-family:var(--mono);letter-spacing:0.05em;">/mo</span></div>
+              <div style="font-size:10px;color:var(--text-dimmer);margin-bottom:36px;letter-spacing:0.06em;font-style:italic;font-family:Georgia,serif;">For solo artists managing their career</div>
+              <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:40px;">
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>All five labs — unlimited
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>All 6 autonomous agents
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>Gmail integration & booking parser
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>PDF invoicing & advance sheets
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>Mix scanner — unlimited uploads
+                </div>
+              </div>
+              <button style="width:100%;height:44px;background:transparent;border:1px solid rgba(176,141,87,0.35);color:var(--gold);font-family:var(--mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;">Get Early Access →</button>
+            </div>
+
+            <!-- Label/Manager -->
+            <div style="background:var(--panel);padding:48px 40px;position:relative;">
+              <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--gold),transparent);"></div>
+              <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">Label / Manager</div>
+              <div style="font-family:var(--display);font-weight:200;font-size:56px;letter-spacing:-0.02em;color:var(--text);line-height:1;margin-bottom:6px;">£79<span style="font-size:16px;color:var(--text-dimmer);font-family:var(--mono);letter-spacing:0.05em;">/mo</span></div>
+              <div style="font-size:10px;color:var(--text-dimmer);margin-bottom:36px;letter-spacing:0.06em;font-style:italic;font-family:Georgia,serif;">For managers & labels running multiple artists</div>
+              <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:40px;">
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>Everything in Artist
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>Up to 10 artist profiles
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>Roster analytics dashboard
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>Label-branded advance forms
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;font-size:11px;color:var(--text-dim);">
+                  <span style="color:var(--gold);flex-shrink:0;margin-top:1px;">✓</span>Cross-artist revenue tracking
+                </div>
+              </div>
+              <button style="width:100%;height:44px;background:rgba(176,141,87,0.12);border:1px solid rgba(176,141,87,0.4);color:var(--gold-bright,#c9a46e);font-family:var(--mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;">Get Early Access →</button>
+            </div>
+
+          </div>
+
+          <div style="text-align:center;margin-top:24px;font-size:10px;color:var(--text-dimmer);letter-spacing:0.08em;">Cancel anytime · No credit card for beta · Pricing locked for early members</div>
+        </div>
+      </section>
+
+      <!-- QUOTE -->
+      <section style="padding:80px 64px;border-bottom:1px solid var(--border-dim);background:var(--panel);">
+        <div style="max-width:760px;margin:0 auto;text-align:center;">
+          <div style="width:28px;height:1px;background:var(--gold);margin:0 auto 40px;"></div>
+          <blockquote style="font-family:Georgia,serif;font-style:italic;font-size:clamp(16px,2vw,22px);color:var(--text);line-height:1.7;font-weight:400;margin-bottom:32px;">
+            "I was spending more time managing the career than building it. Signal Lab OS changed the ratio — dramatically."
+          </blockquote>
+          <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);">Night Manoeuvres</div>
+          <div style="font-size:9px;letter-spacing:0.2em;color:var(--text-dimmer);margin-top:4px;">Electronic Artist · London / Dublin · Beta user</div>
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <section style="padding:120px 64px;">
+        <div style="max-width:640px;margin:0 auto;text-align:center;">
+          <div style="width:32px;height:1px;background:var(--gold);margin:0 auto 32px;"></div>
+          <h2 style="font-family:var(--display);font-weight:200;font-size:clamp(32px,4vw,56px);letter-spacing:-0.01em;line-height:1.1;margin-bottom:24px;">
+            Your career on signal.<br/>
+            <span style="color:var(--gold);">Not on noise.</span>
+          </h2>
+          <p style="font-size:13px;color:var(--text-dim);line-height:1.9;margin-bottom:16px;font-style:italic;font-family:Georgia,serif;">Early access is personal. We onboard every artist ourselves to make sure the OS is set up right for how you work.</p>
+
+          <!-- Scarcity bar -->
+          <div style="background:var(--panel);border:1px solid var(--border-dim);padding:20px 28px;margin-bottom:40px;display:flex;align-items:center;justify-content:space-between;gap:24px;">
+            <div style="text-align:left;">
+              <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:var(--text-dimmer);margin-bottom:6px;">Beta spots remaining</div>
+              <div style="font-family:var(--display);font-weight:200;font-size:32px;letter-spacing:-0.02em;color:var(--gold);line-height:1;">27 <span style="font-size:14px;color:var(--text-dimmer);font-family:var(--mono);letter-spacing:0.05em;">of 50</span></div>
+            </div>
+            <div style="flex:1;height:4px;background:var(--border-dim);position:relative;">
+              <div style="position:absolute;left:0;top:0;height:100%;width:46%;background:var(--gold);opacity:0.6;"></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dimmer);margin-bottom:4px;">23 taken</div>
+              <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+                <div style="width:5px;height:5px;border-radius:50%;background:#6aaa7a;"></div>
+                <span style="font-size:9px;color:#6aaa7a;letter-spacing:0.1em;">Open now</span>
+              </div>
+            </div>
+          </div>
+
+          <button style="height:52px;padding:0 48px;background:rgba(176,141,87,0.12);border:1px solid rgba(176,141,87,0.4);color:var(--gold-bright,#c9a46e);font-family:var(--mono);font-size:11px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;margin-bottom:16px;display:block;width:100%;">
+            Request Access to Signal Lab OS →
+          </button>
+          <div style="font-size:10px;color:var(--text-dimmer);letter-spacing:0.08em;">No credit card · Onboarded personally · Beta pricing locked in forever</div>
+        </div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer style="padding:32px 64px;border-top:1px solid var(--border-dim);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-family:var(--display);font-weight:200;font-size:11px;letter-spacing:0.2em;color:var(--gold);">SIGNAL LAB OS</div>
+        <div style="font-size:9px;color:var(--text-dimmer);letter-spacing:0.1em;">© 2026 · Private Beta</div>
+      </footer>
+
+    </div>
+
+
+  </main>
+</div>
+
+<script>
+function show(id) {
+  // Hide all pages
+  document.querySelectorAll('.page').forEach(p => {
+    p.classList.remove('active')
+    p.style.display = 'none'
+  })
+  document.querySelectorAll('.switch-btn').forEach(b => b.classList.remove('active'))
+
+  const page = document.getElementById('page-' + id)
+  page.classList.add('active')
+
+  // Login and onboarding are full-screen flex — others are block
+  if (id === 'login') {
+    page.style.display = 'flex'
+  } else if (id === 'onboarding') {
+    page.style.display = 'block'
+  } else {
+    page.style.display = 'block'
+  }
+
+  event.target.classList.add('active')
+
+  // Hide sidebar & switcher for login/onboarding
+  const nav = document.querySelector('.nav')
+  const switcher = document.querySelector('.switcher')
+  if (id === 'login' || id === 'onboarding') {
+    nav.style.display = 'none'
+    switcher.style.display = 'none'
+    document.querySelector('.main').style.background = '#070706'
+  } else {
+    nav.style.display = 'flex'
+    switcher.style.display = 'flex'
+  }
+}
+
+const HEROES = {
+  1: {
+    h: `Your gigs. Your music. Your content.<br/>Your career. <span style="color:var(--gold)">One Artist OS<br/>tailored to you.</span>`,
+    sub: `Signal Lab OS replaces the spreadsheets, the WhatsApp threads, the five different apps. Gig management, finances, AI content, contracts, and set prep — connected, automated, and built specifically for electronic music artists.`
+  },
+  2: {
+    h: `You make music.<br/><span style="color:var(--gold)">Not admin. Not content.<br/>Not invoices.</span>`,
+    sub: `Signal Lab OS handles everything that isn't the music. Advances sent automatically. Invoices tracked and chased. Content planned around your gigs. Contracts filed. The back office your career needs — without you having to run it.`
+  },
+  3: {
+    h: `Your sets. Your shows.<br/>Your releases.<br/><span style="color:var(--gold)">Not your problem.</span>`,
+    sub: `Six AI agents run in the background of your career — chasing advances, monitoring payments, planning a week of content every Monday, flagging gig changes before they become issues. The operation runs itself. You stay in the studio.`
+  },
+  4: {
+    h: `Your advance. Your invoice.<br/>Your content post.<br/><span style="color:var(--gold)">All three weeks late.</span>`,
+    sub: `Signal Lab OS fixes that. Advances sent before you remember to ask. Invoices tracked, overdue payments chased. A full week of content drafted and queued every Monday morning. Nothing waits for you to get to it.`
+  },
+  5: {
+    h: `You signed up to DJ.<br/><span style="color:var(--gold)">Not to be a content creator.<br/>Not to chase invoices.</span>`,
+    sub: `But here you are — formatting riders, planning post calendars, following up on payments, switching between five apps to run one show. Signal Lab OS handles the entire operation so the only thing left is the work you actually came here to do.`
+  },
+  6: {
+    h: `The spreadsheets.<br/>The WhatsApp threads.<br/><span style="color:var(--gold)">Gone.</span>`,
+    sub: `Signal Lab OS is one system that replaces all of it. Your gig pipeline, finances, content calendar, set prep, and contracts — connected, intelligent, and running automatically. Built for electronic music artists who have better things to do.`
+  },
+}
+
+function setHero(n) {
+  document.getElementById('hero-h1').innerHTML = HEROES[n].h
+  document.getElementById('hero-sub').innerHTML = HEROES[n].sub
+  for(let i=1;i<=6;i++) {
+    const btn = document.getElementById('hbtn'+i)
+    if(i===n) { btn.style.background='rgba(176,141,87,0.15)'; btn.style.borderColor='rgba(176,141,87,0.4)'; btn.style.color='var(--gold)' }
+    else { btn.style.background='transparent'; btn.style.borderColor='var(--border)'; btn.style.color='var(--text-dimmer)' }
+  }
+}
+
+function obStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('ob-page' + i).style.display = i === n ? 'block' : 'none'
+    const s = document.getElementById('ob-s' + i)
+    s.style.color = i === n ? 'var(--gold)' : 'var(--text-dimmer)'
+  })
+  document.getElementById('ob-progress').style.width = (n / 3 * 100) + '%'
+}
+
+// Init — all pages hidden except first active
+document.querySelectorAll('.page').forEach(p => {
+  if (!p.classList.contains('active')) p.style.display = 'none'
+})
+</script>
+</body>
+</html>
