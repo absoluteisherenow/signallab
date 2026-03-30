@@ -9,6 +9,7 @@ const NAV_GROUPS = [
   {
     label: '',
     items: [
+      { label: 'Dashboard', href: '/dashboard', sub: [] },
       {
         label: 'Signal Lab', href: '/broadcast',
         sub: [
@@ -18,12 +19,18 @@ const NAV_GROUPS = [
           { label: 'Media Library', href: '/broadcast/media' },
         ],
       },
+    ],
+  },
+  {
+    label: '',
+    items: [
       {
-        label: 'Tour Lab', href: '/dashboard',
+        label: 'Set Lab', href: '/setlab',
         sub: [
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Gigs', href: '/gigs' },
-          { label: 'Logistics', href: '/logistics' },
+          { label: 'Library', href: '/setlab' },
+          { label: 'Builder', href: '/setlab/builder' },
+          { label: 'Mix Scanner', href: '/setlab/scanner' },
+          { label: 'Rekordbox', href: '/setlab/rekordbox' },
         ],
       },
       {
@@ -35,21 +42,13 @@ const NAV_GROUPS = [
         ],
       },
       {
-        label: 'Set Lab', href: '/setlab',
+        label: 'Tour Lab', href: '/gigs',
         sub: [
-          { label: 'Library', href: '/setlab' },
-          { label: 'Builder', href: '/setlab/builder' },
-          { label: 'Mix Scanner', href: '/setlab/scanner' },
-          { label: 'Rekordbox', href: '/setlab/rekordbox' },
+          { label: 'Gigs', href: '/gigs' },
+          { label: 'Logistics', href: '/logistics' },
+          { label: 'Finances', href: '/business/finances' },
         ],
       },
-    ],
-  },
-  {
-    label: '',
-    items: [
-      { label: 'Finances', href: '/business/finances', sub: [] },
-      { label: 'Contracts', href: '/contracts', sub: [] },
     ],
   },
 ]
@@ -74,6 +73,7 @@ export function Navigation() {
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
+    if (href === '/gigs') return pathname === '/gigs' || pathname.startsWith('/gigs/')
     return pathname === href || pathname.startsWith(href + '/')
   }
 
