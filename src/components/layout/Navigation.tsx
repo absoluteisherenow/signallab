@@ -9,25 +9,68 @@ const NAV_GROUPS = [
   {
     label: 'TOUR',
     items: [
-      { label: 'Dashboard', href: '/dashboard' },
-      { label: 'Gigs', href: '/gigs' },
-      { label: 'Logistics', href: '/logistics' },
+      {
+        label: 'Dashboard', href: '/dashboard',
+        sub: [],
+      },
+      {
+        label: 'Gigs', href: '/gigs',
+        sub: [
+          { label: 'All Gigs', href: '/gigs' },
+          { label: 'Add Gig', href: '/gigs/new' },
+        ],
+      },
+      {
+        label: 'Logistics', href: '/logistics',
+        sub: [],
+      },
     ],
   },
   {
     label: 'CREATE',
     items: [
-      { label: 'Broadcast', href: '/broadcast' },
-      { label: 'Set Lab', href: '/setlab' },
-      { label: 'Sonix', href: '/sonix' },
+      {
+        label: 'Broadcast Lab', href: '/broadcast',
+        sub: [
+          { label: 'Tone Intelligence', href: '/broadcast' },
+          { label: 'Calendar', href: '/broadcast/calendar' },
+          { label: 'Content Intel', href: '/broadcast/scanner' },
+          { label: 'Media Library', href: '/broadcast/media' },
+        ],
+      },
+      {
+        label: 'Set Lab', href: '/setlab',
+        sub: [
+          { label: 'Library', href: '/setlab' },
+          { label: 'Builder', href: '/setlab/builder' },
+          { label: 'Rekordbox', href: '/setlab/rekordbox' },
+        ],
+      },
+      {
+        label: 'Sonix Lab', href: '/sonix',
+        sub: [
+          { label: 'Studio', href: '/sonix' },
+          { label: 'Arrange', href: '/sonix/arrange' },
+          { label: 'Compose', href: '/sonix/compose' },
+        ],
+      },
     ],
   },
   {
     label: 'BUSINESS',
     items: [
-      { label: 'Finances', href: '/business/finances' },
-      { label: 'Contracts', href: '/contracts' },
-      { label: 'Settings', href: '/business/settings' },
+      {
+        label: 'Finances', href: '/business/finances',
+        sub: [],
+      },
+      {
+        label: 'Contracts', href: '/contracts',
+        sub: [],
+      },
+      {
+        label: 'Settings', href: '/business/settings',
+        sub: [],
+      },
     ],
   },
 ]
@@ -46,22 +89,24 @@ export function Navigation() {
     return () => clearInterval(t)
   }, [])
 
-  // Hide nav on landing page, pricing, login, onboarding
   if (pathname === '/' || pathname === '/pricing' || pathname === '/login' || pathname === '/onboarding') {
     return null
   }
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
-    // Match exact or sub-paths (e.g. /gigs/123 matches /gigs)
     return pathname === href || pathname.startsWith(href + '/')
+  }
+
+  function isParentActive(item: typeof NAV_GROUPS[0]['items'][0]) {
+    return isActive(item.href) || item.sub.some(s => isActive(s.href))
   }
 
   return (
     <nav style={{
       width: 220,
       background: '#070706',
-      borderRight: '1px solid #1a1917',
+      borderRight: '1px solid #131210',
       display: 'flex',
       flexDirection: 'column',
       fontFamily: "'DM Mono', monospace",
@@ -69,81 +114,111 @@ export function Navigation() {
       overflowY: 'auto',
     }}>
 
-      {/* Logo */}
-      <div style={{ padding: '28px 24px 24px' }}>
+      {/* Artist identity */}
+      <div style={{ padding: '28px 24px 22px' }}>
         <Link href="/dashboard" style={{ textDecoration: 'none', display: 'block' }}>
           <div style={{
             fontFamily: "'Unbounded', sans-serif",
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: 300,
-            letterSpacing: '0.22em',
-            color: '#b08d57',
+            letterSpacing: '0.2em',
+            color: '#f0ebe2',
             textTransform: 'uppercase',
             lineHeight: 1.4,
-          }}>
-            Signal OS
-          </div>
-          <div style={{
-            fontSize: 9,
-            letterSpacing: '0.18em',
-            color: '#3a3830',
-            textTransform: 'uppercase',
-            marginTop: 3,
+            marginBottom: 5,
           }}>
             Night Manoeuvres
+          </div>
+          <div style={{
+            fontSize: 8,
+            letterSpacing: '0.26em',
+            color: '#b08d57',
+            textTransform: 'uppercase',
+          }}>
+            Signal OS
           </div>
         </Link>
       </div>
 
       {/* Nav body */}
-      <div style={{ flex: 1, padding: '8px 0 16px', display: 'flex', flexDirection: 'column', gap: 36 }}>
+      <div style={{ flex: 1, padding: '8px 0 16px', display: 'flex', flexDirection: 'column', gap: 32 }}>
         {NAV_GROUPS.map(group => (
           <div key={group.label}>
-            {/* Group label */}
             <div style={{
               fontSize: 8,
               letterSpacing: '0.28em',
               color: '#2e2c29',
               textTransform: 'uppercase',
               padding: '0 24px',
-              marginBottom: 10,
+              marginBottom: 8,
             }}>
               {group.label}
             </div>
 
-            {/* Items */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
               {group.items.map(item => {
-                const active = isActive(item.href)
+                const parentActive = isParentActive(item)
+                const exactActive = isActive(item.href)
+                const hasSub = item.sub.length > 0
+
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '6px 24px',
-                      textDecoration: 'none',
-                      color: active ? '#f0ebe2' : '#52504c',
-                      fontSize: 11,
-                      letterSpacing: '0.06em',
-                      transition: 'color 0.15s',
-                    }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#8a8780' }}
-                    onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#52504c' }}
-                  >
-                    {/* Bullet dot */}
-                    <div style={{
-                      width: 5,
-                      height: 5,
-                      borderRadius: '50%',
-                      background: active ? '#b08d57' : '#2a2825',
-                      flexShrink: 0,
-                      transition: 'background 0.15s',
-                    }} />
-                    {item.label}
-                  </Link>
+                  <div key={item.href}>
+                    {/* Parent item */}
+                    <Link
+                      href={item.href}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '6px 24px',
+                        textDecoration: 'none',
+                        color: parentActive ? '#f0ebe2' : '#52504c',
+                        fontSize: 11,
+                        letterSpacing: '0.06em',
+                        transition: 'color 0.15s',
+                      }}
+                      onMouseEnter={e => { if (!parentActive) e.currentTarget.style.color = '#8a8780' }}
+                      onMouseLeave={e => { if (!parentActive) e.currentTarget.style.color = '#52504c' }}
+                    >
+                      <div style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: '50%',
+                        background: parentActive ? '#b08d57' : '#252320',
+                        flexShrink: 0,
+                        transition: 'background 0.15s',
+                      }} />
+                      {item.label}
+                    </Link>
+
+                    {/* Sub-items — visible when parent is active */}
+                    {hasSub && parentActive && (
+                      <div style={{ paddingBottom: 4 }}>
+                        {item.sub.map(s => {
+                          const subActive = pathname === s.href
+                          return (
+                            <Link
+                              key={s.href}
+                              href={s.href}
+                              style={{
+                                display: 'block',
+                                padding: '4px 24px 4px 39px',
+                                fontSize: 10,
+                                letterSpacing: '0.06em',
+                                textDecoration: 'none',
+                                color: subActive ? '#b08d57' : '#3a3830',
+                                transition: 'color 0.15s',
+                              }}
+                              onMouseEnter={e => { if (!subActive) e.currentTarget.style.color = '#8a8780' }}
+                              onMouseLeave={e => { if (!subActive) e.currentTarget.style.color = subActive ? '#b08d57' : '#3a3830' }}
+                            >
+                              {s.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
@@ -151,7 +226,7 @@ export function Navigation() {
         ))}
       </div>
 
-      {/* API usage bar */}
+      {/* API usage */}
       {apiUsage && (
         <div style={{ padding: '10px 24px 12px', borderTop: '1px solid #131210' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -173,7 +248,7 @@ export function Navigation() {
         </div>
       )}
 
-      {/* Bottom — artist name + bell */}
+      {/* Bottom bell */}
       <div style={{
         borderTop: '1px solid #131210',
         display: 'flex',
