@@ -231,16 +231,22 @@ export default function Settings() {
             )}
           </div>
 
-          {/* Buffer */}
-          <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '4px' }}>Buffer</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>Schedules posts to Instagram, TikTok, and Threads from Signal Lab.</div>
+          {/* Social platforms */}
+          {[
+            { name: 'Instagram', desc: 'Posts, Reels, and Stories from Signal Lab.', status: 'coming soon' },
+            { name: 'TikTok', desc: 'Short video and caption scheduling.', status: 'coming soon' },
+            { name: 'X / Twitter', desc: 'Posts and threads from Signal Lab.', status: 'coming soon' },
+          ].map(s => (
+            <div key={s.name} className="card" style={{ opacity: 0.55 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>{s.name}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>{s.desc}</div>
+                </div>
+                <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-dimmer)', flexShrink: 0, marginLeft: '24px' }}>Soon</span>
               </div>
-              <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--green)', flexShrink: 0, marginLeft: '24px' }}>Connected</span>
             </div>
-          </div>
+          ))}
 
           {/* Rekordbox */}
           <div className="card">
