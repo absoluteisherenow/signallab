@@ -115,7 +115,7 @@ export function Navigation() {
             color: '#c9a96e',
             textTransform: 'uppercase',
           }}>
-            Signal OS
+            Signal Lab OS
           </div>
         </Link>
       </div>
