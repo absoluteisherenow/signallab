@@ -61,6 +61,9 @@ export function Navigation() {
       flexDirection: 'column',
       fontFamily: "'DM Mono', monospace",
       flexShrink: 0,
+      position: 'sticky',
+      top: 0,
+      height: '100vh',
       overflowY: 'auto',
       scrollbarWidth: 'none',
     }}>
@@ -192,7 +195,7 @@ export function Navigation() {
       )}
 
       {/* Footer */}
-      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '8px 0' }}>
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '8px 0', marginTop: 'auto' }}>
         <Link href="/business/settings" style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '10px 28px',
