@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 interface Notification {
   id: string
@@ -90,25 +91,15 @@ export default function NotificationsPage() {
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
 
-      {/* Header */}
-      <div style={{ padding: '52px 56px 44px', borderBottom: '1px solid var(--border-dim)' }}>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
-          <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />Activity
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-          <div>
-            <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', lineHeight: 1.0 }}>Notifications</div>
-            <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginTop: '8px' }}>
-              {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-            </div>
-          </div>
-          {unreadCount > 0 && (
-            <button onClick={markAllRead} style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer' }}>
-              Mark all read
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        section="Activity"
+        title="Notifications"
+        right={unreadCount > 0 ? (
+          <button onClick={markAllRead} style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer' }}>
+            Mark all read
+          </button>
+        ) : undefined}
+      />
 
       <div style={{ padding: '32px 56px' }}>
 

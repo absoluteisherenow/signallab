@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 interface Gig {
   id: string
@@ -95,23 +96,22 @@ export function GigsList() {
   const totalFees = gigList.filter(g => g.status === 'confirmed').reduce((a, g) => a + g.fee, 0)
 
   return (
-    <div style={{ background: f.bg, color: f.text, fontFamily: f.font, minHeight: '100vh', padding: '48px 56px' }}>
+    <div style={{ background: f.bg, color: f.text, fontFamily: f.font, minHeight: '100vh' }}>
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px' }}>
-        <div>
-          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: f.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-            <span style={{ display: 'block', width: '28px', height: '1px', background: f.gold }} />Tour Lab — Gigs
-          </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 300 }}>Gigs</div>
-          <div style={{ fontSize: '13px', color: f.dimmer, marginTop: '6px' }}>{gigList.filter(g => g.status === 'confirmed').length} confirmed · €{totalFees.toLocaleString()} total · Click any row to expand</div>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Link href="/contracts" style={{ textDecoration: 'none', border: `1px solid ${f.border}`, color: f.dimmer, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 20px', display: 'inline-block' }}>Upload contract</Link>
-          <button onClick={() => router.push('/gigs/new')} style={{ background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: `1px solid ${f.gold}`, color: f.gold, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '12px 24px', cursor: 'pointer' }}>
-            + Add new gig
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        section="Tour Lab"
+        title="Your gigs"
+        right={
+          <>
+            <Link href="/contracts" style={{ textDecoration: 'none', border: `1px solid ${f.border}`, color: f.dimmer, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 20px', display: 'inline-block', fontFamily: f.font }}>Upload contract</Link>
+            <button onClick={() => router.push('/gigs/new')} style={{ background: 'transparent', border: `1px solid ${f.gold}`, color: f.gold, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '12px 24px', cursor: 'pointer' }}>
+              + Add gig
+            </button>
+          </>
+        }
+      />
+
+      <div style={{ padding: '40px 48px' }}>
 
       {/* HEADERS */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 120px 150px 100px 80px 100px 160px', padding: '10px 24px', fontSize: '10px', letterSpacing: '0.18em', color: f.dimmer, textTransform: 'uppercase' }}>
@@ -262,6 +262,8 @@ export function GigsList() {
         </div>
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+
+      </div>{/* end inner padding */}
     </div>
   )
 }

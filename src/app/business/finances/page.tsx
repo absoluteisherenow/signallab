@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 interface Invoice {
   id: string
@@ -130,26 +131,20 @@ export default function Finances() {
   }
 
   return (
-    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh', padding: '40px 48px' }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
 
-      {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '40px' }}>
-        <div>
-          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
-            Tour Lab — Finances
-          </div>
-          <div className="display" style={{ fontSize: '28px', letterSpacing: '0.04em' }}>Finances</div>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={exportCSV} className="btn-secondary" style={{ padding: '10px 20px', fontSize: '10px' }}>
-            Export CSV
-          </button>
-          <button onClick={() => setShowAdd(!showAdd)} className="btn-gold" style={{ padding: '10px 20px', fontSize: '10px' }}>
-            + Add invoice
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        section="Tour Lab"
+        title="Finances"
+        right={
+          <>
+            <button onClick={exportCSV} className="btn-secondary" style={{ padding: '10px 20px', fontSize: '10px' }}>Export CSV</button>
+            <button onClick={() => setShowAdd(!showAdd)} className="btn-gold" style={{ padding: '10px 20px', fontSize: '10px' }}>+ Add invoice</button>
+          </>
+        }
+      />
+
+      <div style={{ padding: '40px 48px' }}>
 
       {/* STATS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', marginBottom: '32px' }}>
@@ -270,6 +265,8 @@ export default function Finances() {
           {toast}
         </div>
       )}
+
+      </div>{/* end inner padding */}
     </div>
   )
 }

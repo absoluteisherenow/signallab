@@ -1,6 +1,7 @@
 'use client'
 import { TrackUploader } from './TrackUploader'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800): Promise<string> {
   const res = await fetch('/api/claude', {
@@ -590,28 +591,21 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
 
-      {/* ── Header ── */}
-      <div style={{ padding: '44px 56px 36px', borderBottom: '1px solid var(--border-dim)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div>
-          {mode && (
-            <button onClick={() => setMode(null)} style={{ background: 'none', border: 'none', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', padding: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              ← Back
-            </button>
-          )}
-          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
-            <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
-            {mode ? { reference: 'Reference intel', track: 'Track analysis', ask: 'Ask anything' }[mode] : 'Sonix Lab'}
-          </div>
-          <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', fontWeight: 300, lineHeight: 1.0 }}>
-            {mode ? { reference: 'Break down a track.', track: 'Analyse my track.', ask: 'Ask anything.' }[mode] : 'What are you\nworking on?'}
-          </div>
-        </div>
-        {installedPlugins.length > 0 && !mode && (
-          <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--green)', textTransform: 'uppercase' }}>
+      <PageHeader
+        section="SONIX Lab"
+        sectionColor="var(--gold)"
+        title="Your music"
+        right={installedPlugins.length > 0 ? (
+          <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--green)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
             {installedPlugins.length} plugins loaded
           </div>
-        )}
-      </div>
+        ) : undefined}
+        tabs={[
+          { label: 'Reference Intel', active: mode === 'reference', onClick: () => setMode('reference') },
+          { label: 'Track Analysis', active: mode === 'track', onClick: () => setMode('track') },
+          { label: 'Ask Anything', active: mode === 'ask', onClick: () => setMode('ask') },
+        ]}
+      />
 
       <div style={{ padding: '44px 56px' }}>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import SocialConnect from '@/components/social/SocialConnect'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 interface ConnectedAccount {
   id: string
@@ -93,32 +94,19 @@ export default function Settings() {
   }
 
   return (
-    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh', padding: '40px 48px' }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
 
-      {/* HEADER */}
-      <div style={{ marginBottom: '40px' }}>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-          <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
-          Tour Lab — Settings
-        </div>
-        <div className="display" style={{ fontSize: '28px', letterSpacing: '0.04em' }}>Settings</div>
-      </div>
+      <PageHeader
+        section="Settings"
+        title="Settings"
+        tabs={(['profile', 'team', 'integrations', 'advance'] as const).map(tab => ({
+          label: tab === 'advance' ? 'Advance form' : tab,
+          active: activeTab === tab,
+          onClick: () => setActiveTab(tab),
+        }))}
+      />
 
-      {/* TABS */}
-      <div style={{ display: 'flex', gap: '2px', marginBottom: '32px' }}>
-        {(['profile', 'team', 'integrations', 'advance'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{
-            background: activeTab === tab ? 'var(--panel)' : 'transparent',
-            border: `1px solid ${activeTab === tab ? 'rgba(176, 141, 87, 0.25)' : 'var(--border-dim)'}`,
-            color: activeTab === tab ? 'var(--gold)' : 'var(--text-dimmer)',
-            fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em',
-            textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
-            transition: 'all 0.15s',
-          }}>
-            {tab === 'advance' ? 'Advance form' : tab}
-          </button>
-        ))}
-      </div>
+      <div style={{ padding: '40px 48px' }}>
 
       {/* PROFILE TAB */}
       {activeTab === 'profile' && (
@@ -291,6 +279,8 @@ export default function Settings() {
           </button>
         </div>
       )}
+
+      </div>{/* end inner padding */}
     </div>
   )
 }
