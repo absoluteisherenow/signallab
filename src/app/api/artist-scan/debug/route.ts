@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        usernames: [username],
+        directUrls: [`https://www.instagram.com/${username}`],
         resultsLimit: 3,
       }),
       signal: AbortSignal.timeout(55000),
