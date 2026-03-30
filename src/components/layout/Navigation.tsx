@@ -7,23 +7,31 @@ import { NotificationBell } from '@/components/ui/NotificationBell'
 
 const NAV_GROUPS = [
   {
-    label: 'Tour Lab',
-    items: [
-      { label: 'Dashboard', href: '/dashboard', sub: [] },
-      { label: 'Gigs', href: '/gigs', sub: [] },
-      { label: 'Logistics', href: '/logistics', sub: [] },
-    ],
-  },
-  {
     label: '',
     items: [
       {
-        label: 'Broadcast Lab', href: '/broadcast',
+        label: 'Signal Lab', href: '/broadcast',
         sub: [
           { label: 'Tone Intelligence', href: '/broadcast' },
           { label: 'Calendar', href: '/broadcast/calendar' },
-          { label: 'Content Intel', href: '/broadcast/scanner' },
+          { label: 'Content Intelligence', href: '/broadcast/scanner' },
           { label: 'Media Library', href: '/broadcast/media' },
+        ],
+      },
+      {
+        label: 'Tour Lab', href: '/dashboard',
+        sub: [
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Gigs', href: '/gigs' },
+          { label: 'Logistics', href: '/logistics' },
+        ],
+      },
+      {
+        label: 'SONIX Lab', href: '/sonix',
+        sub: [
+          { label: 'Studio', href: '/sonix' },
+          { label: 'Arrange', href: '/sonix/arrange' },
+          { label: 'Compose', href: '/sonix/compose' },
         ],
       },
       {
@@ -33,14 +41,6 @@ const NAV_GROUPS = [
           { label: 'Builder', href: '/setlab/builder' },
           { label: 'Mix Scanner', href: '/setlab/scanner' },
           { label: 'Rekordbox', href: '/setlab/rekordbox' },
-        ],
-      },
-      {
-        label: 'Sonix Lab', href: '/sonix',
-        sub: [
-          { label: 'Studio', href: '/sonix' },
-          { label: 'Arrange', href: '/sonix/arrange' },
-          { label: 'Compose', href: '/sonix/compose' },
         ],
       },
     ],
@@ -83,35 +83,36 @@ export function Navigation() {
 
   return (
     <nav style={{
-      width: 220,
-      background: '#070706',
-      borderRight: '1px solid #131210',
+      width: 200,
+      minWidth: 200,
+      background: '#080808',
+      borderRight: '1px solid rgba(255,255,255,0.06)',
       display: 'flex',
       flexDirection: 'column',
       fontFamily: "'DM Mono', monospace",
       flexShrink: 0,
       overflowY: 'auto',
+      scrollbarWidth: 'none',
     }}>
 
-      {/* Artist identity */}
-      <div style={{ padding: '28px 24px 22px' }}>
+      {/* Brand */}
+      <div style={{ padding: '32px 28px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <Link href="/dashboard" style={{ textDecoration: 'none', display: 'block' }}>
           <div style={{
             fontFamily: "'Unbounded', sans-serif",
-            fontSize: 11,
-            fontWeight: 300,
-            letterSpacing: '0.2em',
-            color: '#f0ebe2',
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: '0.16em',
+            color: '#eae5dc',
             textTransform: 'uppercase',
-            lineHeight: 1.4,
             marginBottom: 5,
           }}>
             Night Manoeuvres
           </div>
           <div style={{
-            fontSize: 8,
-            letterSpacing: '0.26em',
-            color: '#b08d57',
+            fontSize: 8.5,
+            letterSpacing: '0.22em',
+            color: '#c9a96e',
             textTransform: 'uppercase',
           }}>
             Signal OS
@@ -120,62 +121,52 @@ export function Navigation() {
       </div>
 
       {/* Nav body */}
-      <div style={{ flex: 1, padding: '8px 0 16px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <div style={{ flex: 1, padding: '12px 0' }}>
         {NAV_GROUPS.map((group, gi) => (
-          <div key={group.label || gi} style={{ marginTop: gi > 0 ? 8 : 0 }}>
+          <div key={group.label || gi}>
             {group.label ? (
               <div style={{
-                fontSize: 8,
-                letterSpacing: '0.28em',
-                color: '#3a3830',
+                fontSize: 9,
+                fontWeight: 500,
+                letterSpacing: '0.2em',
+                color: 'rgba(234,229,220,0.2)',
                 textTransform: 'uppercase',
-                padding: '16px 24px 8px',
+                padding: '20px 28px 8px',
               }}>
                 {group.label}
               </div>
-            ) : (
-              <div style={{ height: 1, background: '#131210', margin: '8px 0' }} />
-            )}
+            ) : gi > 0 ? (
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '8px 28px' }} />
+            ) : null}
 
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div>
               {group.items.map(item => {
                 const parentActive = isParentActive(item)
-                const exactActive = isActive(item.href)
                 const hasSub = item.sub.length > 0
 
                 return (
                   <div key={item.href}>
-                    {/* Parent item */}
                     <Link
                       href={item.href}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '6px 24px',
+                        display: 'block',
+                        padding: '10px 28px',
                         textDecoration: 'none',
-                        color: parentActive ? '#f0ebe2' : '#52504c',
-                        fontSize: 11,
-                        letterSpacing: '0.06em',
-                        transition: 'color 0.15s',
+                        fontSize: 12.5,
+                        fontWeight: parentActive ? 500 : 400,
+                        color: parentActive ? '#c9a96e' : 'rgba(234,229,220,0.45)',
+                        borderLeft: parentActive ? '2px solid #c9a96e' : '2px solid transparent',
+                        background: parentActive ? 'rgba(201,169,110,0.08)' : 'transparent',
+                        transition: 'color 0.12s',
                       }}
-                      onMouseEnter={e => { if (!parentActive) e.currentTarget.style.color = '#8a8780' }}
-                      onMouseLeave={e => { if (!parentActive) e.currentTarget.style.color = '#52504c' }}
+                      onMouseEnter={e => { if (!parentActive) e.currentTarget.style.color = '#eae5dc' }}
+                      onMouseLeave={e => { if (!parentActive) e.currentTarget.style.color = 'rgba(234,229,220,0.45)' }}
                     >
-                      <div style={{
-                        width: 5,
-                        height: 5,
-                        borderRadius: '50%',
-                        background: parentActive ? '#b08d57' : '#252320',
-                        flexShrink: 0,
-                        transition: 'background 0.15s',
-                      }} />
                       {item.label}
                     </Link>
 
-                    {/* Sub-items — visible when parent is active */}
                     {hasSub && parentActive && (
-                      <div style={{ paddingBottom: 4 }}>
+                      <div>
                         {item.sub.map(s => {
                           const subActive = pathname === s.href
                           return (
@@ -184,15 +175,14 @@ export function Navigation() {
                               href={s.href}
                               style={{
                                 display: 'block',
-                                padding: '4px 24px 4px 39px',
-                                fontSize: 10,
-                                letterSpacing: '0.06em',
+                                padding: '8px 28px 8px 44px',
+                                fontSize: 12,
                                 textDecoration: 'none',
-                                color: subActive ? '#b08d57' : '#3a3830',
-                                transition: 'color 0.15s',
+                                color: subActive ? '#c9a96e' : 'rgba(234,229,220,0.2)',
+                                transition: 'color 0.12s',
                               }}
-                              onMouseEnter={e => { if (!subActive) e.currentTarget.style.color = '#8a8780' }}
-                              onMouseLeave={e => { if (!subActive) e.currentTarget.style.color = subActive ? '#b08d57' : '#3a3830' }}
+                              onMouseEnter={e => { if (!subActive) e.currentTarget.style.color = 'rgba(234,229,220,0.45)' }}
+                              onMouseLeave={e => { if (!subActive) e.currentTarget.style.color = 'rgba(234,229,220,0.2)' }}
                             >
                               {s.label}
                             </Link>
@@ -210,50 +200,50 @@ export function Navigation() {
 
       {/* API usage */}
       {apiUsage && (
-        <div style={{ padding: '10px 24px 12px', borderTop: '1px solid #131210' }}>
+        <div style={{ padding: '10px 28px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 8, letterSpacing: '0.18em', color: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#2e2c29', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 8, letterSpacing: '0.18em', color: apiUsage.critical ? '#b05555' : apiUsage.warning ? '#c9a96e' : 'rgba(234,229,220,0.14)', textTransform: 'uppercase' }}>
               {apiUsage.critical ? '⚠ Critical' : apiUsage.warning ? '⚠ Warning' : 'API'}
             </span>
-            <span style={{ fontSize: 8, color: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#2e2c29' }}>
+            <span style={{ fontSize: 8, color: apiUsage.critical ? '#b05555' : apiUsage.warning ? '#c9a96e' : 'rgba(234,229,220,0.14)' }}>
               {apiUsage.percentUsed}%
             </span>
           </div>
-          <div style={{ height: 2, background: '#1a1917', borderRadius: 2 }}>
+          <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
             <div style={{
               height: 2, borderRadius: 2,
               width: `${Math.min(apiUsage.percentUsed, 100)}%`,
-              background: apiUsage.critical ? '#c04040' : apiUsage.warning ? '#b08d57' : '#3d6b4a',
+              background: apiUsage.critical ? '#b05555' : apiUsage.warning ? '#c9a96e' : '#4d9970',
               transition: 'width 0.5s ease',
             }} />
           </div>
         </div>
       )}
 
-      {/* Footer: artist name, settings, bell */}
+      {/* Footer */}
       <div style={{
-        borderTop: '1px solid #131210',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '14px 24px',
+        padding: '20px 28px',
       }}>
-        <span style={{ fontSize: 9, letterSpacing: '0.14em', color: '#2e2c29', textTransform: 'uppercase' }}>
+        <span style={{ fontSize: 10, color: 'rgba(234,229,220,0.14)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           Night Manoeuvres
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Link href="/business/settings" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 26, height: 26,
-            border: '1px solid #131210',
+            border: '1px solid rgba(255,255,255,0.06)',
             borderRadius: 4,
-            color: '#2e2c29',
+            color: 'rgba(234,229,220,0.2)',
             fontSize: 13,
             textDecoration: 'none',
-            transition: 'color 0.15s, border-color 0.15s',
+            transition: 'color 0.12s, border-color 0.12s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#b08d57'; e.currentTarget.style.borderColor = '#3a3020' }}
-          onMouseLeave={e => { e.currentTarget.style.color = '#2e2c29'; e.currentTarget.style.borderColor = '#131210' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#c9a96e'; e.currentTarget.style.borderColor = 'rgba(201,169,110,0.4)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(234,229,220,0.2)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)' }}
           >
             ⚙
           </Link>
