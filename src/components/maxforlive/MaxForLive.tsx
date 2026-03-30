@@ -128,7 +128,7 @@ export function MaxForLive() {
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
-            <div className="display" style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 200, lineHeight: 1.0 }}>Max for Live.</div>
+            <div className="display" style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, lineHeight: 1.0 }}>Max for Live.</div>
             <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginTop: '10px' }}>4 devices · Live 11 / 12 · M4L required</div>
           </div>
           <button
@@ -202,7 +202,7 @@ export function MaxForLive() {
           <div style={{ ...cardStyle, border: `1px solid ${device.colorRaw}33` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
               <div>
-                <div className="display" style={{ fontSize: '22px', fontWeight: 200, color: device.colorRaw, letterSpacing: '0.1em', marginBottom: '6px' }}>{device.name}</div>
+                <div className="display" style={{ fontSize: '22px', fontWeight: 300, color: device.colorRaw, letterSpacing: '0.1em', marginBottom: '6px' }}>{device.name}</div>
                 <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{device.type} · v{device.version}</div>
               </div>
               <div style={{ textAlign: 'right', fontSize: '10px', color: 'var(--text-dimmer)', lineHeight: '2.2' }}>

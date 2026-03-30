@@ -65,7 +65,7 @@ export function MediaLibrary() {
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 200 }}>Media library</div>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 300 }}>Media library</div>
             <div style={{ fontSize: '13px', color: s.dimmer, marginTop: '6px' }}>{items.length} items{uploading && ' · uploading...'}</div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>

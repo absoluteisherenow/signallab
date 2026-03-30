@@ -360,7 +360,7 @@ Return as JSON array: [{...}, {...}, ...]` }],
         <span style={{ display: 'block', width: '28px', height: '1px', background: s.setlab }} />
         Set Lab — Rekordbox Import
       </div>
-      <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '24px', fontWeight: 200, letterSpacing: '0.06em', marginBottom: '8px' }}>Import library</div>
+      <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '24px', fontWeight: 300, letterSpacing: '0.06em', marginBottom: '8px' }}>Import library</div>
       <div style={{ fontSize: '13px', color: s.dim, marginBottom: '24px', lineHeight: '1.7' }}>
         Screenshot any playlist — Spotify, Apple Music, Beatport, Tidal, a paper setlist. Claude reads it and pulls the tracks out.
       </div>
@@ -474,7 +474,7 @@ Return as JSON array: [{...}, {...}, ...]` }],
       ) : imported ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ background: s.panel, border: `1px solid ${s.setlab}40`, padding: '40px', textAlign: 'center' }}>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 200, color: s.setlab, marginBottom: '12px' }}>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, color: s.setlab, marginBottom: '12px' }}>
               {importedCount} tracks imported
             </div>
             <div style={{ fontSize: '13px', color: s.dim, marginBottom: '8px' }}>

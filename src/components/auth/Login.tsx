@@ -69,7 +69,7 @@ export default function Login() {
         <div style={{
           fontFamily: "'Unbounded', sans-serif",
           fontSize: 22,
-          fontWeight: 200,
+          fontWeight: 300,
           letterSpacing: '0.28em',
           color: '#f0ebe2',
           lineHeight: 1.2,

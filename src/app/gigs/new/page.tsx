@@ -69,7 +69,7 @@ export default function NewGig() {
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
           Tour Lab — New gig
         </div>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 200, letterSpacing: '0.03em' }}>Add new gig</div>
+        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 300, letterSpacing: '0.03em' }}>Add new gig</div>
       </div>
 
       <div style={{ maxWidth: '720px' }}>

@@ -602,7 +602,7 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
             <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
             {mode ? { reference: 'Reference intel', track: 'Track analysis', ask: 'Ask anything' }[mode] : 'Sonix Lab'}
           </div>
-          <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', fontWeight: 200, lineHeight: 1.0 }}>
+          <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', fontWeight: 300, lineHeight: 1.0 }}>
             {mode ? { reference: 'Break down a track.', track: 'Analyse my track.', ask: 'Ask anything.' }[mode] : 'What are you\nworking on?'}
           </div>
         </div>
@@ -629,7 +629,7 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--panel)' }}
               >
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>{tile.sub}</div>
-                <div className="display" style={{ fontSize: '22px', fontWeight: 200, color: 'var(--text)', marginBottom: '16px', lineHeight: 1.2, whiteSpace: 'pre-line' }}>{tile.title}</div>
+                <div className="display" style={{ fontSize: '22px', fontWeight: 300, color: 'var(--text)', marginBottom: '16px', lineHeight: 1.2, whiteSpace: 'pre-line' }}>{tile.title}</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', lineHeight: '1.7', marginBottom: '28px' }}>{tile.desc}</div>
                 <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>Open →</div>
               </button>
@@ -658,7 +658,7 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
                   {[{ l: 'BPM', v: String(referenceIntel.bpm) }, { l: 'Key', v: referenceIntel.key }].map(item => (
                     <div key={item.l} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px' }}>
                       <div style={fieldLabel}>{item.l}</div>
-                      <div className="display" style={{ fontSize: '32px', fontWeight: 200 }}>{item.v}</div>
+                      <div className="display" style={{ fontSize: '32px', fontWeight: 300 }}>{item.v}</div>
                     </div>
                   ))}
                 </div>
@@ -709,7 +709,7 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
                 onClick={() => nextStepsInputRef.current?.click()}
                 style={{ border: `2px dashed ${nextStepsDrag ? 'var(--gold)' : 'var(--border-dim)'}`, padding: '72px 40px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: nextStepsDrag ? 'rgba(176,141,87,0.04)' : 'transparent' }}
               >
-                <div className="display" style={{ fontSize: '20px', fontWeight: 200, color: 'var(--text-dim)', marginBottom: '14px' }}>Drop your track here</div>
+                <div className="display" style={{ fontSize: '20px', fontWeight: 300, color: 'var(--text-dim)', marginBottom: '14px' }}>Drop your track here</div>
                 <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>
                   Or click to browse — WAV, AIFF, MP3<br />
                   <span style={{ fontSize: '11px', color: '#3a3830' }}>Works on stems, loops, or full mixes</span>
@@ -743,7 +743,7 @@ Give 3-5 next steps ordered by impact. Use installed plugins where available, Ab
                   <div style={fieldLabel}>Next steps</div>
                   {nextStepsResult.next_steps.map((step, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '28px 1fr', gap: '16px', padding: '16px 0', borderBottom: i < nextStepsResult.next_steps.length - 1 ? '1px solid var(--border-dim)' : 'none' }}>
-                      <div className="display" style={{ fontSize: '24px', fontWeight: 200, color: 'var(--gold)', lineHeight: 1 }}>{step.priority}</div>
+                      <div className="display" style={{ fontSize: '24px', fontWeight: 300, color: 'var(--gold)', lineHeight: 1 }}>{step.priority}</div>
                       <div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline', marginBottom: '6px', flexWrap: 'wrap' }}>
                           <div style={{ fontSize: '13px', color: 'var(--text)' }}>{step.action}</div>

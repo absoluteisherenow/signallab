@@ -102,7 +102,7 @@ export function GigsList() {
           <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: f.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
             <span style={{ display: 'block', width: '28px', height: '1px', background: f.gold }} />Tour Lab — Gigs
           </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 200 }}>Gigs</div>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 300 }}>Gigs</div>
           <div style={{ fontSize: '13px', color: f.dimmer, marginTop: '6px' }}>{gigList.filter(g => g.status === 'confirmed').length} confirmed · €{totalFees.toLocaleString()} total · Click any row to expand</div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>

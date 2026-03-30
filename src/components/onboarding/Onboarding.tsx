@@ -161,7 +161,7 @@ export default function Onboarding() {
               Artist OS
               <span style={{ display: 'block', width: '40px', height: '1px', background: s.gold }} />
             </div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(28px, 5vw, 52px)', fontWeight: 200, letterSpacing: '0.03em', lineHeight: 1.1, marginBottom: '24px' }}>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(28px, 5vw, 52px)', fontWeight: 300, letterSpacing: '0.03em', lineHeight: 1.1, marginBottom: '24px' }}>
               Let&apos;s set up<br />
               <span style={{ color: s.gold, fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>your OS.</span>
             </div>
@@ -199,7 +199,7 @@ export default function Onboarding() {
         {step === 1 && (
           <div>
             {stepLabel(1, 2, 'Your sound')}
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 200, letterSpacing: '0.04em', marginBottom: '8px' }}>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '8px' }}>
               What do you sound like?
             </div>
             <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
@@ -299,7 +299,7 @@ export default function Onboarding() {
         {step === 2 && (
           <div>
             {stepLabel(2, 2, 'Your tracks')}
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 200, letterSpacing: '0.04em', marginBottom: '8px' }}>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '8px' }}>
               What are you playing?
             </div>
             <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
@@ -358,7 +358,7 @@ export default function Onboarding() {
                 <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.gold, animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }} />
               ))}
             </div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '20px', fontWeight: 200, color: s.gold, marginBottom: '12px' }}>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '20px', fontWeight: 300, color: s.gold, marginBottom: '12px' }}>
               Setting everything up...
             </div>
             <div style={{ fontSize: '13px', color: s.dim, lineHeight: '1.7' }}>
@@ -375,7 +375,7 @@ export default function Onboarding() {
               <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
               You&apos;re set up — {artistName}
             </div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 200, letterSpacing: '0.04em', marginBottom: '24px' }}>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '24px' }}>
               Here&apos;s your set analysis.
             </div>
 

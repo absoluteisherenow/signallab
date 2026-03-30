@@ -118,7 +118,7 @@ export default function PricingPage() {
       {/* HERO */}
       <section style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 48px 80px', textAlign: 'center', borderBottom: `1px solid ${COLORS.border}` }}>
         <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>Creator to Agency</div>
-        <h1 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', fontWeight: 200, letterSpacing: '0.04em', lineHeight: 1.1, marginBottom: '20px', maxWidth: '900px' }}>One system for every stage of your career.</h1>
+        <h1 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', fontWeight: 300, letterSpacing: '0.04em', lineHeight: 1.1, marginBottom: '20px', maxWidth: '900px' }}>One system for every stage of your career.</h1>
         <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>From Creator to Agency. All tiers include music production, content, DJ tools, and tour management. No hidden fees. No feature gates.</p>
       </section>
 
@@ -147,7 +147,7 @@ export default function PricingPage() {
 
           {/* ROI MATH */}
           <div style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, padding: '48px', textAlign: 'center', marginBottom: '80px' }}>
-            <h3 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 200, marginBottom: '24px', letterSpacing: '0.04em' }}>The Math</h3>
+            <h3 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 300, marginBottom: '24px', letterSpacing: '0.04em' }}>The Math</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '28px', marginBottom: '28px' }}>
               <div><div style={{ fontSize: '28px', fontWeight: 'bold', color: COLORS.gold, marginBottom: '6px' }}>£150</div><div style={{ fontSize: '11px', color: COLORS.textDim }}>Advancers per show</div></div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: COLORS.textDimmer }}>vs</div>
@@ -161,7 +161,7 @@ export default function PricingPage() {
       {/* TESTIMONIALS */}
       <section style={{ padding: '80px 48px', borderBottom: `1px solid ${COLORS.border}` }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: 200, letterSpacing: '0.04em', marginBottom: '60px', textAlign: 'center' }}>What users say</h2>
+          <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '60px', textAlign: 'center' }}>What users say</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px' }}>
             {TESTIMONIALS.map((item, idx) => (
               <div key={idx} style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, padding: '32px', position: 'relative' }}>
@@ -177,7 +177,7 @@ export default function PricingPage() {
       {/* FEATURES COMPARISON */}
       <section style={{ padding: '80px 48px', borderBottom: `1px solid ${COLORS.border}` }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: 200, letterSpacing: '0.04em', marginBottom: '60px', textAlign: 'center' }}>How we compare</h2>
+          <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '60px', textAlign: 'center' }}>How we compare</h2>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', color: COLORS.textDim }}>
               <thead>
@@ -217,7 +217,7 @@ export default function PricingPage() {
       {/* CTA */}
       <section style={{ padding: '80px 48px' }}>
         <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: 200, letterSpacing: '0.04em', marginBottom: '20px' }}>Ready?</h2>
+          <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '20px' }}>Ready?</h2>
           <p style={{ fontSize: '12px', color: COLORS.textDim, lineHeight: '1.7', marginBottom: '40px' }}>Early access is limited. We're onboarding artists & managers personally. Join the waitlist and we'll get you in.</p>
           <button onClick={() => router.push('/login')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', background: COLORS.gold, color: COLORS.bg, padding: '14px 36px', border: `1px solid ${COLORS.gold}`, cursor: 'pointer', fontWeight: 'bold', fontFamily: "'DM Mono', monospace", marginBottom: '12px' }}>Get Access →</button>
           <div style={{ fontSize: '10px', color: COLORS.textDimmer, letterSpacing: '0.08em' }}>No credit card required</div>
