@@ -69,25 +69,26 @@ export function Navigation() {
     }}>
 
       {/* Brand */}
-      <div style={{ padding: '28px 24px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ padding: '28px 24px 26px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <Link href="/dashboard" style={{ textDecoration: 'none', display: 'block' }}>
           <div style={{
             fontFamily: "'Unbounded', sans-serif",
-            fontSize: 13,
-            fontWeight: 400,
-            letterSpacing: '0.08em',
+            fontSize: 14,
+            fontWeight: 500,
+            letterSpacing: '0.06em',
             color: '#eae5dc',
             textTransform: 'uppercase',
-            lineHeight: 1.3,
-            marginBottom: 8,
+            lineHeight: 1.25,
+            marginBottom: 10,
           }}>
             Night<br />Manoeuvres
           </div>
           <div style={{
             fontSize: 9,
-            letterSpacing: '0.28em',
+            letterSpacing: '0.22em',
             color: '#c9a96e',
             textTransform: 'uppercase',
+            fontWeight: 400,
           }}>
             Artist OS
           </div>

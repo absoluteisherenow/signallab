@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Unbounded:wght@200;300;400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Unbounded:wght@300;400;500&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -43,13 +43,15 @@ html {
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-mono);
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 /* SCROLLBAR */
@@ -113,23 +115,25 @@ a { color: inherit; }
 /* TYPOGRAPHY UTILITIES */
 .display {
   font-family: var(--font-display);
-  font-weight: 300;
-  letter-spacing: 0.02em;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   line-height: 1.05;
 }
 
 .label {
   font-size: 10px;
-  letter-spacing: 0.25em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-dimmer);
+  font-weight: 400;
 }
 
 .label-gold {
   font-size: 10px;
-  letter-spacing: 0.25em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--gold);
+  font-weight: 400;
 }
 
 .rule {
@@ -176,9 +180,9 @@ a { color: inherit; }
 
 .page-title {
   font-family: var(--font-display);
-  font-size: clamp(44px, 5vw, 64px);
-  font-weight: 300;
-  letter-spacing: -0.02em;
+  font-size: clamp(48px, 5.5vw, 72px);
+  font-weight: 400;
+  letter-spacing: -0.03em;
   line-height: 1.0;
 }
 
@@ -202,9 +206,9 @@ a { color: inherit; }
 
 .stat-block .stat-num {
   font-family: var(--font-display);
-  font-weight: 300;
-  font-size: clamp(28px, 3vw, 40px);
-  letter-spacing: -0.03em;
+  font-weight: 400;
+  font-size: clamp(32px, 3.5vw, 48px);
+  letter-spacing: -0.04em;
   line-height: 1;
   color: var(--text);
 }
@@ -215,11 +219,11 @@ a { color: inherit; }
 .stat-block .stat-num.alert { color: #c06060; }
 
 .stat-block .stat-label {
-  font-size: 8px;
-  letter-spacing: 0.3em;
+  font-size: 9px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-dimmer);
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .stat-block .stat-sub {
@@ -321,9 +325,9 @@ a { color: inherit; }
 /* STAT BLOCK */
 .stat-value {
   font-family: var(--font-display);
-  font-size: 36px;
-  font-weight: 300;
-  letter-spacing: -0.03em;
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.04em;
   line-height: 1;
   margin: 10px 0 6px;
 }
@@ -345,15 +349,15 @@ a { color: inherit; }
   display: grid;
   padding: 14px 28px;
   border-bottom: 1px solid var(--border-dim);
-  font-size: 10px;
-  letter-spacing: 0.2em;
+  font-size: 9px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-dimmer);
 }
 
 .data-table-row {
   display: grid;
-  padding: 20px 28px;
+  padding: 22px 28px;
   border-bottom: 1px solid var(--border-dim);
   align-items: center;
   transition: background 0.15s;
@@ -470,16 +474,17 @@ a { color: inherit; }
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 20px;
+  height: 40px;
+  padding: 0 22px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
   border-radius: 2px;
+  font-weight: 400;
 }
 
 /* PRIMARY BUTTON */
