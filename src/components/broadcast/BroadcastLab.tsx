@@ -30,44 +30,14 @@ interface Captions {
   raw: CaptionVariant
 }
 
-const DEFAULT_ARTISTS: ArtistProfile[] = [
-  {
-    name: 'Bicep', handle: '@bicepmusic', genre: 'Electronic / Dance',
-    lowercase_pct: 96, short_caption_pct: 82, no_hashtags_pct: 91,
-    chips: ['Observational', 'Sparse', 'No CTA', 'Lowercase'], highlight_chips: [0, 1],
-    style_rules: "Always lowercase, rarely more than 6 words. Captions feel like a private observation accidentally shared — never describe the photo, never sell, never explain. The structural move is the incomplete thought: something seen or felt, stated flatly, left entirely unresolved. No hashtags, no emojis, no CTAs. Best save trigger: an ending that feels cut off — the thought stops exactly where it should continue.",
-    data_source: 'claude', last_scanned: '2026-03-30',
-  },
-  {
-    name: 'Floating Points', handle: '@floatingpoints', genre: 'Electronic',
-    lowercase_pct: 88, short_caption_pct: 74, no_hashtags_pct: 97,
-    chips: ['Minimal', 'Almost nothing', 'Archive feel'], highlight_chips: [0, 1],
-    style_rules: "Extreme minimalism — often just a location, a date, or a single cryptic word. When there are sentences, they read like private codes: a reference without context, a feeling without explanation. Zero hashtags, zero CTAs, occasionally zero caption at all. The tone is archivist posting to no one in particular. Best save trigger: deliberate information withholding — the caption makes you feel you're missing something you should already know.",
-    data_source: 'claude', last_scanned: '2026-03-30',
-  },
-  {
-    name: 'fred again..', handle: '@fredagainagain', genre: 'Electronic',
-    lowercase_pct: 99, short_caption_pct: 65, no_hashtags_pct: 72,
-    chips: ['Fragments', 'Personal', 'Raw', 'Emotional'], highlight_chips: [0, 2],
-    style_rules: "Always lowercase, emotionally unguarded, reads like a voice note transcribed and posted immediately. Longer than peers but structurally fragmented — thoughts that trail, sentences that stop where they should continue. Heavy personal pronouns: 'i', 'we', 'you'. Never explains what's in the photo, always explains what was happening emotionally around it. Best save trigger: something genuinely vulnerable stated plainly and then stopped — the admission without the resolution.",
-    data_source: 'claude', last_scanned: '2026-03-30',
-  },
-  {
-    name: 'Four Tet', handle: '@kiearnshaw', genre: 'Electronic',
-    lowercase_pct: 87, short_caption_pct: 71, no_hashtags_pct: 89,
-    chips: ['Deadpan', 'Dry humour', 'Brief'], highlight_chips: [0, 2],
-    style_rules: "Deadpan, flat, tips into dry humour without announcing it. Very short, all lowercase, occasionally longer when the punchline needs space. The signature move: describing something extraordinary in completely ordinary language — the underclaim. No hashtags, zero performance of enthusiasm. Best save trigger: a caption so matter-of-fact about something remarkable that it creates a double-take.",
-    data_source: 'claude', last_scanned: '2026-03-30',
-  },
-]
-
-const TRENDS = [
-  { id: 1, platform: 'TikTok · Electronic', name: 'Silent crowd clip — raw sound, no music overlay', fit: 94, hot: true, context: 'Silent crowd clip from a show — raw venue sound, no music overdub' },
-  { id: 2, platform: 'Instagram · Electronic', name: 'One-word caption on a blurry show photo', fit: 89, hot: true, context: 'Blurry crowd photo from last show — single word or very short caption only' },
-  { id: 3, platform: 'TikTok · Electronic / DJ', name: 'Behind the decks — uncut, full song playing', fit: 81, hot: false, context: 'Behind the decks clip — uncut, full track playing, no cuts' },
-  { id: 4, platform: 'Instagram · Music general', name: 'Studio loop snippet — zero context caption', fit: 76, hot: false, context: 'Studio loop snippet — no context, no explanation, just the sound' },
-  { id: 5, platform: 'X · Electronic', name: 'Process note — how long it actually took', fit: 68, hot: false, context: 'Process note about how long a track or project took — no explanation of why' },
-]
+interface Trend {
+  id: number
+  platform: string
+  name: string
+  fit: number
+  hot: boolean
+  context: string
+}
 
 function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24))
@@ -103,12 +73,12 @@ function Bar({ value, teal = false }: { value: number; teal?: boolean }) {
 }
 
 export function BroadcastLab() {
-  const [artists, setArtists] = useState<ArtistProfile[]>(DEFAULT_ARTISTS)
+  const [artists, setArtists] = useState<ArtistProfile[]>([])
   const [addingArtist, setAddingArtist] = useState(false)
   const [newArtistName, setNewArtistName] = useState('')
   const [scanningArtist, setScanningArtist] = useState<string | null>(null)
   const [platform, setPlatform] = useState('Instagram')
-  const [context, setContext] = useState('Pitch Festival — Saturday night show in Melbourne')
+  const [context, setContext] = useState('')
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -124,11 +94,7 @@ export function BroadcastLab() {
     }
   }, [])
   const [media, setMedia] = useState('Crowd clip (video)')
-  const [captions, setCaptions] = useState<Captions | null>({
-    safe: { text: 'pitch festival. still not sure what happened to saturday night.', reasoning: 'Observational, lowercase, slightly unresolved — matches lane tone.', score: 1400 },
-    loose: { text: "something about that room felt different. can't explain it.", reasoning: 'Fragment structure, withholds explanation — strong save trigger.', score: 1700 },
-    raw: { text: 'still processing last night tbh', reasoning: 'Feels like a personal note — highest save rate in this lane.', score: 1900 },
-  })
+  const [captions, setCaptions] = useState<Captions | null>(null)
   const [selectedVariant, setSelectedVariant] = useState<'safe' | 'loose' | 'raw'>('loose')
   const [generatingCaptions, setGeneratingCaptions] = useState(false)
   const [captionError, setCaptionError] = useState('')
@@ -139,13 +105,8 @@ export function BroadcastLab() {
   const [mediaUrls, setMediaUrls] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [laneInsights, setLaneInsights] = useState<string[]>([
-    'Clips with no talking perform 38% better than talking-to-camera in this lane',
-    'Posts within 6 hours of a show outperform studio posts by 2.1x on saves',
-    'Captions under 8 words get 34% more saves across all reference artists',
-    'Tuesday and Thursday 10pm are peak windows — Sunday underperforms consistently',
-    'Your hashtag use is above your lane average — reducing will improve tone alignment',
-  ])
+  const [laneInsights, setLaneInsights] = useState<string[]>([])
+  const [trends, setTrends] = useState<Trend[]>([])
   const [refreshingInsights, setRefreshingInsights] = useState(false)
   const [connectedSocials, setConnectedSocials] = useState<string[]>([]) // platform ids with direct connection
   const [publishing, setPublishing] = useState(false)
@@ -216,8 +177,6 @@ export function BroadcastLab() {
     const { data } = await supabase.from('artist_profiles').select('*')
     if (data && data.length > 0) {
       setArtists(data as ArtistProfile[])
-    } else {
-      await Promise.all(DEFAULT_ARTISTS.map(a => saveArtist(a)))
     }
   }
 
@@ -231,7 +190,9 @@ export function BroadcastLab() {
 
   useEffect(() => {
     loadArtists()
-    setTimeout(() => loadTrendCaptions(), 800)
+    loadTrends().then(loaded => {
+      if (loaded.length > 0) setTimeout(() => loadTrendCaptions(loaded), 800)
+    })
     setTimeout(() => generateCaptions(), 1200)
   }, [])
 
@@ -283,23 +244,44 @@ export function BroadcastLab() {
     }
   }
 
-  async function loadTrendCaptions() {
+  async function loadTrends(): Promise<Trend[]> {
+    try {
+      const genreHint = artists.length > 0 ? artists.map(a => a.genre || a.name).join(', ') : 'electronic / dance'
+      const raw = await callClaude(
+        'You are a social media trend analyst for electronic music. Respond ONLY with a valid JSON array, no markdown.',
+        `Generate 5 current content format trends relevant to: ${genreHint}. For each trend return: {"id":number,"platform":"Platform · Genre","name":"Short format description","fit":number 60-99,"hot":boolean,"context":"one sentence context for caption generator"}. Return array of 5.`,
+        600
+      )
+      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setTrends(parsed)
+        return parsed
+      }
+    } catch {
+      // trends stay empty if generation fails
+    }
+    return []
+  }
+
+  async function loadTrendCaptions(currentTrends?: Trend[]) {
+    const trendList = currentTrends || trends
+    if (trendList.length === 0) return
     setLoadingTrends(true)
     try {
       const topArtists = artists.filter(a => a.style_rules).slice(0, 3)
       const profilesText = topArtists.map(a => `${a.name}: ${a.style_rules}`).join('\n\n')
       const raw = await callClaude(
         `You write social media captions for an electronic music artist. Voice references:\n${profilesText || artists.map(a => a.name).join(', ')}\nAll lowercase, no hashtags, under 10 words. Respond ONLY with a JSON array.`,
-        `Write one example caption for each format: ${TRENDS.map((t, i) => `${i + 1}. ${t.name}`).join(' | ')}. Return: ["cap1","cap2","cap3","cap4","cap5"]`,
+        `Write one example caption for each format: ${trendList.map((t, i) => `${i + 1}. ${t.name}`).join(' | ')}. Return: ["cap1","cap2","cap3","cap4","cap5"]`,
         300
       )
       const caps = JSON.parse(raw.replace(/\`\`\`json|\`\`\`/g, '').trim())
       const map: Record<number, string> = {}
-      TRENDS.forEach((t, i) => { if (caps[i]) map[t.id] = `"${caps[i]}"` })
+      trendList.forEach((t, i) => { if (caps[i]) map[t.id] = `"${caps[i]}"` })
       setTrendCaptions(map)
     } catch {
       const fallback: Record<number, string> = {}
-      TRENDS.forEach(t => { fallback[t.id] = 'caption loads with your profile' })
+      trendList.forEach(t => { fallback[t.id] = 'caption loads with your profile' })
       setTrendCaptions(fallback)
     } finally {
       setLoadingTrends(false)
@@ -656,7 +638,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
           </div>
         )}
         <div className="grid grid-cols-3 gap-3">
-          {TRENDS.map(trend => (
+          {trends.map(trend => (
             <div key={trend.id} className={`bg-[#1a1917] border p-4 relative hover:bg-[#141310] transition-colors ${trend.hot ? 'border-[#b08d57]/30' : 'border-white/7'}`}>
               {trend.hot && <div className="absolute top-2.5 right-2.5 text-[7px] tracking-[.16em] text-[#b08d57] bg-[#b08d57]/10 px-1.5 py-0.5">HOT</div>}
               <div className="text-[10px] tracking-[.15em] uppercase text-[#8a8780] mb-2">{trend.platform}</div>
@@ -673,7 +655,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
           <div className="bg-[#1a1917] border border-dashed border-white/13 flex flex-col items-center justify-center gap-2 min-h-[160px]">
             <div className="text-[10px] tracking-[.15em] uppercase text-[#2e2c29]">Next scan</div>
             <div className="text-xl font-light text-[#8a8780]">6h 42m</div>
-            <button onClick={() => {loadTrendCaptions();showToast('Refreshing trends...','Trends')}} className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-3 py-1.5 mt-1 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Refresh now</button>
+            <button onClick={() => { loadTrends().then(loaded => { if (loaded.length > 0) loadTrendCaptions(loaded) }); showToast('Refreshing trends...','Trends') }} className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-3 py-1.5 mt-1 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Refresh now</button>
           </div>
         </div>
       </div>

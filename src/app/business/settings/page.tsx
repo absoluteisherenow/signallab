@@ -10,14 +10,14 @@ interface ConnectedAccount {
 }
 
 export default function Settings() {
-  const [profile, setProfile] = useState({ name: 'NIGHT manoeuvres', genre: 'Electronic', country: 'Australia', bio: 'Electronic music artist based in Melbourne.' })
+  const [profile, setProfile] = useState({ name: '', genre: '', country: '', bio: '' })
   const [team, setTeam] = useState([
-    { id: '1', role: 'Photographer', name: 'Alex Smith', email: 'alex@example.com', phone: '+44 7700 900000' },
+    { id: '1', role: 'Photographer', name: '', email: '', phone: '' },
     { id: '2', role: 'Tour Manager', name: '', email: '', phone: '' },
     { id: '3', role: 'Driver', name: '', email: '', phone: '' },
     { id: '4', role: 'Videographer', name: '', email: '', phone: '' },
   ])
-  const [advance, setAdvance] = useState({ sender_name: 'NIGHT manoeuvres Management', reply_email: 'bookings@nightmanoeuvres.com' })
+  const [advance, setAdvance] = useState({ sender_name: '', reply_email: '' })
   const [saved, setSaved] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance'>('profile')
   const [loading, setLoading] = useState(true)

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface ScheduledPost {
   id: string
@@ -84,6 +85,7 @@ function WeekStrip({ gigs, scheduledPosts }: { gigs: Gig[]; scheduledPosts: Sche
 }
 
 export default function Dashboard() {
+  const router = useRouter()
   const [gigs, setGigs] = useState<Gig[]>([])
   const [gigsLoading, setGigsLoading] = useState(true)
   const [urgent, setUrgent] = useState<UrgentItem[]>([])
@@ -92,6 +94,13 @@ export default function Dashboard() {
   const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => { setNow(new Date()) }, [])
+
+  // Redirect new users to onboarding if no profile set up
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(d => {
+      if (!d.settings?.profile?.name) router.push('/onboarding')
+    }).catch(() => {})
+  }, [router])
 
   const greeting = !now ? '' : now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
 
