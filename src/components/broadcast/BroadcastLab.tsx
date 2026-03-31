@@ -666,71 +666,40 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
   return (
     <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono flex flex-col">
 
-      <SignalLabHeader right={
-        <button onClick={generateFullWeek} disabled={generatingWeek}
-          className="text-[10px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50 flex items-center gap-2">
-          {generatingWeek && <div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />}
-          {generatingWeek ? 'Generating...' : 'Generate week'}
-        </button>
-      } />
+      <SignalLabHeader right={null} />
 
       <div className="flex flex-col gap-7 p-8">
 
-      {/* WEEK PREVIEW — shown after generation, before saving */}
-      {weekPreview && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
-              Week preview
-              <div className="h-px w-16 bg-white/10" />
-              <span className="text-[#8a8780]">Review and adjust before saving</span>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setWeekPreview(null)}
-                className="text-[10px] tracking-[.14em] uppercase px-4 py-2 border border-white/13 text-[#8a8780] hover:border-white/20 transition-colors">
-                Discard
-              </button>
-              <button onClick={saveWeekToCalendar} disabled={savingWeek}
-                className="text-[10px] tracking-[.14em] uppercase px-5 py-2 bg-[#b08d57] text-[#070706] hover:bg-[#c9a46e] transition-colors disabled:opacity-50">
-                {savingWeek ? 'Saving…' : 'Save all to calendar →'}
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            {weekPreview.map((post, idx) => (
-              <div key={idx} className="bg-[#0e0d0b] border border-white/7 p-4 flex gap-4 items-start hover:border-white/13 transition-colors">
-                <div className="flex-shrink-0 text-center" style={{ minWidth: '48px' }}>
-                  <div className="text-[10px] tracking-[.2em] uppercase text-[#b08d57]">{post.day}</div>
-                  <div className="text-[9px] tracking-[.1em] text-[#52504c] mt-0.5">{post.platform}</div>
-                </div>
-                <textarea
-                  value={post.caption}
-                  onChange={e => {
-                    const updated = [...weekPreview]
-                    updated[idx] = { ...post, caption: e.target.value }
-                    setWeekPreview(updated)
-                  }}
-                  rows={3}
-                  className="flex-1 bg-transparent text-[13px] text-[#f0ebe2] leading-relaxed resize-none outline-none border-none"
-                  style={{ fontFamily: "'DM Mono', monospace" }}
-                />
-                <div className="flex flex-col gap-1.5 flex-shrink-0 mt-0.5">
-                  <button onClick={() => regenSinglePost(idx)} disabled={regenIdx === idx}
-                    title="Regenerate this post"
-                    className="text-[10px] tracking-[.12em] uppercase text-[#8a8780] border border-white/10 px-3 py-1.5 hover:border-white/20 hover:text-[#f0ebe2] transition-colors disabled:opacity-40">
-                    {regenIdx === idx ? '…' : '↺'}
-                  </button>
-                  <button onClick={() => navigator.clipboard.writeText(post.caption).then(() => showToast('Copied', 'Done'))}
-                    title="Copy to clipboard"
-                    className="text-[10px] tracking-[.12em] uppercase text-[#8a8780] border border-white/10 px-3 py-1.5 hover:border-white/20 hover:text-[#f0ebe2] transition-colors">
-                    Copy
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* POST NOW — reactive quick triggers */}
+      <div className="bg-[#0e0d0b] border border-white/7 p-7">
+        <div className="flex items-center gap-2 mb-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+          Post now<div className="flex-1 h-px bg-white/10" />
+          <span className="text-[#52504c] tracking-[.1em] normal-case text-[10px]">Pick a trigger — generate & copy</span>
         </div>
-      )}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Gig announced', context: 'gig just announced — upcoming show', desc: 'Announce a new show date' },
+            { label: 'Track released', context: 'new track / release out now', desc: 'Release day post' },
+            { label: 'Mix / recording live', context: 'new mix or recording just dropped', desc: 'Mix drop or recording post' },
+          ].map(trigger => (
+            <button
+              key={trigger.label}
+              onClick={() => {
+                setContext(trigger.context)
+                setTimeout(generateCaptions, 100)
+                showToast(`Generating — ${trigger.label}`, 'Signal Lab')
+                const el = document.querySelector('.caption-panel')
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              className="bg-[#1a1917] border border-white/7 p-5 text-left hover:border-[#b08d57]/50 hover:bg-[#141310] transition-colors group cursor-pointer"
+            >
+              <div className="text-[11px] tracking-[.12em] uppercase text-[#b08d57] mb-2 group-hover:text-[#c9a46e] transition-colors">{trigger.label}</div>
+              <div className="text-[10px] tracking-[.06em] text-[#52504c]">{trigger.desc}</div>
+              <div className="mt-3 text-[9px] tracking-[.16em] uppercase text-[#3a3830] group-hover:text-[#8a8780] transition-colors">Generate captions →</div>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* REFERENCE ARTISTS */}
       <div>

@@ -96,6 +96,28 @@ export default function NewRelease() {
               <div>
                 <label style={labelStyle}>Release date *</label>
                 <input type="date" value={form.release_date} onChange={e => update('release_date', e.target.value)} style={inputStyle} />
+                {form.release_date && (
+                  <div style={{ marginTop: 12, padding: '12px 16px', background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.2)', fontSize: '11px' }}>
+                    <div style={{ fontSize: '9px', color: '#6a5030', letterSpacing: '0.15em', marginBottom: 8 }}>DISTRIBUTOR DEADLINES</div>
+                    {[
+                      { name: 'DistroKid', days: 1 },
+                      { name: 'TuneCore / CD Baby', days: 7 },
+                      { name: 'AWAL / Major', days: 21 },
+                    ].map(d => {
+                      const deadline = new Date(form.release_date)
+                      deadline.setDate(deadline.getDate() - d.days)
+                      const isPast = deadline < new Date()
+                      return (
+                        <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: isPast ? '#c06060' : '#8a7658' }}>
+                          <span>{d.name}</span>
+                          <span style={{ color: isPast ? '#c06060' : '#c9a46e' }}>
+                            {isPast ? '⚠ ' : ''}{deadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
             <div>
