@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { SignalLabHeader } from './SignalLabHeader'
 
 interface ScheduledPost {
@@ -66,12 +66,34 @@ export function BroadcastCalendar() {
   const [planning, setPlanning] = useState(false)
   const [planResult, setPlanResult] = useState<any[]>([])
 
-  useEffect(() => { loadAll() }, [])
+  // Import panel
+  const [importOpen, setImportOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<any[]>([])
+  const [importDrag, setImportDrag] = useState(false)
+
+  // Performance data
+  const [perfData, setPerfData] = useState<{
+    topPosts: { artist_name: string; caption: string; likes: number; comments: number; engagement_score: number; media_type: string; taken_at: string }[]
+    byPlatform: { instagram: { avg_engagement: number; post_count: number }; tiktok: { avg_engagement: number; post_count: number } }
+    totalScanned: number
+    lastScanned: string | null
+  } | null>(null)
+
+  useEffect(() => { loadAll(); loadPerf() }, [])
 
   async function loadAll() {
     setLoading(true)
     await Promise.all([loadPosts(), loadGigs(), loadReleases()])
     setLoading(false)
+  }
+
+  async function loadPerf() {
+    try {
+      const res = await fetch('/api/trends')
+      const data = await res.json()
+      setPerfData(data)
+    } catch {}
   }
 
   async function loadPosts() {
@@ -198,6 +220,166 @@ export function BroadcastCalendar() {
   async function acceptAll() {
     await Promise.all(planResult.map(acceptPost))
     setPlanOpen(false)
+  }
+
+  // ── Screenshot import ─────────────────────────────────────────────────────
+
+  async function handleImportFile(file: File) {
+    setImporting(true)
+    setImportResult([])
+    try {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64 = (e.target?.result as string).split(',')[1]
+        const mediaType = file.type || 'image/jpeg'
+        const res = await fetch('/api/content-plan/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64, mediaType }),
+        })
+        const data = await res.json()
+        if (data.posts) setImportResult(data.posts)
+        else setImportResult([])
+        setImporting(false)
+      }
+      reader.readAsDataURL(file)
+    } catch {
+      setImporting(false)
+    }
+  }
+
+  async function acceptImportedPost(post: any) {
+    try {
+      await fetch('/api/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: post.platform || 'Instagram',
+          caption: post.caption,
+          format: post.format || 'post',
+          scheduled_at: post.scheduled_at,
+          status: 'draft',
+          notes: post.notes || null,
+          featured_track: post.featured_track || null,
+        }),
+      })
+      await loadPosts()
+      setImportResult(prev => prev.filter(p => p !== post))
+    } catch {}
+  }
+
+  async function acceptAllImported() {
+    await Promise.all(importResult.map(acceptImportedPost))
+    setImportOpen(false)
+  }
+
+  function ImportPanel() {
+    return (
+      <div style={{
+        position: 'fixed', right: 0, top: 0, bottom: 0, width: '420px',
+        background: s.panel, borderLeft: `1px solid ${s.gold}40`,
+        zIndex: 50, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}>
+        <div style={{ padding: '24px', borderBottom: `1px solid ${s.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.gold, marginBottom: '4px' }}>Broadcast Lab</div>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 700, color: s.text }}>Import rollout plan</div>
+          </div>
+          <button onClick={() => { setImportOpen(false); setImportResult([]) }} style={{ background: 'none', border: 'none', color: s.dim, fontSize: '18px', cursor: 'pointer' }}>×</button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+          {importResult.length === 0 && !importing && (
+            <>
+              <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '20px', lineHeight: '1.7' }}>
+                Screenshot your Google Sheets, Notion, or any content plan. Claude will read the dates, platforms, and captions.
+              </div>
+              {/* Drop zone */}
+              <div
+                onDragOver={e => { e.preventDefault(); setImportDrag(true) }}
+                onDragLeave={() => setImportDrag(false)}
+                onDrop={e => { e.preventDefault(); setImportDrag(false); const f = e.dataTransfer.files[0]; if (f) handleImportFile(f) }}
+                onClick={() => (document.getElementById('broadcast-import-file') as HTMLInputElement)?.click()}
+                style={{
+                  border: `2px dashed ${importDrag ? s.gold : s.border}`,
+                  background: importDrag ? `${s.gold}08` : 'transparent',
+                  padding: '40px 24px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  marginBottom: '16px',
+                }}>
+                <div style={{ fontSize: '28px', marginBottom: '12px', opacity: 0.4 }}>↑</div>
+                <div style={{ fontSize: '12px', color: s.dim, letterSpacing: '0.08em' }}>Drop screenshot here or click to upload</div>
+                <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '6px' }}>PNG, JPG — Google Sheets, Notion, any format</div>
+                <input id="broadcast-import-file" type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleImportFile(f) }} />
+              </div>
+            </>
+          )}
+
+          {importing && (
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ fontSize: '11px', color: s.dim, letterSpacing: '0.1em' }}>Reading your plan...</div>
+              <div style={{ marginTop: '16px', fontSize: '9px', color: s.dimmer }}>Claude is parsing dates, platforms, and captions</div>
+            </div>
+          )}
+
+          {importResult.length > 0 && (
+            <>
+              <div style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.gold, marginBottom: '16px' }}>
+                {importResult.length} post{importResult.length !== 1 ? 's' : ''} found
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {importResult.map((post, i) => (
+                  <div key={i} style={{ background: '#1a1917', border: `1px solid ${PLATFORM_COLOR[post.platform] || s.gold}30`, borderLeft: `2px solid ${PLATFORM_COLOR[post.platform] || s.gold}`, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                      <div>
+                        <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: PLATFORM_COLOR[post.platform] || s.gold }}>{post.platform}</span>
+                        <span style={{ fontSize: '9px', color: s.dimmer, marginLeft: '8px' }}>{post.format}</span>
+                      </div>
+                      <span style={{ fontSize: '9px', color: s.dimmer }}>{new Date(post.scheduled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: s.dim, lineHeight: '1.5', marginBottom: '8px' }}>{post.caption}</div>
+                    {post.notes && <div style={{ fontSize: '10px', color: s.dimmer, fontStyle: 'italic', marginBottom: '8px' }}>{post.notes}</div>}
+                    <button onClick={() => acceptImportedPost(post)} style={{
+                      background: 'transparent', border: `1px solid ${PLATFORM_COLOR[post.platform] || s.gold}60`,
+                      color: PLATFORM_COLOR[post.platform] || s.gold, fontFamily: s.font,
+                      fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase',
+                      padding: '5px 12px', cursor: 'pointer',
+                    }}>Add to calendar →</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {importResult.length > 1 && (
+          <div style={{ padding: '16px 24px', borderTop: `1px solid ${s.border}` }}>
+            <button onClick={acceptAllImported} style={{
+              width: '100%', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em',
+              textTransform: 'uppercase', padding: '12px', background: s.gold,
+              color: '#070706', border: 'none', cursor: 'pointer',
+            }}>
+              Accept all {importResult.length} posts →
+            </button>
+          </div>
+        )}
+
+        {importResult.length > 0 && (
+          <div style={{ padding: importResult.length > 1 ? '0 24px 16px' : '16px 24px', borderTop: importResult.length <= 1 ? `1px solid ${s.border}` : 'none' }}>
+            <button onClick={() => setImportResult([])} style={{
+              width: '100%', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em',
+              textTransform: 'uppercase', padding: '10px', background: 'transparent',
+              color: s.dimmer, border: `1px solid ${s.border}`, cursor: 'pointer',
+            }}>
+              Upload different screenshot
+            </button>
+          </div>
+        )}
+      </div>
+    )
   }
 
   // ── Render helpers ────────────────────────────────────────────────────────
@@ -527,15 +709,20 @@ export function BroadcastCalendar() {
             <button onClick={navToday} style={{ background: s.panel, border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 13px', cursor: 'pointer' }}>Today</button>
             <button onClick={navNext} style={{ background: s.panel, border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '14px', padding: '7px 13px', cursor: 'pointer' }}>→</button>
           </div>
+          {/* Import button */}
+          <button onClick={() => { setImportOpen(true); setPlanOpen(false) }} style={{
+            fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase',
+            padding: '8px 18px', background: 'transparent', color: s.gold, border: `1px solid ${s.gold}60`, cursor: 'pointer',
+          }}>Import plan</button>
           {/* Plan button */}
-          <button onClick={() => setPlanOpen(true)} style={{
+          <button onClick={() => { setPlanOpen(true); setImportOpen(false) }} style={{
             fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase',
             padding: '8px 18px', background: s.gold, color: '#070706', border: 'none', cursor: 'pointer',
           }}>Plan content</button>
         </div>
       } />
 
-      <div style={{ padding: '28px', paddingRight: planOpen ? '408px' : '28px', transition: 'padding-right 0.2s' }}>
+      <div style={{ padding: '28px', paddingRight: (planOpen || importOpen) ? '448px' : '28px', transition: 'padding-right 0.2s' }}>
 
         {/* Platform filter + nav label */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
@@ -558,6 +745,74 @@ export function BroadcastCalendar() {
         </div>
 
         {viewMode === 'week' ? <WeekView /> : <MonthView />}
+
+        {/* ── Recent Performance ─────────────────────────────────────────── */}
+        {perfData && (
+          <div style={{ marginTop: '32px', borderTop: `1px solid ${s.border}`, paddingTop: '20px' }}>
+            <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.dimmer, marginBottom: '12px' }}>
+              Recent Performance
+            </div>
+
+            {/* Summary row */}
+            <div style={{ fontSize: '10px', color: s.dim, letterSpacing: '0.06em', marginBottom: perfData.topPosts.length > 0 ? '16px' : 0 }}>
+              {perfData.lastScanned
+                ? (() => {
+                    const days = Math.floor((Date.now() - new Date(perfData.lastScanned).getTime()) / 86400000)
+                    return `Last scanned: ${days === 0 ? 'today' : days === 1 ? '1 day ago' : `${days} days ago`}`
+                  })()
+                : 'Not yet scanned'}
+              {perfData.totalScanned > 0 && (
+                <span style={{ color: s.dimmer }}> · {perfData.totalScanned} posts analysed</span>
+              )}
+              {perfData.topPosts.length > 0 && (
+                <span style={{ color: s.gold }}> · Top: {perfData.topPosts[0].engagement_score} score</span>
+              )}
+            </div>
+
+            {/* Top 3 post cards */}
+            {perfData.topPosts.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {perfData.topPosts.slice(0, 3).map((post, i) => {
+                  const isTikTok = String(post.media_type || '').toLowerCase().includes('tiktok')
+                  const platformIcon = isTikTok ? '🎵' : '📸'
+                  const scoreColor = post.engagement_score >= 500 ? s.gold : s.dim
+                  return (
+                    <div key={i} style={{
+                      background: s.panel,
+                      border: `1px solid ${s.border}`,
+                      borderLeft: `2px solid ${post.engagement_score >= 500 ? s.gold : s.border}`,
+                      padding: '10px 12px',
+                      minWidth: '200px',
+                      maxWidth: '260px',
+                      flex: '1 1 200px',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                        <span style={{ fontSize: '11px' }}>{platformIcon}</span>
+                        <span style={{ fontSize: '11px', color: scoreColor, fontFamily: s.font, letterSpacing: '0.04em' }}>
+                          {post.engagement_score}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: s.dim, lineHeight: '1.5', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                        {post.caption || '(no caption)'}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '9px', color: s.dimmer, letterSpacing: '0.06em' }}>
+                        <span>♥ {post.likes}</span>
+                        <span>💬 {post.comments}</span>
+                        {post.media_type && <span style={{ textTransform: 'uppercase' }}>{post.media_type}</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {perfData.totalScanned === 0 && (
+              <div style={{ fontSize: '10px', color: s.dimmer, fontStyle: 'italic' }}>
+                Scan reference artists in Signal Lab to see engagement data here.
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Post detail panel */}
@@ -600,6 +855,7 @@ export function BroadcastCalendar() {
       )}
 
       {planOpen && <PlanPanel />}
+      {importOpen && <ImportPanel />}
 
       {loading && (
         <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: 'rgba(14,13,11,0.96)', border: `1px solid ${s.border}`, padding: '12px 18px', fontSize: '11px', color: s.dim }}>

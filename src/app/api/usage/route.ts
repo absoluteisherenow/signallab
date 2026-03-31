@@ -18,7 +18,10 @@ export async function GET() {
       .select('model, input_tokens, output_tokens, cost_usd')
       .eq('month', month)
 
-    if (error) throw error
+    if (error) {
+      // Table may not exist yet — return empty state
+      return NextResponse.json({ month, totalCostUsd: 0, totalCalls: 0, totalInputTokens: 0, totalOutputTokens: 0, byModel: {}, budget: MONTHLY_BUDGET_USD, percentUsed: 0, warning: false, critical: false })
+    }
 
     const rows = data || []
     const totalCostUsd = rows.reduce((sum, r) => sum + (r.cost_usd || 0), 0)

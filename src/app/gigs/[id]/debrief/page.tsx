@@ -20,6 +20,7 @@ export default function GigDebriefPage({ params }: { params: { id: string } }) {
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [caption, setCaption] = useState('')
+  const [linkedSetId, setLinkedSetId] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -66,6 +67,7 @@ export default function GigDebriefPage({ params }: { params: { id: string } }) {
       })
       const data = await res.json()
       if (data.caption) setCaption(data.caption)
+      if (data.set_id) setLinkedSetId(data.set_id)
       setDone(true)
     } catch {
       // fail silently
@@ -92,6 +94,14 @@ export default function GigDebriefPage({ params }: { params: { id: string } }) {
           >
             Open Broadcast →
           </button>
+          {linkedSetId && (
+            <button
+              onClick={() => router.push('/setlab')}
+              style={{ background: 'transparent', color: '#c9a96e', border: '1px solid #c9a96e', padding: '12px 24px', cursor: 'pointer', fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', marginRight: 12 }}
+            >
+              View in Set Lab →
+            </button>
+          )}
           <button
             onClick={() => router.push('/gigs')}
             style={{ background: 'transparent', color: '#8a8780', border: '1px solid #2a2a28', padding: '12px 24px', cursor: 'pointer', fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}

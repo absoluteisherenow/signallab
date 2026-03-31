@@ -28,11 +28,13 @@ export async function POST(req: NextRequest) {
         gig_id: body.gig_id || null,
         gig_title: body.gig_title,
         amount: parseFloat(body.amount) || 0,
-        currency: body.currency || 'EUR',
+        currency: body.currency || null,
         type: body.type || 'full',
         status: 'pending',
         due_date: body.due_date || null,
         wht_rate: body.wht_rate || null,
+        artist_name: body.artist_name || null,
+        notes: body.notes || null,
       }])
       .select()
     if (error) throw error

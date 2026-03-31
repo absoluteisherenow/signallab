@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import SignalBar from '@/components/SignalBar'
 
 interface Gig {
   id: string
@@ -113,7 +114,9 @@ export default function Dashboard() {
   const [weekPosts, setWeekPosts] = useState<ScheduledPost[]>([])
   const [allGigs, setAllGigs] = useState<Gig[]>([])
   const [allPosts, setAllPosts] = useState<ScheduledPost[]>([])
-  const [monthStats, setMonthStats] = useState({ gigs: 0, posts: 0, revenue: 0 })
+  const [quarterStats, setQuarterStats] = useState({ gigs: 0, posts: 0, revenue: 0 })
+  const [quarterLabel, setQuarterLabel] = useState('')
+  const [brief, setBrief] = useState('')
 
   useEffect(() => { setNow(new Date()) }, [])
 
@@ -129,16 +132,32 @@ export default function Dashboard() {
     const todayStr = today.toISOString().slice(0, 10)
     const in7Str = new Date(today.getTime() + 7 * 86400000).toISOString().slice(0, 10)
     const in14Str = in14.toISOString().slice(0, 10)
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10)
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().slice(0, 10)
+    const yr = today.getFullYear()
+    const q = Math.floor(today.getMonth() / 3)
+    const quarterStart = new Date(yr, q * 3, 1).toISOString().slice(0, 10)
+    const quarterEnd = new Date(yr, q * 3 + 3, 0).toISOString().slice(0, 10)
+    const qLabel = `Q${q + 1} ${yr}`
+    setQuarterLabel(qLabel)
+
+    // Local accumulators so we can pass data to /api/brief after all fetches settle
+    let fetchedUpcomingGigs: Gig[] = []
+    let fetchedWeekPosts: ScheduledPost[] = []
+    let fetchedOverdueInvoices: Invoice[] = []
+    let fetchedQuarterGigs = 0
+    let fetchedQuarterPosts = 0
+    let fetchedQuarterRevenue = 0
 
     const fetches = [
       fetch('/api/gigs').then(r => r.json()).then(d => {
         const gigs: Gig[] = d.gigs || []
         setAllGigs(gigs)
-        setUpcomingGigs(gigs.filter(g => g.date >= todayStr && g.date <= in14Str && g.status !== 'cancelled').slice(0, 3))
-        const mg = gigs.filter(g => g.date >= monthStart && g.date <= monthEnd && g.status !== 'cancelled')
-        setMonthStats(prev => ({ ...prev, gigs: mg.length, revenue: mg.reduce((s, g) => s + (g.fee || 0), 0) }))
+        const upcoming = gigs.filter(g => g.date >= todayStr && g.date <= in14Str && g.status !== 'cancelled').slice(0, 3)
+        setUpcomingGigs(upcoming)
+        fetchedUpcomingGigs = upcoming
+        const qg = gigs.filter(g => g.date >= quarterStart && g.date <= quarterEnd && g.status !== 'cancelled')
+        fetchedQuarterGigs = qg.length
+        fetchedQuarterRevenue = qg.reduce((s, g) => s + (g.fee || 0), 0)
+        setQuarterStats(prev => ({ ...prev, gigs: qg.length, revenue: fetchedQuarterRevenue }))
       }).catch(() => {}),
 
       fetch('/api/advance').then(r => r.json()).then(d => {
@@ -151,28 +170,48 @@ export default function Dashboard() {
 
       fetch('/api/invoices').then(r => r.json()).then(d => {
         const nowStr = new Date().toISOString().slice(0, 10)
-        setOverdueInvoices((d.invoices || []).filter(
+        const overdue = (d.invoices || []).filter(
           (inv: Invoice) => inv.status !== 'paid' && inv.due_date && inv.due_date < nowStr
-        ))
+        )
+        setOverdueInvoices(overdue)
+        fetchedOverdueInvoices = overdue
       }).catch(() => {}),
 
       fetch('/api/schedule').then(r => r.json()).then(d => {
         const posts: ScheduledPost[] = d.posts || []
         setAllPosts(posts)
-        setWeekPosts(posts.filter(p => {
+        const weekScheduled = posts.filter(p => {
           if (!p.scheduled_at) return false
           const ds = p.scheduled_at.slice(0, 10)
           return ds >= todayStr && ds <= in7Str && p.status === 'scheduled'
-        }))
-        const mp = posts.filter(p => {
-          const ds = (p.scheduled_at || '').slice(0, 10)
-          return ds >= monthStart && ds <= monthEnd && p.status === 'posted'
         })
-        setMonthStats(prev => ({ ...prev, posts: mp.length }))
+        setWeekPosts(weekScheduled)
+        fetchedWeekPosts = weekScheduled
+        const qp = posts.filter(p => {
+          const ds = (p.scheduled_at || '').slice(0, 10)
+          return ds >= quarterStart && ds <= quarterEnd && p.status === 'posted'
+        })
+        fetchedQuarterPosts = qp.length
+        setQuarterStats(prev => ({ ...prev, posts: qp.length }))
       }).catch(() => {}),
     ]
 
-    Promise.allSettled(fetches).finally(() => setLoading(false))
+    Promise.allSettled(fetches).finally(() => {
+      setLoading(false)
+      fetch('/api/brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gigs: fetchedUpcomingGigs,
+          posts: fetchedWeekPosts,
+          overdueInvoices: fetchedOverdueInvoices,
+          quarterStats: { gigs: fetchedQuarterGigs, posts: fetchedQuarterPosts, revenue: fetchedQuarterRevenue },
+        }),
+      })
+        .then(r => r.json())
+        .then(d => { if (d.brief) setBrief(d.brief) })
+        .catch(() => {})
+    })
   }, [])
 
   useEffect(() => {
@@ -206,7 +245,7 @@ export default function Dashboard() {
     return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   }
 
-  const monthName = now ? now.toLocaleDateString('en-GB', { month: 'long' }) : ''
+  const monthName = now ? now.toLocaleDateString('en-GB', { month: 'long' }) : '' // kept for any other uses
 
   // Build briefing items
   const briefingItems: { key: string; dot: string; text: React.ReactNode; href: string; action: string }[] = []
@@ -321,9 +360,24 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* ── SIGNAL BAR ── */}
+          <SignalBar onAction={() => router.refresh()} />
+
           {/* ── YOUR WEEK BRIEFING ── */}
           <div style={{ flexShrink: 0 }}>
             <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '10px' }}>Your week</div>
+            {brief && (
+              <div style={{
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--text-dimmer)',
+                lineHeight: 1.5,
+                marginBottom: '10px',
+                fontStyle: 'italic',
+              }}>
+                {brief}
+              </div>
+            )}
             <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', overflow: 'hidden' }}>
               {loading ? (
                 <>
@@ -351,19 +405,19 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ── THIS MONTH + WEEK STRIP ROW ── */}
+          {/* ── THIS QUARTER + WEEK STRIP ROW ── */}
           <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '1fr auto', gap: '20px', alignItems: 'start' }}>
-            {/* Month stats */}
+            {/* Quarter stats */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-dimmer)' }}>{monthName}</div>
+                <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-dimmer)' }}>{quarterLabel || '—'}</div>
                 <Link href="/wrap" style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none' }}>Full wrap →</Link>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                 {[
-                  { label: 'Gigs', value: loading ? '—' : String(monthStats.gigs), sub: monthStats.gigs === 0 ? 'None booked' : `this month` },
-                  { label: 'Posts live', value: loading ? '—' : String(monthStats.posts), sub: monthStats.posts === 0 ? 'Nothing posted' : 'published' },
-                  { label: 'Revenue', value: loading ? '—' : monthStats.revenue > 0 ? `£${monthStats.revenue.toLocaleString()}` : '—', sub: monthStats.revenue === 0 ? 'No fees logged' : 'from gigs' },
+                  { label: 'Gigs', value: loading ? '—' : String(quarterStats.gigs), sub: quarterStats.gigs === 0 ? 'None booked' : 'this quarter' },
+                  { label: 'Posts live', value: loading ? '—' : String(quarterStats.posts), sub: quarterStats.posts === 0 ? 'Nothing posted' : 'published' },
+                  { label: 'Revenue', value: loading ? '—' : quarterStats.revenue > 0 ? `£${quarterStats.revenue.toLocaleString()}` : '—', sub: quarterStats.revenue === 0 ? 'No fees logged' : 'from gigs' },
                 ].map(stat => (
                   <div key={stat.label} style={{ borderRight: '1px solid var(--border-dim)', padding: '16px 24px 16px 0', marginRight: '24px' }}>
                     <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '10px' }}>{stat.label}</div>

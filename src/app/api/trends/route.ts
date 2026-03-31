@@ -1,105 +1,72 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-// ── Fetch top-performing posts from Supabase post_performance ─────────────────
-async function getTopPosts() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return []
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/post_performance?select=artist_name,caption,likes,comments,media_type,engagement_score,taken_at&order=engagement_score.desc&limit=60`,
-      {
-        headers: {
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-      }
-    )
-    if (!res.ok) return []
-    return await res.json()
-  } catch {
-    return []
-  }
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export async function GET() {
-  const posts = await getTopPosts()
-
-  if (!posts || posts.length < 5) {
-    // Not enough real data yet — return empty so UI shows "scan artists first"
-    return NextResponse.json({ trends: [], source: 'no_data', message: 'Scan reference artists to generate real trends' })
-  }
-
-  // Build rich context from top posts — real engagement numbers, real captions
-  const topPosts = posts.slice(0, 30)
-  const totalPosts = posts.length
-  const avgEngagement = Math.round(posts.reduce((s: number, p: any) => s + (p.engagement_score || 0), 0) / posts.length)
-
-  // Count media types in top performers
-  const mediaTypeCounts = topPosts.reduce((acc: Record<string, number>, p: any) => {
-    acc[p.media_type] = (acc[p.media_type] || 0) + 1
-    return acc
-  }, {})
-
-  // Artists represented in top posts
-  const topArtists = [...new Set(topPosts.map((p: any) => p.artist_name))].slice(0, 5)
-
-  const prompt = `You are analysing real Instagram engagement data from ${totalPosts} posts across reference artists: ${topArtists.join(', ')}.
-
-Average engagement score: ${avgEngagement} (likes + 3× comments)
-Media type breakdown in top ${topPosts.length} posts: ${JSON.stringify(mediaTypeCounts)}
-
-TOP PERFORMING POSTS (sorted by real engagement):
-${topPosts.slice(0, 20).map((p: any, i: number) =>
-  `${i + 1}. [${p.artist_name}] ${p.media_type.toUpperCase()} — ${p.likes} likes, ${p.comments} comments
-Caption: "${p.caption?.slice(0, 120) || '(no caption)'}"`
-).join('\n')}
-
-Based ONLY on these real posts and their actual engagement numbers:
-1. What specific caption structures and formats are driving the most engagement?
-2. What post types (video/photo/carousel) outperform in this lane?
-3. What timing or content themes appear in the highest-engagement posts?
-4. What patterns do the LOWEST performers have that the top ones avoid?
-
-Return 5 trend cards as JSON. Each must be grounded in the real data above — reference actual engagement numbers or specific patterns you observed.
-
-Return ONLY this JSON array:
-[
-  {
-    "id": 1,
-    "platform": "Platform · Genre context (e.g. Instagram · Electronic)",
-    "name": "Specific format name based on what you saw in the data",
-    "fit": number 70-99 (based on how many top posts used this pattern),
-    "hot": true/false (true if 3+ of the top 10 posts used it),
-    "context": "One sentence describing the pattern with a real number — e.g. 'Single-line captions averaged 2.4× more engagement than multi-line in this lane'",
-    "evidence": "Artist name + approximate engagement that proves this trend",
-    "posts_supporting": number (how many of the ${topPosts.length} top posts showed this pattern)
-  }
-]`
-
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1200,
-        system: 'You are a social media data analyst. Respond ONLY with valid JSON. Never invent engagement numbers — only use what is in the data provided.',
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-    const data = await res.json()
-    const text = data.content?.[0]?.text || '[]'
-    const trends = JSON.parse(text.replace(/```json|```/g, '').trim())
+    const { data: rows, error } = await supabase
+      .from('post_performance')
+      .select('artist_name, caption, likes, comments, media_type, taken_at, engagement_score, scanned_at')
+      .order('engagement_score', { ascending: false })
+
+    if (error || !rows || rows.length === 0) {
+      return NextResponse.json({
+        topPosts: [],
+        byPlatform: { instagram: { avg_engagement: 0, post_count: 0 }, tiktok: { avg_engagement: 0, post_count: 0 } },
+        totalScanned: 0,
+        lastScanned: null,
+      })
+    }
+
+    // Top 5 by engagement_score
+    const topPosts = rows.slice(0, 5).map(p => ({
+      artist_name: p.artist_name,
+      caption: (p.caption || '').slice(0, 60),
+      likes: p.likes ?? 0,
+      comments: p.comments ?? 0,
+      engagement_score: p.engagement_score ?? 0,
+      media_type: p.media_type,
+      taken_at: p.taken_at,
+    }))
+
+    // By platform — infer from media_type or artist_name if no platform field
+    // post_performance uses artist_name; we treat all as instagram unless media_type hints tiktok
+    const instagramRows = rows.filter(p => !String(p.media_type || '').toLowerCase().includes('tiktok'))
+    const tiktokRows = rows.filter(p => String(p.media_type || '').toLowerCase().includes('tiktok'))
+
+    const avg = (arr: typeof rows) =>
+      arr.length === 0
+        ? 0
+        : Math.round(arr.reduce((s, p) => s + (p.engagement_score ?? 0), 0) / arr.length)
+
+    const byPlatform = {
+      instagram: { avg_engagement: avg(instagramRows), post_count: instagramRows.length },
+      tiktok: { avg_engagement: avg(tiktokRows), post_count: tiktokRows.length },
+    }
+
+    // Most recent scan timestamp
+    const lastScanned = rows.reduce((latest: string | null, p) => {
+      if (!p.scanned_at) return latest
+      if (!latest) return p.scanned_at
+      return p.scanned_at > latest ? p.scanned_at : latest
+    }, null)
+
     return NextResponse.json({
-      trends,
-      source: 'real_data',
-      postsAnalysed: totalPosts,
-      artistsIncluded: topArtists,
+      topPosts,
+      byPlatform,
+      totalScanned: rows.length,
+      lastScanned,
     })
   } catch {
-    return NextResponse.json({ trends: [], source: 'error', message: 'Failed to analyse trends' })
+    return NextResponse.json({
+      topPosts: [],
+      byPlatform: { instagram: { avg_engagement: 0, post_count: 0 }, tiktok: { avg_engagement: 0, post_count: 0 } },
+      totalScanned: 0,
+      lastScanned: null,
+    })
   }
 }

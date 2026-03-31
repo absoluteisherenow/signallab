@@ -4,12 +4,15 @@ import { Navigation } from '@/components/layout/Navigation'
 import { VoiceCommandBar } from '@/components/ui/VoiceCommandBarWrapper'
 
 export const metadata: Metadata = {
-  title: 'Night Manoeuvres — Artist OS',
-  description: 'The operating system for electronic artists',
+  title: 'Signal Lab OS',
+  description: 'Tailored Artist OS',
+  icons: {
+    icon: '/favicon.svg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'NM OS',
+    title: 'Signal Lab OS',
   },
   manifest: '/manifest.json',
 }
@@ -30,6 +33,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta name="theme-color" content="#070706" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <style>{`
           @media (max-width: 768px) {
             .app-layout {
@@ -80,6 +86,13 @@ export default function RootLayout({
           </main>
           <VoiceCommandBar />
         </div>
+        <script dangerouslySetInnerHTML={{ __html: `
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/sw.js').catch(function() {});
+    });
+  }
+`}} />
       </body>
     </html>
   )

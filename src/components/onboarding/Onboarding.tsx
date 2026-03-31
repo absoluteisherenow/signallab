@@ -259,13 +259,13 @@ export default function Onboarding() {
               />
 
               {discovering && (
-                <div style={{ fontSize: 10, color: s.dimmer, letterSpacing: '0.12em', marginTop: 8 }}>Searching Beatport...</div>
+                <div style={{ fontSize: 10, color: s.dimmer, letterSpacing: '0.12em', marginTop: 8 }}>Searching Resident Advisor...</div>
               )}
 
               {discovery?.found && !discovering && (
                 <div style={{ background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.18)', padding: '12px 16px', marginTop: 10 }}>
                   <div style={{ fontSize: '9px', color: s.gold, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>
-                    Found · {discovery.sources?.join(' + ').toUpperCase()}
+                    Found on Resident Advisor
                   </div>
                   {discovery.tracks && discovery.tracks.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: 8 }}>
@@ -290,7 +290,7 @@ export default function Onboarding() {
 
               {discovery && !discovery.found && !discovering && artistName.trim().length >= 3 && (
                 <div style={{ fontSize: '10px', color: s.dimmer, marginTop: 8, letterSpacing: '0.08em' }}>
-                  Not found on Beatport — no problem, continue.
+                  Not on Resident Advisor yet — no problem, continue.
                 </div>
               )}
             </div>

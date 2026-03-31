@@ -730,8 +730,8 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
                       </a>
                     ) : (
                       <button onClick={addToSetLabLibrary} disabled={addingToLibrary}
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: addingToLibrary ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: addingToLibrary ? 'var(--text-dimmer)' : 'var(--gold)', textAlign: 'left' }}>
-                        {addingToLibrary ? 'Adding…' : '+ Add to library →'}
+                        style={{ background: 'none', border: `1px solid ${addingToLibrary ? 'var(--text-dimmer)' : 'var(--gold)'}`, color: addingToLibrary ? 'var(--text-dimmer)' : 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '8px 16px', cursor: addingToLibrary ? 'not-allowed' : 'pointer' }}>
+                        {addingToLibrary ? 'Adding…' : 'ADD TO SET LAB →'}
                       </button>
                     )}
                   </div>

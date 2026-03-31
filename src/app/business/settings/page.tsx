@@ -22,6 +22,10 @@ interface BankAccount {
   // International
   iban?: string
   swift_bic?: string
+  intermediary_bic?: string
+  // Addresses (required for some international transfers)
+  recipient_address?: string
+  bank_address?: string
 }
 
 interface PaymentSettings {
@@ -53,13 +57,37 @@ export default function Settings() {
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
   const [newAccountLabel, setNewAccountLabel] = useState('')
   const [showAddAccount, setShowAddAccount] = useState(false)
+  const [gmailConnected, setGmailConnected] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [scanResult, setScanResult] = useState<{ processed: number; results: any[] } | null>(null)
 
   useEffect(() => {
     fetch('/api/gmail/accounts')
       .then(r => r.json())
       .then(d => { if (d.accounts) setConnectedAccounts(d.accounts) })
       .catch(() => {})
+    // Check for ?gmail=connected success redirect
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('gmail') === 'connected') {
+      setGmailConnected(true)
+      setActiveTab('integrations')
+      window.history.replaceState({}, '', '/business/settings')
+    }
   }, [])
+
+  async function scanGmail() {
+    setScanning(true)
+    setScanResult(null)
+    try {
+      const res = await fetch('/api/gmail/process', { method: 'POST' })
+      const data = await res.json()
+      setScanResult(data)
+    } catch {
+      setScanResult({ processed: 0, results: [{ error: 'Scan failed' }] })
+    } finally {
+      setScanning(false)
+    }
+  }
 
   async function disconnectAccount(id: string) {
     await fetch(`/api/gmail/accounts?id=${id}`, { method: 'DELETE' })
@@ -201,7 +229,32 @@ export default function Settings() {
 
           {/* Gmail — Connected Accounts */}
           <div className="card">
-            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '4px' }}>Gmail</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Gmail</div>
+              {connectedAccounts.length > 0 && (
+                <button onClick={scanGmail} disabled={scanning}
+                  style={{ background: scanning ? 'rgba(176,141,87,0.1)' : 'rgba(176,141,87,0.15)', border: '1px solid rgba(176,141,87,0.4)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 16px', cursor: scanning ? 'not-allowed' : 'pointer', opacity: scanning ? 0.7 : 1 }}>
+                  {scanning ? 'Scanning...' : 'Scan inbox'}
+                </button>
+              )}
+            </div>
+            {gmailConnected && (
+              <div style={{ padding: '10px 14px', background: 'rgba(61,107,74,0.12)', border: '1px solid rgba(61,107,74,0.3)', marginBottom: '16px', fontSize: '12px', color: 'var(--green)' }}>
+                Gmail connected successfully. Run Scan inbox to process your emails.
+              </div>
+            )}
+            {scanResult && (
+              <div style={{ padding: '10px 14px', background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.2)', marginBottom: '16px', fontSize: '11px', color: 'var(--text-dim)' }}>
+                {scanResult.processed > 0
+                  ? `Found and processed ${scanResult.processed} email${scanResult.processed !== 1 ? 's' : ''}`
+                  : 'No new emails to process'}
+                {scanResult.results?.filter(r => r.type).map((r, i) => (
+                  <div key={i} style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-dimmer)' }}>
+                    · {r.subject || r.type} → {r.type}
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '20px', lineHeight: '1.7' }}>
               Scanned for bookings, invoice requests, and expenses. Add as many accounts as you need.
             </div>
@@ -458,8 +511,27 @@ export default function Settings() {
                       <input value={acct.swift_bic || ''} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, swift_bic: e.target.value } : a) }))}
                         placeholder="XXXXGB2L" style={inputStyle} />
                     </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label style={labelStyle}>Intermediary BIC <span style={{ color: 'var(--text-dimmer)', fontWeight: 400 }}>(if required)</span></label>
+                      <input value={acct.intermediary_bic || ''} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, intermediary_bic: e.target.value } : a) }))}
+                        placeholder="Intermediary / correspondent BIC" style={inputStyle} />
+                    </div>
                   </div>
                 )}
+
+                {/* Addresses — shown for all non-GBP or explicitly needed */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
+                  <div>
+                    <label style={labelStyle}>Account holder address <span style={{ color: 'var(--text-dimmer)', fontWeight: 400 }}>(international)</span></label>
+                    <textarea value={acct.recipient_address || ''} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, recipient_address: e.target.value } : a) }))}
+                      placeholder="Street, City, Country" rows={3} style={{ ...inputStyle, resize: 'vertical' as const }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Bank address <span style={{ color: 'var(--text-dimmer)', fontWeight: 400 }}>(international)</span></label>
+                    <textarea value={acct.bank_address || ''} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, bank_address: e.target.value } : a) }))}
+                      placeholder="Bank street, City, Country" rows={3} style={{ ...inputStyle, resize: 'vertical' as const }} />
+                  </div>
+                </div>
               </div>
             ))}
 

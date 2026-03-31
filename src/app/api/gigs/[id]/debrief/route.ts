@@ -27,7 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .update({ debrief_rating: rating, debrief_notes: notes })
       .eq('id', gigId)
 
-    // Increment crowd_hits for each standout track
+    // Increment crowd_hits and set crowd_reaction for each standout track
     if (standout_track_ids?.length) {
       for (const trackId of standout_track_ids) {
         const { error: rpcError } = await supabase.rpc('increment_crowd_hits', { track_id: trackId })
@@ -45,7 +45,34 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
               .eq('id', trackId)
           }
         }
+        // Mark crowd_reaction as standout
+        await supabase
+          .from('dj_tracks')
+          .update({ crowd_reaction: 'crowd_standout' })
+          .eq('id', trackId)
       }
+    }
+
+    // Write debrief back to linked dj_sets record
+    let setId: string | null = null
+    const { data: linkedSet } = await supabase
+      .from('dj_sets')
+      .select('id, notes')
+      .eq('gig_id', gigId)
+      .limit(1)
+      .single()
+
+    if (linkedSet) {
+      setId = linkedSet.id
+      const gigDate = gig.date ? new Date(gig.date).toISOString().slice(0, 10) : 'unknown date'
+      const postGigEntry = `Post-gig ${gigDate}: ${rating}/5 — ${notes || 'no notes'}`
+      const updatedNotes = linkedSet.notes
+        ? `${linkedSet.notes}\n\n${postGigEntry}`
+        : postGigEntry
+      await supabase
+        .from('dj_sets')
+        .update({ notes: updatedNotes })
+        .eq('id', linkedSet.id)
     }
 
     // Generate post-gig caption via Claude
@@ -100,7 +127,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       gig_id: gigId,
     })
 
-    return NextResponse.json({ success: true, caption })
+    return NextResponse.json({ success: true, caption, set_id: setId })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

@@ -346,6 +346,7 @@ export function SetLab() {
   const [screenshotDragging, setScreenshotDragging] = useState(false)
   const [parsingScreenshot, setParsing] = useState(false)
   // ── Gig context ──────────────────────────────────────────────────────────
+  const [gigs, setGigs] = useState<any[]>([])
   const [upcomingGig, setUpcomingGig] = useState<{ id: string; title: string; venue: string; date: string; slot_time?: string; status: string } | null>(null)
   const [currentSetId, setCurrentSetId] = useState<string | null>(null)
   const [currentSetGigId, setCurrentSetGigId] = useState<string | null>(null)
@@ -736,8 +737,10 @@ Provide:
     try {
       const res = await fetch('/api/gigs')
       const data = await res.json()
+      const allGigs = data.gigs || []
+      setGigs(allGigs)
       const today = new Date().toISOString().split('T')[0]
-      const upcoming = (data.gigs || []).find((g: any) =>
+      const upcoming = allGigs.find((g: any) =>
         g.date >= today && (g.status === 'confirmed' || g.status === 'pending')
       )
       setUpcomingGig(upcoming || null)
@@ -1684,7 +1687,7 @@ Return corrected JSON:
 
               {/* Set config */}
               <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '12px' }}>
                   {[
                     { label: 'Set name', value: setName, onChange: setSetName, placeholder: 'My Set' },
                     { label: 'Venue', value: venue, onChange: setVenue, placeholder: 'Fabric, London' },
@@ -1708,6 +1711,30 @@ Return corrected JSON:
                       style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none' }}>
                       {['30', '45', '60', '90', '120', '180'].map(o => <option key={o}>{o} min</option>)}
                     </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Link to gig</div>
+                    <select
+                      value={currentSetGigId || ''}
+                      onChange={e => { if (e.target.value) linkSetToGig(e.target.value) }}
+                      disabled={linkingGig}
+                      style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: currentSetGigId ? s.gold : s.textDim, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none', opacity: linkingGig ? 0.5 : 1 }}
+                    >
+                      <option value=''>No gig linked</option>
+                      {gigs.map(g => (
+                        <option key={g.id} value={g.id}>
+                          {g.title} · {new Date(g.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </option>
+                      ))}
+                    </select>
+                    {currentSetGigId && (
+                      <div style={{ fontSize: '10px', color: '#4d9970', marginTop: '5px', letterSpacing: '0.05em' }}>
+                        Linked: {gigs.find(g => g.id === currentSetGigId)?.title || 'Gig'}
+                      </div>
+                    )}
+                    {!currentSetGigId && (
+                      <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '5px' }}>No gig linked</div>
+                    )}
                   </div>
                 </div>
               </div>

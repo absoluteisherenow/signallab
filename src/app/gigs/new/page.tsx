@@ -38,8 +38,21 @@ export default function NewGig() {
     textTransform: 'uppercase' as const, marginBottom: '8px', display: 'block',
   }
 
+  function currencyFromLocation(location: string): string {
+    const loc = location.toLowerCase()
+    if (/australia|melbourne|sydney|brisbane|perth|adelaide|hobart/.test(loc)) return 'AUD'
+    if (/\buk\b|united kingdom|london|manchester|glasgow|bristol|edinburgh|leeds|birmingham/.test(loc)) return 'GBP'
+    if (/\busa\b|united states|new york|los angeles|chicago|miami|san francisco/.test(loc)) return 'USD'
+    return 'EUR'
+  }
+
   function update(key: string, value: string) {
-    setForm(f => ({ ...f, [key]: value }))
+    if (key === 'location') {
+      const detectedCurrency = currencyFromLocation(value)
+      setForm(f => ({ ...f, location: value, currency: detectedCurrency }))
+    } else {
+      setForm(f => ({ ...f, [key]: value }))
+    }
   }
 
   async function save() {

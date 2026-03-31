@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
+import { LogoIcon } from '@/components/layout/Logo'
 
 type NavItem = { label: string; href: string; sub: { label: string; href: string }[] }
 type NavGroup = { label: string; items: NavItem[] }
@@ -73,28 +74,29 @@ export function Navigation() {
     }}>
 
       {/* Brand */}
-      <div style={{ padding: '28px 24px 26px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <Link href="/dashboard" style={{ textDecoration: 'none', display: 'block' }}>
-          <div style={{
-            fontFamily: "'Unbounded', sans-serif",
-            fontSize: 14,
-            fontWeight: 500,
-            letterSpacing: '0.06em',
-            color: '#eae5dc',
-            textTransform: 'uppercase',
-            lineHeight: 1.25,
-            marginBottom: 10,
-          }}>
-            Night<br />Manoeuvres
-          </div>
-          <div style={{
-            fontSize: 9,
-            letterSpacing: '0.22em',
-            color: '#c9a96e',
-            textTransform: 'uppercase',
-            fontWeight: 400,
-          }}>
-            Tailored Artist OS
+      <div style={{ padding: '20px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <LogoIcon size={28} />
+          <div>
+            <div style={{
+              fontFamily: "'Unbounded', sans-serif",
+              fontSize: 12,
+              fontWeight: 200,
+              letterSpacing: '0.04em',
+              color: '#f0ebe2',
+              lineHeight: 1.3,
+            }}>
+              Signal Lab
+            </div>
+            <div style={{
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 9,
+              fontWeight: 300,
+              letterSpacing: '0.08em',
+              color: '#52504c',
+            }}>
+              OS
+            </div>
           </div>
         </Link>
       </div>
@@ -228,7 +230,7 @@ export function Navigation() {
           onMouseLeave={e => { e.currentTarget.style.color = 'rgba(234,229,220,0.14)' }}
           title="Mobile quick-actions"
           >
-            Night Manoeuvres
+            signallabos.com
           </Link>
           <NotificationBell />
         </div>

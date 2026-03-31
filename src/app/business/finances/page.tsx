@@ -8,6 +8,7 @@ interface Invoice {
   id: string
   gig_title: string
   gig_id?: string
+  artist_name?: string
   amount: number
   currency: string
   type?: string
@@ -33,13 +34,24 @@ export default function Finances() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [monthly, setMonthly] = useState(MONTHLY_TEMPLATE)
   const [showAdd, setShowAdd] = useState(false)
-  const [newInvoice, setNewInvoice] = useState({ gig_title: '', amount: '', currency: 'EUR', type: 'full', due_date: '', wht_rate: '' })
+  const [newInvoice, setNewInvoice] = useState({ gig_title: '', amount: '', currency: '', type: 'full', due_date: '', wht_rate: '', location: '', artist_name: '', promoter: '' })
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(true)
   const [financeTab, setFinanceTab] = useState<'invoices' | 'expenses'>('invoices')
+  const [statCurrency, setStatCurrency] = useState('GBP')
+  const [sendingId, setSendingId] = useState<string | null>(null)
+  const [sendEmail, setSendEmail] = useState<Record<string, string>>({})
   const pathname = usePathname()
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  function currencyFromLocation(location: string): string {
+    const loc = location.toLowerCase()
+    if (/australia|melbourne|sydney|brisbane|perth|adelaide|hobart/.test(loc)) return 'AUD'
+    if (/\buk\b|united kingdom|london|manchester|glasgow|bristol|edinburgh|leeds|birmingham/.test(loc)) return 'GBP'
+    if (/\busa\b|united states|new york|los angeles|chicago|miami|san francisco/.test(loc)) return 'USD'
+    return 'EUR'
+  }
 
   // Load invoices from Supabase
   useEffect(() => {
@@ -54,6 +66,13 @@ export default function Finances() {
       if (data.invoices) {
         setInvoices(data.invoices)
         updateMonthlyChart(data.invoices)
+        // Default new invoice currency to the most recently added invoice's currency
+        if (data.invoices.length > 0) {
+          const recent = data.invoices[0]
+          if (recent.currency) {
+            setNewInvoice(p => p.currency ? p : { ...p, currency: recent.currency })
+          }
+        }
       }
     } catch {
       // Invoices load failed silently — empty state will show
@@ -74,8 +93,18 @@ export default function Finances() {
     setMonthly(monthlyData)
   }
 
-  const paid = invoices.filter(i => i.status === 'paid').reduce((a, i) => a + i.amount, 0)
-  const pending = invoices.filter(i => i.status === 'pending').reduce((a, i) => a + i.amount, 0)
+  // Group totals by currency
+  const byCurrency = invoices.reduce((acc, i) => {
+    const c = i.currency || 'EUR'
+    if (!acc[c]) acc[c] = { paid: 0, pending: 0 }
+    if (i.status === 'paid') acc[c].paid += i.amount
+    else acc[c].pending += i.amount
+    return acc
+  }, {} as Record<string, { paid: number; pending: number }>)
+
+  const availableCurrencies = Object.keys(byCurrency).sort()
+  const paid = byCurrency[statCurrency]?.paid || 0
+  const pending = byCurrency[statCurrency]?.pending || 0
   const total = paid + pending
   const maxMonthly = Math.max(...monthly.map(m => m.amount))
 
@@ -97,6 +126,31 @@ export default function Finances() {
     }
   }
 
+  async function sendInvoice(inv: Invoice) {
+    setSendingId(inv.id)
+    try {
+      const to = sendEmail[inv.id] || ''
+      const res = await fetch(`/api/invoices/${inv.id}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to }),
+      })
+      const data = await res.json()
+      if (data.sent) {
+        showToast(`Invoice sent to ${data.to}`)
+      } else if (data.mailto) {
+        window.open(data.mailto)
+        showToast('Opened in mail client')
+      } else {
+        showToast('Send failed')
+      }
+    } catch {
+      showToast('Send failed')
+    } finally {
+      setSendingId(null)
+    }
+  }
+
   async function addInvoice() {
     if (!newInvoice.gig_title || !newInvoice.amount) return
     try {
@@ -110,11 +164,13 @@ export default function Finances() {
           type: newInvoice.type,
           due_date: newInvoice.due_date,
           wht_rate: newInvoice.wht_rate ? parseFloat(newInvoice.wht_rate) : null,
+          artist_name: newInvoice.artist_name || null,
+          notes: newInvoice.promoter || null,
         }),
       })
       const data = await res.json()
       if (data.success || data.invoice) {
-        setNewInvoice({ gig_title: '', amount: '', currency: 'EUR', type: 'full', due_date: '', wht_rate: '' })
+        setNewInvoice({ gig_title: '', amount: '', currency: '', type: 'full', due_date: '', wht_rate: '', location: '', artist_name: '', promoter: '' })
         setShowAdd(false)
         showToast('Invoice added')
         fetchInvoices()
@@ -177,13 +233,29 @@ export default function Finances() {
 
       {financeTab === 'invoices' && (<>
 
+      {/* CURRENCY PICKER */}
+      {availableCurrencies.length > 0 && (
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', alignItems: 'center' }}>
+          <span style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginRight: '8px' }}>View in</span>
+          {availableCurrencies.map(c => (
+            <button key={c} onClick={() => setStatCurrency(c)} style={{
+              background: statCurrency === c ? 'rgba(176,141,87,0.15)' : 'transparent',
+              border: `1px solid ${statCurrency === c ? 'rgba(176,141,87,0.6)' : 'var(--border-dim)'}`,
+              color: statCurrency === c ? 'var(--gold)' : 'var(--text-dimmer)',
+              fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.1em',
+              padding: '4px 12px', cursor: 'pointer', transition: 'all 0.15s',
+            }}>{c}</button>
+          ))}
+        </div>
+      )}
+
       {/* STATS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', marginBottom: '32px' }}>
         {[
-          { label: 'Total invoiced', value: `€${total.toLocaleString()}`, sub: 'All time' },
-          { label: 'Received', value: `€${paid.toLocaleString()}`, sub: `${invoices.filter(i => i.status === 'paid').length} invoices paid`, green: true },
-          { label: 'Outstanding', value: `€${pending.toLocaleString()}`, sub: `${invoices.filter(i => i.status === 'pending').length} awaiting payment`, alert: true },
-          { label: 'This month', value: `€${monthly[monthly.length - 1].amount.toLocaleString()}`, sub: 'April 2026' },
+          { label: 'Total invoiced', value: `${statCurrency} ${total.toLocaleString()}`, sub: 'All time' },
+          { label: 'Received', value: `${statCurrency} ${paid.toLocaleString()}`, sub: `${invoices.filter(i => i.status === 'paid' && i.currency === statCurrency).length} invoices paid`, green: true },
+          { label: 'Outstanding', value: `${statCurrency} ${pending.toLocaleString()}`, sub: `${invoices.filter(i => i.status === 'pending' && i.currency === statCurrency).length} awaiting payment`, alert: pending > 0 },
+          { label: 'This month', value: `${statCurrency} ${(byCurrency[statCurrency] ? (byCurrency[statCurrency].paid + byCurrency[statCurrency].pending) : 0).toLocaleString()}`, sub: new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) },
         ].map(stat => (
           <div key={stat.label} style={{ background: 'var(--panel)', border: `1px solid ${stat.alert ? 'rgba(138, 74, 58, 0.25)' : 'var(--border-dim)'}`, padding: '24px 28px' }}>
             <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>{stat.label}</div>
@@ -215,19 +287,33 @@ export default function Finances() {
       {showAdd && (
         <div className="card" style={{ border: '1px solid rgba(176, 141, 87, 0.25)', marginBottom: '24px' }}>
           <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>New invoice</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '16px' }}>
-            {[
-              { label: 'Gig / show', key: 'gig_title', placeholder: 'Electric Nights Festival' },
-              { label: 'Amount', key: 'amount', placeholder: '5000' },
-              { label: 'Due date', key: 'due_date', placeholder: '2026-04-16' },
-            ].map(f => (
-              <div key={f.key}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>{f.label}</div>
-                <input value={newInvoice[f.key as keyof typeof newInvoice]} onChange={e => setNewInvoice(p => ({ ...p, [f.key]: e.target.value }))}
-                  placeholder={f.placeholder}
-                  style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
-              </div>
-            ))}
+          {/* Row 1 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 100px 1fr 80px', gap: '12px', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Gig / show</div>
+              <input value={newInvoice.gig_title} onChange={e => setNewInvoice(p => ({ ...p, gig_title: e.target.value }))}
+                placeholder="Electric Nights Festival"
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Amount</div>
+              <input value={newInvoice.amount} onChange={e => setNewInvoice(p => ({ ...p, amount: e.target.value }))}
+                placeholder="5000"
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Currency</div>
+              <input value={newInvoice.currency} onChange={e => setNewInvoice(p => ({ ...p, currency: e.target.value.toUpperCase() }))}
+                placeholder="AUD"
+                maxLength={3}
+                style={{ width: '100%', background: 'var(--bg)', border: `1px solid ${newInvoice.currency ? 'rgba(176,141,87,0.5)' : 'var(--border-dim)'}`, color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box', fontWeight: 600 }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Due date</div>
+              <input value={newInvoice.due_date} onChange={e => setNewInvoice(p => ({ ...p, due_date: e.target.value }))}
+                placeholder="2026-04-16"
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
             <div>
               <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Type</div>
               <select value={newInvoice.type} onChange={e => setNewInvoice(p => ({ ...p, type: e.target.value }))}
@@ -236,6 +322,35 @@ export default function Finances() {
                 <option value="balance">Balance</option>
                 <option value="full">Full fee</option>
               </select>
+            </div>
+          </div>
+          {/* Row 2 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px', gap: '12px', marginBottom: '16px' }}>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Location (auto-sets currency)</div>
+              <input value={newInvoice.location}
+                onChange={e => {
+                  const loc = e.target.value
+                  const detected = currencyFromLocation(loc)
+                  setNewInvoice(p => ({ ...p, location: loc, currency: detected }))
+                }}
+                placeholder="Melbourne, AU"
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Billed to (promoter / company)</div>
+              <input value={newInvoice.promoter}
+                onChange={e => setNewInvoice(p => ({ ...p, promoter: e.target.value }))}
+                placeholder="Festival Promotions Ltd"
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Artist alias</div>
+              <input value={newInvoice.artist_name}
+                onChange={e => setNewInvoice(p => ({ ...p, artist_name: e.target.value }))}
+                placeholder="ABSOLUTE. / Night Manoeuvres"
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+              <div style={{ fontSize: '9px', color: 'var(--text-dimmer)', marginTop: '5px', letterSpacing: '0.06em' }}>Leave blank to use profile name</div>
             </div>
             <div>
               <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>WHT %</div>
@@ -254,9 +369,9 @@ export default function Finances() {
 
       {/* INVOICE TABLE */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 80px 80px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
-          {['Show', 'Due date', 'Type', 'Amount', 'WHT', 'Net', '', 'Chase', ''].map(h => (
-            <div key={h} style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{h}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
+          {['Show', 'Due date', 'Type', 'Amount', 'WHT', 'Net', '', 'Send', 'Chase', ''].map((h, i) => (
+            <div key={i} style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{h}</div>
           ))}
         </div>
         {loading ? (
@@ -273,9 +388,10 @@ export default function Finances() {
             const whtAmount = inv.wht_rate ? Math.round(inv.amount * (inv.wht_rate / 100)) : 0
             const netAmount = inv.amount - whtAmount
             return (
-            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 80px 80px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
+            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
               <div>
                 <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.gig_title}</div>
+                {inv.artist_name && <div style={{ fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '3px' }}>{inv.artist_name}</div>}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</div>
               <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{inv.type || '—'}</div>
@@ -294,13 +410,36 @@ export default function Finances() {
                   View →
                 </a>
               </div>
+              {/* Send invoice */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <input
+                    value={sendEmail[inv.id] || ''}
+                    onChange={e => setSendEmail(p => ({ ...p, [inv.id]: e.target.value }))}
+                    placeholder="email@co.com"
+                    style={{ width: '0', flex: 1, background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '10px', padding: '4px 6px', outline: 'none', minWidth: 0 }}
+                  />
+                  <button
+                    onClick={() => sendInvoice(inv)}
+                    disabled={sendingId === inv.id}
+                    style={{ background: 'transparent', border: '1px solid rgba(176,141,87,0.4)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 8px', cursor: sendingId === inv.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: sendingId === inv.id ? 0.5 : 1 }}>
+                    {sendingId === inv.id ? '...' : 'Send →'}
+                  </button>
+                </div>
+                <a href={`/api/invoices/${inv.id}/send`} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '9px', letterSpacing: '0.08em', color: 'var(--text-dimmer)', textDecoration: 'none' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--gold)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'}>
+                  Preview email ↗
+                </a>
+              </div>
               <div>
                 {(inv.status === 'pending' || inv.status === 'overdue') && (
                   <button
                     onClick={() => {
                       const subject = encodeURIComponent(`Payment Follow-up — ${inv.gig_title || 'Invoice'}`)
                       const days = inv.due_date ? Math.floor((new Date().getTime() - new Date(inv.due_date).getTime()) / 86400000) : 0
-                      const body = encodeURIComponent(`Hi,\n\nI wanted to follow up on the invoice for ${inv.gig_title || 'our recent show'} (${inv.currency} ${inv.amount?.toLocaleString()})${days > 0 ? `, which was due ${days} day${days !== 1 ? 's' : ''} ago` : ', which is coming due soon'}.\n\nPlease find the invoice here: ${window.location.origin}/api/invoices/${inv.id}\n\nLet me know if you have any questions.\n\nBest,\nAnthony`)
+                      const body = encodeURIComponent(`Hi,\n\nI wanted to follow up on the invoice for ${inv.gig_title || 'our recent show'} (${inv.currency} ${inv.amount?.toLocaleString()})${days > 0 ? `, which was due ${days} day${days !== 1 ? 's' : ''} ago` : ', which is coming due soon'}.\n\nPlease find the invoice here: ${window.location.origin}/api/invoices/${inv.id}\n\nLet me know if you have any questions.\n\nBest,\nAnthony\n\n--\nSignal Lab OS — Tailored Artist OS`)
                       window.open(`mailto:?subject=${subject}&body=${body}`)
                     }}
                     style={{

@@ -14,13 +14,37 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     ])
     if (invErr || !invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
+    // Pull promoter info from linked gig if available
+    let promoterName = invoice.notes || ''
+    let promoterEmail = ''
+    let gigDate = ''
+    let gigLocation = ''
+    let gigVenue = ''
+    let gigNotes = ''
+    if (invoice.gig_id) {
+      const { data: gig } = await supabase
+        .from('gigs')
+        .select('promoter_name, promoter_email, date, location, venue, notes')
+        .eq('id', invoice.gig_id)
+        .single()
+      if (gig) {
+        promoterName = promoterName || gig.promoter_name || ''
+        promoterEmail = gig.promoter_email || ''
+        gigDate = gig.date || ''
+        gigLocation = gig.location || ''
+        gigVenue = gig.venue || ''
+        gigNotes = gig.notes || ''
+      }
+    }
+
     const profile = settings?.profile || {}
     const payment = settings?.payment || {}
-    const artistName = payment.legal_name || profile.name || 'Artist'
+    const artistName = invoice.artist_name || payment.legal_name || profile.name || 'Artist'
     const address = (payment.address || '').replace(/\n/g, '<br>')
-    const vatNumber = payment.vat_number || ''
+    const vatNumber = payment.vat_number || profile.vatNumber || ''
     const paymentTerms = payment.payment_terms || '30'
-    const bankAccounts: Array<Record<string, string>> = payment.bank_accounts || []
+    // Bank accounts stored in profile.bankAccounts (camelCase) from onboarding
+    const bankAccounts: Array<Record<string, string>> = profile.bankAccounts || payment.bank_accounts || []
 
     // Find matching bank account by currency, or use default
     const matchingBank = bankAccounts.find((b: Record<string, string>) => b.currency === invoice.currency)
@@ -31,17 +55,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const issueDate = new Date(invoice.created_at || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     const dueDate = invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : `${paymentTerms} days from invoice`
 
+    // Country-specific: AUD requires ABN + "Tax Invoice" heading
+    const isAUD = invoice.currency === 'AUD'
+    const abn = isAUD ? (vatNumber || '') : ''
+    const invoiceHeading = isAUD ? 'Tax Invoice' : 'Invoice'
+
     const bankSection = matchingBank ? `
       <div class="section">
         <div class="section-title">Payment details</div>
         ${matchingBank.currency ? `<div class="row"><span>Currency</span><span>${matchingBank.currency}</span></div>` : ''}
-        ${matchingBank.account_name ? `<div class="row"><span>Account name</span><span>${matchingBank.account_name}</span></div>` : ''}
-        ${matchingBank.bank_name ? `<div class="row"><span>Bank</span><span>${matchingBank.bank_name}</span></div>` : ''}
-        ${matchingBank.sort_code ? `<div class="row"><span>Sort code</span><span>${matchingBank.sort_code}</span></div>` : ''}
-        ${matchingBank.account_number ? `<div class="row"><span>Account number</span><span>${matchingBank.account_number}</span></div>` : ''}
+        ${(matchingBank.accountName || matchingBank.account_name) ? `<div class="row"><span>Account name</span><span>${matchingBank.accountName || matchingBank.account_name}</span></div>` : ''}
+        ${(matchingBank.recipientAddress || matchingBank.recipient_address) ? `<div class="row"><span>Account holder address</span><span style="text-align:right;max-width:300px">${(matchingBank.recipientAddress || matchingBank.recipient_address).replace(/\n/g, '<br>')}</span></div>` : ''}
+        ${(matchingBank.bankName || matchingBank.bank_name) ? `<div class="row"><span>Bank</span><span>${matchingBank.bankName || matchingBank.bank_name}</span></div>` : ''}
+        ${(matchingBank.bankAddress || matchingBank.bank_address) ? `<div class="row"><span>Bank address</span><span style="text-align:right;max-width:300px">${(matchingBank.bankAddress || matchingBank.bank_address).replace(/\n/g, '<br>')}</span></div>` : ''}
+        ${(matchingBank.sortCode || matchingBank.sort_code) ? `<div class="row"><span>Sort code</span><span>${matchingBank.sortCode || matchingBank.sort_code}</span></div>` : ''}
+        ${(matchingBank.accountNumber || matchingBank.account_number) ? `<div class="row"><span>Account number</span><span>${matchingBank.accountNumber || matchingBank.account_number}</span></div>` : ''}
         ${matchingBank.iban ? `<div class="row"><span>IBAN</span><span>${matchingBank.iban}</span></div>` : ''}
-        ${matchingBank.swift_bic ? `<div class="row"><span>SWIFT / BIC</span><span>${matchingBank.swift_bic}</span></div>` : ''}
+        ${(matchingBank.bic || matchingBank.swift_bic) ? `<div class="row"><span>SWIFT / BIC</span><span>${matchingBank.bic || matchingBank.swift_bic}</span></div>` : ''}
+        ${(matchingBank.intermediaryBic || matchingBank.intermediary_bic) ? `<div class="row"><span>Intermediary BIC</span><span>${matchingBank.intermediaryBic || matchingBank.intermediary_bic}</span></div>` : ''}
+        ${(matchingBank.label) ? `<div class="row" style="color:#888;font-size:11px;border-bottom:none"><span>Account label</span><span>${matchingBank.label}</span></div>` : ''}
       </div>
+      ${isAUD ? `<div class="section" style="margin-top:-12px"><p style="font-size:11px;color:#888;padding:8px 0">GST: ${abn ? 'Registered — GST may apply. Please remit gross amount unless otherwise agreed.' : 'Not applicable to this invoice.'}</p></div>` : ''}
     ` : '<p style="color:#888;font-size:13px">No bank account configured — add payment details in Settings.</p>'
 
     const html = `<!DOCTYPE html>
@@ -84,19 +118,30 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   <div>
     <div class="artist-name">${artistName}</div>
     ${address ? `<div class="artist-meta">${address}</div>` : ''}
-    ${vatNumber ? `<div class="artist-meta" style="margin-top:4px">VAT / Tax: ${vatNumber}</div>` : ''}
+    ${vatNumber ? `<div class="artist-meta" style="margin-top:4px">${isAUD ? 'ABN' : 'VAT / Tax'}: ${vatNumber}</div>` : ''}
   </div>
   <div style="text-align:right">
-    <div class="invoice-label">Invoice</div>
+    <div class="invoice-label">${invoiceHeading}</div>
     <div class="invoice-number">${invoiceNumber}</div>
     <div class="invoice-date">Issued: ${issueDate}</div>
   </div>
 </div>
 
-<div class="to-section">
-  <div class="label">Invoice for</div>
-  <div class="value">${invoice.gig_title}</div>
-  ${invoice.type ? `<div style="font-size:11px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:0.15em">${invoice.type === 'full' ? 'Full fee' : invoice.type === 'deposit' ? 'Deposit' : 'Balance'}</div>` : ''}
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;gap:40px">
+  <div class="to-section" style="margin-bottom:0;flex:1">
+    <div class="label">Billed to</div>
+    <div class="value" style="font-size:${promoterName ? '15px' : '13px'};color:${promoterName ? '#111' : '#aaa'}">${promoterName || 'Promoter / client details not provided'}</div>
+    ${promoterEmail ? `<div style="font-size:12px;color:#555;margin-top:4px">${promoterEmail}</div>` : ''}
+  </div>
+  <div class="to-section" style="margin-bottom:0;flex:1;text-align:right">
+    <div class="label">Services rendered</div>
+    <div class="value">${invoice.gig_title}</div>
+    ${gigVenue ? `<div style="font-size:12px;color:#555;margin-top:4px">${gigVenue}</div>` : ''}
+    ${gigDate ? `<div style="font-size:11px;color:#888;margin-top:4px">${new Date(gigDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>` : ''}
+    ${gigLocation ? `<div style="font-size:11px;color:#888;margin-top:2px">${gigLocation}</div>` : ''}
+    ${invoice.type ? `<div style="font-size:11px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:0.15em">${invoice.type === 'full' ? 'Full fee' : invoice.type === 'deposit' ? 'Deposit' : 'Balance'}</div>` : ''}
+    ${gigNotes ? `<div style="font-size:10px;color:#aaa;margin-top:6px;font-style:italic;max-width:220px">${gigNotes.slice(0, 120)}${gigNotes.length > 120 ? '…' : ''}</div>` : ''}
+  </div>
 </div>
 
 <div class="amount-block">
@@ -122,7 +167,9 @@ ${bankSection}
 
 <div class="footer">
   Please include the invoice number <strong>${invoiceNumber}</strong> in your payment reference.<br>
-  Payment due within ${paymentTerms} days of invoice date.
+  Payment due within ${paymentTerms} days of invoice date.<br><br>
+  <strong>Please pay in ${invoice.currency} only.</strong> Any foreign exchange charges incurred will be charged back to the payee.<br><br>
+  <span style="letter-spacing:0.12em;font-size:10px;color:#bbb;text-transform:uppercase">Signal Lab OS — Tailored Artist OS</span>
 </div>
 
 </body>

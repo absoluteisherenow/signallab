@@ -20,8 +20,8 @@
 // );
 
 import { NextResponse } from 'next/server'
-import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
+import { getGmailClients } from '@/lib/gmail-accounts'
 
 // Use service role key to bypass RLS for token reads/writes and gig updates
 const supabase = createClient(
@@ -29,44 +29,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// ── Gmail auth ──────────────────────────────────────────────────────────────
-
-async function getGmailClient() {
-  const { data: settings } = await supabase
-    .from('artist_settings')
-    .select('gmail_access_token, gmail_refresh_token, gmail_token_expiry')
-    .single()
-
-  if (!settings?.gmail_refresh_token) {
-    throw new Error('Gmail not connected — visit /api/gmail/auth to connect')
-  }
-
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || 'https://signal-lab-rebuild.vercel.app/api/gmail/callback'
-  )
-
-  oauth2Client.setCredentials({
-    access_token: settings.gmail_access_token,
-    refresh_token: settings.gmail_refresh_token,
-    expiry_date: settings.gmail_token_expiry,
-  })
-
-  // Auto-refresh token if expired
-  oauth2Client.on('tokens', async (tokens) => {
-    const { data: existing } = await supabase.from('artist_settings').select('id').single()
-    if (existing) {
-      await supabase.from('artist_settings').update({
-        gmail_access_token: tokens.access_token,
-        gmail_token_expiry: tokens.expiry_date,
-        updated_at: new Date().toISOString(),
-      }).eq('id', existing.id)
-    }
-  })
-
-  return google.gmail({ version: 'v1', auth: oauth2Client })
-}
+// ── Gmail auth: delegated to @/lib/gmail-accounts ─────────────────────────
 
 // ── Email body extraction ───────────────────────────────────────────────────
 
@@ -370,13 +333,101 @@ async function markProcessed(gmail: any, messageId: string) {
   }
 }
 
+// ── Process emails for one account ────────────────────────────────────────
+
+async function processAccount(gmail: any, accountEmail: string, processedIds: Set<string>, gigs: any[]): Promise<any[]> {
+  const results: any[] = []
+
+  const { data: list } = await gmail.users.messages.list({
+    userId: 'me',
+    maxResults: 30,
+    q: 'is:unread newer_than:14d',
+  })
+
+  const messages = list?.messages || []
+
+  for (const msg of messages) {
+    if (!msg.id || processedIds.has(msg.id)) continue
+
+    const { data: full } = await gmail.users.messages.get({
+      userId: 'me',
+      id: msg.id,
+      format: 'full',
+    })
+
+    const headers = full.payload?.headers || []
+    const from    = headers.find((h: any) => h.name === 'From')?.value || ''
+    const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
+    const body    = extractEmailBody(full.payload)
+
+    if (!body && !subject) { await markProcessed(gmail, msg.id); continue }
+
+    let classification: any
+    try {
+      classification = await classifyEmail(from, subject, body, gigs)
+    } catch {
+      continue
+    }
+
+    if (classification.confidence < 0.5 || classification.type === 'ignore') {
+      await markProcessed(gmail, msg.id)
+      continue
+    }
+
+    let actionResult: any = null
+
+    switch (classification.type) {
+      case 'new_gig':
+        actionResult = await handleNewGig(classification.extracted, from)
+        break
+      case 'hotel':
+      case 'flight':
+      case 'train':
+        await handleTravel(classification.type, classification.gig_id, classification.extracted)
+        actionResult = { created: 'travel_booking', type: classification.type }
+        break
+      case 'rider':
+      case 'tech_spec':
+        await handleRiderOrTechSpec(classification.type, classification.gig_id, classification.extracted)
+        actionResult = { updated: classification.gig_id }
+        break
+      case 'invoice':
+        await handleInvoice(classification.gig_id, classification.extracted)
+        actionResult = { created: 'invoice' }
+        break
+      case 'release':
+        await handleRelease(classification.extracted)
+        actionResult = { created: 'release' }
+        break
+      case 'gig_update':
+        await handleGigUpdate(classification.gig_id, classification.extracted)
+        actionResult = { updated: classification.gig_id }
+        break
+    }
+
+    await markProcessed(gmail, msg.id)
+    processedIds.add(msg.id)
+
+    results.push({
+      account: accountEmail,
+      messageId: msg.id,
+      subject,
+      type: classification.type,
+      gig_id: classification.gig_id,
+      action: actionResult,
+    })
+  }
+
+  return results
+}
+
 // ── Main route ─────────────────────────────────────────────────────────────
 
 export async function POST() {
   try {
-    const gmail = await getGmailClient()
+    const clients = await getGmailClients()
 
-    // Get already-processed IDs
+    // Get already-processed IDs (shared across accounts)
     const { data: processed } = await supabase
       .from('processed_gmail_ids')
       .select('message_id')
@@ -388,90 +439,22 @@ export async function POST() {
       .select('id, title, venue, location, date')
       .order('date', { ascending: true })
 
-    // Fetch recent unread emails
-    const { data: list } = await gmail.users.messages.list({
-      userId: 'me',
-      maxResults: 30,
-      q: 'is:unread newer_than:7d',
-    })
+    const allResults: any[] = []
 
-    const messages = list.messages || []
-    const results: any[] = []
-
-    for (const msg of messages) {
-      if (!msg.id || processedIds.has(msg.id)) continue
-
-      const { data: full } = await gmail.users.messages.get({
-        userId: 'me',
-        id: msg.id,
-        format: 'full',
-      })
-
-      const headers = full.payload?.headers || []
-      const from    = headers.find((h: any) => h.name === 'From')?.value || ''
-      const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
-      const body    = extractEmailBody(full.payload)
-
-      if (!body && !subject) { await markProcessed(gmail, msg.id); continue }
-
-      let classification: any
+    for (const { gmail, email } of clients) {
       try {
-        classification = await classifyEmail(from, subject, body, gigs || [])
-      } catch {
-        continue
+        const results = await processAccount(gmail, email, processedIds, gigs || [])
+        allResults.push(...results)
+      } catch (err) {
+        allResults.push({ account: email, error: err instanceof Error ? err.message : 'Failed' })
       }
-
-      if (classification.confidence < 0.5 || classification.type === 'ignore') {
-        await markProcessed(gmail, msg.id)
-        continue
-      }
-
-      let actionResult: any = null
-
-      switch (classification.type) {
-        case 'new_gig':
-          actionResult = await handleNewGig(classification.extracted, from)
-          break
-        case 'hotel':
-        case 'flight':
-        case 'train':
-          await handleTravel(classification.type, classification.gig_id, classification.extracted)
-          actionResult = { created: 'travel_booking', type: classification.type }
-          break
-        case 'rider':
-        case 'tech_spec':
-          await handleRiderOrTechSpec(classification.type, classification.gig_id, classification.extracted)
-          actionResult = { updated: classification.gig_id }
-          break
-        case 'invoice':
-          await handleInvoice(classification.gig_id, classification.extracted)
-          actionResult = { created: 'invoice' }
-          break
-        case 'release':
-          await handleRelease(classification.extracted)
-          actionResult = { created: 'release' }
-          break
-        case 'gig_update':
-          await handleGigUpdate(classification.gig_id, classification.extracted)
-          actionResult = { updated: classification.gig_id }
-          break
-      }
-
-      await markProcessed(gmail, msg.id)
-
-      results.push({
-        messageId: msg.id,
-        subject,
-        type: classification.type,
-        gig_id: classification.gig_id,
-        action: actionResult,
-      })
     }
 
     return NextResponse.json({
       ok: true,
-      processed: results.length,
-      results,
+      accounts: clients.length,
+      processed: allResults.filter(r => !r.error).length,
+      results: allResults,
     })
 
   } catch (err: unknown) {

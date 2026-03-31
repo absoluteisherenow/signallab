@@ -143,16 +143,12 @@ export async function GET(req: NextRequest) {
     discoverRA(name),
   ])
 
-  const foundAnywhere = !!(lastfm?.found || ra?.found)
-
-  if (!foundAnywhere) return NextResponse.json({ found: false })
+  // RA is the authority — only surface discovery if RA finds them
+  if (!ra?.found) return NextResponse.json({ found: false })
 
   return NextResponse.json({
     found: true,
-    sources: [
-      ...(lastfm?.found ? ['lastfm'] : []),
-      ...(ra?.found ? ['ra'] : []),
-    ],
+    sources: ['ra'],
     artistName: lastfm?.artistName || name,
     raSlug: ra?.raSlug || null,
     genre: lastfm?.genre || null,
