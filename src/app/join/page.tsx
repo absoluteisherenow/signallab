@@ -122,7 +122,7 @@ export default function JoinPage() {
           fontWeight: 300, letterSpacing: '0.04em',
           color: C.text, marginBottom: '20px',
         }}>
-          Five modules. One nervous system. Career infrastructure.
+          Five modules. One system. Career infrastructure.
         </h2>
         <p style={{ fontSize: '13px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8' }}>
           Everything is connected. A gig informs your content. A track seeds your set. A release syncs your campaign. The system learns your practice and moves with it.
