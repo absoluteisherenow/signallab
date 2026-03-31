@@ -103,7 +103,7 @@ export default function JoinPage() {
           fontSize: '13px', color: C.dim, lineHeight: '1.9',
           maxWidth: '540px', letterSpacing: '0.04em', marginBottom: '52px',
         }}>
-          One system. Every moving part of their career, finally still.
+          One platform runs their gigs, invoices, content, releases, and sets — all connected across one system where every module informs the others.
         </p>
 
         <button
