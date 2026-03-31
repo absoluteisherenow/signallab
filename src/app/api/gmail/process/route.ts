@@ -1,3 +1,24 @@
+// Required Supabase table (run once):
+// CREATE TABLE travel_bookings (
+//   id uuid primary key default gen_random_uuid(),
+//   gig_id uuid references gigs(id) on delete set null,
+//   type text not null, -- 'flight' | 'train' | 'hotel'
+//   name text,          -- airline / operator / hotel name
+//   flight_number text,
+//   from_location text,
+//   to_location text,
+//   departure_at timestamptz,
+//   arrival_at timestamptz,
+//   check_in date,
+//   check_out date,
+//   reference text,
+//   cost numeric,
+//   currency text default 'EUR',
+//   notes text,
+//   source text default 'manual',
+//   created_at timestamptz default now()
+// );
+
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
@@ -112,8 +133,9 @@ ${gigsContext}
 
 Email types to detect:
 - "new_gig": booking confirmation or contract with venue/date/fee details
-- "hotel": hotel booking confirmation → extract hotel name, check-in date, cost
-- "flight": flight confirmation → extract flight details, dates, cost
+- "hotel": hotel booking confirmation → extract hotel name, check-in/out dates, cost, booking ref
+- "flight": flight confirmation → extract airline, flight number, route, departure/arrival times, cost, booking ref
+- "train": train booking confirmation → extract operator, route, departure/arrival times, cost, booking ref
 - "tech_spec": technical specification confirmed for a show
 - "rider": hospitality or technical rider confirmed
 - "invoice": invoice received, payment request, or payment receipt (deposit paid, balance due, payment confirmed)
@@ -139,13 +161,34 @@ Return:
     "promoter_email": "email or null",
     "notes": "any special notes",
 
-    // For hotel/flight:
-    "name": "hotel or airline name",
-    "date": "YYYY-MM-DD",
+    // For hotel:
+    "name": "hotel name",
+    "check_in": "YYYY-MM-DD",
+    "check_out": "YYYY-MM-DD",
     "cost": <number or null>,
     "currency": "EUR/GBP/USD",
-    "confirmation_ref": "booking reference",
-    "details": "one-line summary",
+    "reference": "booking reference",
+
+    // For flight:
+    "name": "airline name",
+    "flight_number": "e.g. FR1234",
+    "from": "departure airport/city",
+    "to": "arrival airport/city",
+    "departure_at": "YYYY-MM-DDTHH:MM",
+    "arrival_at": "YYYY-MM-DDTHH:MM",
+    "cost": <number or null>,
+    "currency": "EUR/GBP/USD",
+    "reference": "booking reference",
+
+    // For train:
+    "name": "operator name e.g. Eurostar, Avanti",
+    "from": "departure station/city",
+    "to": "arrival station/city",
+    "departure_at": "YYYY-MM-DDTHH:MM",
+    "arrival_at": "YYYY-MM-DDTHH:MM",
+    "cost": <number or null>,
+    "currency": "EUR/GBP/USD",
+    "reference": "booking reference",
 
     // For tech_spec / rider:
     "details": "summary of what was confirmed",
@@ -206,17 +249,54 @@ async function handleNewGig(extracted: any, emailFrom: string) {
   return data?.[0]
 }
 
-async function handleHotelOrFlight(type: string, gigId: string | null, extracted: any) {
-  if (!gigId) return
+async function handleTravel(type: string, gigId: string | null, extracted: any) {
+  const categoryMap: Record<string, string> = {
+    hotel: 'Accommodation',
+    flight: 'Travel',
+    train: 'Travel',
+  }
 
-  const field = type === 'hotel' ? 'hotel_name' : 'flight_details'
-  const costField = type === 'hotel' ? 'hotel_cost' : 'flight_cost'
+  // Build travel_bookings record
+  const booking: Record<string, unknown> = {
+    gig_id: gigId || null,
+    type,
+    name: extracted.name || null,
+    reference: extracted.reference || null,
+    cost: extracted.cost || null,
+    currency: extracted.currency || 'EUR',
+    notes: null,
+    source: 'gmail',
+    created_at: new Date().toISOString(),
+  }
 
-  await supabase.from('gigs').update({
-    [field]: extracted.name || extracted.details || '',
-    [costField]: extracted.cost || 0,
-    updated_at: new Date().toISOString(),
-  }).eq('id', gigId)
+  if (type === 'hotel') {
+    booking.check_in = extracted.check_in || null
+    booking.check_out = extracted.check_out || null
+  } else {
+    booking.from_location = extracted.from || null
+    booking.to_location = extracted.to || null
+    booking.departure_at = extracted.departure_at || null
+    booking.arrival_at = extracted.arrival_at || null
+    if (type === 'flight') booking.flight_number = extracted.flight_number || null
+  }
+
+  await supabase.from('travel_bookings').insert([booking])
+
+  // Also create expense record
+  if (extracted.cost) {
+    const label = type === 'hotel'
+      ? `Hotel: ${extracted.name || 'accommodation'}`
+      : `${type === 'flight' ? 'Flight' : 'Train'}: ${extracted.from || ''} → ${extracted.to || ''}`
+
+    await supabase.from('expenses').insert([{
+      date: (type === 'hotel' ? extracted.check_in : extracted.departure_at?.slice(0, 10)) || new Date().toISOString().slice(0, 10),
+      description: label,
+      category: categoryMap[type],
+      amount: extracted.cost,
+      currency: extracted.currency || 'EUR',
+      notes: extracted.reference ? `Ref: ${extracted.reference}` : null,
+    }])
+  }
 }
 
 async function handleRiderOrTechSpec(type: string, gigId: string | null, extracted: any) {
@@ -354,8 +434,9 @@ export async function POST() {
           break
         case 'hotel':
         case 'flight':
-          await handleHotelOrFlight(classification.type, classification.gig_id, classification.extracted)
-          actionResult = { updated: classification.gig_id }
+        case 'train':
+          await handleTravel(classification.type, classification.gig_id, classification.extracted)
+          actionResult = { created: 'travel_booking', type: classification.type }
           break
         case 'rider':
         case 'tech_spec':
