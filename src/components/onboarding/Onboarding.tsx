@@ -85,6 +85,7 @@ export default function Onboarding() {
 
   // Step 2 — VAT
   const [vatRegistered, setVatRegistered] = useState(false)
+  const [vatNumber, setVatNumber] = useState('')
 
   const s = {
     bg: '#070706', panel: '#0e0d0b', border: '#1a1917',
@@ -190,6 +191,7 @@ export default function Onboarding() {
       label: label || null,
       bankAccounts: bankAccounts.length > 0 ? bankAccounts : null,
       vatRegistered,
+      vatNumber: vatRegistered && vatNumber ? vatNumber : null,
     })
     router.push('/dashboard')
   }
@@ -607,7 +609,7 @@ export default function Onboarding() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '4px' }}>VAT registered</div>
-                  <div style={{ fontSize: '11px', color: s.dimmer }}>Affects how expenses are tracked and invoices totalled</div>
+                  <div style={{ fontSize: '11px', color: s.dimmer }}>Affects invoices and expense tracking</div>
                 </div>
                 <button
                   onClick={() => setVatRegistered(v => !v)}
@@ -626,6 +628,16 @@ export default function Onboarding() {
                   }} />
                 </button>
               </div>
+              {vatRegistered && (
+                <div style={{ marginTop: '14px' }}>
+                  <input
+                    value={vatNumber}
+                    onChange={e => setVatNumber(e.target.value)}
+                    placeholder="VAT number"
+                    style={input}
+                  />
+                </div>
+              )}
             </div>
 
             <button
