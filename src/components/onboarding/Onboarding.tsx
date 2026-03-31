@@ -63,7 +63,7 @@ export default function Onboarding() {
 
   // Step 0
   const [artistName, setArtistName] = useState('')
-  const [discovery, setDiscovery] = useState<{ found: boolean; genre?: string; bpmRange?: string; tracks?: { title: string; bpm: number }[] } | null>(null)
+  const [discovery, setDiscovery] = useState<{ found: boolean; sources?: string[]; genre?: string; bpmRange?: string; country?: string; bio?: string; tracks?: { title: string; bpm: number }[] } | null>(null)
   const [discovering, setDiscovering] = useState(false)
   const discoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -242,16 +242,26 @@ export default function Onboarding() {
 
               {discovery?.found && !discovering && (
                 <div style={{ background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.18)', padding: '12px 16px', marginTop: 10 }}>
-                  <div style={{ fontSize: '9px', color: s.gold, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>Found on Beatport</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {discovery.tracks?.slice(0, 4).map((t, i) => (
-                      <div key={i} style={{ fontSize: '10px', color: s.dim, background: 'rgba(255,255,255,0.03)', border: `1px solid ${s.border}`, padding: '4px 10px' }}>
-                        {t.title}{t.bpm ? ` · ${t.bpm}` : ''}
-                      </div>
-                    ))}
+                  <div style={{ fontSize: '9px', color: s.gold, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Found · {discovery.sources?.join(' + ').toUpperCase()}
                   </div>
-                  {discovery.genre && (
-                    <div style={{ fontSize: '10px', color: s.dimmer, marginTop: 8 }}>Genre: {discovery.genre}</div>
+                  {discovery.tracks && discovery.tracks.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: 8 }}>
+                      {discovery.tracks.map((t, i) => (
+                        <div key={i} style={{ fontSize: '10px', color: s.dim, background: 'rgba(255,255,255,0.03)', border: `1px solid ${s.border}`, padding: '4px 10px' }}>
+                          {t.title}{t.bpm ? ` · ${t.bpm}` : ''}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                    {discovery.genre && <div style={{ fontSize: '10px', color: s.dimmer }}>Genre: {discovery.genre}</div>}
+                    {discovery.country && <div style={{ fontSize: '10px', color: s.dimmer }}>Based in: {discovery.country}</div>}
+                  </div>
+                  {discovery.bio && (
+                    <div style={{ fontSize: '11px', color: s.dimmer, marginTop: 8, lineHeight: 1.6, borderTop: `1px solid ${s.border}`, paddingTop: 8 }}>
+                      {discovery.bio}…
+                    </div>
                   )}
                 </div>
               )}
