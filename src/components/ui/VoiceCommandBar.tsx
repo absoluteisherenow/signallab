@@ -158,7 +158,7 @@ export function VoiceCommandBar() {
           borderBottom: '1px solid #2a2218',
         }}>
           <span style={{ fontSize: '9px', color: '#6a5030', letterSpacing: '0.12em' }}>
-            ARTIST OS
+            SIGNAL LAB OS
           </span>
           <span style={{ color: '#2a2218', fontSize: '11px' }}>|</span>
 
@@ -251,7 +251,7 @@ export function VoiceCommandBar() {
         {loading && (
           <div style={{ padding: '32px 18px', textAlign: 'center' }}>
             <div style={{ color: '#6a5030', fontSize: '9px', letterSpacing: '0.15em' }}>
-              QUERYING ARTIST OS
+              QUERYING SIGNAL LAB OS
             </div>
             <ThinkingDots />
           </div>
@@ -431,15 +431,16 @@ function TextResult({ result }: { result: AssistantResult }) {
   const intentLabel: Record<string, string> = {
     gig_info: 'GIGS',
     payment_info: 'PAYMENTS',
-    general: 'ARTIST OS',
+    general: 'SIGNAL LAB OS',
     chain_advice: 'SIGNAL CHAIN',
-    off_topic: 'ARTIST OS',
+    content_advice: 'CONTENT',
+    off_topic: 'SIGNAL LAB OS',
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div style={{ fontSize: '8px', color: '#5a4a38', letterSpacing: '0.15em' }}>
-        {intentLabel[result.intent] ?? 'ARTIST OS'}
+        {intentLabel[result.intent] ?? 'SIGNAL LAB OS'}
       </div>
       <div style={{ fontSize: '14px', color: '#e8dcc8', lineHeight: 1.7 }}>
         {result.answer}
