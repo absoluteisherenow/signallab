@@ -11,7 +11,6 @@ const ALIGNMENT_ARTISTS = [
   'Recondite', 'Jon Hopkins', 'Headless Horseman', 'Phase Fatale',
 ]
 
-const CURRENCIES = ['EUR', 'GBP', 'USD', 'CHF', 'DKK', 'SEK', 'NOK', 'PLN', 'CZK']
 
 type BankAccount = {
   currency: string
@@ -37,8 +36,8 @@ type AddingAccount = {
   showManual: boolean
 }
 
-function emptyAdding(currency = 'EUR'): AddingAccount {
-  return { currency, label: '', accountName: '', bankName: '', iban: '', sortCode: '', bic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
+function emptyAdding(): AddingAccount {
+  return { currency: '', label: '', accountName: '', bankName: '', iban: '', sortCode: '', bic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
 }
 
 async function saveProfile(profile: Record<string, unknown>) {
@@ -152,6 +151,7 @@ export default function Onboarding() {
           uploading: false,
           extracted: true,
           showManual: true,
+          currency: d.currency || '',
           accountName: d.accountName || '',
           bankName: d.bankName || '',
           iban: d.iban || '',
@@ -480,28 +480,6 @@ export default function Onboarding() {
               {/* Add account form */}
               {adding && (
                 <div style={{ border: `1px solid ${s.border}`, padding: '16px', marginTop: bankAccounts.length > 0 ? '0' : '0' }}>
-                  {/* Currency selector */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.14em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Currency</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {CURRENCIES.map(c => (
-                        <button
-                          key={c}
-                          onClick={() => updateAdding({ currency: c })}
-                          style={{
-                            background: adding.currency === c ? 'rgba(176,141,87,0.12)' : 'transparent',
-                            border: `1px solid ${adding.currency === c ? s.gold : s.border}`,
-                            color: adding.currency === c ? s.gold : s.dimmer,
-                            fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em',
-                            padding: '6px 12px', cursor: 'pointer', transition: 'all 0.12s',
-                          }}
-                        >
-                          {c}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Optional label */}
                   <div style={{ marginBottom: '12px' }}>
                     <input
@@ -552,7 +530,10 @@ export default function Onboarding() {
                       {adding.extracted && (
                         <div style={{ fontSize: '10px', color: s.gold, letterSpacing: '0.1em', marginBottom: '4px' }}>Extracted — review and confirm</div>
                       )}
-                      <input value={adding.accountName} onChange={e => updateAdding({ accountName: e.target.value })} placeholder="Account name" style={input} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '7px' }}>
+                        <input value={adding.currency} onChange={e => updateAdding({ currency: e.target.value.toUpperCase().slice(0, 3) })} placeholder="EUR" style={input} />
+                        <input value={adding.accountName} onChange={e => updateAdding({ accountName: e.target.value })} placeholder="Account name" style={input} />
+                      </div>
                       <input value={adding.bankName} onChange={e => updateAdding({ bankName: e.target.value })} placeholder="Bank name" style={input} />
                       <input value={adding.iban} onChange={e => updateAdding({ iban: e.target.value })} placeholder="IBAN / Account number" style={input} />
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
