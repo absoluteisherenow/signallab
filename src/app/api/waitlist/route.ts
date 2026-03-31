@@ -8,7 +8,7 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json()
+    const { email, name, role } = await req.json()
 
     if (!email || !email.includes('@')) {
       return NextResponse.json(
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if email already exists
-    const { data: existing, error: checkError } = await supabase
+    const { data: existing } = await supabase
       .from('waitlist')
       .select('id')
       .eq('email', email)
@@ -32,13 +32,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert new waitlist entry
+    const record: Record<string, string> = {
+      email,
+      joined_at: new Date().toISOString(),
+      status: 'pending',
+    }
+    if (name) record.name = name
+    if (role) record.role = role
+
     const { data, error } = await supabase
       .from('waitlist')
-      .insert([{
-        email,
-        joined_at: new Date().toISOString(),
-        status: 'pending',
-      }])
+      .insert([record])
       .select()
 
     if (error) throw error

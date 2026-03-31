@@ -42,7 +42,7 @@ export function Navigation() {
     return () => clearInterval(t)
   }, [])
 
-  if (pathname === '/' || pathname === '/pricing' || pathname === '/login' || pathname === '/onboarding' || pathname === '/mobile') {
+  if (pathname === '/' || pathname === '/pricing' || pathname === '/login' || pathname === '/onboarding' || pathname === '/mobile' || pathname === '/join' || pathname.startsWith('/join/')) {
     return null
   }
 

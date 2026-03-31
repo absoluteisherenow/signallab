@@ -1,35 +1,33 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/', '/login', '/onboarding', '/advance', '/dashboard', '/broadcast', '/logistics', '/business', '/sonix', '/setlab', '/contracts', '/maxforlive', '/gigs', '/calendar', '/notifications', '/pricing']
+// Paths accessible without a login session
+const PUBLIC_PATHS = [
+  '/login',
+  '/join',      // invoice landing / waitlist signup
+  '/pricing',   // public pricing page
+  '/advance',   // external advance request forms (promoters/venues fill these in)
+  '/upload',    // public media upload links (pre-show briefs)
+]
 
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
-  
-  // Check if path is public or API (includes subroutes)
+
   const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
-    || pathname.startsWith('/api/social')   // social OAuth callbacks — must be public
-    || pathname.startsWith('/api')
+    || pathname.startsWith('/api/auth')     // Supabase auth callbacks — public
+    || pathname.startsWith('/auth')         // Supabase OAuth redirect — public
+    || pathname.startsWith('/api/waitlist') // waitlist signup — public
+    || pathname.startsWith('/api/social')   // social OAuth callbacks — public
+    || pathname.startsWith('/api/advance')  // advance form submissions — public
+    || pathname.startsWith('/api/invoices') // invoice view for promoters — public
     || pathname.startsWith('/_next')
-    || pathname === '/signal-genius.html'   // M4L jweb — public, no auth needed
-    || pathname === '/mockup.html'          // Design mockups — no auth needed
-  
+    || pathname === '/signal-genius.html'   // M4L jweb — public
+    || pathname === '/mockup.html'
+
   if (isPublic) {
     return NextResponse.next()
   }
-  
-  // Check for Supabase session cookie
-  // The auth-helpers package sets a specific cookie
-  const sessionCookie = req.cookies.get('sb-auth-token')
-  const sbServerOnlyAuth = req.cookies.get('sb-lfcxdxfhffqeaqmq-auth-token')
-  
-  // If no session and path is protected, redirect to login
-  if (!sessionCookie && !sbServerOnlyAuth && !isPublic) {
-    const loginUrl = new URL('/login', req.url)
-    loginUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-  
+
   return NextResponse.next()
 }
 
