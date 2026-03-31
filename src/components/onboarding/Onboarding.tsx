@@ -17,6 +17,7 @@ type BankAccount = {
   label: string
   accountName: string
   bankName: string
+  accountNumber: string
   iban: string
   sortCode: string
   bic: string
@@ -28,6 +29,7 @@ type AddingAccount = {
   label: string
   accountName: string
   bankName: string
+  accountNumber: string
   iban: string
   sortCode: string
   bic: string
@@ -39,7 +41,7 @@ type AddingAccount = {
 }
 
 function emptyAdding(): AddingAccount {
-  return { currency: '', label: '', accountName: '', bankName: '', iban: '', sortCode: '', bic: '', intermediaryBic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
+  return { currency: '', label: '', accountName: '', bankName: '', accountNumber: '', iban: '', sortCode: '', bic: '', intermediaryBic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
 }
 
 async function saveProfile(profile: Record<string, unknown>) {
@@ -159,7 +161,8 @@ export default function Onboarding() {
           currency: d.currency || '',
           accountName: d.accountName || '',
           bankName: d.bankName || '',
-          iban: d.iban || d.accountNumber || '',
+          accountNumber: d.accountNumber || '',
+          iban: d.iban || '',
           sortCode: d.sortCode || '',
           bic: d.bic || '',
           intermediaryBic: d.intermediaryBic || '',
@@ -177,6 +180,7 @@ export default function Onboarding() {
       label: adding.label,
       accountName: adding.accountName,
       bankName: adding.bankName,
+      accountNumber: adding.accountNumber,
       iban: adding.iban,
       sortCode: adding.sortCode,
       bic: adding.bic,
@@ -545,12 +549,15 @@ export default function Onboarding() {
                         <input value={adding.accountName} onChange={e => updateAdding({ accountName: e.target.value })} placeholder="Account name" style={input} />
                       </div>
                       <input value={adding.bankName} onChange={e => updateAdding({ bankName: e.target.value })} placeholder="Bank name" style={input} />
-                      <input value={adding.iban} onChange={e => updateAdding({ iban: e.target.value })} placeholder="IBAN / Account number" style={input} />
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
                         <input value={adding.sortCode} onChange={e => updateAdding({ sortCode: e.target.value })} placeholder="Sort code / BSB" style={input} />
-                        <input value={adding.bic} onChange={e => updateAdding({ bic: e.target.value })} placeholder="BIC / SWIFT" style={input} />
+                        <input value={adding.accountNumber} onChange={e => updateAdding({ accountNumber: e.target.value })} placeholder="Account number" style={input} />
                       </div>
-                      <input value={adding.intermediaryBic} onChange={e => updateAdding({ intermediaryBic: e.target.value })} placeholder="Intermediary BIC (optional — AUD, USD)" style={input} />
+                      <input value={adding.iban} onChange={e => updateAdding({ iban: e.target.value })} placeholder="IBAN" style={input} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                        <input value={adding.bic} onChange={e => updateAdding({ bic: e.target.value })} placeholder="BIC / SWIFT" style={input} />
+                        <input value={adding.intermediaryBic} onChange={e => updateAdding({ intermediaryBic: e.target.value })} placeholder="Intermediary BIC (optional)" style={input} />
+                      </div>
                     </div>
                   )}
 
