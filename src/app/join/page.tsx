@@ -183,7 +183,7 @@ export default function JoinPage() {
           Right now your career lives across six tabs, a dead spreadsheet, and a group chat you muted in November.
         </h2>
         <p style={{ fontSize: '12px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8' }}>
-          Artist OS replaces the patchwork with a single connected system — one that already knows what you need next.
+          Signal Lab OS replaces the patchwork with a single connected system — one that already knows what you need next.
         </p>
       </section>
 
