@@ -249,7 +249,7 @@ function estimateBPM(mono: Float32Array, sampleRate: number): number | null {
   return bestBpm
 }
 
-// ── WAV snippet encoder — for ACRCloud fingerprinting ─────────────────────
+// ── WAV snippet encoder — for dual fingerprinting (AudD + ACRCloud) ──────────
 // ACRCloud works best at 16000 Hz mono 16-bit PCM (8000 Hz causes poor recognition)
 const ACR_SAMPLE_RATE = 16000
 
@@ -320,6 +320,9 @@ export function SetLab() {
   const [discoverMeta, setDiscoverMeta] = useState<{ targetCamelot: string; targetBpm: number; debug?: any } | null>(null)
   const [discoverCallCount, setDiscoverCallCount] = useState(0)
   const [raChartedCount, setRaChartedCount] = useState(0)
+  const [raOnlyFilter, setRaOnlyFilter] = useState(false)
+  // RA rich index: key → attribution
+  const raRichMapRef = useRef<Map<string, { charted_by: string; chart_title: string }>>(new Map())
   const audioInputRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
   // ── Mix Scanner state ───────────────────────────────────────────────────
@@ -335,7 +338,7 @@ export function SetLab() {
   const [scanError, setScanError] = useState('')
   const scannerFileRef = useRef<HTMLInputElement>(null)
   const [scanPhase, setScanPhase] = useState<'upload' | 'detecting' | 'fingerprinting' | 'review' | 'analysing'>('upload')
-  const [detectedTracks, setDetectedTracks] = useState<Array<{time_in: string, title: string, artist: string, confidence: number, found: boolean, acrCode?: number, acrMsg?: string}>>([])
+  const [detectedTracks, setDetectedTracks] = useState<Array<{time_in: string, title: string, artist: string, confidence: number, found: boolean, source?: string, acrCode?: number, acrMsg?: string}>>([])
   const scanAudioRef = useRef<any>(null)
   const [tracklistImgParsing, setTracklistImgParsing] = useState(false)
   const tracklistImgRef = useRef<HTMLInputElement>(null)
@@ -716,6 +719,16 @@ Provide:
     }
   }
 
+  function loadSetIntoBuilder(ps: any) {
+    const tracks = JSON.parse(ps.tracks || '[]')
+    setSet(tracks)
+    setSetName(ps.name || 'Unnamed set')
+    setVenue(ps.venue || '')
+    setSlotType(ps.slot_type || 'Club — peak time')
+    setActiveTab('builder')
+    showToast(`"${ps.name || 'Set'}" loaded into builder`, 'Set Lab')
+  }
+
   async function loadPastSets() {
     try {
       const { data } = await supabase.from('dj_sets').select('*').order('created_at', { ascending: false }).limit(10)
@@ -939,75 +952,139 @@ Return corrected JSON:
         endTime: i < segmentStarts.length - 1 ? segmentStarts[i + 1] : duration,
       })).slice(0, 30)
 
-      const results: Array<{ time_in: string; title: string; artist: string; confidence: number; found: boolean; acrCode?: number; acrMsg?: string }> = []
+      const results: Array<{ time_in: string; title: string; artist: string; confidence: number; found: boolean; source?: string; acrCode?: number; acrMsg?: string }> = []
+
+      // ── Helper: get a WAV blob for a given start + duration ──────────────
+      async function getWavBlob(startSec: number, durSec: number): Promise<Blob | null> {
+        if (monoFull) {
+          return encodeWAVSnippet(monoFull, sampleRate, Math.floor(startSec * sampleRate), Math.floor(durSec * sampleRate))
+        } else if (aiffSnippet) {
+          const mono = await aiffSnippet(startSec, durSec)
+          return encodeWAVSnippet(mono, sampleRate, 0, mono.length)
+        }
+        return null
+      }
 
       for (let i = 0; i < segments.length; i++) {
-        setScanProgress(`Identifying track ${i + 1} of ${segments.length}…`)
-        const seg      = segments[i]
-        const segLen   = seg.endTime - seg.startTime
-
-        // Sample strategy: for long segments take from middle third to avoid
-        // transition noise at edges. For short segments, take whatever we can
-        // from the centre — minimum 5s needed for ACRCloud to work reliably.
-        let sampleStartSec: number
-        let sampleDurSec: number
-        if (segLen >= 30) {
-          // Long segment — middle third, up to 20s
-          const segThird = segLen / 3
-          sampleStartSec = seg.startTime + segThird
-          sampleDurSec   = Math.min(20, segThird)
-        } else if (segLen >= 15) {
-          // Medium segment — skip first 5s (mix-in), take up to 10s
-          sampleStartSec = seg.startTime + 5
-          sampleDurSec   = Math.min(10, segLen - 5)
-        } else {
-          // Short segment — take from 25% in, whatever is available
-          sampleStartSec = seg.startTime + segLen * 0.25
-          sampleDurSec   = segLen * 0.5
-        }
+        const seg    = segments[i]
+        const segLen = seg.endTime - seg.startTime
 
         const mm = Math.floor(seg.startTime / 60).toString().padStart(2, '0')
         const ss = Math.floor(seg.startTime % 60).toString().padStart(2, '0')
         const timeIn = `${mm}:${ss}`
 
-        // Need at least 5s for reliable fingerprinting
-        if (sampleDurSec < 5) {
-          results.push({ time_in: timeIn, title: 'Unknown', artist: '', confidence: 0, found: false })
+        // ── Multi-position retry ─────────────────────────────────────────
+        // DJs pitch-shift and time-stretch, which moves the audio fingerprint.
+        // Transition zones contain two blended tracks — any sample landing there
+        // will fail to match. Retrying at different positions within the segment
+        // dramatically increases the chance of hitting a clean, single-track zone.
+        //
+        // Attempts (in order):
+        //   1. Centre of the middle third (deepest into the track, cleanest)
+        //   2. 65% through the segment (later, past the mix-in)
+        //   3. 35% through the segment (earlier, before mix-out begins)
+        //
+        // Sample duration increases on each retry to give AudD more audio to work with.
+
+        type SampleAttempt = { startRatio: number; durSec: number; label: string }
+        let attempts: SampleAttempt[]
+
+        if (segLen >= 40) {
+          // Long segment — three attempts across middle zone, growing sample size
+          attempts = [
+            { startRatio: 0.50, durSec: Math.min(25, segLen * 0.20), label: 'centre' },
+            { startRatio: 0.65, durSec: Math.min(28, segLen * 0.22), label: 'late'   },
+            { startRatio: 0.35, durSec: Math.min(28, segLen * 0.22), label: 'early'  },
+          ]
+        } else if (segLen >= 20) {
+          // Medium segment — two attempts
+          attempts = [
+            { startRatio: 0.50, durSec: Math.min(15, segLen * 0.40), label: 'centre' },
+            { startRatio: 0.70, durSec: Math.min(15, segLen * 0.35), label: 'late'   },
+          ]
+        } else if (segLen >= 10) {
+          // Short segment — one attempt from centre
+          attempts = [
+            { startRatio: 0.40, durSec: Math.min(8, segLen * 0.50), label: 'centre' },
+          ]
+        } else {
+          // Too short — skip
+          results.push({ time_in: timeIn, title: 'Unknown / White label', artist: '', confidence: 0, found: false })
           continue
         }
 
-        try {
-          let wavBlob: Blob
-          if (monoFull) {
-            const startSample = Math.floor(sampleStartSec * sampleRate)
-            const numSamples  = Math.floor(sampleDurSec * sampleRate)
-            wavBlob = encodeWAVSnippet(monoFull, sampleRate, startSample, numSamples)
-          } else if (aiffSnippet) {
-            const snippetMono = await aiffSnippet(sampleStartSec, sampleDurSec)
-            wavBlob = encodeWAVSnippet(snippetMono, sampleRate, 0, snippetMono.length)
-          } else {
-            continue
-          }
+        let trackResult: (typeof results)[number] | null = null
 
-          const fd = new FormData()
-          fd.append('audio', wavBlob, 'snippet.wav')
-          const resp = await fetch('/api/fingerprint', { method: 'POST', body: fd })
-          const data = await resp.json()
+        for (let a = 0; a < attempts.length; a++) {
+          const attempt = attempts[a]
+          if (attempt.durSec < 5) continue
 
-          if (data.found) {
-            results.push({ time_in: timeIn, title: data.title, artist: data.artist, confidence: data.confidence, found: true })
-          } else {
-            results.push({ time_in: timeIn, title: 'Unknown / White label', artist: '', confidence: 0, found: false, acrCode: data.code, acrMsg: data.msg })
+          const sampleStart = seg.startTime + segLen * attempt.startRatio
+          // Clamp so sample doesn't run past end of segment
+          const sampleDur = Math.min(attempt.durSec, seg.endTime - sampleStart - 1)
+          if (sampleDur < 5) continue
+
+          setScanProgress(`Identifying track ${i + 1} of ${segments.length}${a > 0 ? ` (retry ${a})` : ''}…`)
+
+          try {
+            const wavBlob = await getWavBlob(sampleStart, sampleDur)
+            if (!wavBlob) break
+
+            const fd = new FormData()
+            fd.append('audio', wavBlob, 'snippet.wav')
+            const resp = await fetch('/api/fingerprint', { method: 'POST', body: fd })
+            const data = await resp.json()
+
+            if (data.found) {
+              trackResult = { time_in: timeIn, title: data.title, artist: data.artist, confidence: data.confidence, found: true, source: data.source }
+              break // found — no need to retry
+            }
+            // Not found — loop to next attempt position
+          } catch {
+            // Network error — continue to next attempt
           }
-        } catch {
-          results.push({ time_in: timeIn, title: 'Unknown', artist: '', confidence: 0, found: false })
         }
+
+        results.push(trackResult ?? { time_in: timeIn, title: 'Unknown / White label', artist: '', confidence: 0, found: false })
       }
 
-      setDetectedTracks(results)
+      // ── Deduplication pass ─────────────────────────────────────────────
+      // Remove consecutive fingerprint hits on the same track — happens when
+      // the energy detector splits a long track or catches the same track at
+      // two sample points within a 5-minute window.
+      const normaliseTitle = (t: string) =>
+        t.toLowerCase()
+          .replace(/\(.*?\)/g, '')              // strip (Ploy Remix), (Original Mix) etc
+          .replace(/remix|edit|version|mix|original|extended|radio/gi, '')
+          .replace(/\s+/g, ' ').trim()
+      const parseTimeSecs = (t: string) => {
+        const parts = t.split(':').map(Number)
+        return parts.length === 3
+          ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+          : parts[0] * 60 + (parts[1] || 0)
+      }
+
+      const deduped: typeof results = []
+      for (const track of results) {
+        if (!track.found) { deduped.push(track); continue }
+        const lastFound = [...deduped].reverse().find(t => t.found)
+        if (lastFound) {
+          const sameArtist = lastFound.artist.toLowerCase() === track.artist.toLowerCase()
+          const sameTitle  = normaliseTitle(lastFound.title) === normaliseTitle(track.title)
+          const timeDiff   = parseTimeSecs(track.time_in) - parseTimeSecs(lastFound.time_in)
+          if (sameArtist && sameTitle && timeDiff < 300) {
+            // Same track within 5 min — suppress duplicate, mark slot unknown
+            deduped.push({ ...track, found: false, title: 'Unknown / White label', artist: '', confidence: 0 })
+            continue
+          }
+        }
+        deduped.push(track)
+      }
+
+      setDetectedTracks(deduped)
 
       // Auto-populate the tracklist textarea
-      const autoTracklist = results.map((t, i) =>
+      const autoTracklist = deduped.map((t, i) =>
         `${i + 1}. ${t.time_in}  ${t.found ? `${t.artist} - ${t.title}` : 'Unknown / White label'}`
       ).join('\n')
       setScannerTracklist(autoTracklist)
@@ -1118,16 +1195,26 @@ Return corrected JSON:
       const data = beatportSettled.status === 'fulfilled' ? beatportSettled.value : null
       if (!data || data.error) throw new Error(data?.error || 'Beatport fetch failed')
 
-      // Build RA track set for cross-referencing
+      // Build RA track set + rich attribution map
       const raData = raSettled.status === 'fulfilled' ? raSettled.value : null
       const raTrackSet: Set<string> = new Set(
         Array.isArray(raData?.tracks) ? raData.tracks as string[] : []
       )
+      // Store rich attribution for DJ/chart name display
+      const newRaMap = new Map<string, { charted_by: string; chart_title: string }>()
+      if (Array.isArray(raData?.rich)) {
+        for (const entry of raData.rich as Array<{ key: string; charted_by: string; chart_title: string }>) {
+          newRaMap.set(entry.key, { charted_by: entry.charted_by, chart_title: entry.chart_title })
+        }
+      }
+      raRichMapRef.current = newRaMap
 
       const results: any[] = (data.tracks || []).map((track: any) => {
         const key = raKey(track.artist || '', track.title || '')
         // Exact match
         let ra_charted = raTrackSet.has(key)
+        let ra_charted_by = newRaMap.get(key)?.charted_by || ''
+        let ra_chart_title = newRaMap.get(key)?.chart_title || ''
 
         // Partial / substring match for remixes etc.
         if (!ra_charted && raTrackSet.size > 0) {
@@ -1136,12 +1223,14 @@ Return corrected JSON:
           for (const entry of raTrackSet) {
             if (entry.includes(normArtist) && entry.includes(normTitle)) {
               ra_charted = true
+              const attr = newRaMap.get(entry)
+              if (attr) { ra_charted_by = attr.charted_by; ra_chart_title = attr.chart_title }
               break
             }
           }
         }
 
-        return { ...track, ra_charted }
+        return { ...track, ra_charted, ra_charted_by, ra_chart_title }
       })
 
       // Sort: RA-charted first within each popularity tier, then by release date
@@ -1165,6 +1254,46 @@ Return corrected JSON:
   }
 
   useEffect(() => { loadLibrary(); loadPastSets() }, [])
+
+  // ── Persist scanner state across navigation ──────────────────────────────
+  const SCANNER_KEY = 'setlab_scanner_v1'
+
+  // Restore on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SCANNER_KEY)
+      if (!saved) return
+      const state = JSON.parse(saved)
+      if (state.detectedTracks?.length > 0) {
+        setDetectedTracks(state.detectedTracks)
+        setScannerTracklist(state.scannerTracklist || '')
+        setScannerContext(state.scannerContext || '')
+        if (state.scanResult) {
+          setScanResult(state.scanResult)
+          setScanPhase('upload') // show result
+        } else {
+          setScanPhase('review')
+        }
+      }
+    } catch {}
+  }, [])
+
+  // Save whenever scanner state changes
+  useEffect(() => {
+    if (scanPhase === 'upload' || scanPhase === 'detecting' || scanPhase === 'fingerprinting') return
+    try {
+      localStorage.setItem(SCANNER_KEY, JSON.stringify({
+        detectedTracks,
+        scannerTracklist,
+        scannerContext,
+        scanResult: scanResult || null,
+      }))
+    } catch {}
+  }, [scanPhase, detectedTracks, scannerTracklist, scannerContext, scanResult])
+
+  function clearScannerState() {
+    try { localStorage.removeItem(SCANNER_KEY) } catch {}
+  }
 
   // ── Styles ─────────────────────────────────────────────────────────────
   const s = {
@@ -1611,12 +1740,25 @@ Return corrected JSON:
               ) : (
                 pastSets.map((ps, i) => (
                   <div key={i} style={{ padding: '16px', border: `1px solid ${s.border}`, marginBottom: '8px', background: s.black }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <div style={{ fontSize: '13px', color: s.text }}>{ps.name || 'Unnamed set'}</div>
-                      <div style={{ fontSize: '10px', color: s.textDimmer }}>{new Date(ps.created_at).toLocaleDateString('en-GB')}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '13px', color: s.text }}>{ps.name || 'Unnamed set'}</div>
+                        {ps.venue && <div style={{ fontSize: '11px', color: s.textDim, marginTop: '3px' }}>{ps.venue} · {ps.slot_type}</div>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                        <div style={{ fontSize: '10px', color: s.textDimmer }}>{new Date(ps.created_at).toLocaleDateString('en-GB')}</div>
+                        <button
+                          onClick={() => loadSetIntoBuilder(ps)}
+                          style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.setlab, border: `1px solid ${s.setlab}33`, padding: '4px 10px', background: 'transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          onMouseEnter={e => { (e.target as HTMLElement).style.background = `${s.setlab}15` }}
+                          onMouseLeave={e => { (e.target as HTMLElement).style.background = 'transparent' }}
+                        >
+                          Load →
+                        </button>
+                      </div>
                     </div>
-                    {ps.venue && <div style={{ fontSize: '11px', color: s.textDim, marginBottom: '4px' }}>{ps.venue} · {ps.slot_type}</div>}
                     {ps.narrative && <div style={{ fontSize: '10px', color: s.textDimmer, lineHeight: '1.5', marginTop: '8px' }}>{ps.narrative.slice(0, 200)}...</div>}
+                    {ps.tracks && (() => { try { const t = JSON.parse(ps.tracks); return t.length > 0 ? <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '4px' }}>{t.length} track{t.length !== 1 ? 's' : ''}</div> : null } catch { return null } })()}
                   </div>
                 ))
               )}
@@ -1639,8 +1781,9 @@ Return corrected JSON:
                   </div>
                 </div>
                 <div style={{ fontSize: '10px', color: s.textDimmer, textAlign: 'right', lineHeight: '1.7' }}>
-                  <div>Beatport catalogue</div>
-                  <div>Camelot-filtered</div>
+                  <div style={{ color: '#f7a500', opacity: 0.7 }}>Beatport catalogue</div>
+                  <div style={{ color: '#dc2626', opacity: 0.7 }}>RA charts cross-ref</div>
+                  <div>Camelot + BPM filtered</div>
                 </div>
               </div>
 
@@ -1677,6 +1820,21 @@ Return corrected JSON:
                 </div>
               </div>
 
+              {/* RA-only filter toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <button
+                  onClick={() => setRaOnlyFilter(f => !f)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  <div style={{ width: '32px', height: '18px', borderRadius: '9px', background: raOnlyFilter ? 'rgba(220,38,38,0.3)' : s.border, border: `1px solid ${raOnlyFilter ? '#dc2626' : s.borderBright}`, position: 'relative', transition: 'all 0.2s' }}>
+                    <div style={{ position: 'absolute', top: '2px', left: raOnlyFilter ? '14px' : '2px', width: '12px', height: '12px', borderRadius: '50%', background: raOnlyFilter ? '#dc2626' : s.textDimmer, transition: 'left 0.2s' }} />
+                  </div>
+                  <span style={{ fontSize: '10px', letterSpacing: '0.15em', color: raOnlyFilter ? '#dc2626' : s.textDimmer, fontFamily: s.font, textTransform: 'uppercase' }}>RA charted only</span>
+                </button>
+                {raOnlyFilter && raChartedCount > 0 && (
+                  <span style={{ fontSize: '10px', color: s.textDimmer }}>— {raChartedCount} tracks from last search</span>
+                )}
+              </div>
+
               <button
                 onClick={() => discoverTracks(maxPopularity)}
                 disabled={discoverLoading}
@@ -1704,7 +1862,10 @@ Return corrected JSON:
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: `1px solid ${s.border}` }}>
                   <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>
-                    {discoverResults.length} matches{raChartedCount > 0 ? ` — ${raChartedCount} RA charted` : ''} — sorted rarest first
+                    {raOnlyFilter
+                      ? `${discoverResults.filter((t: any) => t.ra_charted).length} RA charted tracks`
+                      : `${discoverResults.length} matches${raChartedCount > 0 ? ` — ${raChartedCount} RA charted` : ''} — sorted rarest first`
+                    }
                   </div>
                   {discoverMeta && (
                     <div style={{ fontSize: '10px', color: s.textDimmer }}>
@@ -1713,7 +1874,7 @@ Return corrected JSON:
                   )}
                 </div>
 
-                {discoverResults.map((track: any) => {
+                {discoverResults.filter((t: any) => !raOnlyFilter || t.ra_charted).map((track: any) => {
                   const popLabel = track.popularity < 20 ? 'Rare' : track.popularity < 40 ? 'Underground' : track.popularity < 65 ? 'Known' : 'Popular'
                   const popColor = track.popularity < 20 ? '#9a6a5a' : track.popularity < 40 ? s.gold : track.popularity < 65 ? '#3d6b4a' : s.textDimmer
                   const alreadyInLib = library.some(t => t.title.toLowerCase() === track.title.toLowerCase() && t.artist.toLowerCase() === track.artist.toLowerCase())
@@ -1741,7 +1902,7 @@ Return corrected JSON:
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                         <div style={{ fontSize: '10px', padding: '3px 8px', background: `${popColor}20`, border: `1px solid ${popColor}50`, color: popColor, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{popLabel}</div>
                         {track.ra_charted && (
-                          <div style={{
+                          <div title={track.ra_charted_by ? `Charted by ${track.ra_charted_by}` : 'RA charted'} style={{
                             fontSize: '9px', padding: '3px 7px',
                             background: 'rgba(220,38,38,0.12)',
                             border: '1px solid rgba(220,38,38,0.35)',
@@ -1749,8 +1910,15 @@ Return corrected JSON:
                             letterSpacing: '0.14em',
                             textTransform: 'uppercase',
                             fontWeight: 600,
+                            cursor: 'default',
+                            display: 'flex', alignItems: 'center', gap: '4px',
                           }}>
                             RA
+                            {track.ra_charted_by && (
+                              <span style={{ fontWeight: 400, letterSpacing: '0.08em', color: 'rgba(220,38,38,0.8)', fontSize: '8px' }}>
+                                {track.ra_charted_by.split(' ')[0]}
+                              </span>
+                            )}
                           </div>
                         )}
                         {track.camelot && <div style={{ fontSize: '11px', color: s.gold, minWidth: '32px', textAlign: 'center' }}>{track.camelot}</div>}
@@ -1841,7 +2009,7 @@ Return corrected JSON:
                 </div>
               </div>
               {scanResult && (
-                <button onClick={() => { setScanResult(null); setScannerFile(null); setScanError(''); setScanPhase('upload'); setDetectedTracks([]) }}
+                <button onClick={() => { setScanResult(null); setScannerFile(null); setScanError(''); setScanPhase('upload'); setDetectedTracks([]); clearScannerState() }}
                   style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '8px 14px' }}>
                   Scan another mix
                 </button>
@@ -1960,7 +2128,7 @@ Return corrected JSON:
                   </div>
                 </div>
 
-                {/* ACRCloud status + test */}
+                {/* Dual fingerprint provider status */}
                 {acrStatus && (
                   <div style={{
                     background: acrStatus.ok ? 'rgba(61,107,74,0.1)' : 'rgba(192,64,64,0.1)',
@@ -2030,7 +2198,16 @@ Return corrected JSON:
                         Detected tracklist — {detectedTracks.filter(t => t.found).length} of {detectedTracks.length} identified
                       </div>
                       <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                        Unknown tracks are likely white labels or unreleased — edit any corrections below
+                        {(() => {
+                          const acrCount  = detectedTracks.filter(t => t.found && t.source === 'acrcloud').length
+                          const auddCount = detectedTracks.filter(t => t.found && t.source === 'audd').length
+                          const parts = []
+                          if (acrCount > 0)  parts.push(`${acrCount} via ACRCloud`)
+                          if (auddCount > 0) parts.push(`${auddCount} via AudD`)
+                          return parts.length > 0
+                            ? `${parts.join(', ')} — unknowns are white labels or unreleased`
+                            : 'Unknown tracks are likely white labels or unreleased — edit any corrections below'
+                        })()}
                       </div>
                       {detectedTracks.length > 0 && detectedTracks.filter(t => !t.found && t.acrCode !== undefined && t.acrCode !== 1001).length > 0 && (
                         <div style={{ marginTop: '6px', fontSize: '10px', color: '#c04040' }}>
@@ -2038,14 +2215,14 @@ Return corrected JSON:
                             const errTracks = detectedTracks.filter(t => !t.found && t.acrCode !== undefined && t.acrCode !== 1001)
                             const code = errTracks[0]?.acrCode
                             const msg = errTracks[0]?.acrMsg
-                            if (code === 3000 || code === 3001) return `ACRCloud auth error (${code}) — check credentials`
-                            if (code === 3003) return `ACRCloud rate limit hit (${code}) — wait and retry`
-                            return `ACRCloud error ${code}: ${msg || 'unknown'} — check connection`
+                            if (code === 3000 || code === 3001) return `AudD auth error (${code}) — check AUDD_API_TOKEN`
+                            if (code === 3003) return `AudD rate limit hit (${code}) — wait and retry`
+                            return `AudD error ${code}: ${msg || 'unknown'} — check connection`
                           })()}
                         </div>
                       )}
                     </div>
-                    <button onClick={() => { setScanPhase('upload'); setScannerFile(null); setDetectedTracks([]) }}
+                    <button onClick={() => { setScanPhase('upload'); setScannerFile(null); setDetectedTracks([]); clearScannerState() }}
                       style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '6px 12px' }}>
                       Re-upload
                     </button>
@@ -2060,7 +2237,12 @@ Return corrected JSON:
                           {t.found ? `${t.artist} — ${t.title}` : 'Unknown / White label'}
                         </div>
                         {t.found && (
-                          <div style={{ fontSize: '9px', color: '#4ecb71', letterSpacing: '0.08em', flexShrink: 0 }}>{t.confidence}%</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            <div style={{ fontSize: '8px', letterSpacing: '0.1em', padding: '2px 5px', background: t.source === 'acrcloud' ? 'rgba(59,130,246,0.12)' : 'rgba(176,141,87,0.1)', border: `1px solid ${t.source === 'acrcloud' ? 'rgba(59,130,246,0.3)' : 'rgba(176,141,87,0.25)'}`, color: t.source === 'acrcloud' ? '#60a5fa' : '#b08d57', textTransform: 'uppercase' }}>
+                              {t.source === 'acrcloud' ? 'ACR' : 'AudD'}
+                            </div>
+                            <div style={{ fontSize: '9px', color: '#4ecb71', letterSpacing: '0.08em' }}>{t.confidence}%</div>
+                          </div>
                         )}
                         {!t.found && (
                           <div style={{ fontSize: '9px', color: s.textDimmer, flexShrink: 0 }}>?</div>

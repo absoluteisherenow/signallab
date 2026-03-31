@@ -39,6 +39,7 @@ interface Trend {
   hot: boolean
   context: string
   evidence?: string
+  posts_supporting?: number
 }
 
 // ── Real calculated stats from artist data ────────────────────────────────────
@@ -55,7 +56,15 @@ function calcVoiceAlignment(artists: ArtistProfile[]): { value: string; score: n
   const avgCV = cvs.reduce((s, v) => s + v, 0) / cvs.length
   const score = Math.max(5, Math.min(99, Math.round(100 - avgCV * 0.8)))
   const label = score >= 82 ? 'Strong' : score >= 65 ? 'Moderate' : score >= 45 ? 'Mixed' : 'Divergent'
-  return { value: label, score, desc: `${score}% consistency across ${artists.length} scanned artists` }
+  const artistWord = artists.length === 1 ? 'artist' : 'artists'
+  const explanation = score >= 82
+    ? `Your reference artists write in a very similar style — consistency makes your lane voice feel intentional`
+    : score >= 65
+    ? `Some variation across your reference artists — a defined lane voice is emerging`
+    : score >= 45
+    ? `Your reference artists write quite differently from each other — the lane voice is mixed`
+    : `Your reference artists have very different styles — hard to extract a clear lane voice`
+  return { value: label, score, desc: `${explanation} (${score}% across ${artists.length} ${artistWord})` }
 }
 
 function calcToneRegister(artists: ArtistProfile[]): { value: string; score: number; desc: string } {
@@ -64,11 +73,11 @@ function calcToneRegister(artists: ArtistProfile[]): { value: string; score: num
   const lower = avg('lowercase_pct')
   const short = avg('short_caption_pct')
   const noHash = avg('no_hashtags_pct')
-  if (lower > 68 && short > 52 && noHash > 62) return { value: 'Raw', score: Math.round((lower + short + noHash) / 3), desc: 'Minimal, lowercase, stripped back — detached register' }
-  if (lower > 58 && noHash > 60) return { value: 'Dry', score: Math.round((lower + noHash) / 2), desc: 'Clean, understated — tone over promotion' }
-  if (short < 35 && lower < 55) return { value: 'Verbose', score: Math.round(100 - short), desc: 'Longer-form, descriptive captions' }
-  if (noHash < 45) return { value: 'Discovery', score: Math.round(100 - noHash), desc: 'Hashtag-led, optimised for reach' }
-  return { value: 'Balanced', score: 62, desc: 'Mix of styles across your lane' }
+  if (lower > 68 && short > 52 && noHash > 62) return { value: 'Raw', score: Math.round((lower + short + noHash) / 3), desc: `${lower}% lowercase + ${short}% short + ${noHash}% no hashtags — minimal, detached register. Captions feel like thoughts, not marketing.` }
+  if (lower > 58 && noHash > 60) return { value: 'Dry', score: Math.round((lower + noHash) / 2), desc: `${lower}% lowercase, ${noHash}% no hashtags — clean and understated. Lets the music speak without promotional noise.` }
+  if (short < 35 && lower < 55) return { value: 'Verbose', score: Math.round(100 - short), desc: `Only ${short}% short captions in this lane — longer-form writing is the norm. More context, more story.` }
+  if (noHash < 45) return { value: 'Discovery', score: Math.round(100 - noHash), desc: `${100 - noHash}% of posts use hashtags — this lane prioritises reach over tone. Helps new listeners find the music.` }
+  return { value: 'Balanced', score: 62, desc: `${lower}% lowercase · ${short}% short · ${noHash}% no hashtags — a mixed lane with no single dominant style.` }
 }
 
 function daysSince(dateStr: string): number {
@@ -105,6 +114,30 @@ function Bar({ value, teal = false }: { value: number; teal?: boolean }) {
 }
 
 export function BroadcastLab() {
+  // ── localStorage cache — persists Signal Lab computed state across navigation ──
+  // Prevents re-running Claude on every page visit (trends + captions are expensive)
+  const SL_CACHE_KEY = 'signallab_cache_v1'
+  const SL_CACHE_TTL = 12 * 60 * 60 * 1000 // 12 hours
+
+  function readCache(): Record<string, unknown> {
+    try {
+      const raw = localStorage.getItem(SL_CACHE_KEY)
+      if (!raw) return {}
+      const parsed = JSON.parse(raw)
+      if (Date.now() - (parsed._ts || 0) > SL_CACHE_TTL) { localStorage.removeItem(SL_CACHE_KEY); return {} }
+      return parsed
+    } catch { return {} }
+  }
+
+  function writeCache(patch: Record<string, unknown>) {
+    try {
+      const existing = readCache()
+      localStorage.setItem(SL_CACHE_KEY, JSON.stringify({ ...existing, ...patch, _ts: Date.now() }))
+    } catch {}
+  }
+
+  const _cache = typeof window !== 'undefined' ? readCache() : {}
+
   const [artists, setArtists] = useState<ArtistProfile[]>([])
   const [addingArtist, setAddingArtist] = useState(false)
   const [newArtistName, setNewArtistName] = useState('')
@@ -128,21 +161,24 @@ export function BroadcastLab() {
     }
   }, [])
   const [media, setMedia] = useState('Crowd clip (video)')
-  const [captions, setCaptions] = useState<Captions | null>(null)
+  const [captions, setCaptions] = useState<Captions | null>((_cache.captions as Captions) || null)
   const [selectedVariant, setSelectedVariant] = useState<'safe' | 'loose' | 'raw'>('loose')
   const [generatingCaptions, setGeneratingCaptions] = useState(false)
   const [captionError, setCaptionError] = useState('')
-  const [trendCaptions, setTrendCaptions] = useState<Record<number, string>>({})
+  const [trendCaptions, setTrendCaptions] = useState<Record<number, string>>((_cache.trendCaptions as Record<number, string>) || {})
   const [loadingTrends, setLoadingTrends] = useState(false)
   const [generatingWeek, setGeneratingWeek] = useState(false)
+  const [weekPreview, setWeekPreview] = useState<{ day: string; platform: string; caption: string; regenIdx?: number }[] | null>(null)
+  const [savingWeek, setSavingWeek] = useState(false)
+  const [regenIdx, setRegenIdx] = useState<number | null>(null)
   const [postFormat, setPostFormat] = useState<'post' | 'carousel' | 'story' | 'reel'>('post')
   const [mediaUrls, setMediaUrls] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [laneInsights, setLaneInsights] = useState<string[]>([])
-  const [trends, setTrends] = useState<Trend[]>([])
+  const [laneInsights, setLaneInsights] = useState<string[]>((_cache.laneInsights as string[]) || [])
+  const [trends, setTrends] = useState<Trend[]>((_cache.trends as Trend[]) || [])
   const [refreshingInsights, setRefreshingInsights] = useState(false)
-  const [trendsSource, setTrendsSource] = useState<{ postsAnalysed?: number; artistsIncluded?: string[] } | null>(null)
+  const [trendsSource, setTrendsSource] = useState<{ postsAnalysed?: number; artistsIncluded?: string[] } | null>((_cache.trendsSource as any) || null)
   const [connectedSocials, setConnectedSocials] = useState<string[]>([]) // platform ids with direct connection
   const [publishing, setPublishing] = useState(false)
 
@@ -217,18 +253,28 @@ export function BroadcastLab() {
 
   async function saveArtist(artist: ArtistProfile) {
     await supabase.from('artist_profiles').upsert(artist, { onConflict: 'name' })
+    // New artist data — invalidate trend/caption cache so it regenerates fresh
+    localStorage.removeItem(SL_CACHE_KEY)
   }
 
   async function removeArtistFromDb(name: string) {
     await supabase.from('artist_profiles').delete().eq('name', name)
+    // Artist removed — invalidate trend/caption cache so it regenerates fresh
+    localStorage.removeItem(SL_CACHE_KEY)
   }
 
   useEffect(() => {
     loadArtists()
-    loadTrends().then(loaded => {
-      if (loaded.length > 0) setTimeout(() => loadTrendCaptions(loaded), 800)
-    })
-    setTimeout(() => generateCaptions(), 1200)
+    // Only hit Claude if cache is cold — avoids token spend on every navigation
+    const cache = readCache()
+    if (!cache.trends || (cache.trends as Trend[]).length === 0) {
+      loadTrends().then(loaded => {
+        if (loaded.length > 0) setTimeout(() => loadTrendCaptions(loaded), 800)
+      })
+    }
+    if (!cache.captions) {
+      setTimeout(() => generateCaptions(), 1200)
+    }
   }, [])
 
   useEffect(() => {
@@ -306,6 +352,7 @@ export function BroadcastLab() {
       if (data.source === 'real_data' && Array.isArray(data.trends) && data.trends.length > 0) {
         setTrends(data.trends)
         setTrendsSource({ postsAnalysed: data.postsAnalysed, artistsIncluded: data.artistsIncluded })
+        writeCache({ trends: data.trends, trendsSource: { postsAnalysed: data.postsAnalysed, artistsIncluded: data.artistsIncluded } })
         return data.trends
       }
       // No real data yet — trends stay empty, UI will prompt to scan artists
@@ -333,6 +380,7 @@ export function BroadcastLab() {
       const map: Record<number, string> = {}
       trendList.forEach((t, i) => { if (caps[i]) map[t.id] = `"${caps[i]}"` })
       setTrendCaptions(map)
+      writeCache({ trendCaptions: map })
     } catch {
       const fallback: Record<number, string> = {}
       trendList.forEach(t => { fallback[t.id] = 'caption loads with your profile' })
@@ -371,6 +419,7 @@ Respond ONLY with valid JSON, no markdown.`,
       )
       const d = JSON.parse(raw.replace(/\`\`\`json|\`\`\`/g, '').trim())
       setCaptions(d)
+      writeCache({ captions: d })
     } catch (err: any) {
       setCaptionError(`Generation failed: ${err.message}`)
       showToast('Caption generation failed', 'Error')
@@ -472,33 +521,99 @@ Respond ONLY with valid JSON, no markdown.`,
         .filter(a => a.style_rules)
         .map(a => `${a.name}: ${a.style_rules}`)
         .join('\n\n')
+
+      // Pull in gigs + releases happening this week or next 30 days for context
+      const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }))
+      const in30 = new Date(nowLondon); in30.setDate(nowLondon.getDate() + 30)
+
+      const [gigsRes, releasesRes] = await Promise.allSettled([
+        fetch('/api/gigs').then(r => r.json()),
+        fetch('/api/releases').then(r => r.json()),
+      ])
+      const upcomingGigs = (gigsRes.status === 'fulfilled' ? gigsRes.value.gigs || [] : [])
+        .filter((g: { date: string; status: string; title: string; venue: string; location: string }) => {
+          const d = new Date(g.date)
+          return d >= nowLondon && d <= in30 && g.status !== 'cancelled'
+        })
+        .map((g: { date: string; title: string; venue: string; location: string }) =>
+          `${new Date(g.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}: playing ${g.venue}, ${g.location} (${g.title})`
+        )
+      const upcomingReleases = (releasesRes.status === 'fulfilled' ? releasesRes.value.releases || [] : [])
+        .filter((r: { release_date: string }) => {
+          const d = new Date(r.release_date)
+          return d >= nowLondon && d <= in30
+        })
+        .map((r: { release_date: string; title: string; type: string; label: string }) =>
+          `${new Date(r.release_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}: "${r.title}" ${r.type} out${r.label ? ` on ${r.label}` : ''}`
+        )
+
+      const calendarContext = [...upcomingGigs, ...upcomingReleases].join('\n')
+
       const raw = await callClaude(
         'You are a social media strategist for electronic music artists. Respond ONLY with a valid JSON array, no markdown.',
         `Generate a 5-post week for Night Manoeuvres, an Australian electronic music artist.
 
 Voice references:
 ${profilesText || artists.map(a => a.name).join(', ')}
-
+${calendarContext ? `\nCalendar this week / next 30 days:\n${calendarContext}\n\nWeave these naturally into the week — don't announce them directly, treat them as context the captions can feel around (anticipation before a show, reflection after, quiet excitement before a release). Not every post needs to reference them.` : ''}
 Rules: all lowercase, no hashtags (Instagram/X), no exclamation marks, no emojis, never explain the photo, feels like a private thought not a caption. Vary the emotional register across the week.
 
 Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"day":"Tue","platform":"Instagram","caption":"..."},{"day":"Wed","platform":"TikTok","caption":"..."},{"day":"Thu","platform":"Instagram","caption":"..."},{"day":"Fri","platform":"Instagram","caption":"..."}]`,
-        800
+        900
       )
 
       const posts: { day: string; platform: string; caption: string }[] = JSON.parse(raw.replace(/```json|```/g, '').trim())
+      setWeekPreview(posts)
+      showToast('Week ready — review before saving', 'Signal Lab')
+    } catch (err: any) {
+      showToast(`Failed: ${err.message}`, 'Error')
+    } finally {
+      setGeneratingWeek(false)
+    }
+  }
 
-      // Map day names to dates for the coming Mon–Fri
-      const today = new Date()
-      const dayOfWeek = today.getDay() // 0=Sun
+  async function regenSinglePost(idx: number) {
+    if (!weekPreview) return
+    setRegenIdx(idx)
+    const post = weekPreview[idx]
+    const profilesText = artists.filter(a => a.style_rules).map(a => `${a.name}: ${a.style_rules}`).join('\n\n')
+    try {
+      const raw = await callClaude(
+        'You are a social media strategist for electronic music artists. Respond ONLY with the caption text, no JSON, no explanation.',
+        `Write one ${post.platform} caption for ${post.day} for Night Manoeuvres.
+
+Voice references:
+${profilesText || artists.map(a => a.name).join(', ')}
+
+Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explain the photo, feels like a private thought not a caption.`,
+        300
+      )
+      const updated = [...weekPreview]
+      updated[idx] = { ...post, caption: raw.trim() }
+      setWeekPreview(updated)
+    } catch (err: any) {
+      showToast(`Failed to regenerate: ${err.message}`, 'Error')
+    } finally {
+      setRegenIdx(null)
+    }
+  }
+
+  async function saveWeekToCalendar() {
+    if (!weekPreview) return
+    setSavingWeek(true)
+    try {
+      const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }))
+      const dayOfWeek = nowLondon.getDay()
       const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7 || 7
-      const monday = new Date(today)
-      monday.setDate(today.getDate() + daysUntilMonday)
+      const monday = new Date(nowLondon)
+      monday.setDate(nowLondon.getDate() + daysUntilMonday)
       monday.setHours(12, 0, 0, 0)
       const dayOffset: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }
 
       let saved = 0
-      for (const post of posts) {
-        const offset = dayOffset[post.day] ?? saved
+      for (let i = 0; i < weekPreview.length; i++) {
+        const post = weekPreview[i]
+        const offset = dayOffset[post.day] ?? i
         const date = new Date(monday)
         date.setDate(monday.getDate() + offset)
         const res = await fetch('/api/schedule', {
@@ -514,12 +629,12 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
         })
         if (res.ok) saved++
       }
-
-      showToast(`${saved} posts scheduled for the week. Review in Calendar →`, 'Done')
+      setWeekPreview(null)
+      showToast(`${saved} posts saved to calendar`, 'Done')
     } catch (err: any) {
       showToast(`Failed: ${err.message}`, 'Error')
     } finally {
-      setGeneratingWeek(false)
+      setSavingWeek(false)
     }
   }
 
@@ -556,6 +671,62 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
       } />
 
       <div className="flex flex-col gap-7 p-8">
+
+      {/* WEEK PREVIEW — shown after generation, before saving */}
+      {weekPreview && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+              Week preview
+              <div className="h-px w-16 bg-white/10" />
+              <span className="text-[#8a8780]">Review and adjust before saving</span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setWeekPreview(null)}
+                className="text-[10px] tracking-[.14em] uppercase px-4 py-2 border border-white/13 text-[#8a8780] hover:border-white/20 transition-colors">
+                Discard
+              </button>
+              <button onClick={saveWeekToCalendar} disabled={savingWeek}
+                className="text-[10px] tracking-[.14em] uppercase px-5 py-2 bg-[#b08d57] text-[#070706] hover:bg-[#c9a46e] transition-colors disabled:opacity-50">
+                {savingWeek ? 'Saving…' : 'Save all to calendar →'}
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            {weekPreview.map((post, idx) => (
+              <div key={idx} className="bg-[#0e0d0b] border border-white/7 p-4 flex gap-4 items-start hover:border-white/13 transition-colors">
+                <div className="flex-shrink-0 text-center" style={{ minWidth: '48px' }}>
+                  <div className="text-[10px] tracking-[.2em] uppercase text-[#b08d57]">{post.day}</div>
+                  <div className="text-[9px] tracking-[.1em] text-[#52504c] mt-0.5">{post.platform}</div>
+                </div>
+                <textarea
+                  value={post.caption}
+                  onChange={e => {
+                    const updated = [...weekPreview]
+                    updated[idx] = { ...post, caption: e.target.value }
+                    setWeekPreview(updated)
+                  }}
+                  rows={3}
+                  className="flex-1 bg-transparent text-[13px] text-[#f0ebe2] leading-relaxed resize-none outline-none border-none"
+                  style={{ fontFamily: "'DM Mono', monospace" }}
+                />
+                <div className="flex flex-col gap-1.5 flex-shrink-0 mt-0.5">
+                  <button onClick={() => regenSinglePost(idx)} disabled={regenIdx === idx}
+                    title="Regenerate this post"
+                    className="text-[10px] tracking-[.12em] uppercase text-[#8a8780] border border-white/10 px-3 py-1.5 hover:border-white/20 hover:text-[#f0ebe2] transition-colors disabled:opacity-40">
+                    {regenIdx === idx ? '…' : '↺'}
+                  </button>
+                  <button onClick={() => navigator.clipboard.writeText(post.caption).then(() => showToast('Copied', 'Done'))}
+                    title="Copy to clipboard"
+                    className="text-[10px] tracking-[.12em] uppercase text-[#8a8780] border border-white/10 px-3 py-1.5 hover:border-white/20 hover:text-[#f0ebe2] transition-colors">
+                    Copy
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* REFERENCE ARTISTS */}
       <div>
@@ -733,9 +904,14 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
                 <div className="text-[11px] tracking-[.06em] mb-2 leading-snug">{trend.name}</div>
                 <div className="text-[10px] text-[#8a8780] leading-relaxed mb-3 italic min-h-[32px]">{trend.context}</div>
                 {trend.evidence && (
-                  <div className="text-[10px] text-[#3d6b4a] mb-3 flex items-start gap-1">
+                  <div className="text-[10px] text-[#3d6b4a] mb-2 flex items-start gap-1">
                     <div className="w-1 h-1 rounded-full bg-[#3d6b4a] mt-1 flex-shrink-0" />
                     {trend.evidence}
+                  </div>
+                )}
+                {trend.posts_supporting != null && trendsSource?.postsAnalysed && (
+                  <div className="text-[9px] tracking-[.08em] text-[#3a3830] mb-3">
+                    Based on {trend.posts_supporting} of {trendsSource.postsAnalysed} posts
                   </div>
                 )}
                 <div className="flex items-center gap-2 mb-3">
@@ -743,6 +919,16 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
                   <div className="flex-1 h-px bg-white/10 relative"><div className="absolute top-0 left-0 h-px bg-[#b08d57]" style={{width:`${trend.fit}%`}} /></div>
                   <span className="text-[10px] text-[#b08d57]">{trend.fit}%</span>
                 </div>
+                {trendCaptions[trend.id] && (
+                  <div className="mb-3 pt-3 border-t border-white/7">
+                    <div className="text-[9px] tracking-[.14em] uppercase text-[#52504c] mb-1.5">Suggested caption</div>
+                    <div className="text-[11px] text-[#8a8780] leading-relaxed italic">{trendCaptions[trend.id]}</div>
+                    <button onClick={() => navigator.clipboard.writeText(trendCaptions[trend.id]).then(() => showToast('Caption copied', 'Done'))}
+                      className="mt-2 text-[9px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#8a8780] transition-colors">
+                      Copy →
+                    </button>
+                  </div>
+                )}
                 <button onClick={() => useTrend(trend.context)} className="w-full text-[10px] tracking-[.15em] uppercase border border-white/13 text-[#8a8780] py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Use this trend →</button>
               </div>
             ))}
