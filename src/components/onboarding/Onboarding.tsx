@@ -85,7 +85,6 @@ export default function Onboarding() {
 
   // Step 2 — VAT
   const [vatRegistered, setVatRegistered] = useState(false)
-  const [vatNumber, setVatNumber] = useState('')
 
   const s = {
     bg: '#070706', panel: '#0e0d0b', border: '#1a1917',
@@ -191,7 +190,6 @@ export default function Onboarding() {
       label: label || null,
       bankAccounts: bankAccounts.length > 0 ? bankAccounts : null,
       vatRegistered,
-      vatNumber: vatRegistered ? vatNumber : null,
     })
     router.push('/dashboard')
   }
@@ -628,17 +626,6 @@ export default function Onboarding() {
                   }} />
                 </button>
               </div>
-              {vatRegistered && (
-                <div style={{ marginTop: '14px' }}>
-                  <input
-                    value={vatNumber}
-                    onChange={e => setVatNumber(e.target.value)}
-                    placeholder="VAT number"
-                    style={input}
-                    autoFocus
-                  />
-                </div>
-              )}
             </div>
 
             <button
