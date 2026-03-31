@@ -192,7 +192,7 @@ export default function WrapPage() {
           {(stats?.cities || 0) > 1 ? (
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '28px 0', borderBottom: `1px solid ${s.border}` }}>
               <div style={{ fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: s.dim }}>Cities</div>
-              <div style={{ fontSize: 'clamp(40px, 7vw, 64px)', fontFamily: "'Unbounded', sans-serif", fontWeight: 300, color: s.text, lineHeight: 1 }}>{stats.cities}</div>
+              <div style={{ fontSize: 'clamp(40px, 7vw, 64px)', fontFamily: "'Unbounded', sans-serif", fontWeight: 300, color: s.text, lineHeight: 1 }}>{stats?.cities}</div>
             </div>
           ) : null}
 

@@ -12,6 +12,7 @@ export interface CampaignPost {
   platform: string
   caption: string
   rationale: string
+  dm_reply?: string
 }
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
