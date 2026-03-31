@@ -83,6 +83,10 @@ export default function Onboarding() {
   const [adding, setAdding] = useState<AddingAccount | null>(null)
   const bankFileRef = useRef<HTMLInputElement>(null)
 
+  // Step 2 — VAT
+  const [vatRegistered, setVatRegistered] = useState(false)
+  const [vatNumber, setVatNumber] = useState('')
+
   const s = {
     bg: '#070706', panel: '#0e0d0b', border: '#1a1917',
     gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c',
@@ -186,6 +190,8 @@ export default function Onboarding() {
       booking: bookingName ? { name: bookingName, email: bookingEmail } : null,
       label: label || null,
       bankAccounts: bankAccounts.length > 0 ? bankAccounts : null,
+      vatRegistered,
+      vatNumber: vatRegistered ? vatNumber : null,
     })
     router.push('/dashboard')
   }
@@ -595,6 +601,43 @@ export default function Onboarding() {
                 >
                   + Add payment account
                 </button>
+              )}
+            </div>
+
+            {/* VAT */}
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '28px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '4px' }}>VAT registered</div>
+                  <div style={{ fontSize: '11px', color: s.dimmer }}>Affects how expenses are tracked and invoices totalled</div>
+                </div>
+                <button
+                  onClick={() => setVatRegistered(v => !v)}
+                  style={{
+                    width: '44px', height: '24px', borderRadius: '12px', border: 'none',
+                    background: vatRegistered ? s.gold : '#2a2926',
+                    cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: '3px',
+                    left: vatRegistered ? '23px' : '3px',
+                    width: '18px', height: '18px', borderRadius: '50%',
+                    background: vatRegistered ? '#070706' : s.dimmer,
+                    transition: 'left 0.2s',
+                  }} />
+                </button>
+              </div>
+              {vatRegistered && (
+                <div style={{ marginTop: '14px' }}>
+                  <input
+                    value={vatNumber}
+                    onChange={e => setVatNumber(e.target.value)}
+                    placeholder="VAT number"
+                    style={input}
+                    autoFocus
+                  />
+                </div>
               )}
             </div>
 
