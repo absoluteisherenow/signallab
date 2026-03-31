@@ -80,22 +80,24 @@ export function Navigation() {
           <div>
             <div style={{
               fontFamily: "'Unbounded', sans-serif",
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: 200,
               letterSpacing: '0.04em',
               color: '#f0ebe2',
               lineHeight: 1.3,
+              whiteSpace: 'nowrap',
             }}>
-              Signal Lab
+              Signal Lab <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 300, letterSpacing: '0.08em', color: '#52504c' }}>OS</span>
             </div>
             <div style={{
               fontFamily: "'DM Mono', monospace",
-              fontSize: 9,
+              fontSize: 8,
               fontWeight: 300,
-              letterSpacing: '0.08em',
-              color: '#52504c',
+              letterSpacing: '0.12em',
+              color: '#3a3835',
+              marginTop: 2,
             }}>
-              OS
+              Tailored Artist OS
             </div>
           </div>
         </Link>

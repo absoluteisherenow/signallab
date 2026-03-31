@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Signal Lab OS — Favicon (simplified for small sizes) -->
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#0e0d0b"/>
+  <polyline points="12,32 20,32 25,19 31,45 37,15 43,41 48,27 52,32"
+    stroke="#b08d57" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

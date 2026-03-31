@@ -87,7 +87,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Courier New', monospace; background: #fff; color: #111; padding: 60px; max-width: 760px; margin: 0 auto; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 56px; border-bottom: 2px solid #111; padding-bottom: 24px; }
+  .header { display: grid; grid-template-columns: 1fr auto; gap: 40px; margin-bottom: 56px; border-bottom: 2px solid #111; padding-bottom: 24px; align-items: flex-start; }
   .artist-name { font-size: 22px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
   .artist-meta { font-size: 11px; color: #555; margin-top: 6px; line-height: 1.6; }
   .invoice-label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: #888; margin-bottom: 6px; }
@@ -115,12 +115,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 <body>
 
 <div class="header">
-  <div>
-    <div class="artist-name">${artistName}</div>
-    ${address ? `<div class="artist-meta">${address}</div>` : ''}
-    ${vatNumber ? `<div class="artist-meta" style="margin-top:4px">${isAUD ? 'ABN' : 'VAT / Tax'}: ${vatNumber}</div>` : ''}
+  <div style="display:flex;align-items:flex-start;gap:14px">
+    <svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;margin-top:1px">
+      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#111" stroke-width="1.5" opacity="0.2"/>
+      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#111" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <div>
+      <div class="artist-name">${artistName}</div>
+      ${address ? `<div class="artist-meta">${address}</div>` : ''}
+      ${vatNumber ? `<div class="artist-meta" style="margin-top:4px">${isAUD ? 'ABN' : 'VAT / Tax'}: ${vatNumber}</div>` : ''}
+    </div>
   </div>
-  <div style="text-align:right">
+  <div>
     <div class="invoice-label">${invoiceHeading}</div>
     <div class="invoice-number">${invoiceNumber}</div>
     <div class="invoice-date">Issued: ${issueDate}</div>
@@ -129,12 +135,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;gap:40px">
   <div class="to-section" style="margin-bottom:0;flex:1">
+    ${promoterName ? `
     <div class="label">Billed to</div>
-    <div class="value" style="font-size:${promoterName ? '15px' : '13px'};color:${promoterName ? '#111' : '#aaa'}">${promoterName || 'Promoter / client details not provided'}</div>
-    ${promoterEmail ? `<div style="font-size:12px;color:#555;margin-top:4px">${promoterEmail}</div>` : ''}
+    <div style="font-size:13px;color:#111;line-height:1.8;font-family:'Courier New',monospace">${promoterName.replace(/\n/g, '<br>')}</div>
+    ${promoterEmail ? `<div style="font-size:11px;color:#555;margin-top:6px">${promoterEmail}</div>` : ''}
+    ` : ''}
   </div>
   <div class="to-section" style="margin-bottom:0;flex:1;text-align:right">
-    <div class="label">Services rendered</div>
+    <div class="label">Performance</div>
     <div class="value">${invoice.gig_title}</div>
     ${gigVenue ? `<div style="font-size:12px;color:#555;margin-top:4px">${gigVenue}</div>` : ''}
     ${gigDate ? `<div style="font-size:11px;color:#888;margin-top:4px">${new Date(gigDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>` : ''}

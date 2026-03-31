@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INV-ABC123 — Fabric Booking</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; background: #f5f5f5; color: #111; padding: 40px; }
+  .invoice { background: #fff; max-width: 760px; margin: 0 auto; padding: 60px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 56px; border-bottom: 2px solid #111; padding-bottom: 24px; }
+  .artist-section { display: flex; align-items: flex-start; gap: 16px; }
+  .logo { width: 40px; height: 40px; flex-shrink: 0; margin-top: 2px; }
+  .artist-name { font-size: 22px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+  .artist-meta { font-size: 11px; color: #555; margin-top: 6px; line-height: 1.6; }
+  .invoice-label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: #888; margin-bottom: 6px; }
+  .invoice-number { font-size: 20px; font-weight: 700; }
+  .invoice-date { font-size: 11px; color: #555; margin-top: 6px; }
+  .section { margin-bottom: 36px; }
+  .section-title { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #888; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5; }
+  .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .row span:first-child { color: #555; }
+  .row span:last-child { font-weight: 600; }
+  .amount-block { background: #111; color: #fff; padding: 32px 36px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: center; }
+  .amount-label { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 8px; }
+  .amount-value { font-size: 36px; font-weight: 700; letter-spacing: 0.02em; }
+  .footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 11px; color: #888; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="invoice">
+
+  <!-- Header with logo -->
+  <div class="header">
+    <div class="artist-section">
+      <svg class="logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#111" stroke-width="1.5" opacity="0.2"/>
+        <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#111" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <div>
+        <div class="artist-name">Night Manoeuvres</div>
+        <div class="artist-meta">14 Black Horse Lane<br>London, E1 6AD</div>
+        <div class="artist-meta" style="margin-top:4px">VAT / Tax: GB123456789</div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="invoice-label">Invoice</div>
+      <div class="invoice-number">INV-ABC123</div>
+      <div class="invoice-date">Issued: 31 March 2026</div>
+    </div>
+  </div>
+
+  <!-- Bill To -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;gap:40px">
+    <div>
+      <div class="section-title">Bill to</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:4px">Fabric London</div>
+      <div style="font-size:13px;color:#555">Tulip House<br>77 Curtain Road<br>London, EC2A 3BS<br>United Kingdom</div>
+    </div>
+    <div style="text-align:right">
+      <div class="section-title">Event details</div>
+      <div style="font-size:13px;line-height:1.8">
+        <div><strong>Date:</strong> 5 April 2026</div>
+        <div><strong>Venue:</strong> The Fabric Club</div>
+        <div><strong>Event:</strong> Spring Residency Night</div>
+        <div><strong>Duration:</strong> 4 hours</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Amount Block -->
+  <div class="amount-block">
+    <div>
+      <div class="amount-label">Total fee</div>
+      <div class="amount-value">£1,500</div>
+    </div>
+    <div style="text-align:right">
+      <div class="amount-label">Due date</div>
+      <div style="font-size:16px;color:#fff">30 April 2026</div>
+    </div>
+  </div>
+
+  <!-- Invoice Details -->
+  <div class="section">
+    <div class="section-title">Invoice line items</div>
+    <div class="row" style="font-weight:600;padding:12px 0;border-bottom:2px solid #111">
+      <span>Description</span>
+      <span style="text-align:right">Amount</span>
+    </div>
+    <div class="row">
+      <span>DJ performance — Spring Residency</span>
+      <span>£1,500.00</span>
+    </div>
+  </div>
+
+  <!-- Payment Details -->
+  <div class="section">
+    <div class="section-title">Payment details</div>
+    <div class="row"><span>Currency</span><span>GBP</span></div>
+    <div class="row"><span>Account name</span><span>Night Manoeuvres Ltd</span></div>
+    <div class="row"><span>Bank</span><span>HSBC Bank UK plc</span></div>
+    <div class="row"><span>Sort code</span><span>40-02-14</span></div>
+    <div class="row"><span>Account number</span><span>01234567</span></div>
+    <div class="row"><span>IBAN</span><span>GB52HBUK40021401234567</span></div>
+    <div class="row" style="border-bottom:none"><span>SWIFT / BIC</span><span>HBUKGB4145X</span></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p style="margin-bottom:8px">Signal Lab OS — Tailored Artist OS</p>
+    <p>This invoice was generated by Signal Lab OS. Payment is due within 30 days of the invoice date.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

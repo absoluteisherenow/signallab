@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Lab OS — Dashboard Concept</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@100;200;300;400;500&family=DM+Mono:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #020202;
+    --panel: #0a0a09;
+    --border: rgba(255,255,255,0.06);
+    --border-bright: rgba(255,255,255,0.10);
+    --gold: #b08d57;
+    --gold-bright: #c9a96e;
+    --text: #f0ebe2;
+    --text-dim: #8a8780;
+    --text-dimmer: #52504c;
+    --text-ghost: rgba(234,229,220,0.14);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* === SIDEBAR === */
+  .sidebar {
+    width: 200px;
+    min-width: 200px;
+    background: #080808;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-brand {
+    padding: 20px 20px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .sidebar-brand .brand-text {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 12px;
+    font-weight: 200;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .sidebar-brand .brand-os {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    color: var(--text-dimmer);
+  }
+
+  .nav-item {
+    display: block;
+    padding: 10px 28px;
+    font-size: 12.5px;
+    font-weight: 400;
+    color: rgba(234,229,220,0.45);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: color 0.12s;
+  }
+  .nav-item:hover { color: var(--text); }
+  .nav-item.active {
+    color: var(--gold-bright);
+    font-weight: 500;
+    border-left-color: var(--gold-bright);
+    background: rgba(201,169,110,0.08);
+  }
+  .nav-divider { height: 1px; background: var(--border); margin: 8px 28px; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    padding: 12px 20px;
+  }
+  .sidebar-footer-text {
+    font-size: 9px;
+    color: var(--text-ghost);
+    letter-spacing: 0.1em;
+  }
+
+  /* === MAIN === */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 100vh;
+  }
+
+  /* Top bar */
+  .topbar {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .topbar-title {
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+  }
+
+  /* Page content */
+  .page { padding: 40px; }
+
+  .breadcrumb {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .page-title {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 200;
+    font-size: 48px;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+
+  .page-subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    max-width: 500px;
+    margin-bottom: 40px;
+  }
+
+  /* Actions row */
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 40px;
+  }
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    border: 1px solid var(--border-bright);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--gold); color: var(--gold); }
+  .btn.primary {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  .stat {
+    padding: 28px 32px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+  .stat-value {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 100;
+    font-size: 42px;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+  }
+
+  /* Signal bar / command input */
+  .signal-bar {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border);
+    padding: 14px 20px;
+    margin-bottom: 40px;
+    gap: 12px;
+  }
+  .signal-bar-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .signal-bar-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+  }
+
+  /* Week section */
+  .section-header {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .week-items {
+    margin-bottom: 40px;
+  }
+  .week-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .week-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-dimmer);
+    flex-shrink: 0;
+  }
+  .week-action {
+    margin-left: auto;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.12s;
+  }
+  .week-action:hover { color: var(--gold); }
+
+  /* Module grid */
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  .module-card {
+    padding: 24px 28px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+  .module-card:hover { background: rgba(255,255,255,0.02); }
+  .module-card:nth-child(2n) { border-right: none; }
+  .module-card:nth-last-child(-n+2) { border-bottom: none; }
+  .module-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .module-arrow {
+    font-size: 11px;
+    color: var(--text-dimmer);
+  }
+
+  /* Calendar strip */
+  .calendar-strip {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border: 1px solid var(--border);
+  }
+  .cal-day {
+    padding: 16px 12px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .cal-day:last-child { border-right: none; }
+  .cal-day:hover { background: rgba(255,255,255,0.02); }
+  .cal-day.today { background: rgba(201,169,110,0.08); }
+  .cal-day-name {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .cal-day-num {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 200;
+    font-size: 20px;
+    color: var(--text);
+  }
+  .cal-day.today .cal-day-num { color: var(--gold-bright); }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <a href="#" class="sidebar-brand">
+    <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.25"/>
+      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32"
+        stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <div>
+      <div class="brand-text">Signal Lab</div>
+      <div class="brand-os">OS</div>
+    </div>
+  </a>
+
+  <div style="flex:1;padding:12px 0;">
+    <a href="#" class="nav-item active">Dashboard</a>
+    <div class="nav-divider"></div>
+    <a href="#" class="nav-item">Broadcast Lab</a>
+    <a href="#" class="nav-item">Set Lab</a>
+    <a href="#" class="nav-item">SONIX Lab</a>
+    <a href="#" class="nav-item">Tour Lab</a>
+    <a href="#" class="nav-item">Drop Lab</a>
+  </div>
+
+  <div class="sidebar-footer">
+    <a href="#" class="nav-item" style="padding-left:0;">Settings</a>
+    <div class="sidebar-footer-text">signallabos.com</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- Top bar -->
+  <div class="topbar" style="display:flex;align-items:center;gap:12px;justify-content:center;">
+    <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.25"/>
+      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32"
+        stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <span class="topbar-title">Signal Lab OS</span>
+  </div>
+
+  <!-- Page -->
+  <div class="page">
+    <div class="breadcrumb">Tuesday 31 March</div>
+    <h1 class="page-title">Good evening.</h1>
+    <p class="page-subtitle">Your week at a glance. No upcoming shows, no pending posts.</p>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn">+ New Post</button>
+      <button class="btn primary">+ New Gig</button>
+      <button class="btn">+ New Release</button>
+    </div>
+
+    <!-- Signal bar -->
+    <div class="signal-bar">
+      <span class="signal-bar-label">Signal</span>
+      <input class="signal-bar-input" placeholder='"mark southwave paid" · "add invoice Fabric £1500" · "Hoopla due 18 April"' readonly />
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-value">0</div>
+        <div class="stat-label">Gigs</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">0</div>
+        <div class="stat-label">Posts Live</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">&mdash;</div>
+        <div class="stat-label">Revenue</div>
+      </div>
+    </div>
+
+    <!-- Your Week -->
+    <div class="section-header">Your Week</div>
+    <div class="week-items">
+      <div class="week-item">
+        <span class="week-dot"></span>
+        No upcoming shows in the next 14 days
+        <span class="week-action">Add a gig &rarr;</span>
+      </div>
+      <div class="week-item">
+        <span class="week-dot"></span>
+        No posts scheduled this week
+        <span class="week-action">Plan content &rarr;</span>
+      </div>
+    </div>
+
+    <!-- Module grid -->
+    <div class="section-header">Labs</div>
+    <div class="module-grid">
+      <div class="module-card">
+        <span class="module-name">Drop Lab</span>
+        <span class="module-arrow">&rarr;</span>
+      </div>
+      <div class="module-card">
+        <span class="module-name">Broadcast Lab</span>
+        <span class="module-arrow">&rarr;</span>
+      </div>
+      <div class="module-card">
+        <span class="module-name">Set Lab</span>
+        <span class="module-arrow">&rarr;</span>
+      </div>
+      <div class="module-card">
+        <span class="module-name">SONIX Lab</span>
+        <span class="module-arrow">&rarr;</span>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="calendar-strip">
+      <div class="cal-day">
+        <div class="cal-day-name">Mon</div>
+        <div class="cal-day-num">30</div>
+      </div>
+      <div class="cal-day today">
+        <div class="cal-day-name">Tue</div>
+        <div class="cal-day-num">31</div>
+      </div>
+      <div class="cal-day">
+        <div class="cal-day-name">Wed</div>
+        <div class="cal-day-num">1</div>
+      </div>
+      <div class="cal-day">
+        <div class="cal-day-name">Thu</div>
+        <div class="cal-day-num">2</div>
+      </div>
+      <div class="cal-day">
+        <div class="cal-day-name">Fri</div>
+        <div class="cal-day-num">3</div>
+      </div>
+      <div class="cal-day">
+        <div class="cal-day-name">Sat</div>
+        <div class="cal-day-num">4</div>
+      </div>
+      <div class="cal-day">
+        <div class="cal-day-name">Sun</div>
+        <div class="cal-day-num">5</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

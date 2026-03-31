@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 48" fill="none">
+  <!-- Signal Lab OS — Full Logo Lockup (icon + wordmark) -->
+  <!-- Icon -->
+  <rect x="4" y="4" width="40" height="40" rx="10" fill="none" stroke="#b08d57" stroke-width="1.2" opacity="0.25"/>
+  <polyline points="10,24 16,24 19,15 23,33 27,11 31,31 34,21 37,24 40,24"
+    stroke="#b08d57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Wordmark — Signal Lab -->
+  <text x="56" y="30" font-family="Unbounded, sans-serif" font-weight="200" font-size="22" fill="#f0ebe2" letter-spacing="1">Signal Lab</text>
+  <!-- OS suffix -->
+  <text x="248" y="30" font-family="DM Mono, monospace" font-weight="300" font-size="14" fill="#52504c" letter-spacing="2">OS</text>
+</svg>

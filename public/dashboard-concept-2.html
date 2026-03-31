@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Lab OS — Dashboard Concept 2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@100;200;300;400;500&family=DM+Mono:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #050504;
+    --surface: #0a0a09;
+    --surface-raised: #0f0e0c;
+    --border: rgba(255,255,255,0.04);
+    --border-hover: rgba(255,255,255,0.08);
+    --gold: #b08d57;
+    --gold-dim: rgba(176,141,87,0.15);
+    --gold-bright: #c9a96e;
+    --text: #eae5dc;
+    --text-dim: #6a6660;
+    --text-dimmer: #3a3835;
+    --green: #3d6b4a;
+    --blue: #6a7a9a;
+    --red: #9a6a5a;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* === SIDEBAR — thinner, more refined === */
+  .sidebar {
+    width: 180px;
+    min-width: 180px;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-brand {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .brand-text {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 11px;
+    font-weight: 200;
+    letter-spacing: 0.05em;
+    color: var(--text);
+    line-height: 1.4;
+  }
+  .brand-os {
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: var(--text-dimmer);
+    margin-top: 1px;
+  }
+
+  .nav-section { padding: 16px 0; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: all 0.12s;
+    letter-spacing: 0.01em;
+  }
+  .nav-item:hover { color: var(--text); }
+  .nav-item.active {
+    color: var(--gold-bright);
+    background: var(--gold-dim);
+  }
+  .nav-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .sidebar-version {
+    font-size: 8px;
+    color: var(--text-dimmer);
+    letter-spacing: 0.15em;
+  }
+
+  /* === MAIN === */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 100vh;
+    background: var(--bg);
+  }
+
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 48px 80px;
+  }
+
+  /* Date + greeting */
+  .greeting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 48px;
+  }
+  .date-label {
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .greeting {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 100;
+    font-size: 52px;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    line-height: 1.05;
+  }
+  .greeting-accent {
+    color: var(--gold);
+    font-weight: 200;
+  }
+
+  /* Quick actions — floating pills */
+  .quick-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 40px;
+  }
+  .pill {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .pill:hover { border-color: var(--border-hover); color: var(--text); }
+  .pill.gold { border-color: var(--gold); color: var(--gold); }
+  .pill.gold:hover { background: var(--gold-dim); }
+
+  /* Signal bar — cleaner, more ambient */
+  .signal-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border-radius: 8px;
+    margin-bottom: 48px;
+  }
+  .signal-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    opacity: 0.5;
+  }
+  .signal-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+  }
+  .signal-shortcut {
+    font-size: 9px;
+    color: var(--text-dimmer);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+
+  /* Metrics — large type, no borders */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    margin-bottom: 48px;
+  }
+  .metric {
+    padding: 0 24px 0 0;
+  }
+  .metric:first-child { padding-left: 0; }
+  .metric + .metric { border-left: 1px solid var(--border); padding-left: 24px; }
+  .metric-value {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 100;
+    font-size: 48px;
+    color: var(--text);
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .metric-label {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+  }
+  .metric-sub {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* Section headers */
+  .section-label {
+    font-size: 8px;
+    letter-spacing: 0.3em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* Week — floating cards */
+  .week-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 48px;
+  }
+  .week-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border-radius: 8px;
+    transition: background 0.12s;
+    cursor: pointer;
+  }
+  .week-card:hover { background: var(--surface-raised); }
+  .week-card-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dimmer);
+    flex-shrink: 0;
+  }
+  .week-card-text {
+    font-size: 13px;
+    color: var(--text-dim);
+    flex: 1;
+  }
+  .week-card-action {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    transition: color 0.12s;
+  }
+  .week-card:hover .week-card-action { color: var(--gold); }
+
+  /* Labs — floating cards with colour accents */
+  .labs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    margin-bottom: 48px;
+  }
+  .lab-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px;
+    background: var(--surface);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .lab-card:hover { background: var(--surface-raised); }
+  .lab-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .lab-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    flex: 1;
+  }
+  .lab-desc {
+    font-size: 10px;
+    color: var(--text-dimmer);
+  }
+  .lab-arrow {
+    font-size: 14px;
+    color: var(--text-dimmer);
+    transition: color 0.12s;
+  }
+  .lab-card:hover .lab-arrow { color: var(--text-dim); }
+
+  /* Calendar — minimal, inline */
+  .cal {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 48px;
+  }
+  .cal-day {
+    flex: 1;
+    padding: 14px 8px;
+    text-align: center;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .cal-day:hover { background: var(--surface); }
+  .cal-day.today { background: var(--surface); }
+  .cal-day-name {
+    font-size: 8px;
+    letter-spacing: 0.15em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .cal-day-num {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 200;
+    font-size: 18px;
+    color: var(--text-dim);
+  }
+  .cal-day.today .cal-day-num { color: var(--gold-bright); }
+  .cal-day.today .cal-day-name { color: var(--gold); }
+
+  /* Ambient glow on hover for the whole page — subtle */
+  .page::before {
+    content: '';
+    position: fixed;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(176,141,87,0.03) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <a href="#" class="sidebar-brand">
+    <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.25"/>
+      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32"
+        stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <div>
+      <div class="brand-text">Signal Lab</div>
+      <div class="brand-os">OS</div>
+    </div>
+  </a>
+
+  <div class="nav-section">
+    <a href="#" class="nav-item active">Dashboard</a>
+    <a href="#" class="nav-item"><span class="nav-dot" style="background:#3d6b4a"></span> Broadcast</a>
+    <a href="#" class="nav-item"><span class="nav-dot" style="background:#9a6a5a"></span> Set Lab</a>
+    <a href="#" class="nav-item"><span class="nav-dot" style="background:#6a7a9a"></span> SONIX</a>
+    <a href="#" class="nav-item"><span class="nav-dot" style="background:#b08d57"></span> Tour Lab</a>
+    <a href="#" class="nav-item"><span class="nav-dot" style="background:#7a5a8a"></span> Drop Lab</a>
+  </div>
+
+  <div class="sidebar-footer">
+    <a href="#" class="nav-item" style="padding-left:0;margin-bottom:8px;">Settings</a>
+    <div class="sidebar-version">v2.4 &middot; signallabos.com</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="page">
+
+    <!-- Logo badge -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;opacity:0.7;">
+      <svg width="20" height="20" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.4"/>
+        <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32"
+          stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-dimmer);">Signal Lab OS</span>
+    </div>
+
+    <!-- Greeting -->
+    <div class="greeting-row">
+      <div>
+        <div class="date-label">Tuesday 31 March</div>
+        <h1 class="greeting">Good evening<span class="greeting-accent">.</span></h1>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="quick-actions">
+      <button class="pill">+ post</button>
+      <button class="pill gold">+ gig</button>
+      <button class="pill">+ release</button>
+      <button class="pill">+ track</button>
+    </div>
+
+    <!-- Signal bar -->
+    <div class="signal-bar">
+      <svg class="signal-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <polyline points="8,32 18,32 24,18 32,46 40,14 48,38 54,26 58,32"
+          stroke="#b08d57" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <input class="signal-input" placeholder='"mark southwave paid" · "add invoice Fabric £1500"' readonly />
+      <span class="signal-shortcut">&#8984;K</span>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-value">0</div>
+        <div class="metric-label">Gigs booked</div>
+        <div class="metric-sub">Q1 2026</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">0</div>
+        <div class="metric-label">Posts live</div>
+        <div class="metric-sub">Nothing posted</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">&mdash;</div>
+        <div class="metric-label">Revenue</div>
+        <div class="metric-sub">No fees logged</div>
+      </div>
+    </div>
+
+    <!-- Your Week -->
+    <div class="section-label">Your Week</div>
+    <div class="week-cards">
+      <div class="week-card">
+        <span class="week-card-dot"></span>
+        <span class="week-card-text">No upcoming shows in the next 14 days</span>
+        <span class="week-card-action">Add a gig &rarr;</span>
+      </div>
+      <div class="week-card">
+        <span class="week-card-dot"></span>
+        <span class="week-card-text">No posts scheduled this week</span>
+        <span class="week-card-action">Plan content &rarr;</span>
+      </div>
+    </div>
+
+    <!-- Labs -->
+    <div class="section-label">Labs</div>
+    <div class="labs-grid">
+      <div class="lab-card">
+        <span class="lab-dot" style="background:#b08d57"></span>
+        <div>
+          <div class="lab-name">Tour Lab</div>
+          <div class="lab-desc">Gigs, contracts, finances</div>
+        </div>
+        <span class="lab-arrow">&rarr;</span>
+      </div>
+      <div class="lab-card">
+        <span class="lab-dot" style="background:#3d6b4a"></span>
+        <div>
+          <div class="lab-name">Broadcast Lab</div>
+          <div class="lab-desc">Content, captions, scheduling</div>
+        </div>
+        <span class="lab-arrow">&rarr;</span>
+      </div>
+      <div class="lab-card">
+        <span class="lab-dot" style="background:#9a6a5a"></span>
+        <div>
+          <div class="lab-name">Set Lab</div>
+          <div class="lab-desc">Track library, set building</div>
+        </div>
+        <span class="lab-arrow">&rarr;</span>
+      </div>
+      <div class="lab-card">
+        <span class="lab-dot" style="background:#6a7a9a"></span>
+        <div>
+          <div class="lab-name">SONIX Lab</div>
+          <div class="lab-desc">Mix chains, production</div>
+        </div>
+        <span class="lab-arrow">&rarr;</span>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="section-label">This Week</div>
+    <div class="cal">
+      <div class="cal-day"><div class="cal-day-name">Mon</div><div class="cal-day-num">30</div></div>
+      <div class="cal-day today"><div class="cal-day-name">Tue</div><div class="cal-day-num">31</div></div>
+      <div class="cal-day"><div class="cal-day-name">Wed</div><div class="cal-day-num">1</div></div>
+      <div class="cal-day"><div class="cal-day-name">Thu</div><div class="cal-day-num">2</div></div>
+      <div class="cal-day"><div class="cal-day-name">Fri</div><div class="cal-day-num">3</div></div>
+      <div class="cal-day"><div class="cal-day-name">Sat</div><div class="cal-day-num">4</div></div>
+      <div class="cal-day"><div class="cal-day-name">Sun</div><div class="cal-day-num">5</div></div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
