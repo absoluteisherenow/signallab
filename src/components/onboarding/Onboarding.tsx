@@ -222,7 +222,7 @@ export default function Onboarding() {
               <span style={{ color: s.gold }}>your OS.</span>
             </div>
             <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.9', marginBottom: '40px' }}>
-              Three quick steps. Everything in the system — content, advances, production — runs from what you tell us here.
+              Three quick steps. Everything in the system — content, advances, invoices — runs from what you tell us here.
             </p>
 
             <div style={{ marginBottom: '32px' }}>
