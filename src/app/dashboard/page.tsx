@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-
 interface Gig {
   id: string
   title: string
@@ -15,7 +13,6 @@ interface Gig {
   time: string
   fee: number
   currency: string
-  audience: number
   status: string
 }
 
@@ -29,7 +26,6 @@ interface DjSet {
   name: string
   venue: string
   slot_type: string
-  created_at: string
 }
 
 interface Invoice {
@@ -47,10 +43,7 @@ interface ScheduledPost {
   caption: string
   scheduled_at: string
   status: string
-  gig_title?: string
 }
-
-// ── WeekStrip ─────────────────────────────────────────────────────────────────
 
 function WeekStrip({ gigs, scheduledPosts }: { gigs: Gig[]; scheduledPosts: ScheduledPost[] }) {
   const [mounted, setMounted] = useState(false)
@@ -76,12 +69,12 @@ function WeekStrip({ gigs, scheduledPosts }: { gigs: Gig[]; scheduledPosts: Sche
         const dayPosts = scheduledPosts.filter(p => p.scheduled_at?.slice(0, 10) === key)
         return (
           <div key={i} style={{
-            padding: '12px 16px 10px',
+            padding: '10px 14px 9px',
             borderRight: i < 6 ? '1px solid var(--border-dim)' : 'none',
             background: isToday ? 'rgba(201,169,110,0.04)' : 'transparent',
             borderTop: isToday ? '2px solid var(--gold)' : '2px solid transparent',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '7px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
               <div style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: isToday ? 'var(--gold)' : 'var(--text-dimmer)' }}>
                 {d.toLocaleDateString('en-GB', { weekday: 'short' })}
               </div>
@@ -89,7 +82,7 @@ function WeekStrip({ gigs, scheduledPosts }: { gigs: Gig[]; scheduledPosts: Sche
                 {d.getDate()}
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               {dayGigs.map((g, j) => (
                 <Link key={j} href={`/gigs/${g.id}`} style={{ display: 'block', fontSize: '9px', color: 'var(--gold)', textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   ● {g.venue || g.title}
@@ -108,56 +101,22 @@ function WeekStrip({ gigs, scheduledPosts }: { gigs: Gig[]; scheduledPosts: Sche
   )
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-
-function Skeleton({ width = '100%', height = '16px', style = {} }: { width?: string; height?: string; style?: React.CSSProperties }) {
-  return (
-    <div style={{
-      width, height,
-      background: 'linear-gradient(90deg, var(--border-dim) 25%, var(--border) 50%, var(--border-dim) 75%)',
-      backgroundSize: '200% 100%',
-      animation: 'shimmer 1.4s infinite',
-      borderRadius: '2px',
-      ...style,
-    }} />
-  )
-}
-
-// ── Section label ─────────────────────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '12px' }}>
-      {children}
-    </div>
-  )
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
-
 export default function Dashboard() {
   const router = useRouter()
-
   const [now, setNow] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const [weekGigs, setWeekGigs] = useState<Gig[]>([])
+  const [upcomingGigs, setUpcomingGigs] = useState<Gig[]>([])
   const [advanceMap, setAdvanceMap] = useState<Record<string, 'sent' | 'complete'>>({})
   const [djSets, setDjSets] = useState<DjSet[]>([])
-
   const [overdueInvoices, setOverdueInvoices] = useState<Invoice[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
   const [weekPosts, setWeekPosts] = useState<ScheduledPost[]>([])
-
-  const [recentSignal, setRecentSignal] = useState<ScheduledPost[]>([])
-
-  // For WeekStrip we need all gigs and all posts
   const [allGigs, setAllGigs] = useState<Gig[]>([])
   const [allPosts, setAllPosts] = useState<ScheduledPost[]>([])
+  const [monthStats, setMonthStats] = useState({ gigs: 0, posts: 0, revenue: 0 })
 
   useEffect(() => { setNow(new Date()) }, [])
 
-  // Redirect if no profile
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(d => {
       if (!d.settings?.profile?.name) router.push('/onboarding')
@@ -166,20 +125,22 @@ export default function Dashboard() {
 
   useEffect(() => {
     const today = new Date()
-    const in7 = new Date(today.getTime() + 7 * 86400000)
+    const in14 = new Date(today.getTime() + 14 * 86400000)
     const todayStr = today.toISOString().slice(0, 10)
-    const in7Str = in7.toISOString().slice(0, 10)
+    const in7Str = new Date(today.getTime() + 7 * 86400000).toISOString().slice(0, 10)
+    const in14Str = in14.toISOString().slice(0, 10)
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10)
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().slice(0, 10)
 
     const fetches = [
-      // Gigs
       fetch('/api/gigs').then(r => r.json()).then(d => {
         const gigs: Gig[] = d.gigs || []
         setAllGigs(gigs)
-        const thisWeek = gigs.filter(g => g.date >= todayStr && g.date <= in7Str && g.status !== 'cancelled')
-        setWeekGigs(thisWeek)
+        setUpcomingGigs(gigs.filter(g => g.date >= todayStr && g.date <= in14Str && g.status !== 'cancelled').slice(0, 3))
+        const mg = gigs.filter(g => g.date >= monthStart && g.date <= monthEnd && g.status !== 'cancelled')
+        setMonthStats(prev => ({ ...prev, gigs: mg.length, revenue: mg.reduce((s, g) => s + (g.fee || 0), 0) }))
       }).catch(() => {}),
 
-      // Advance requests
       fetch('/api/advance').then(r => r.json()).then(d => {
         const map: Record<string, 'sent' | 'complete'> = {}
         ;(d.requests || []).forEach((req: AdvanceRequest) => {
@@ -188,55 +149,37 @@ export default function Dashboard() {
         setAdvanceMap(map)
       }).catch(() => {}),
 
-      // Invoices
       fetch('/api/invoices').then(r => r.json()).then(d => {
         const nowStr = new Date().toISOString().slice(0, 10)
-        const overdue = (d.invoices || []).filter(
+        setOverdueInvoices((d.invoices || []).filter(
           (inv: Invoice) => inv.status !== 'paid' && inv.due_date && inv.due_date < nowStr
-        )
-        setOverdueInvoices(overdue)
+        ))
       }).catch(() => {}),
 
-      // Notifications (unread count)
-      fetch('/api/notifications?unread=true').then(r => r.json()).then(d => {
-        setUnreadCount(d.unread || 0)
-      }).catch(() => {}),
-
-      // Scheduled posts
       fetch('/api/schedule').then(r => r.json()).then(d => {
         const posts: ScheduledPost[] = d.posts || []
         setAllPosts(posts)
-
-        // This week's scheduled posts
-        const thisWeekPosts = posts.filter(p => {
+        setWeekPosts(posts.filter(p => {
           if (!p.scheduled_at) return false
-          const dateStr = p.scheduled_at.slice(0, 10)
-          return dateStr >= todayStr && dateStr <= in7Str && p.status === 'scheduled'
+          const ds = p.scheduled_at.slice(0, 10)
+          return ds >= todayStr && ds <= in7Str && p.status === 'scheduled'
+        }))
+        const mp = posts.filter(p => {
+          const ds = (p.scheduled_at || '').slice(0, 10)
+          return ds >= monthStart && ds <= monthEnd && p.status === 'posted'
         })
-        setWeekPosts(thisWeekPosts)
-
-        // Recent signal — last 3 posted
-        const posted = posts
-          .filter(p => p.status === 'posted')
-          .sort((a, b) => (b.scheduled_at || '').localeCompare(a.scheduled_at || ''))
-          .slice(0, 3)
-        setRecentSignal(posted)
+        setMonthStats(prev => ({ ...prev, posts: mp.length }))
       }).catch(() => {}),
     ]
 
     Promise.allSettled(fetches).finally(() => setLoading(false))
   }, [])
 
-  // Load dj_sets directly via supabase client for set readiness
   useEffect(() => {
     async function loadSets() {
       try {
         const { supabase } = await import('@/lib/supabase')
-        const { data } = await supabase
-          .from('dj_sets')
-          .select('id, name, venue, slot_type, created_at')
-          .order('created_at', { ascending: false })
-          .limit(50)
+        const { data } = await supabase.from('dj_sets').select('id, name, venue, slot_type').order('created_at', { ascending: false }).limit(50)
         if (data) setDjSets(data)
       } catch { /* silent */ }
     }
@@ -245,317 +188,209 @@ export default function Dashboard() {
 
   const greeting = !now ? '' : now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
 
-  // Match a set to a gig by fuzzy venue name comparison
   function getSetForGig(gig: Gig): DjSet | null {
     if (!djSets.length || !gig.venue) return null
-    const gigVenueNorm = gig.venue.toLowerCase().slice(0, 6)
-    return djSets.find(s => s.venue && s.venue.toLowerCase().includes(gigVenueNorm)) || null
+    const norm = gig.venue.toLowerCase().slice(0, 6)
+    return djSets.find(s => s.venue && s.venue.toLowerCase().includes(norm)) || null
   }
 
-  function fmtDate(dateStr: string) {
+  function daysUntil(dateStr: string) {
+    return Math.max(0, Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000))
+  }
+
+  function daysSince(dateStr: string) {
+    return Math.max(0, Math.ceil((Date.now() - new Date(dateStr).getTime()) / 86400000))
+  }
+
+  function fmtGigDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   }
 
-  function fmtDateTime(isoStr: string) {
-    return new Date(isoStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  const monthName = now ? now.toLocaleDateString('en-GB', { month: 'long' }) : ''
+
+  // Build briefing items
+  const briefingItems: { key: string; dot: string; text: React.ReactNode; href: string; action: string }[] = []
+
+  if (!loading) {
+    if (upcomingGigs.length === 0) {
+      briefingItems.push({ key: 'no-gigs', dot: 'dim', text: 'No upcoming shows in the next 14 days', href: '/gigs/new', action: 'Add a gig →' })
+    } else {
+      upcomingGigs.forEach(gig => {
+        const set = getSetForGig(gig)
+        const adv = advanceMap[gig.id]
+        const days = daysUntil(gig.date)
+        const label = gig.venue || gig.title
+        const dateLabel = fmtGigDate(gig.date)
+        const urgency = days <= 3
+
+        const issues: string[] = []
+        if (!set) issues.push('no set built')
+        if (!adv) issues.push('advance not sent')
+
+        briefingItems.push({
+          key: gig.id,
+          dot: urgency ? 'gold' : issues.length ? 'amber' : 'green',
+          text: (
+            <span>
+              <span style={{ color: 'var(--text)' }}>{label}</span>
+              <span style={{ color: 'var(--text-dimmer)' }}> · {dateLabel} · {days === 0 ? 'tonight' : `${days}d`}</span>
+              {issues.length > 0 && <span style={{ color: 'var(--gold-bright)' }}> — {issues.join(', ')}</span>}
+              {issues.length === 0 && <span style={{ color: 'var(--green)' }}> — all good</span>}
+            </span>
+          ),
+          href: `/gigs/${gig.id}`,
+          action: !set ? 'Build set →' : !adv ? 'Send advance →' : 'View →',
+        })
+      })
+    }
+
+    if (overdueInvoices.length > 0) {
+      const inv = overdueInvoices[0]
+      const days = daysSince(inv.due_date)
+      briefingItems.push({
+        key: 'invoices',
+        dot: 'red',
+        text: (
+          <span>
+            <span style={{ color: 'var(--text)' }}>{inv.gig_title}</span>
+            <span style={{ color: 'var(--text-dimmer)'}}> invoice</span>
+            <span style={{ color: '#c05a4a' }}> {days} days overdue</span>
+            {overdueInvoices.length > 1 && <span style={{ color: 'var(--text-dimmer)' }}> (+{overdueInvoices.length - 1} more)</span>}
+          </span>
+        ),
+        href: '/business/finances',
+        action: 'View invoices →',
+      })
+    }
+
+    if (weekPosts.length === 0) {
+      briefingItems.push({ key: 'no-posts', dot: 'dim', text: 'No posts scheduled this week', href: '/broadcast', action: 'Plan content →' })
+    } else {
+      briefingItems.push({
+        key: 'posts',
+        dot: 'green',
+        text: <span><span style={{ color: 'var(--text)' }}>{weekPosts.length} post{weekPosts.length !== 1 ? 's' : ''}</span><span style={{ color: 'var(--text-dimmer)' }}> scheduled this week</span></span>,
+        href: '/broadcast',
+        action: 'Open Signal Lab →',
+      })
+    }
+  }
+
+  const dotColor: Record<string, string> = {
+    gold: 'var(--gold)',
+    green: 'var(--green)',
+    amber: '#b08d57',
+    red: '#c05a4a',
+    dim: 'var(--border)',
   }
 
   return (
     <>
-      <style>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-      `}</style>
-      <div style={{ background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
+      <style>{`@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }`}</style>
+      <div style={{ background: 'var(--bg)', color: 'var(--text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* Header */}
-        <div style={{ padding: '48px 52px 40px', borderBottom: '1px solid var(--border-dim)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        {/* ── HEADER ── */}
+        <div style={{ padding: '28px 52px 22px', borderBottom: '1px solid var(--border-dim)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 42px)', lineHeight: 1.0 }} suppressHydrationWarning>
+            <div className="display" style={{ fontSize: 'clamp(22px, 2.8vw, 32px)', lineHeight: 1.0 }} suppressHydrationWarning>
               {greeting}.
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginTop: '6px', fontFamily: 'var(--font-mono)' }} suppressHydrationWarning>
-              {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '4px', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em' }} suppressHydrationWarning>
+              {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <Link href="/broadcast" className="btn-secondary" style={{ textDecoration: 'none', padding: '0 20px', height: 36, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            <Link href="/broadcast" className="btn-secondary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
               + New post
             </Link>
-            <Link href="/gigs/new" className="btn-primary" style={{ textDecoration: 'none', padding: '0 20px', height: 36, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            <Link href="/gigs/new" className="btn-primary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
               + New gig
             </Link>
           </div>
         </div>
 
-        {/* ── SECTION 1: THIS WEEK ─────────────────────────────────────────── */}
-        <div style={{ padding: '36px 52px 0' }}>
-          <SectionLabel>This week</SectionLabel>
+        {/* ── MAIN CONTENT: fills remaining height ── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '24px 52px 0', gap: '20px', minHeight: 0 }}>
 
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[1, 2].map(i => (
-                <div key={i} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
-                  <Skeleton width="40%" height="13px" style={{ marginBottom: '10px' }} />
-                  <Skeleton width="25%" height="11px" style={{ marginBottom: '18px' }} />
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <Skeleton width="100px" height="30px" />
-                    <Skeleton width="100px" height="30px" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : weekGigs.length === 0 ? (
-            <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '28px', color: 'var(--text-dimmer)', fontSize: '13px' }}>
-              No gigs this week —{' '}
-              <Link href="/gigs/new" style={{ color: 'var(--gold)', textDecoration: 'none' }}>add one →</Link>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {weekGigs.map(gig => {
-                const linkedSet = getSetForGig(gig)
-                const advanceStatus = advanceMap[gig.id]
-
-                return (
-                  <div key={gig.id} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '24px 28px', position: 'relative', overflow: 'hidden' }}>
-                    {/* Gold top rule */}
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, var(--gold) 0%, transparent 50%)' }} />
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '24px' }}>
-
-                      {/* Left: gig info */}
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text)', marginBottom: '3px' }}>{gig.venue || gig.title}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', marginBottom: '18px' }}>
-                          {fmtDate(gig.date)}{gig.time ? ` · ${gig.time}` : ''}{gig.location ? ` · ${gig.location}` : ''}
-                        </div>
-
-                        {/* Status pills */}
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '18px' }}>
-                          {/* Set readiness */}
-                          <div style={{
-                            fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 10px',
-                            border: `1px solid ${linkedSet ? 'rgba(61,107,74,0.4)' : 'var(--border-dim)'}`,
-                            color: linkedSet ? 'var(--green)' : 'var(--text-dimmer)',
-                          }}>
-                            {linkedSet ? `Set: ${linkedSet.name || linkedSet.slot_type}` : 'No set built yet'}
-                          </div>
-
-                          {/* Advance */}
-                          <div style={{
-                            fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 10px',
-                            border: `1px solid ${advanceStatus ? 'rgba(61,107,74,0.4)' : 'rgba(138,106,58,0.35)'}`,
-                            color: advanceStatus ? 'var(--green)' : 'var(--amber)',
-                          }}>
-                            {advanceStatus === 'complete' ? 'Advance complete' : advanceStatus === 'sent' ? 'Advance sent' : 'Advance needed'}
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          {linkedSet ? (
-                            <Link href="/setlab" style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid var(--gold-dim)', padding: '8px 16px', textDecoration: 'none' }}>
-                              Open set →
-                            </Link>
-                          ) : (
-                            <Link href={`/setlab?gig=${gig.id}`} style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid var(--gold-dim)', padding: '8px 16px', textDecoration: 'none' }}>
-                              Build set →
-                            </Link>
-                          )}
-                          <Link href={`/gigs/${gig.id}`} style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '8px 16px', textDecoration: 'none' }}>
-                            View gig
-                          </Link>
-                        </div>
-                      </div>
-
-                      {/* Right: days away counter */}
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '36px', lineHeight: 1, color: 'var(--text)', letterSpacing: '-0.02em' }}>
-                          {Math.max(0, Math.ceil((new Date(gig.date).getTime() - Date.now()) / 86400000))}
-                        </div>
-                        <div style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginTop: '4px' }}>days away</div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── SECTION 2: OUTSTANDING ───────────────────────────────────────── */}
-        <div style={{ padding: '36px 52px 0' }}>
-          <SectionLabel>Outstanding</SectionLabel>
-
-          {loading ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              {[1, 2, 3].map(i => (
-                <div key={i} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '22px 24px' }}>
-                  <Skeleton width="60%" height="11px" style={{ marginBottom: '10px' }} />
-                  <Skeleton width="40%" height="22px" style={{ marginBottom: '14px' }} />
-                  <Skeleton width="80px" height="28px" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '8px' }}>
-
-              {/* Overdue invoices */}
-              <div style={{ background: 'var(--panel)', border: `1px solid ${overdueInvoices.length > 0 ? 'rgba(154,106,90,0.3)' : 'var(--border-dim)'}`, padding: '22px 24px' }}>
-                <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '8px' }}>Overdue invoices</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '28px', lineHeight: 1, marginBottom: '6px', color: overdueInvoices.length > 0 ? 'var(--red-brown)' : 'var(--text-dim)' }}>
-                  {overdueInvoices.length}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '16px' }}>
-                  {overdueInvoices.length === 0 ? 'All clear' : overdueInvoices.length === 1 ? '1 invoice past due' : `${overdueInvoices.length} invoices past due`}
-                </div>
-                <Link href="/business/finances" style={{ display: 'inline-block', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '7px 14px', textDecoration: 'none' }}>
-                  View invoices →
-                </Link>
-              </div>
-
-              {/* Notifications */}
-              <div style={{ background: 'var(--panel)', border: `1px solid ${unreadCount > 0 ? 'rgba(176,141,87,0.2)' : 'var(--border-dim)'}`, padding: '22px 24px' }}>
-                <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '8px' }}>Unread notifications</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '28px', lineHeight: 1, marginBottom: '6px', color: unreadCount > 0 ? 'var(--gold)' : 'var(--text-dim)' }}>
-                  {unreadCount}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '16px' }}>
-                  {unreadCount === 0 ? 'Nothing new' : unreadCount === 1 ? '1 unread' : `${unreadCount} unread`}
-                </div>
-                <Link href="/notifications" style={{ display: 'inline-block', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '7px 14px', textDecoration: 'none' }}>
-                  Open notifications →
-                </Link>
-              </div>
-
-              {/* Scheduled posts this week */}
-              <div style={{ background: 'var(--panel)', border: `1px solid ${weekPosts.length > 0 ? 'rgba(61,107,74,0.3)' : 'var(--border-dim)'}`, padding: '22px 24px' }}>
-                <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '8px' }}>Posts this week</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '28px', lineHeight: 1, marginBottom: '6px', color: weekPosts.length > 0 ? 'var(--green)' : 'var(--text-dim)' }}>
-                  {weekPosts.length}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '16px' }}>
-                  {weekPosts.length === 0 ? 'Nothing scheduled' : weekPosts.length === 1 ? '1 post queued' : `${weekPosts.length} posts queued`}
-                </div>
-                <Link href="/broadcast" style={{ display: 'inline-block', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '7px 14px', textDecoration: 'none' }}>
-                  Open broadcast →
-                </Link>
-              </div>
-
-            </div>
-          )}
-        </div>
-
-        {/* ── SECTION 3: RECENT SIGNAL ─────────────────────────────────────── */}
-        <div style={{ padding: '36px 52px 0' }}>
-          <SectionLabel>Recent signal</SectionLabel>
-
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-              {[1, 2, 3].map(i => (
-                <div key={i} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '16px 22px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <Skeleton width="50px" height="10px" />
-                  <Skeleton width="60%" height="11px" />
-                  <Skeleton width="60px" height="10px" style={{ marginLeft: 'auto' }} />
-                </div>
-              ))}
-            </div>
-          ) : recentSignal.length === 0 ? (
-            <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '28px', color: 'var(--text-dimmer)', fontSize: '13px' }}>
-              No posts yet —{' '}
-              <Link href="/broadcast" style={{ color: 'var(--gold)', textDecoration: 'none' }}>plan your week →</Link>
-            </div>
-          ) : (
+          {/* ── YOUR WEEK BRIEFING ── */}
+          <div style={{ flexShrink: 0 }}>
+            <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '10px' }}>Your week</div>
             <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', overflow: 'hidden' }}>
-              {recentSignal.map((post, i) => (
-                <div key={post.id} style={{
-                  display: 'grid',
-                  gridTemplateColumns: '80px 1fr 80px',
-                  alignItems: 'center',
-                  gap: '16px',
-                  padding: '14px 22px',
-                  borderBottom: i < recentSignal.length - 1 ? '1px solid var(--border-dim)' : 'none',
-                }}>
-                  <div style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--green)', fontFamily: 'var(--font-mono)' }}>
-                    {post.platform || '—'}
+              {loading ? (
+                <>
+                  {[1, 2, 3].map(i => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '14px 1fr auto', alignItems: 'center', gap: '14px', padding: '13px 20px', borderBottom: i < 3 ? '1px solid var(--border-dim)' : 'none' }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
+                      <div style={{ height: 12, background: 'linear-gradient(90deg, var(--border-dim) 25%, var(--border) 50%, var(--border-dim) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite', borderRadius: 2, width: `${50 + i * 15}%` }} />
+                      <div style={{ height: 10, width: 70, background: 'var(--border-dim)', borderRadius: 2 }} />
+                    </div>
+                  ))}
+                </>
+              ) : (
+                briefingItems.map((item, i) => (
+                  <div key={item.key} style={{ display: 'grid', gridTemplateColumns: '14px 1fr auto', alignItems: 'center', gap: '14px', padding: '12px 20px', borderBottom: i < briefingItems.length - 1 ? '1px solid var(--border-dim)' : 'none' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor[item.dot] || 'var(--border)', flexShrink: 0 }} />
+                    <div style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', lineHeight: 1.4 }}>{item.text}</div>
+                    <Link href={item.href} style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--gold)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'}>
+                      {item.action}
+                    </Link>
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {(post.caption || '').slice(0, 80)}{(post.caption || '').length > 80 ? '…' : ''}
-                  </div>
-                  <div style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-dimmer)', textAlign: 'right' }}>
-                    {post.scheduled_at ? fmtDateTime(post.scheduled_at) : '—'}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* ── SECTION 4: THIS MONTH ───────────────────────────────────────── */}
-        {(() => {
-          if (loading) return null
-          const now2 = new Date()
-          const monthStart = new Date(now2.getFullYear(), now2.getMonth(), 1).toISOString().slice(0, 10)
-          const monthEnd = new Date(now2.getFullYear(), now2.getMonth() + 1, 0).toISOString().slice(0, 10)
-
-          const monthGigs = allGigs.filter(g => g.date >= monthStart && g.date <= monthEnd && g.status !== 'cancelled')
-          const monthPosts = allPosts.filter(p => {
-            const d = (p.scheduled_at || '').slice(0, 10)
-            return d >= monthStart && d <= monthEnd && p.status === 'posted'
-          })
-          const monthRevenue = monthGigs.reduce((s, g) => s + (g.fee || 0), 0)
-
-          const monthName = now2.toLocaleDateString('en-GB', { month: 'long' })
-
-          return (
-            <div style={{ padding: '36px 52px 0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <SectionLabel>{monthName}</SectionLabel>
-                <Link href="/wrap" style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none' }}>
-                  Full wrap →
-                </Link>
+          {/* ── THIS MONTH + WEEK STRIP ROW ── */}
+          <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '1fr auto', gap: '20px', alignItems: 'start' }}>
+            {/* Month stats */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-dimmer)' }}>{monthName}</div>
+                <Link href="/wrap" style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none' }}>Full wrap →</Link>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 22px' }}>
-                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '8px' }}>Gigs</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', lineHeight: 1, color: monthGigs.length > 0 ? 'var(--text)' : 'var(--text-dim)', marginBottom: '5px' }}>
-                    {monthGigs.length}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                {[
+                  { label: 'Gigs', value: loading ? '—' : String(monthStats.gigs), sub: monthStats.gigs === 0 ? 'None booked' : `this month` },
+                  { label: 'Posts live', value: loading ? '—' : String(monthStats.posts), sub: monthStats.posts === 0 ? 'Nothing posted' : 'published' },
+                  { label: 'Revenue', value: loading ? '—' : monthStats.revenue > 0 ? `£${monthStats.revenue.toLocaleString()}` : '—', sub: monthStats.revenue === 0 ? 'No fees logged' : 'from gigs' },
+                ].map(stat => (
+                  <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '16px 18px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '6px' }}>{stat.label}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', lineHeight: 1, color: 'var(--text)', marginBottom: '4px' }}>{stat.value}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>{stat.sub}</div>
                   </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>
-                    {monthGigs.length === 0 ? 'None booked' : monthGigs.map(g => g.venue || g.title).join(', ').slice(0, 40)}
-                  </div>
-                </div>
-                <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 22px' }}>
-                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '8px' }}>Posts live</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', lineHeight: 1, color: monthPosts.length > 0 ? 'var(--text)' : 'var(--text-dim)', marginBottom: '5px' }}>
-                    {monthPosts.length}
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>
-                    {monthPosts.length === 0 ? 'Nothing posted yet' : `${monthPosts.length} post${monthPosts.length !== 1 ? 's' : ''} published`}
-                  </div>
-                </div>
-                <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 22px' }}>
-                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '8px' }}>Revenue</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', lineHeight: 1, color: monthRevenue > 0 ? 'var(--text)' : 'var(--text-dim)', marginBottom: '5px' }}>
-                    {monthRevenue > 0 ? `£${monthRevenue.toLocaleString()}` : '—'}
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>
-                    {monthRevenue === 0 ? 'No gig fees logged' : `from ${monthGigs.length} gig${monthGigs.length !== 1 ? 's' : ''}`}
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
-          )
-        })()}
 
-        {/* ── WEEK STRIP ───────────────────────────────────────────────────── */}
-        <div style={{ margin: '36px 52px 0', border: '1px solid var(--border-dim)', overflow: 'hidden' }}>
-          <WeekStrip gigs={allGigs} scheduledPosts={allPosts} />
+            {/* Quick links */}
+            <div style={{ paddingTop: '27px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {[
+                  { label: 'Drop Lab', href: '/releases' },
+                  { label: 'Signal Lab', href: '/broadcast' },
+                  { label: 'Set Lab', href: '/setlab' },
+                  { label: 'SONIX Lab', href: '/sonix' },
+                ].map(({ label, href }) => (
+                  <Link key={href} href={href} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', fontSize: '11px', color: 'var(--text-dimmer)', textDecoration: 'none', padding: '7px 14px', border: '1px solid var(--border-dim)', background: 'var(--panel)', whiteSpace: 'nowrap' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}>
+                    {label} <span style={{ fontSize: '10px', color: 'var(--gold)', opacity: 0.5 }}>→</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── WEEK STRIP ── */}
+          <div style={{ border: '1px solid var(--border-dim)', overflow: 'hidden', flexShrink: 0 }}>
+            <WeekStrip gigs={allGigs} scheduledPosts={allPosts} />
+          </div>
+
         </div>
-
-        <div style={{ height: '48px' }} />
+        <div style={{ height: '24px', flexShrink: 0 }} />
       </div>
     </>
   )
