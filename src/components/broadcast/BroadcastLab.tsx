@@ -14,7 +14,7 @@ interface ArtistProfile {
   chips: string[]
   highlight_chips: number[]
   style_rules?: string
-  data_source?: 'apify' | 'manual' | 'claude'
+  data_source?: 'apify' | 'hikerapi' | 'manual' | 'claude'
   post_count_analysed?: number
   last_scanned?: string
 }
@@ -38,6 +38,37 @@ interface Trend {
   fit: number
   hot: boolean
   context: string
+  evidence?: string
+}
+
+// ── Real calculated stats from artist data ────────────────────────────────────
+function calcVoiceAlignment(artists: ArtistProfile[]): { value: string; score: number; desc: string } {
+  if (artists.length < 2) return { value: '—', score: 0, desc: `Scan ${2 - artists.length} more artist${artists.length === 0 ? 's' : ''} to calculate` }
+  const metrics: (keyof ArtistProfile)[] = ['lowercase_pct', 'short_caption_pct', 'no_hashtags_pct']
+  const cvs = metrics.map(m => {
+    const values = artists.map(a => a[m] as number)
+    const mean = values.reduce((s, v) => s + v, 0) / values.length
+    if (mean === 0) return 0
+    const stdDev = Math.sqrt(values.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / values.length)
+    return (stdDev / mean) * 100
+  })
+  const avgCV = cvs.reduce((s, v) => s + v, 0) / cvs.length
+  const score = Math.max(5, Math.min(99, Math.round(100 - avgCV * 0.8)))
+  const label = score >= 82 ? 'Strong' : score >= 65 ? 'Moderate' : score >= 45 ? 'Mixed' : 'Divergent'
+  return { value: label, score, desc: `${score}% consistency across ${artists.length} scanned artists` }
+}
+
+function calcToneRegister(artists: ArtistProfile[]): { value: string; score: number; desc: string } {
+  if (artists.length === 0) return { value: '—', score: 0, desc: 'Add artists to detect tone register' }
+  const avg = (key: keyof ArtistProfile) => Math.round(artists.reduce((s, a) => s + (a[key] as number), 0) / artists.length)
+  const lower = avg('lowercase_pct')
+  const short = avg('short_caption_pct')
+  const noHash = avg('no_hashtags_pct')
+  if (lower > 68 && short > 52 && noHash > 62) return { value: 'Raw', score: Math.round((lower + short + noHash) / 3), desc: 'Minimal, lowercase, stripped back — detached register' }
+  if (lower > 58 && noHash > 60) return { value: 'Dry', score: Math.round((lower + noHash) / 2), desc: 'Clean, understated — tone over promotion' }
+  if (short < 35 && lower < 55) return { value: 'Verbose', score: Math.round(100 - short), desc: 'Longer-form, descriptive captions' }
+  if (noHash < 45) return { value: 'Discovery', score: Math.round(100 - noHash), desc: 'Hashtag-led, optimised for reach' }
+  return { value: 'Balanced', score: 62, desc: 'Mix of styles across your lane' }
 }
 
 function daysSince(dateStr: string): number {
@@ -111,6 +142,7 @@ export function BroadcastLab() {
   const [laneInsights, setLaneInsights] = useState<string[]>([])
   const [trends, setTrends] = useState<Trend[]>([])
   const [refreshingInsights, setRefreshingInsights] = useState(false)
+  const [trendsSource, setTrendsSource] = useState<{ postsAnalysed?: number; artistsIncluded?: string[] } | null>(null)
   const [connectedSocials, setConnectedSocials] = useState<string[]>([]) // platform ids with direct connection
   const [publishing, setPublishing] = useState(false)
 
@@ -269,19 +301,18 @@ export function BroadcastLab() {
 
   async function loadTrends(): Promise<Trend[]> {
     try {
-      const genreHint = artists.length > 0 ? artists.map(a => a.genre || a.name).join(', ') : 'electronic / dance'
-      const raw = await callClaude(
-        'You are a social media trend analyst for electronic music. Respond ONLY with a valid JSON array, no markdown.',
-        `Generate 5 current content format trends relevant to: ${genreHint}. For each trend return: {"id":number,"platform":"Platform · Genre","name":"Short format description","fit":number 60-99,"hot":boolean,"context":"one sentence context for caption generator"}. Return array of 5.`,
-        600
-      )
-      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setTrends(parsed)
-        return parsed
+      const res = await fetch('/api/trends')
+      const data = await res.json()
+      if (data.source === 'real_data' && Array.isArray(data.trends) && data.trends.length > 0) {
+        setTrends(data.trends)
+        setTrendsSource({ postsAnalysed: data.postsAnalysed, artistsIncluded: data.artistsIncluded })
+        return data.trends
       }
+      // No real data yet — trends stay empty, UI will prompt to scan artists
+      setTrends([])
+      setTrendsSource(null)
     } catch {
-      // trends stay empty if generation fails
+      // keep empty
     }
     return []
   }
@@ -638,9 +669,9 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
             {l:'Lowercase',v:`${Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1)),s:'Lane average across reference artists'},
             {l:'Under 10 words',v:`${Math.round(artists.reduce((a,b)=>a+b.short_caption_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.short_caption_pct,0)/(artists.length||1)),s:'Short captions in your lane'},
             {l:'No hashtags',v:`${Math.round(artists.reduce((a,b)=>a+b.no_hashtags_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.no_hashtags_pct,0)/(artists.length||1)),s:'Lane standard — hashtags hurt tone',t:true},
-            {l:'Artists profiled',v:`${artists.length}`,p:Math.min(artists.length*20,100),s:artists.filter(a=>a.data_source==='apify'||a.data_source==='manual').length>0?`${artists.filter(a=>a.data_source==='apify'||a.data_source==='manual').length} from real captions`:'Add artists to build your lane'},
-            {l:'Voice alignment',v:'High',p:84,s:'Based on style rules depth',t:true},
-            {l:'Tone register',v:'Raw',p:79,s:'Detached · observational'},
+            {l:'Artists profiled',v:`${artists.length}`,p:Math.min(artists.length*20,100),s:artists.filter(a=>a.data_source==='apify'||a.data_source==='manual'||a.data_source==='hikerapi').length>0?`${artists.filter(a=>a.data_source==='apify'||a.data_source==='manual'||a.data_source==='hikerapi').length} from real captions`:'Add artists to build your lane'},
+            {l:'Voice alignment',v:calcVoiceAlignment(artists).value,p:calcVoiceAlignment(artists).score,s:calcVoiceAlignment(artists).desc,t:true},
+            {l:'Tone register',v:calcToneRegister(artists).value,p:calcToneRegister(artists).score,s:calcToneRegister(artists).desc},
           ].map(m => (
             <div key={m.l}>
               <div className="flex justify-between items-baseline mb-1">
@@ -674,34 +705,52 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
         <div className="flex items-center gap-2 mb-2 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
           Trend engine — filtered for your lane<div className="flex-1 h-px bg-white/10" />
         </div>
-        <div className="text-[10px] tracking-[.07em] text-[#8a8780] mb-5 italic" style={{}}>Only trends already moving in electronic / dance. Never mainstream pop.</div>
+        {trendsSource ? (
+          <div className="text-[10px] tracking-[.07em] text-[#3d6b4a] mb-5 flex items-center gap-1.5">
+            <div className="w-1 h-1 rounded-full bg-[#3d6b4a]" />
+            {trendsSource.postsAnalysed} real posts analysed · {trendsSource.artistsIncluded?.join(', ')}
+          </div>
+        ) : (
+          <div className="text-[10px] tracking-[.07em] text-[#8a8780] mb-5 italic">Based on real engagement data from your reference artists</div>
+        )}
         {loadingTrends && (
           <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
             <div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.2s'}} /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.4s'}} />
             <span>Analysing trend fit...</span>
           </div>
         )}
-        <div className="grid grid-cols-3 gap-3">
-          {trends.map(trend => (
-            <div key={trend.id} className={`bg-[#1a1917] border p-4 relative hover:bg-[#141310] transition-colors ${trend.hot ? 'border-[#b08d57]/30' : 'border-white/7'}`}>
-              {trend.hot && <div className="absolute top-2.5 right-2.5 text-[7px] tracking-[.16em] text-[#b08d57] bg-[#b08d57]/10 px-1.5 py-0.5">HOT</div>}
-              <div className="text-[10px] tracking-[.15em] uppercase text-[#8a8780] mb-2">{trend.platform}</div>
-              <div className="text-[11px] tracking-[.06em] mb-2 leading-snug">{trend.name}</div>
-              <div className="text-[10px] text-[#8a8780] leading-relaxed mb-3 italic min-h-[32px]" style={{}}>{trendCaptions[trend.id] || 'Loading...'}</div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] tracking-[.1em] text-[#8a8780]">Lane fit</span>
-                <div className="flex-1 h-px bg-white/10 relative"><div className="absolute top-0 left-0 h-px bg-[#b08d57]" style={{width:`${trend.fit}%`}} /></div>
-                <span className="text-[10px] text-[#b08d57]">{trend.fit}%</span>
-              </div>
-              <button onClick={() => useTrend(trend.context)} className="w-full text-[10px] tracking-[.15em] uppercase border border-white/13 text-[#8a8780] py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Use this trend -&gt;</button>
-            </div>
-          ))}
-          <div className="bg-[#1a1917] border border-dashed border-white/13 flex flex-col items-center justify-center gap-2 min-h-[160px]">
-            <div className="text-[10px] tracking-[.15em] uppercase text-[#2e2c29]">Next scan</div>
-            <div className="text-xl font-light text-[#8a8780]">6h 42m</div>
-            <button onClick={() => { loadTrends().then(loaded => { if (loaded.length > 0) loadTrendCaptions(loaded) }); showToast('Refreshing trends...','Trends') }} className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-3 py-1.5 mt-1 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Refresh now</button>
+        {trends.length === 0 && !loadingTrends ? (
+          <div className="border border-dashed border-white/13 p-8 text-center">
+            <div className="text-[11px] tracking-[.1em] text-[#8a8780] mb-2">No trend data yet</div>
+            <div className="text-[10px] tracking-[.07em] text-[#2e2c29]">Scan reference artists above — trends are derived from their real engagement data</div>
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {trends.map(trend => (
+              <div key={trend.id} className={`bg-[#1a1917] border p-4 relative hover:bg-[#141310] transition-colors ${trend.hot ? 'border-[#b08d57]/30' : 'border-white/7'}`}>
+                {trend.hot && <div className="absolute top-2.5 right-2.5 text-[7px] tracking-[.16em] text-[#b08d57] bg-[#b08d57]/10 px-1.5 py-0.5">HOT</div>}
+                <div className="text-[10px] tracking-[.15em] uppercase text-[#8a8780] mb-2">{trend.platform}</div>
+                <div className="text-[11px] tracking-[.06em] mb-2 leading-snug">{trend.name}</div>
+                <div className="text-[10px] text-[#8a8780] leading-relaxed mb-3 italic min-h-[32px]">{trend.context}</div>
+                {trend.evidence && (
+                  <div className="text-[10px] text-[#3d6b4a] mb-3 flex items-start gap-1">
+                    <div className="w-1 h-1 rounded-full bg-[#3d6b4a] mt-1 flex-shrink-0" />
+                    {trend.evidence}
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] tracking-[.1em] text-[#8a8780]">Lane fit</span>
+                  <div className="flex-1 h-px bg-white/10 relative"><div className="absolute top-0 left-0 h-px bg-[#b08d57]" style={{width:`${trend.fit}%`}} /></div>
+                  <span className="text-[10px] text-[#b08d57]">{trend.fit}%</span>
+                </div>
+                <button onClick={() => useTrend(trend.context)} className="w-full text-[10px] tracking-[.15em] uppercase border border-white/13 text-[#8a8780] py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Use this trend →</button>
+              </div>
+            ))}
+            <div className="bg-[#1a1917] border border-dashed border-white/13 flex flex-col items-center justify-center gap-2 min-h-[160px]">
+              <button onClick={() => { setLoadingTrends(true); loadTrends().then(loaded => { if (loaded.length > 0) loadTrendCaptions(loaded) }).finally(() => setLoadingTrends(false)) }} className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-3 py-1.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Refresh trends</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CAPTION GENERATOR */}

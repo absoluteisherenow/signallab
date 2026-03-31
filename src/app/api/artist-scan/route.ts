@@ -1,58 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// ── HikerAPI scraper ─────────────────────────────────────────────────────────
-// Sign up free at hikerapi.com — 100 req/month free, then from $10/month
-// Add HIKER_API_KEY to Vercel env vars
+interface PostData {
+  caption: string
+  likes: number
+  comments: number
+  mediaType: 'photo' | 'video' | 'carousel'
+  takenAt: string
+}
 
-async function scrapeViaHikerAPI(username: string): Promise<{ captions: string[]; postCount: number }> {
+interface ScrapeResult {
+  posts: PostData[]
+  captions: string[]
+}
+
+// ── HikerAPI scraper ─────────────────────────────────────────────────────────
+async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
   const key = process.env.HIKER_API_KEY
-  if (!key) return { captions: [], postCount: 0 }
+  if (!key) return { posts: [], captions: [] }
 
   try {
-    // Step 1: resolve username → user ID (v2 endpoint)
     const userRes = await fetch(
       `https://api.hikerapi.com/v2/user/by/username?username=${encodeURIComponent(username)}`,
-      {
-        headers: { 'x-access-key': key, 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(20000),
-      }
+      { headers: { 'x-access-key': key, 'Accept': 'application/json' }, signal: AbortSignal.timeout(20000) }
     )
-    if (!userRes.ok) return { captions: [], postCount: 0 }
+    if (!userRes.ok) return { posts: [], captions: [] }
     const userData = await userRes.json()
-    // v2 returns { user: { pk, is_private, ... } } or flat { pk, ... }
     const user = userData?.user || userData
-    if (user?.is_private) return { captions: [], postCount: 0 }
+    if (user?.is_private) return { posts: [], captions: [] }
     const userId = user?.pk || user?.id
-    if (!userId) return { captions: [], postCount: 0 }
+    if (!userId) return { posts: [], captions: [] }
 
-    // Step 2: fetch recent posts (v2 — returns { response: { items: [...] }, next_page_id })
     const mediaRes = await fetch(
       `https://api.hikerapi.com/v2/user/medias?user_id=${userId}&count=30`,
-      {
-        headers: { 'x-access-key': key, 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(25000),
-      }
+      { headers: { 'x-access-key': key, 'Accept': 'application/json' }, signal: AbortSignal.timeout(25000) }
     )
-    if (!mediaRes.ok) return { captions: [], postCount: 0 }
+    if (!mediaRes.ok) return { posts: [], captions: [] }
     const mediaData = await mediaRes.json()
     const items: any[] = mediaData?.response?.items || mediaData?.items || mediaData?.data || []
-    const captions = items
-      .map((p: any) => {
-        const cap = p?.caption
-        return typeof cap === 'string' ? cap : (cap?.text || '')
-      })
-      .filter((c: string) => c.length > 3)
-      .slice(0, 30)
-    return { captions, postCount: items.length }
+
+    const posts: PostData[] = items.map((p: any) => {
+      const cap = p?.caption
+      const caption = typeof cap === 'string' ? cap : (cap?.text || '')
+      const mediaTypeMap: Record<number, 'photo' | 'video' | 'carousel'> = { 1: 'photo', 2: 'video', 8: 'carousel' }
+      return {
+        caption,
+        likes: p?.like_count || 0,
+        comments: p?.comment_count || 0,
+        mediaType: (mediaTypeMap[p?.media_type] ?? 'photo') as 'photo' | 'video' | 'carousel',
+        takenAt: p?.taken_at ? new Date(p.taken_at * 1000).toISOString() : new Date().toISOString(),
+      }
+    }).filter(p => p.caption.length > 3).slice(0, 30)
+
+    return { posts, captions: posts.map(p => p.caption) }
   } catch {
-    return { captions: [], postCount: 0 }
+    return { posts: [], captions: [] }
   }
 }
 
-// ── Apify fallback (requires Personal plan for residential proxies) ───────────
-async function scrapeViaApify(username: string): Promise<{ captions: string[]; postCount: number }> {
+// ── Apify fallback ────────────────────────────────────────────────────────────
+async function scrapeViaApify(username: string): Promise<ScrapeResult> {
   const key = process.env.APIFY_API_KEY
-  if (!key) return { captions: [], postCount: 0 }
+  if (!key) return { posts: [], captions: [] }
   try {
     const res = await fetch(
       `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${key}&timeout=60`,
@@ -68,15 +76,52 @@ async function scrapeViaApify(username: string): Promise<{ captions: string[]; p
         signal: AbortSignal.timeout(65000),
       }
     )
-    if (!res.ok) return { captions: [], postCount: 0 }
+    if (!res.ok) return { posts: [], captions: [] }
     const data = await res.json()
-    const posts: any[] = Array.isArray(data) ? data : (data[0]?.latestPosts || [])
-    // Check Apify returned real posts (not a bot-block empty response)
-    if (posts.length === 1 && posts[0]?.error) return { captions: [], postCount: 0 }
-    const captions = posts.map((p: any) => p.caption || p.text || '').filter((c: string) => c.length > 3).slice(0, 30)
-    return { captions, postCount: posts.length }
+    const raw: any[] = Array.isArray(data) ? data : (data[0]?.latestPosts || [])
+    if (raw.length === 1 && raw[0]?.error) return { posts: [], captions: [] }
+    const posts: PostData[] = raw
+      .filter(p => (p.caption || p.text || '').length > 3)
+      .map(p => ({
+        caption: p.caption || p.text || '',
+        likes: p.likesCount || p.likes || 0,
+        comments: p.commentsCount || p.comments || 0,
+        mediaType: (p.type === 'Video' ? 'video' : p.type === 'Sidecar' ? 'carousel' : 'photo') as 'photo' | 'video' | 'carousel',
+        takenAt: p.timestamp || new Date().toISOString(),
+      }))
+      .slice(0, 30)
+    return { posts, captions: posts.map(p => p.caption) }
   } catch {
-    return { captions: [], postCount: 0 }
+    return { posts: [], captions: [] }
+  }
+}
+
+// ── Store post engagement in Supabase ─────────────────────────────────────────
+async function savePostPerformance(artistName: string, posts: PostData[]) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) return
+  try {
+    const rows = posts.map(p => ({
+      artist_name: artistName,
+      caption: p.caption,
+      likes: p.likes,
+      comments: p.comments,
+      media_type: p.mediaType,
+      taken_at: p.takenAt,
+      engagement_score: p.likes + (p.comments * 3), // comments weighted 3x
+      scanned_at: new Date().toISOString(),
+    }))
+    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/post_performance`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify(rows),
+    })
+  } catch {
+    // non-critical — don't fail the scan if this fails
   }
 }
 
@@ -116,8 +161,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         profile: {
-          name,
-          ...profile,
+          name, ...profile,
           data_source: 'manual',
           post_count_analysed: manualCaptions.length,
           last_scanned: new Date().toISOString().split('T')[0],
@@ -127,11 +171,9 @@ export async function POST(req: NextRequest) {
 
     const targetUsername = (handle || name).toLowerCase().replace(/[^a-z0-9_.]/g, '')
 
-    // Try HikerAPI first (purpose-built for Instagram, residential proxies built-in)
     let result = await scrapeViaHikerAPI(targetUsername)
     let dataSource: 'hikerapi' | 'apify' | 'manual' = 'hikerapi'
 
-    // Fall back to Apify if HikerAPI not configured or returned nothing
     if (result.captions.length === 0) {
       result = await scrapeViaApify(targetUsername)
       dataSource = 'apify'
@@ -142,18 +184,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         error: hasAnyKey
-          ? `No posts found for ${name} — their Instagram may be set to private, or try a different handle (e.g. @artistname).`
+          ? `No posts found for ${name} — their Instagram may be set to private, or try a different handle.`
           : `No scraper configured. Add HIKER_API_KEY (hikerapi.com) to enable automatic scanning.`,
         canPaste: true,
       }, { status: 404 })
     }
 
+    // Save engagement data for trend analysis (non-blocking)
+    savePostPerformance(name, result.posts)
+
     const profile = await analyseWithClaude(name, result.captions)
     return NextResponse.json({
       success: true,
       profile: {
-        name,
-        ...profile,
+        name, ...profile,
         data_source: dataSource,
         post_count_analysed: result.captions.length,
         last_scanned: new Date().toISOString().split('T')[0],
