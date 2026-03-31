@@ -15,6 +15,7 @@ interface Invoice {
   due_date?: string
   created_at?: string
   paid_at?: string
+  wht_rate?: number
 }
 
 const MONTHLY_TEMPLATE = [
@@ -32,7 +33,7 @@ export default function Finances() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [monthly, setMonthly] = useState(MONTHLY_TEMPLATE)
   const [showAdd, setShowAdd] = useState(false)
-  const [newInvoice, setNewInvoice] = useState({ gig_title: '', amount: '', currency: 'EUR', type: 'full', due_date: '' })
+  const [newInvoice, setNewInvoice] = useState({ gig_title: '', amount: '', currency: 'EUR', type: 'full', due_date: '', wht_rate: '' })
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(true)
   const [financeTab, setFinanceTab] = useState<'invoices' | 'expenses'>('invoices')
@@ -108,11 +109,12 @@ export default function Finances() {
           currency: newInvoice.currency,
           type: newInvoice.type,
           due_date: newInvoice.due_date,
+          wht_rate: newInvoice.wht_rate ? parseFloat(newInvoice.wht_rate) : null,
         }),
       })
       const data = await res.json()
       if (data.success || data.invoice) {
-        setNewInvoice({ gig_title: '', amount: '', currency: 'EUR', type: 'full', due_date: '' })
+        setNewInvoice({ gig_title: '', amount: '', currency: 'EUR', type: 'full', due_date: '', wht_rate: '' })
         setShowAdd(false)
         showToast('Invoice added')
         fetchInvoices()
@@ -212,7 +214,7 @@ export default function Finances() {
       {showAdd && (
         <div className="card" style={{ border: '1px solid rgba(176, 141, 87, 0.25)', marginBottom: '24px' }}>
           <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>New invoice</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '16px' }}>
             {[
               { label: 'Gig / show', key: 'gig_title', placeholder: 'Electric Nights Festival' },
               { label: 'Amount', key: 'amount', placeholder: '5000' },
@@ -234,6 +236,13 @@ export default function Finances() {
                 <option value="full">Full fee</option>
               </select>
             </div>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>WHT %</div>
+              <input type="number" min="0" max="100" value={newInvoice.wht_rate} onChange={e => setNewInvoice(p => ({ ...p, wht_rate: e.target.value }))}
+                placeholder="0"
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+              <div style={{ fontSize: '9px', color: 'var(--text-dimmer)', marginTop: '5px', letterSpacing: '0.06em' }}>International gigs only</div>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={addInvoice} className="btn-primary" style={{ padding: '12px 24px', fontSize: '10px' }}>Save invoice</button>
@@ -244,8 +253,8 @@ export default function Finances() {
 
       {/* INVOICE TABLE */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 80px 100px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
-          {['Show', 'Due date', 'Type', 'Amount', 'Status', '', ''].map(h => (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 100px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
+          {['Show', 'Due date', 'Type', 'Amount', 'WHT', 'Net', '', ''].map(h => (
             <div key={h} style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{h}</div>
           ))}
         </div>
@@ -259,21 +268,22 @@ export default function Finances() {
             <a href="/gigs/new" style={{ display: 'inline-block', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(176, 141, 87, 0.4)', padding: '12px 24px', textDecoration: 'none' }}>Add a gig →</a>
           </div>
         ) : (
-          invoices.map((inv, i) => (
-            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 80px 100px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
+          invoices.map((inv, i) => {
+            const whtAmount = inv.wht_rate ? Math.round(inv.amount * (inv.wht_rate / 100)) : 0
+            const netAmount = inv.amount - whtAmount
+            return (
+            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 100px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
               <div>
                 <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.gig_title}</div>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</div>
               <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{inv.type || '—'}</div>
-              <div style={{ fontSize: '14px', color: 'var(--text)' }}>{inv.currency} {inv.amount.toLocaleString()}</div>
-              <div>
-                <span style={{
-                  fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase',
-                  color: inv.status === 'paid' ? 'var(--green)' : 'var(--gold-bright)',
-                  background: inv.status === 'paid' ? 'rgba(61, 107, 74, 0.125)' : 'rgba(201, 164, 110, 0.1)',
-                  padding: '4px 10px',
-                }}>{inv.status}</span>
+              <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.currency} {inv.amount.toLocaleString()}</div>
+              <div style={{ fontSize: '12px', color: inv.wht_rate ? 'var(--gold-bright)' : 'var(--text-dimmer)' }}>
+                {inv.wht_rate ? `${inv.wht_rate}%` : '—'}
+              </div>
+              <div style={{ fontSize: '13px', color: inv.wht_rate ? 'var(--text)' : 'var(--text-dimmer)' }}>
+                {inv.wht_rate ? `${inv.currency} ${netAmount.toLocaleString()}` : '—'}
               </div>
               <div>
                 <a href={`/api/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer"
@@ -291,7 +301,8 @@ export default function Finances() {
                 )}
               </div>
             </div>
-          ))
+            )
+          })
         )}
       </div>
 

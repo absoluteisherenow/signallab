@@ -101,9 +101,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 <div class="amount-block">
   <div>
-    <div class="amount-label">Amount due</div>
+    <div class="amount-label">${invoice.wht_rate ? 'Gross fee' : 'Amount due'}</div>
     <div class="amount-value">${invoice.currency} ${Number(invoice.amount).toLocaleString()}</div>
-    <div class="amount-meta">${invoice.status === 'paid' ? 'PAID' : 'PENDING PAYMENT'}</div>
+    ${invoice.wht_rate ? `
+    <div class="amount-meta" style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px">
+      WHT ${invoice.wht_rate}% — ${invoice.currency} ${Math.round(Number(invoice.amount) * (invoice.wht_rate / 100)).toLocaleString()}
+    </div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-top:6px">
+      Net: ${invoice.currency} ${Math.round(Number(invoice.amount) * (1 - invoice.wht_rate / 100)).toLocaleString()}
+    </div>` : `
+    <div class="amount-meta">${invoice.status === 'paid' ? 'PAID' : 'PENDING PAYMENT'}</div>`}
   </div>
   <div class="due-block">
     <div class="label">Due date</div>

@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
         type: body.type || 'full',
         status: 'pending',
         due_date: body.due_date || null,
+        wht_rate: body.wht_rate || null,
       }])
       .select()
     if (error) throw error
