@@ -15,6 +15,7 @@ const CURRENCIES = ['EUR', 'GBP', 'USD', 'CHF', 'DKK', 'SEK', 'NOK', 'PLN', 'CZK
 
 type BankAccount = {
   currency: string
+  label: string
   accountName: string
   bankName: string
   iban: string
@@ -24,6 +25,7 @@ type BankAccount = {
 
 type AddingAccount = {
   currency: string
+  label: string
   accountName: string
   bankName: string
   iban: string
@@ -36,7 +38,7 @@ type AddingAccount = {
 }
 
 function emptyAdding(currency = 'EUR'): AddingAccount {
-  return { currency, accountName: '', bankName: '', iban: '', sortCode: '', bic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
+  return { currency, label: '', accountName: '', bankName: '', iban: '', sortCode: '', bic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
 }
 
 async function saveProfile(profile: Record<string, unknown>) {
@@ -162,13 +164,14 @@ export default function Onboarding() {
     if (!adding) return
     const acct: BankAccount = {
       currency: adding.currency,
+      label: adding.label,
       accountName: adding.accountName,
       bankName: adding.bankName,
       iban: adding.iban,
       sortCode: adding.sortCode,
       bic: adding.bic,
     }
-    setBankAccounts(prev => [...prev.filter(a => a.currency !== acct.currency), acct])
+    setBankAccounts(prev => [...prev, acct])
     setAdding(null)
   }
 
@@ -442,10 +445,10 @@ export default function Onboarding() {
               {bankAccounts.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: adding ? '16px' : '0' }}>
                   {bankAccounts.map(acct => (
-                    <div key={acct.currency} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '10px 14px' }}>
+                    <div key={`${acct.currency}-${acct.label}-${acct.iban}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '10px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.gold, border: `1px solid ${s.gold}40`, padding: '2px 7px' }}>{acct.currency}</div>
-                        <div style={{ fontSize: '12px', color: s.dim }}>{acct.bankName || acct.accountName || acct.iban}</div>
+                        <div style={{ fontSize: '12px', color: s.dim }}>{acct.label ? `${acct.label} · ` : ''}{acct.bankName || acct.accountName || acct.iban}</div>
                       </div>
                       <button
                         onClick={() => setBankAccounts(prev => prev.filter(a => a.currency !== acct.currency))}
@@ -481,6 +484,16 @@ export default function Onboarding() {
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Optional label */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <input
+                      value={adding.label}
+                      onChange={e => updateAdding({ label: e.target.value })}
+                      placeholder="Label (optional) — e.g. Local, SWIFT, Revolut"
+                      style={{ ...input, fontSize: '12px' }}
+                    />
                   </div>
 
                   {/* Upload zone */}
