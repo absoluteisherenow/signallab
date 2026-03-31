@@ -88,7 +88,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         gig_id: gigId,
         featured_track: null,
         format_type: 'Raw',
-      }]).catch(() => {})
+      }])
     }
 
     // Notify artist
