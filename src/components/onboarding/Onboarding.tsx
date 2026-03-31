@@ -20,6 +20,7 @@ type BankAccount = {
   iban: string
   sortCode: string
   bic: string
+  intermediaryBic: string
 }
 
 type AddingAccount = {
@@ -30,6 +31,7 @@ type AddingAccount = {
   iban: string
   sortCode: string
   bic: string
+  intermediaryBic: string
   uploading: boolean
   uploadError: string
   extracted: boolean
@@ -37,7 +39,7 @@ type AddingAccount = {
 }
 
 function emptyAdding(): AddingAccount {
-  return { currency: '', label: '', accountName: '', bankName: '', iban: '', sortCode: '', bic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
+  return { currency: '', label: '', accountName: '', bankName: '', iban: '', sortCode: '', bic: '', intermediaryBic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
 }
 
 async function saveProfile(profile: Record<string, unknown>) {
@@ -157,6 +159,7 @@ export default function Onboarding() {
           iban: d.iban || '',
           sortCode: d.sortCode || '',
           bic: d.bic || '',
+          intermediaryBic: d.intermediaryBic || '',
         })
       }
     } catch {
@@ -174,6 +177,7 @@ export default function Onboarding() {
       iban: adding.iban,
       sortCode: adding.sortCode,
       bic: adding.bic,
+      intermediaryBic: adding.intermediaryBic,
     }
     setBankAccounts(prev => [...prev, acct])
     setAdding(null)
@@ -537,9 +541,10 @@ export default function Onboarding() {
                       <input value={adding.bankName} onChange={e => updateAdding({ bankName: e.target.value })} placeholder="Bank name" style={input} />
                       <input value={adding.iban} onChange={e => updateAdding({ iban: e.target.value })} placeholder="IBAN / Account number" style={input} />
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
-                        <input value={adding.sortCode} onChange={e => updateAdding({ sortCode: e.target.value })} placeholder="Sort code" style={input} />
+                        <input value={adding.sortCode} onChange={e => updateAdding({ sortCode: e.target.value })} placeholder="Sort code / BSB" style={input} />
                         <input value={adding.bic} onChange={e => updateAdding({ bic: e.target.value })} placeholder="BIC / SWIFT" style={input} />
                       </div>
+                      <input value={adding.intermediaryBic} onChange={e => updateAdding({ intermediaryBic: e.target.value })} placeholder="Intermediary BIC (optional — AUD, USD)" style={input} />
                     </div>
                   )}
 

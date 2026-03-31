@@ -50,9 +50,10 @@ export async function POST(req: NextRequest) {
   "accountName": "<name on account>",
   "bankName": "<bank name>",
   "iban": "<IBAN or account number>",
-  "sortCode": "<sort code or routing number>",
+  "sortCode": "<sort code, BSB, or routing number>",
   "bic": "<BIC or SWIFT code>",
-  "currency": "<3-letter currency code e.g. EUR, GBP, USD — infer from IBAN country prefix or bank country if not explicit>"
+  "intermediaryBic": "<intermediary or correspondent bank BIC/SWIFT — common for AUD, USD accounts>",
+  "currency": "<3-letter currency code e.g. EUR, GBP, USD, AUD — infer from IBAN country prefix or bank country if not explicit>"
 }
 No markdown, no explanation. Just the JSON object.`,
               },
