@@ -1,63 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const BEATPORT_BASE = 'https://api.beatport.com/v4'
+// ── Last.fm ───────────────────────────────────────────────────────────────────
 
-let cachedToken: { token: string; expires: number } | null = null
-
-async function getBeatportToken(): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expires - 60_000) return cachedToken.token
-  const res = await fetch(`${BEATPORT_BASE}/auth/o/token/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: 'Basic ' + Buffer.from(`${process.env.BEATPORT_CLIENT_ID}:${process.env.BEATPORT_CLIENT_SECRET}`).toString('base64'),
-    },
-    body: 'grant_type=client_credentials',
-  })
-  const data = await res.json()
-  if (!data.access_token) throw new Error('Beatport auth failed')
-  cachedToken = { token: data.access_token, expires: Date.now() + (data.expires_in || 3600) * 1000 }
-  return cachedToken.token
-}
-
-// ── Beatport ──────────────────────────────────────────────────────────────────
-
-async function discoverBeatport(name: string) {
-  if (!process.env.BEATPORT_CLIENT_ID || !process.env.BEATPORT_CLIENT_SECRET) return null
+async function discoverLastfm(name: string) {
+  const key = process.env.LASTFM_API_KEY
+  if (!key) return null
   try {
-    const token = await getBeatportToken()
-    const artistRes = await fetch(`${BEATPORT_BASE}/catalog/artists/?query=${encodeURIComponent(name)}&per_page=5`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!artistRes.ok) return null
-    const artistData = await artistRes.json()
-    const artists = artistData.results || []
-    if (!artists.length) return null
+    const res = await fetch(
+      `https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(name)}&api_key=${key}&format=json`
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    const artist = data?.artist
+    if (!artist || artist.name?.toLowerCase() === 'undefined') return null
 
-    const exact = artists.find((a: { name?: string }) => a.name?.toLowerCase() === name.toLowerCase())
-    const artist = exact || artists[0]
+    const tags: string[] = (artist.tags?.tag || []).map((t: { name: string }) => t.name)
+    const bio: string = artist.bio?.summary || ''
+    const cleanBio = bio.replace(/<a[^>]*>.*?<\/a>/gi, '').replace(/<[^>]+>/g, '').trim()
 
-    const tracksRes = await fetch(`${BEATPORT_BASE}/catalog/tracks/?artist_id=${artist.id}&per_page=6&order_by=-publish_date`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    const tracksData = tracksRes.ok ? await tracksRes.json() : { results: [] }
-    const tracks = (tracksData.results || []).map((t: { name: string; bpm: number; genre?: { name: string } }) => ({
+    const topTracksRes = await fetch(
+      `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist=${encodeURIComponent(name)}&api_key=${key}&format=json&limit=6`
+    )
+    const topTracksData = topTracksRes.ok ? await topTracksRes.json() : {}
+    const tracks = (topTracksData?.toptracks?.track || []).map((t: { name: string }) => ({
       title: t.name,
-      bpm: t.bpm,
-      genre: t.genre?.name || null,
+      bpm: 0,
     }))
-
-    const genres = tracks.map((t: { genre: string | null }) => t.genre).filter(Boolean)
-    const bpms = tracks.map((t: { bpm: number }) => t.bpm).filter(Boolean)
 
     return {
       found: true,
       artistName: artist.name,
-      beatportId: artist.id,
-      genre: genres[0] || null,
-      bpmRange: bpms.length > 1
-        ? `${Math.min(...bpms)}–${Math.max(...bpms)}`
-        : bpms.length === 1 ? `${bpms[0]}` : null,
+      genre: tags[0] || null,
+      tags: tags.slice(0, 4),
+      bio: cleanBio ? cleanBio.slice(0, 200) : null,
       tracks: tracks.slice(0, 4),
     }
   } catch {
@@ -82,7 +57,7 @@ async function discoverRA(name: string) {
           id
           name
           country { name }
-          biography
+          biography { blurb }
         }
       }`,
       variables: { slug },
@@ -106,7 +81,7 @@ async function discoverRA(name: string) {
           found: true,
           raSlug: slug,
           country: artist.country?.name || null,
-          bio: artist.biography ? artist.biography.slice(0, 200) : null,
+          bio: artist.biography?.blurb ? artist.biography.blurb.slice(0, 200) : null,
         }
       }
     }
@@ -163,28 +138,28 @@ export async function GET(req: NextRequest) {
   if (!name || name.length < 2) return NextResponse.json({ found: false })
 
   // Run both in parallel
-  const [beatport, ra] = await Promise.all([
-    discoverBeatport(name),
+  const [lastfm, ra] = await Promise.all([
+    discoverLastfm(name),
     discoverRA(name),
   ])
 
-  const foundAnywhere = !!(beatport?.found || ra?.found)
+  const foundAnywhere = !!(lastfm?.found || ra?.found)
 
   if (!foundAnywhere) return NextResponse.json({ found: false })
 
   return NextResponse.json({
     found: true,
     sources: [
-      ...(beatport?.found ? ['beatport'] : []),
+      ...(lastfm?.found ? ['lastfm'] : []),
       ...(ra?.found ? ['ra'] : []),
     ],
-    artistName: beatport?.artistName || name,
-    beatportId: beatport?.beatportId || null,
+    artistName: lastfm?.artistName || name,
     raSlug: ra?.raSlug || null,
-    genre: beatport?.genre || null,
-    bpmRange: beatport?.bpmRange || null,
+    genre: lastfm?.genre || null,
+    tags: lastfm?.tags || [],
+    bpmRange: null,
     country: ra?.country || null,
-    bio: ra?.bio || null,
-    tracks: beatport?.tracks || [],
+    bio: ra?.bio || lastfm?.bio || null,
+    tracks: lastfm?.tracks || [],
   })
 }
