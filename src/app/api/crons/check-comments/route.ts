@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { handleComment } from '@/app/api/social/instagram/webhook/route'
+import { handleComment } from '@/lib/instagram'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
