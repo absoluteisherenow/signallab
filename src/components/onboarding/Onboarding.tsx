@@ -11,6 +11,34 @@ const ALIGNMENT_ARTISTS = [
   'Recondite', 'Jon Hopkins', 'Headless Horseman', 'Phase Fatale',
 ]
 
+const CURRENCIES = ['EUR', 'GBP', 'USD', 'CHF', 'DKK', 'SEK', 'NOK', 'PLN', 'CZK']
+
+type BankAccount = {
+  currency: string
+  accountName: string
+  bankName: string
+  iban: string
+  sortCode: string
+  bic: string
+}
+
+type AddingAccount = {
+  currency: string
+  accountName: string
+  bankName: string
+  iban: string
+  sortCode: string
+  bic: string
+  uploading: boolean
+  uploadError: string
+  extracted: boolean
+  showManual: boolean
+}
+
+function emptyAdding(currency = 'EUR'): AddingAccount {
+  return { currency, accountName: '', bankName: '', iban: '', sortCode: '', bic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
+}
+
 async function saveProfile(profile: Record<string, unknown>) {
   const existing = await fetch('/api/settings').then(r => r.json()).catch(() => ({}))
   const current = existing.settings || {}
@@ -48,16 +76,9 @@ export default function Onboarding() {
   const [bookingEmail, setBookingEmail] = useState('')
   const [label, setLabel] = useState('')
 
-  // Step 2 — bank details
-  const [bankAccountName, setBankAccountName] = useState('')
-  const [bankName, setBankName] = useState('')
-  const [bankIban, setBankIban] = useState('')
-  const [bankSortCode, setBankSortCode] = useState('')
-  const [bankBic, setBankBic] = useState('')
-  const [bankUploading, setBankUploading] = useState(false)
-  const [bankUploadError, setBankUploadError] = useState('')
-  const [bankExtracted, setBankExtracted] = useState(false)
-  const [showBankManual, setShowBankManual] = useState(false)
+  // Step 2 — bank accounts (multi-currency)
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
+  const [adding, setAdding] = useState<AddingAccount | null>(null)
   const bankFileRef = useRef<HTMLInputElement>(null)
 
   const s = {
@@ -67,9 +88,13 @@ export default function Onboarding() {
   }
 
   const input: React.CSSProperties = {
-    width: '100%', background: s.panel, border: `1px solid ${s.border}`,
+    width: '100%', background: s.bg, border: `1px solid ${s.border}`,
     color: s.text, fontFamily: s.font, fontSize: '13px',
-    padding: '12px 16px', outline: 'none', boxSizing: 'border-box',
+    padding: '11px 14px', outline: 'none', boxSizing: 'border-box',
+  }
+
+  const panelInput: React.CSSProperties = {
+    ...input, background: s.panel,
   }
 
   useEffect(() => {
@@ -102,41 +127,53 @@ export default function Onboarding() {
     }
   }
 
+  function updateAdding(patch: Partial<AddingAccount>) {
+    setAdding(prev => prev ? { ...prev, ...patch } : null)
+  }
+
   async function uploadBankFile(file: File) {
-    setBankUploading(true)
-    setBankUploadError('')
-    setBankExtracted(false)
+    updateAdding({ uploading: true, uploadError: '', extracted: false })
     try {
       const fd = new FormData()
       fd.append('file', file)
       const res = await fetch('/api/onboarding/extract-bank', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok || !data.success) {
-        setBankUploadError(data.error || 'Could not extract — enter manually.')
-        setShowBankManual(true)
+        updateAdding({ uploading: false, uploadError: data.error || 'Could not extract — enter manually.', showManual: true })
       } else {
         const d = data.details
-        if (d.accountName) setBankAccountName(d.accountName)
-        if (d.bankName) setBankName(d.bankName)
-        if (d.iban) setBankIban(d.iban)
-        if (d.sortCode) setBankSortCode(d.sortCode)
-        if (d.bic) setBankBic(d.bic)
-        setBankExtracted(true)
-        setShowBankManual(true)
+        updateAdding({
+          uploading: false,
+          extracted: true,
+          showManual: true,
+          accountName: d.accountName || '',
+          bankName: d.bankName || '',
+          iban: d.iban || '',
+          sortCode: d.sortCode || '',
+          bic: d.bic || '',
+        })
       }
     } catch {
-      setBankUploadError('Upload failed — enter manually.')
-      setShowBankManual(true)
-    } finally {
-      setBankUploading(false)
+      updateAdding({ uploading: false, uploadError: 'Upload failed — enter manually.', showManual: true })
     }
+  }
+
+  function saveAccount() {
+    if (!adding) return
+    const acct: BankAccount = {
+      currency: adding.currency,
+      accountName: adding.accountName,
+      bankName: adding.bankName,
+      iban: adding.iban,
+      sortCode: adding.sortCode,
+      bic: adding.bic,
+    }
+    setBankAccounts(prev => [...prev.filter(a => a.currency !== acct.currency), acct])
+    setAdding(null)
   }
 
   async function finish() {
     setStep(3)
-    const bankDetails = bankAccountName || bankIban
-      ? { accountName: bankAccountName, bankName, iban: bankIban, sortCode: bankSortCode, bic: bankBic }
-      : null
     await saveProfile({
       name: artistName,
       soundsLike: aligned,
@@ -145,7 +182,7 @@ export default function Onboarding() {
       management: mgmtName ? { name: mgmtName, email: mgmtEmail } : null,
       booking: bookingName ? { name: bookingName, email: bookingEmail } : null,
       label: label || null,
-      bankDetails,
+      bankAccounts: bankAccounts.length > 0 ? bankAccounts : null,
     })
     router.push('/dashboard')
   }
@@ -186,7 +223,7 @@ export default function Onboarding() {
                 onChange={e => setArtistName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && artistName.trim()) setStep(1) }}
                 placeholder="Night Manoeuvres"
-                style={input}
+                style={panelInput}
                 autoFocus
               />
 
@@ -274,7 +311,6 @@ export default function Onboarding() {
                 )
               })}
 
-              {/* Custom added artists */}
               {aligned.filter(a => !ALIGNMENT_ARTISTS.includes(a)).map(name => (
                 <button
                   key={name}
@@ -291,7 +327,6 @@ export default function Onboarding() {
               ))}
             </div>
 
-            {/* Add your own */}
             {aligned.length < 5 && (
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                 <input
@@ -299,7 +334,7 @@ export default function Onboarding() {
                   onChange={e => setCustomArtist(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') addCustomArtist() }}
                   placeholder="Add your own artist..."
-                  style={{ ...input, flex: 1, fontSize: '12px', padding: '10px 14px' }}
+                  style={{ ...panelInput, flex: 1, fontSize: '12px', padding: '10px 14px' }}
                 />
                 <button
                   onClick={addCustomArtist}
@@ -388,84 +423,164 @@ export default function Onboarding() {
               <input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. Ostgut Ton, Self-released" style={input} />
             </div>
 
-            {/* Bank details */}
+            {/* Bank accounts — multi-currency */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '28px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '6px' }}>Payment details</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase' }}>Payment details</div>
+                {bankAccounts.length > 0 && !adding && (
+                  <button
+                    onClick={() => setAdding(emptyAdding())}
+                    style={{ background: 'none', border: 'none', color: s.gold, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.12em', cursor: 'pointer', padding: 0 }}
+                  >
+                    + Add account
+                  </button>
+                )}
+              </div>
               <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '14px' }}>Used to auto-fill invoices. Never shared.</div>
 
-              {/* Upload zone */}
-              {!bankExtracted && !showBankManual && (
-                <div
-                  onClick={() => bankFileRef.current?.click()}
-                  style={{
-                    border: `1px dashed ${bankUploading ? s.gold : '#2a2926'}`,
-                    padding: '28px 20px',
-                    textAlign: 'center',
-                    cursor: bankUploading ? 'default' : 'pointer',
-                    transition: 'border-color 0.15s',
-                  }}
-                >
-                  {bankUploading ? (
-                    <div style={{ fontSize: '12px', color: s.gold, letterSpacing: '0.1em' }}>Extracting details...</div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: '12px', color: s.dim, marginBottom: '6px' }}>Upload a screenshot or bank statement</div>
-                      <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em' }}>JPG · PNG · WEBP · PDF</div>
-                    </>
-                  )}
-                  <input
-                    ref={bankFileRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    style={{ display: 'none' }}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadBankFile(f) }}
-                  />
+              {/* Saved accounts */}
+              {bankAccounts.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: adding ? '16px' : '0' }}>
+                  {bankAccounts.map(acct => (
+                    <div key={acct.currency} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.gold, border: `1px solid ${s.gold}40`, padding: '2px 7px' }}>{acct.currency}</div>
+                        <div style={{ fontSize: '12px', color: s.dim }}>{acct.bankName || acct.accountName || acct.iban}</div>
+                      </div>
+                      <button
+                        onClick={() => setBankAccounts(prev => prev.filter(a => a.currency !== acct.currency))}
+                        style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '14px', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {bankUploadError && (
-                <div style={{ fontSize: '11px', color: '#c06060', marginBottom: '10px' }}>{bankUploadError}</div>
-              )}
+              {/* Add account form */}
+              {adding && (
+                <div style={{ border: `1px solid ${s.border}`, padding: '16px', marginTop: bankAccounts.length > 0 ? '0' : '0' }}>
+                  {/* Currency selector */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.14em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Currency</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {CURRENCIES.map(c => (
+                        <button
+                          key={c}
+                          onClick={() => updateAdding({ currency: c })}
+                          style={{
+                            background: adding.currency === c ? 'rgba(176,141,87,0.12)' : 'transparent',
+                            border: `1px solid ${adding.currency === c ? s.gold : s.border}`,
+                            color: adding.currency === c ? s.gold : s.dimmer,
+                            fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em',
+                            padding: '6px 12px', cursor: 'pointer', transition: 'all 0.12s',
+                          }}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {bankExtracted && !showBankManual && (
-                <div style={{ fontSize: '11px', color: s.gold, letterSpacing: '0.1em', marginBottom: '10px' }}>
-                  Details extracted — review below
-                </div>
-              )}
-
-              {/* Manual fields — shown after upload or by choice */}
-              {showBankManual && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {bankExtracted && (
-                    <div style={{ fontSize: '10px', color: s.gold, letterSpacing: '0.12em', marginBottom: '4px' }}>
-                      Details extracted — review and confirm
+                  {/* Upload zone */}
+                  {!adding.extracted && !adding.showManual && (
+                    <div
+                      onClick={() => bankFileRef.current?.click()}
+                      style={{
+                        border: `1px dashed ${adding.uploading ? s.gold : '#2a2926'}`,
+                        padding: '24px 16px',
+                        textAlign: 'center',
+                        cursor: adding.uploading ? 'default' : 'pointer',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      {adding.uploading ? (
+                        <div style={{ fontSize: '12px', color: s.gold, letterSpacing: '0.1em' }}>Extracting details...</div>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: '12px', color: s.dim, marginBottom: '4px' }}>Upload a screenshot or bank statement</div>
+                          <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em' }}>JPG · PNG · WEBP · PDF</div>
+                        </>
+                      )}
+                      <input
+                        ref={bankFileRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                        style={{ display: 'none' }}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadBankFile(f) }}
+                      />
                     </div>
                   )}
-                  <input value={bankAccountName} onChange={e => setBankAccountName(e.target.value)} placeholder="Account name" style={input} />
-                  <input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="Bank name" style={input} />
-                  <input value={bankIban} onChange={e => setBankIban(e.target.value)} placeholder="IBAN / Account number" style={input} />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <input value={bankSortCode} onChange={e => setBankSortCode(e.target.value)} placeholder="Sort code" style={input} />
-                    <input value={bankBic} onChange={e => setBankBic(e.target.value)} placeholder="BIC / SWIFT" style={input} />
+
+                  {adding.uploadError && (
+                    <div style={{ fontSize: '11px', color: '#c06060', marginBottom: '10px' }}>{adding.uploadError}</div>
+                  )}
+
+                  {/* Manual fields */}
+                  {adding.showManual && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '10px' }}>
+                      {adding.extracted && (
+                        <div style={{ fontSize: '10px', color: s.gold, letterSpacing: '0.1em', marginBottom: '4px' }}>Extracted — review and confirm</div>
+                      )}
+                      <input value={adding.accountName} onChange={e => updateAdding({ accountName: e.target.value })} placeholder="Account name" style={input} />
+                      <input value={adding.bankName} onChange={e => updateAdding({ bankName: e.target.value })} placeholder="Bank name" style={input} />
+                      <input value={adding.iban} onChange={e => updateAdding({ iban: e.target.value })} placeholder="IBAN / Account number" style={input} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                        <input value={adding.sortCode} onChange={e => updateAdding({ sortCode: e.target.value })} placeholder="Sort code" style={input} />
+                        <input value={adding.bic} onChange={e => updateAdding({ bic: e.target.value })} placeholder="BIC / SWIFT" style={input} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Toggle manual / upload */}
+                  {!adding.showManual && !adding.uploading && (
+                    <button onClick={() => updateAdding({ showManual: true })} style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.08em', padding: '4px 0', cursor: 'pointer' }}>
+                      Enter manually instead →
+                    </button>
+                  )}
+                  {adding.showManual && !adding.extracted && (
+                    <button onClick={() => updateAdding({ showManual: false, uploadError: '' })} style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.08em', padding: '4px 0', cursor: 'pointer' }}>
+                      ← Upload instead
+                    </button>
+                  )}
+
+                  {/* Save / cancel */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                    <button
+                      onClick={saveAccount}
+                      disabled={!adding.iban && !adding.accountName}
+                      style={{
+                        flex: 1, background: (adding.iban || adding.accountName) ? s.gold : 'transparent',
+                        color: (adding.iban || adding.accountName) ? '#070706' : s.dimmer,
+                        border: `1px solid ${(adding.iban || adding.accountName) ? s.gold : s.border}`,
+                        fontFamily: s.font, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase',
+                        padding: '10px', cursor: (adding.iban || adding.accountName) ? 'pointer' : 'default', transition: 'all 0.15s',
+                      }}
+                    >
+                      Save account
+                    </button>
+                    <button
+                      onClick={() => setAdding(null)}
+                      style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.12em', padding: '10px 16px', cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Toggle manual */}
-              {!showBankManual && !bankUploading && (
+              {/* Prompt to add first account */}
+              {bankAccounts.length === 0 && !adding && (
                 <button
-                  onClick={() => setShowBankManual(true)}
-                  style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.08em', padding: '10px 0 0', cursor: 'pointer' }}
+                  onClick={() => setAdding(emptyAdding())}
+                  style={{
+                    width: '100%', background: 'transparent', border: `1px dashed ${s.border}`,
+                    color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.12em',
+                    padding: '16px', cursor: 'pointer', transition: 'border-color 0.15s',
+                  }}
                 >
-                  Enter manually instead →
-                </button>
-              )}
-              {showBankManual && !bankExtracted && (
-                <button
-                  onClick={() => { setShowBankManual(false); setBankUploadError('') }}
-                  style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.08em', padding: '10px 0 0', cursor: 'pointer' }}
-                >
-                  ← Upload instead
+                  + Add payment account
                 </button>
               )}
             </div>
