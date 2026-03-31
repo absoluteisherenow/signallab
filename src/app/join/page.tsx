@@ -85,8 +85,8 @@ export default function JoinPage() {
         padding: '120px 48px 80px', textAlign: 'center',
         borderBottom: `1px solid ${C.border}`,
       }}>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: C.gold, textTransform: 'uppercase', marginBottom: '32px' }}>
-          For Electronic Music Artists
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: C.gold, textTransform: 'uppercase', marginBottom: '8px', whiteSpace: 'nowrap' }}>
+          Tailored Artist OS For Electronic Music Artists
         </div>
 
         <h1 style={{
@@ -103,8 +103,7 @@ export default function JoinPage() {
           fontSize: '13px', color: C.dim, lineHeight: '1.9',
           maxWidth: '540px', letterSpacing: '0.04em', marginBottom: '52px',
         }}>
-          One system for the tour, the studio, the release, the broadcast.
-          Everything in motion. Nothing left behind.
+          One system. Every moving part of their career, finally still.
         </p>
 
         <button
