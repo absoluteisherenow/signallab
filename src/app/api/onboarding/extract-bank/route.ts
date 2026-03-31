@@ -19,14 +19,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unsupported file type. Use JPEG, PNG, WEBP, or PDF.' }, { status: 400 })
     }
 
-    // PDF not supported by vision — return clear message
-    if (file.type === 'application/pdf') {
-      return NextResponse.json({ error: 'PDF upload coming soon — use an image or enter details manually.' }, { status: 400 })
-    }
-
     const arrayBuffer = await file.arrayBuffer()
     const base64 = Buffer.from(arrayBuffer).toString('base64')
-    const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+    const isPdf = file.type === 'application/pdf'
+
+    const fileContent = isPdf
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+      : { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } }
 
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -34,6 +33,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        ...(isPdf ? { 'anthropic-beta': 'pdfs-2024-09-25' } : {}),
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
@@ -42,13 +42,10 @@ export async function POST(req: NextRequest) {
           {
             role: 'user',
             content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: mediaType, data: base64 },
-              },
+              fileContent,
               {
                 type: 'text',
-                text: `Extract bank account details from this image. Return ONLY valid JSON with these fields (use null if not found):
+                text: `Extract bank account details from this document. Return ONLY valid JSON with these fields (use null if not found):
 {
   "accountName": "<name on account>",
   "bankName": "<bank name>",

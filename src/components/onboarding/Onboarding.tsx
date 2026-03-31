@@ -410,13 +410,13 @@ export default function Onboarding() {
                   ) : (
                     <>
                       <div style={{ fontSize: '12px', color: s.dim, marginBottom: '6px' }}>Upload a screenshot or bank statement</div>
-                      <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em' }}>JPG · PNG · WEBP</div>
+                      <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em' }}>JPG · PNG · WEBP · PDF</div>
                     </>
                   )}
                   <input
                     ref={bankFileRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
                     style={{ display: 'none' }}
                     onChange={e => { const f = e.target.files?.[0]; if (f) uploadBankFile(f) }}
                   />
