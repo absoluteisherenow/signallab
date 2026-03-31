@@ -45,6 +45,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         audience: parseInt(body.audience) || 0,
         status: body.status,
         promoter_email: body.promoter_email || null,
+        promoter_phone: body.promoter_phone || null,
+        al_name: body.al_name || null,
+        al_phone: body.al_phone || null,
+        al_email: body.al_email || null,
+        driver_name: body.driver_name || null,
+        driver_phone: body.driver_phone || null,
+        driver_notes: body.driver_notes || null,
         notes: body.notes || null,
       })
       .eq('id', params.id)

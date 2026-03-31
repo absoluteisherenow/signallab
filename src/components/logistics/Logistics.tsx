@@ -3,6 +3,22 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
+interface TravelBooking {
+  id: string
+  type: 'flight' | 'train' | 'hotel'
+  name: string | null
+  flight_number: string | null
+  from_location: string | null
+  to_location: string | null
+  departure_at: string | null
+  arrival_at: string | null
+  check_in: string | null
+  check_out: string | null
+  reference: string | null
+  cost: number | null
+  currency: string
+}
+
 interface Gig {
   id: string
   title: string
@@ -12,17 +28,66 @@ interface Gig {
   time: string
   status: string
   fee: number
+  currency?: string
   promoter_email?: string
+  promoter_phone?: string
+  al_name?: string
+  al_phone?: string
+  al_email?: string
+  driver_name?: string
+  driver_phone?: string
+  driver_notes?: string
+}
+
+function fmtDateTime(dt: string | null) {
+  if (!dt) return '—'
+  const d = new Date(dt)
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' · ' +
+    d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function searchFlightsUrl(destination: string, date: string) {
+  const city = destination.split(',')[0].trim()
+  const d = new Date(date)
+  const dateStr = d.toISOString().slice(0, 10)
+  return `https://www.google.com/flights#flt=DUB.${encodeURIComponent(city)}.${dateStr};c:EUR;e:1;s:0*1;sd:1;t:f`
+}
+
+function searchTrainsUrl(destination: string, date: string) {
+  const city = destination.split(',')[0].trim()
+  return `https://www.thetrainline.com/book/results?origin=Dublin&destination=${encodeURIComponent(city)}&outwardDate=${date}&outwardDateType=departing`
+}
+
+function searchHotelUrl(destination: string, checkIn: string, checkOut?: string) {
+  const city = destination.split(',')[0].trim()
+  return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(city)}&checkin=${checkIn}${checkOut ? `&checkout=${checkOut}` : ''}&group_adults=1`
 }
 
 export default function Logistics() {
   const [gigs, setGigs] = useState<Gig[] | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [gigDetails, setGigDetails] = useState<Record<string, Gig>>({})
+  const [travelBookings, setTravelBookings] = useState<Record<string, TravelBooking[]>>({})
   const [promoterEmail, setPromoterEmail] = useState('')
   const [showEmailInput, setShowEmailInput] = useState<string | null>(null)
   const [sending, setSending] = useState<string | null>(null)
   const [advanceStatus, setAdvanceStatus] = useState<Record<string, string>>({ '1': 'complete', '2': 'sent' })
   const [toast, setToast] = useState('')
+
+  // Contacts editing
+  const [editingContacts, setEditingContacts] = useState<string | null>(null)
+  const [contactForm, setContactForm] = useState<Partial<Gig>>({})
+  const [savingContacts, setSavingContacts] = useState(false)
+
+  // Add travel booking
+  const [addingTravel, setAddingTravel] = useState<{ gigId: string; type: 'flight' | 'train' | 'hotel' } | null>(null)
+  const [travelForm, setTravelForm] = useState<Record<string, string>>({})
+  const [savingTravel, setSavingTravel] = useState(false)
 
   useEffect(() => {
     fetch('/api/gigs')
@@ -34,6 +99,64 @@ export default function Logistics() {
   function showToast(msg: string) {
     setToast(msg)
     setTimeout(() => setToast(''), 3000)
+  }
+
+  async function openGig(gigId: string) {
+    setSelected(gigId)
+    if (!gigDetails[gigId]) {
+      const [gigRes, travelRes] = await Promise.all([
+        fetch(`/api/gigs/${gigId}`).then(r => r.json()),
+        fetch(`/api/gigs/${gigId}/travel`).then(r => r.json()),
+      ])
+      if (gigRes.gig) setGigDetails(prev => ({ ...prev, [gigId]: gigRes.gig }))
+      setTravelBookings(prev => ({ ...prev, [gigId]: travelRes.bookings || [] }))
+    }
+  }
+
+  async function saveContacts(gigId: string) {
+    setSavingContacts(true)
+    try {
+      const res = await fetch(`/api/gigs/${gigId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...gigDetails[gigId], ...contactForm }),
+      })
+      const data = await res.json()
+      if (data.gig) {
+        setGigDetails(prev => ({ ...prev, [gigId]: data.gig }))
+        setEditingContacts(null)
+        setContactForm({})
+        showToast('Contacts saved')
+      }
+    } finally {
+      setSavingContacts(false)
+    }
+  }
+
+  async function saveTravel(gigId: string) {
+    if (!addingTravel) return
+    setSavingTravel(true)
+    try {
+      const res = await fetch(`/api/gigs/${gigId}/travel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: addingTravel.type, ...travelForm }),
+      })
+      const data = await res.json()
+      if (data.booking) {
+        setTravelBookings(prev => ({ ...prev, [gigId]: [...(prev[gigId] || []), data.booking] }))
+        setAddingTravel(null)
+        setTravelForm({})
+        showToast('Booking added')
+      }
+    } finally {
+      setSavingTravel(false)
+    }
+  }
+
+  async function deleteTravel(gigId: string, bookingId: string) {
+    await fetch(`/api/gigs/${gigId}/travel?bookingId=${bookingId}`, { method: 'DELETE' })
+    setTravelBookings(prev => ({ ...prev, [gigId]: (prev[gigId] || []).filter(b => b.id !== bookingId) }))
   }
 
   async function sendAdvance(gig: Gig, email: string) {
@@ -69,6 +192,18 @@ export default function Logistics() {
 
   const statusColor = (s: string) => s === 'complete' ? '#3d6b4a' : s === 'sent' ? '#b08d57' : '#52504c'
   const statusLabel = (s: string) => s === 'complete' ? 'Advance complete' : s === 'sent' ? 'Sent — awaiting' : 'Not sent'
+
+  const inlineInput: React.CSSProperties = {
+    background: 'var(--bg)',
+    border: '1px solid var(--border-dim)',
+    color: 'var(--text)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '12px',
+    padding: '8px 10px',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+  }
 
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh', padding: '48px 56px' }}>
@@ -118,7 +253,7 @@ export default function Logistics() {
           return (
             <div key={gig.id}>
               {/* ROW */}
-              <div onClick={() => setSelected(isOpen ? null : gig.id)} style={{
+              <div onClick={() => isOpen ? setSelected(null) : openGig(gig.id)} style={{
                 background: isOpen ? '#141310' : 'var(--panel)',
                 border: `1px solid ${isOpen ? 'rgba(176, 141, 87, 0.25)' : 'var(--border-dim)'}`,
                 padding: '20px 28px',
@@ -151,7 +286,7 @@ export default function Logistics() {
 
               {/* EXPANDED */}
               {isOpen && (
-                <div style={{ background: '#0a0906', border: 'rgba(176, 141, 87, 0.125)', borderTop: 'none', padding: '32px 28px' }}>
+                <div style={{ background: '#0a0906', border: '1px solid rgba(176, 141, 87, 0.125)', borderTop: 'none', padding: '32px 28px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '32px' }}>
 
                     {/* SHOW DETAILS */}
@@ -249,6 +384,220 @@ export default function Logistics() {
                       </div>
                     </div>
                   </div>
+
+                  {/* TRAVEL + CONTACTS */}
+                  {(() => {
+                    const detail = gigDetails[gig.id] || gig
+                    const bookings = travelBookings[gig.id] || []
+                    const flights = bookings.filter(b => b.type === 'flight')
+                    const trains = bookings.filter(b => b.type === 'train')
+                    const hotels = bookings.filter(b => b.type === 'hotel')
+                    const isEditingContacts = editingContacts === gig.id
+
+                    return (
+                      <div style={{ borderTop: '1px solid rgba(176,141,87,0.12)', marginTop: '28px', paddingTop: '28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+
+                        {/* TRAVEL */}
+                        <div>
+                          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Travel</div>
+
+                          {/* Smart search links */}
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                            <a href={searchFlightsUrl(gig.location, gig.date)} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '7px 14px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                              Search flights ↗
+                            </a>
+                            <a href={searchTrainsUrl(gig.location, gig.date)} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '7px 14px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                              Search trains ↗
+                            </a>
+                            <a href={searchHotelUrl(gig.location, gig.date)} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '7px 14px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                              Search hotels ↗
+                            </a>
+                          </div>
+
+                          {/* Booked travel */}
+                          {bookings.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                              {[...flights, ...trains, ...hotels].map(b => (
+                                <div key={b.id} style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '12px 14px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div>
+                                      <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                                        {b.type === 'flight' ? '✈ Flight' : b.type === 'train' ? '🚂 Train' : '🏨 Hotel'}
+                                        {b.name ? ` · ${b.name}` : ''}
+                                        {b.flight_number ? ` ${b.flight_number}` : ''}
+                                      </div>
+                                      {b.type !== 'hotel' && (b.from_location || b.to_location) && (
+                                        <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '3px' }}>
+                                          {b.from_location} → {b.to_location}
+                                        </div>
+                                      )}
+                                      {b.type !== 'hotel' && b.departure_at && (
+                                        <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>
+                                          {fmtDateTime(b.departure_at)}{b.arrival_at ? ` → ${fmtDateTime(b.arrival_at)}` : ''}
+                                        </div>
+                                      )}
+                                      {b.type === 'hotel' && (
+                                        <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>
+                                          {fmtDate(b.check_in)} → {fmtDate(b.check_out)}
+                                        </div>
+                                      )}
+                                      {b.reference && (
+                                        <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '3px' }}>Ref: {b.reference}</div>
+                                      )}
+                                      {b.cost && (
+                                        <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>{b.currency} {b.cost.toLocaleString()}</div>
+                                      )}
+                                    </div>
+                                    <button onClick={() => deleteTravel(gig.id, b.id)}
+                                      style={{ background: 'none', border: 'none', color: 'var(--text-dimmer)', cursor: 'pointer', fontSize: '14px', padding: '0 4px', lineHeight: 1 }}>
+                                      ×
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Add travel booking */}
+                          {addingTravel?.gigId === gig.id ? (
+                            <div style={{ border: '1px solid var(--border-dim)', padding: '14px', marginTop: '8px' }}>
+                              <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '12px' }}>
+                                Add {addingTravel.type}
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                                {addingTravel.type !== 'hotel' ? (
+                                  <>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                                      <input value={travelForm.name || ''} onChange={e => setTravelForm(p => ({ ...p, name: e.target.value }))} placeholder={addingTravel.type === 'flight' ? 'Airline' : 'Operator'} style={inlineInput} />
+                                      {addingTravel.type === 'flight' && <input value={travelForm.flight_number || ''} onChange={e => setTravelForm(p => ({ ...p, flight_number: e.target.value }))} placeholder="FR1234" style={inlineInput} />}
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                                      <input value={travelForm.from_location || ''} onChange={e => setTravelForm(p => ({ ...p, from_location: e.target.value }))} placeholder="From" style={inlineInput} />
+                                      <input value={travelForm.to_location || ''} onChange={e => setTravelForm(p => ({ ...p, to_location: e.target.value }))} placeholder="To" style={inlineInput} />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                                      <input value={travelForm.departure_at || ''} onChange={e => setTravelForm(p => ({ ...p, departure_at: e.target.value }))} placeholder="Depart (YYYY-MM-DDTHH:MM)" style={inlineInput} />
+                                      <input value={travelForm.arrival_at || ''} onChange={e => setTravelForm(p => ({ ...p, arrival_at: e.target.value }))} placeholder="Arrive" style={inlineInput} />
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <input value={travelForm.name || ''} onChange={e => setTravelForm(p => ({ ...p, name: e.target.value }))} placeholder="Hotel name" style={inlineInput} />
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                                      <input value={travelForm.check_in || ''} onChange={e => setTravelForm(p => ({ ...p, check_in: e.target.value }))} placeholder="Check in (YYYY-MM-DD)" style={inlineInput} />
+                                      <input value={travelForm.check_out || ''} onChange={e => setTravelForm(p => ({ ...p, check_out: e.target.value }))} placeholder="Check out" style={inlineInput} />
+                                    </div>
+                                  </>
+                                )}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                                  <input value={travelForm.reference || ''} onChange={e => setTravelForm(p => ({ ...p, reference: e.target.value }))} placeholder="Booking ref" style={inlineInput} />
+                                  <input value={travelForm.cost || ''} onChange={e => setTravelForm(p => ({ ...p, cost: e.target.value }))} placeholder="Cost" style={inlineInput} />
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                                <button onClick={() => saveTravel(gig.id)} disabled={savingTravel}
+                                  style={{ background: 'var(--gold)', color: '#070706', border: 'none', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '9px 18px', cursor: 'pointer' }}>
+                                  {savingTravel ? 'Saving...' : 'Save'}
+                                </button>
+                                <button onClick={() => { setAddingTravel(null); setTravelForm({}) }}
+                                  style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', padding: '9px 14px', cursor: 'pointer' }}>
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              {(['flight', 'train', 'hotel'] as const).map(t => (
+                                <button key={t} onClick={() => { setAddingTravel({ gigId: gig.id, type: t }); setTravelForm({}) }}
+                                  style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 14px', cursor: 'pointer' }}>
+                                  + {t}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* CONTACTS */}
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase' }}>Contacts</div>
+                            {!isEditingContacts && (
+                              <button onClick={() => { setEditingContacts(gig.id); setContactForm({ al_name: detail.al_name, al_phone: detail.al_phone, al_email: detail.al_email, driver_name: detail.driver_name, driver_phone: detail.driver_phone, driver_notes: detail.driver_notes, promoter_phone: detail.promoter_phone }) }}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.1em', cursor: 'pointer', padding: 0 }}>
+                                Edit →
+                              </button>
+                            )}
+                          </div>
+
+                          {isEditingContacts ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                              <div>
+                                <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Artist liaison</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <input value={contactForm.al_name || ''} onChange={e => setContactForm(p => ({ ...p, al_name: e.target.value }))} placeholder="Name" style={inlineInput} />
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                    <input value={contactForm.al_phone || ''} onChange={e => setContactForm(p => ({ ...p, al_phone: e.target.value }))} placeholder="Phone" style={inlineInput} />
+                                    <input value={contactForm.al_email || ''} onChange={e => setContactForm(p => ({ ...p, al_email: e.target.value }))} placeholder="Email" style={inlineInput} />
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Driver</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                    <input value={contactForm.driver_name || ''} onChange={e => setContactForm(p => ({ ...p, driver_name: e.target.value }))} placeholder="Name" style={inlineInput} />
+                                    <input value={contactForm.driver_phone || ''} onChange={e => setContactForm(p => ({ ...p, driver_phone: e.target.value }))} placeholder="Phone" style={inlineInput} />
+                                  </div>
+                                  <input value={contactForm.driver_notes || ''} onChange={e => setContactForm(p => ({ ...p, driver_notes: e.target.value }))} placeholder="Notes (pickup time, location...)" style={inlineInput} />
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Promoter phone</div>
+                                <input value={contactForm.promoter_phone || ''} onChange={e => setContactForm(p => ({ ...p, promoter_phone: e.target.value }))} placeholder="+44 7700 000000" style={inlineInput} />
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button onClick={() => saveContacts(gig.id)} disabled={savingContacts}
+                                  style={{ background: 'var(--gold)', color: '#070706', border: 'none', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer' }}>
+                                  {savingContacts ? 'Saving...' : 'Save'}
+                                </button>
+                                <button onClick={() => { setEditingContacts(null); setContactForm({}) }}
+                                  style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', padding: '10px 14px', cursor: 'pointer' }}>
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                              {[
+                                { label: 'Artist Liaison', name: detail.al_name, phone: detail.al_phone, email: detail.al_email },
+                                { label: 'Driver', name: detail.driver_name, phone: detail.driver_phone, email: null, notes: detail.driver_notes },
+                                { label: 'Promoter', name: null, phone: detail.promoter_phone, email: detail.promoter_email },
+                              ].map(c => (
+                                <div key={c.label}>
+                                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '6px' }}>{c.label}</div>
+                                  {!c.name && !c.phone && !c.email ? (
+                                    <div style={{ fontSize: '12px', color: 'var(--text-dimmer)' }}>Not set</div>
+                                  ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                      {c.name && <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{c.name}</div>}
+                                      {c.phone && (
+                                        <a href={`tel:${c.phone}`} style={{ fontSize: '12px', color: 'var(--gold)', textDecoration: 'none' }}>{c.phone}</a>
+                                      )}
+                                      {c.email && <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>{c.email}</div>}
+                                      {c.notes && <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>{c.notes}</div>}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </div>
