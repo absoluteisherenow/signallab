@@ -9,9 +9,9 @@ async function scrapeViaHikerAPI(username: string): Promise<{ captions: string[]
   if (!key) return { captions: [], postCount: 0 }
 
   try {
-    // Step 1: resolve username → user ID
+    // Step 1: resolve username → user ID (v2 endpoint)
     const userRes = await fetch(
-      `https://api.hikerapi.com/v1/user/by/username?username=${encodeURIComponent(username)}`,
+      `https://api.hikerapi.com/v2/user/by/username?username=${encodeURIComponent(username)}`,
       {
         headers: { 'x-access-key': key, 'Accept': 'application/json' },
         signal: AbortSignal.timeout(20000),
@@ -19,12 +19,15 @@ async function scrapeViaHikerAPI(username: string): Promise<{ captions: string[]
     )
     if (!userRes.ok) return { captions: [], postCount: 0 }
     const userData = await userRes.json()
-    const userId = userData?.pk || userData?.id
+    // v2 returns { user: { pk, is_private, ... } } or flat { pk, ... }
+    const user = userData?.user || userData
+    if (user?.is_private) return { captions: [], postCount: 0 }
+    const userId = user?.pk || user?.id
     if (!userId) return { captions: [], postCount: 0 }
 
-    // Step 2: fetch recent posts
+    // Step 2: fetch recent posts (v2 — returns { response: { items: [...] }, next_page_id })
     const mediaRes = await fetch(
-      `https://api.hikerapi.com/v1/user/medias/chunk?user_id=${userId}`,
+      `https://api.hikerapi.com/v2/user/medias?user_id=${userId}&count=30`,
       {
         headers: { 'x-access-key': key, 'Accept': 'application/json' },
         signal: AbortSignal.timeout(25000),
@@ -32,9 +35,12 @@ async function scrapeViaHikerAPI(username: string): Promise<{ captions: string[]
     )
     if (!mediaRes.ok) return { captions: [], postCount: 0 }
     const mediaData = await mediaRes.json()
-    const items: any[] = mediaData?.items || mediaData?.data || []
+    const items: any[] = mediaData?.response?.items || mediaData?.items || mediaData?.data || []
     const captions = items
-      .map((p: any) => p?.caption?.text || p?.caption || p?.text || '')
+      .map((p: any) => {
+        const cap = p?.caption
+        return typeof cap === 'string' ? cap : (cap?.text || '')
+      })
       .filter((c: string) => c.length > 3)
       .slice(0, 30)
     return { captions, postCount: items.length }
@@ -136,8 +142,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         error: hasAnyKey
-          ? `Could not fetch posts for ${name} — Instagram may be temporarily blocking the request. Try again in a few minutes.`
-          : `No scraper configured. Add HIKER_API_KEY (hikerapi.com) or upgrade Apify to Personal plan to enable automatic scanning.`,
+          ? `No posts found for ${name} — their Instagram may be set to private, or try a different handle (e.g. @artistname).`
+          : `No scraper configured. Add HIKER_API_KEY (hikerapi.com) to enable automatic scanning.`,
         canPaste: true,
       }, { status: 404 })
     }
