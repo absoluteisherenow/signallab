@@ -23,6 +23,7 @@ interface AssistantResult {
   answer: string
   set_reference?: string
   blueprint?: AssistantBlueprint
+  chain?: { plugin: string; role: string; hint?: string }[]
   gigs?: Record<string, unknown>[]
   total?: number
   currency?: string
@@ -170,7 +171,7 @@ export function VoiceCommandBar() {
               if (e.key === 'Enter') submitQuery()
               if (e.key === 'Escape') setIsOpen(false)
             }}
-            placeholder={isListening ? 'Listening…' : "ask anything — 'make a track from last night's set'"}
+            placeholder={isListening ? 'Listening…' : "ask anything — gigs, invoices, production, schedule…"}
             style={{
               flex: 1,
               background: 'transparent',
@@ -427,58 +428,65 @@ function BlueprintResult({ result }: { result: AssistantResult }) {
 }
 
 function TextResult({ result }: { result: AssistantResult }) {
+  const intentLabel: Record<string, string> = {
+    gig_info: 'GIGS',
+    payment_info: 'PAYMENTS',
+    general: 'ARTIST OS',
+    chain_advice: 'SIGNAL CHAIN',
+    off_topic: 'ARTIST OS',
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      <div style={{
-        fontSize: '8px', color: '#6a5030', letterSpacing: '0.12em',
-      }}>
-        {result.intent === 'gig_info' ? 'GIG INFO' :
-         result.intent === 'payment_info' ? 'PAYMENT' : 'ARTIST OS'}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ fontSize: '8px', color: '#5a4a38', letterSpacing: '0.15em' }}>
+        {intentLabel[result.intent] ?? 'ARTIST OS'}
       </div>
-      <div style={{ fontSize: '12px', color: '#e8dcc8', lineHeight: 1.6 }}>
+      <div style={{ fontSize: '14px', color: '#e8dcc8', lineHeight: 1.7 }}>
         {result.answer}
       </div>
 
-      {/* Payment breakdown */}
       {result.breakdown && result.breakdown.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0px', marginTop: '4px' }}>
           {result.breakdown.map((item, i) => (
             <div key={i} style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '6px 10px',
-              background: item.status === 'paid' ? 'rgba(78,203,113,0.06)' : '#1a1410',
-              border: `1px solid ${item.status === 'paid' ? 'rgba(78,203,113,0.2)' : '#2a2218'}`,
-              borderRadius: '3px',
-              fontSize: '10px',
+              display: 'flex', justifyContent: 'space-between',
+              padding: '9px 0',
+              borderBottom: '1px solid #1a1410',
+              fontSize: '12px',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{
-                  width: '6px', height: '6px', borderRadius: '50%',
-                  background: item.status === 'paid' ? '#4ecb71' : '#c09030',
-                  display: 'inline-block',
-                }} />
-                <span style={{ color: '#e8dcc8' }}>{item.label}</span>
-              </div>
-              <span style={{ color: item.status === 'paid' ? '#4ecb71' : '#c9a46e' }}>
-                {result.currency} {item.amount.toLocaleString()}
+              <span style={{ color: item.status === 'overdue' ? '#c06060' : '#8a7658', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {item.label}
+                {item.status === 'overdue' && <span style={{ fontSize: '8px', color: '#c06060', letterSpacing: '0.1em' }}>OVERDUE</span>}
+                {item.status === 'pending' && <span style={{ fontSize: '8px', color: '#c9a46e', letterSpacing: '0.1em' }}>UNPAID</span>}
+              </span>
+              <span style={{ color: item.status === 'paid' ? '#4ecb71' : '#e8c98a' }}>
+                {result.currency} {item.amount?.toLocaleString()}
               </span>
             </div>
           ))}
-
           {result.total !== undefined && (
-            <div style={{
-              display: 'flex', justifyContent: 'space-between',
-              padding: '8px 10px 0',
-              borderTop: '1px solid #2a2218',
-              marginTop: '4px',
-              fontSize: '13px',
-            }}>
-              <span style={{ color: '#5a4a38', fontSize: '9px', letterSpacing: '0.1em' }}>TOTAL</span>
-              <span style={{ color: '#e8c98a', fontWeight: 'bold' }}>
-                {result.currency} {result.total?.toLocaleString()}
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '10px', fontSize: '13px' }}>
+              <span style={{ color: '#5a4a38', fontSize: '9px', letterSpacing: '0.12em' }}>TOTAL OUTSTANDING</span>
+              <span style={{ color: '#e8c98a' }}>{result.currency} {result.total?.toLocaleString()}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {result.intent === 'chain_advice' && result.chain && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {result.chain.map((step, i) => (
+            <div key={i} style={{
+              padding: '10px 14px',
+              background: '#0a0a0a',
+              border: '1px solid #262626',
+              borderLeft: '2px solid #c9a46e',
+              fontSize: '11px',
+            }}>
+              <div style={{ color: '#c9a46e', marginBottom: '3px', fontSize: '10px', letterSpacing: '0.08em' }}>{step.plugin}</div>
+              <div style={{ color: '#8a7658' }}>{step.role}{step.hint ? ` — ${step.hint}` : ''}</div>
+            </div>
+          ))}
         </div>
       )}
     </div>

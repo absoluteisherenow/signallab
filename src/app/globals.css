@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Unbounded:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Unbounded:wght@100;200;300;400;500&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -11,18 +11,18 @@
 }
 
 :root {
-  --bg: #070706;
-  --panel: #0e0d0b;
-  --border-dim: #1a1917;
-  --border: #2e2c29;
-  --border-bright: #3a3835;
+  --bg: #020202;
+  --panel: #0d0d0d;
+  --border-dim: #181818;
+  --border: #262626;
+  --border-bright: #333333;
   --gold: #b08d57;
   --gold-bright: #c9a46e;
   --gold-dim: #6a4e28;
   --text: #f0ebe2;
   --text-dim: #8a8780;
   --text-dimmer: #52504c;
-  --text-dimmest: #2e2c29;
+  --text-dimmest: #2a2a2a;
   --green: #3d6b4a;
   --amber: #8a6a3a;
   --blue: #6a7a9a;
@@ -33,7 +33,7 @@
   --accent-red: #8a4a3a;
   --accent-yellow: #8a6a3a;
   --text-warm: #a89878;
-  --bg-input: #0e0b06;
+  --bg-input: #0d0d0d;
   --font-mono: 'DM Mono', monospace;
   --font-display: 'Unbounded', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
@@ -181,7 +181,7 @@ a { color: inherit; }
 .page-title {
   font-family: var(--font-display);
   font-size: clamp(48px, 5.5vw, 72px);
-  font-weight: 400;
+  font-weight: 300;
   letter-spacing: -0.03em;
   line-height: 1.0;
 }
@@ -206,7 +206,7 @@ a { color: inherit; }
 
 .stat-block .stat-num {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 300;
   font-size: clamp(32px, 3.5vw, 48px);
   letter-spacing: -0.04em;
   line-height: 1;
@@ -319,7 +319,7 @@ a { color: inherit; }
 
 .card-hover:hover {
   border-color: var(--border);
-  background: #141310;
+  background: #111111;
 }
 
 /* STAT BLOCK */
@@ -369,7 +369,7 @@ a { color: inherit; }
 }
 
 .data-table-row:hover {
-  background: #111009;
+  background: #111111;
 }
 
 /* STATUS BADGES */
@@ -406,7 +406,7 @@ a { color: inherit; }
   position: fixed;
   bottom: 32px;
   right: 32px;
-  background: rgba(14, 13, 11, 0.97);
+  background: rgba(8,8,8,0.97);
   border: 1px solid var(--border);
   padding: 16px 24px;
   font-size: 13px;
