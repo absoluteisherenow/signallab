@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server'
 
 // ── Fetch top-performing posts from Supabase post_performance ─────────────────
 async function getTopPosts() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) return []
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return []
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/post_performance?select=artist_name,caption,likes,comments,media_type,engagement_score,taken_at&order=engagement_score.desc&limit=60`,
       {
         headers: {
-          'apikey': process.env.SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
         },
       }
     )

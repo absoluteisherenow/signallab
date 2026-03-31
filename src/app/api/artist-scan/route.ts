@@ -98,7 +98,7 @@ async function scrapeViaApify(username: string): Promise<ScrapeResult> {
 
 // ── Store post engagement in Supabase ─────────────────────────────────────────
 async function savePostPerformance(artistName: string, posts: PostData[]) {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) return
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return
   try {
     const rows = posts.map(p => ({
       artist_name: artistName,
@@ -114,8 +114,8 @@ async function savePostPerformance(artistName: string, posts: PostData[]) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
         'Prefer': 'resolution=merge-duplicates',
       },
       body: JSON.stringify(rows),
