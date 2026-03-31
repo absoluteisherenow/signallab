@@ -3,31 +3,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
-interface Track {
-  title: string
-  artist: string
-  bpm: string
-  key: string
-}
+const ALIGNMENT_ARTISTS = [
+  'Bicep', 'Four Tet', 'Floating Points', 'Fred Again..', 'Aphex Twin',
+  'Burial', 'Objekt', 'Blawan', 'Surgeon', 'Andy Stott',
+  'Marcel Dettmann', 'Ben Klock', 'Paula Temple', 'Shackleton', 'Actress',
+  'Shed', 'DJ Stingray', 'Karenn', 'Lone', 'DJ Koze',
+  'Recondite', 'Jon Hopkins', 'Headless Horseman', 'Phase Fatale',
+]
 
-const KEYS = ['A minor','C major','D minor','E minor','F major','G major','B minor','Eb major','F# minor','Bb major','C# minor','Ab major']
-const GENRES = ['Electronic','Deep House','Techno','Ambient','Drum & Bass','UK Garage','Afrobeats','Hip Hop','Pop','R&B','Experimental']
-
-async function callClaude(prompt: string): Promise<string> {
-  const res = await fetch('/api/claude', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system: 'You are an expert DJ analyst. Be concise, specific, and musical. No markdown.',
-      max_tokens: 400,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-  const data = await res.json()
-  return data.content?.[0]?.text || ''
-}
-
-async function saveProfile(profile: Record<string, any>) {
+async function saveProfile(profile: Record<string, unknown>) {
   const existing = await fetch('/api/settings').then(r => r.json()).catch(() => ({}))
   const current = existing.settings || {}
   await fetch('/api/settings', {
@@ -44,35 +28,37 @@ async function saveProfile(profile: Record<string, any>) {
 export default function Onboarding() {
   const router = useRouter()
 
-  // Steps: 0=welcome, 1=sound profile, 2=tracks, 3=analysing, 4=result
+  // Steps: 0=name, 1=alignment, 2=business, 3=saving
   const [step, setStep] = useState(0)
 
   // Step 0
   const [artistName, setArtistName] = useState('')
-  const [genre, setGenre] = useState('Electronic')
   const [discovery, setDiscovery] = useState<{ found: boolean; genre?: string; bpmRange?: string; tracks?: { title: string; bpm: number }[] } | null>(null)
   const [discovering, setDiscovering] = useState(false)
   const discoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Step 1 — sound profile
-  const [soundsLike, setSoundsLike] = useState<string[]>([])
-  const [newRef, setNewRef] = useState('')
-  const [keyCenter, setKeyCenter] = useState('A minor')
-  const [bpmRange, setBpmRange] = useState('120–130')
-  const [making, setMaking] = useState('')
+  // Step 1 — alignment
+  const [aligned, setAligned] = useState<string[]>([])
+  const [customArtist, setCustomArtist] = useState('')
 
-  // Step 1 — rider
-  const [techRider, setTechRider] = useState('')
-  const [hospitalityRider, setHospitalityRider] = useState('')
-  const [showRider, setShowRider] = useState(false)
+  // Step 2 — business
+  const [mgmtName, setMgmtName] = useState('')
+  const [mgmtEmail, setMgmtEmail] = useState('')
+  const [bookingName, setBookingName] = useState('')
+  const [bookingEmail, setBookingEmail] = useState('')
+  const [label, setLabel] = useState('')
 
-  // Step 2 — tracks
-  const [tracks, setTracks] = useState<Track[]>([
-    { title: '', artist: '', bpm: '', key: '' },
-    { title: '', artist: '', bpm: '', key: '' },
-    { title: '', artist: '', bpm: '', key: '' },
-  ])
-  const [analysis, setAnalysis] = useState('')
+  // Step 2 — bank details
+  const [bankAccountName, setBankAccountName] = useState('')
+  const [bankName, setBankName] = useState('')
+  const [bankIban, setBankIban] = useState('')
+  const [bankSortCode, setBankSortCode] = useState('')
+  const [bankBic, setBankBic] = useState('')
+  const [bankUploading, setBankUploading] = useState(false)
+  const [bankUploadError, setBankUploadError] = useState('')
+  const [bankExtracted, setBankExtracted] = useState(false)
+  const [showBankManual, setShowBankManual] = useState(false)
+  const bankFileRef = useRef<HTMLInputElement>(null)
 
   const s = {
     bg: '#070706', panel: '#0e0d0b', border: '#1a1917',
@@ -86,10 +72,6 @@ export default function Onboarding() {
     padding: '12px 16px', outline: 'none', boxSizing: 'border-box',
   }
 
-  const selectStyle: React.CSSProperties = {
-    ...input, appearance: 'none', cursor: 'pointer',
-  }
-
   useEffect(() => {
     if (discoverTimer.current) clearTimeout(discoverTimer.current)
     if (artistName.trim().length < 3) { setDiscovery(null); return }
@@ -99,291 +81,418 @@ export default function Onboarding() {
         const res = await fetch(`/api/onboarding/discover?name=${encodeURIComponent(artistName.trim())}`)
         const data = await res.json()
         setDiscovery(data)
-        if (data.found) {
-          if (data.genre) setGenre(data.genre.split(' ')[0] || genre)
-          if (data.bpmRange) setBpmRange(data.bpmRange)
-        }
       } catch { setDiscovery(null) } finally { setDiscovering(false) }
     }, 600)
     return () => { if (discoverTimer.current) clearTimeout(discoverTimer.current) }
   }, [artistName])
 
-  function addRef() {
-    const v = newRef.trim()
-    if (v && soundsLike.length < 6 && !soundsLike.includes(v)) {
-      setSoundsLike(p => [...p, v])
-      setNewRef('')
+  function toggleArtist(name: string) {
+    setAligned(prev =>
+      prev.includes(name)
+        ? prev.filter(a => a !== name)
+        : prev.length < 5 ? [...prev, name] : prev
+    )
+  }
+
+  function addCustomArtist() {
+    const v = customArtist.trim()
+    if (v && !aligned.includes(v) && aligned.length < 5) {
+      setAligned(prev => [...prev, v])
+      setCustomArtist('')
     }
   }
 
-  function removeRef(i: number) {
-    setSoundsLike(p => p.filter((_, idx) => idx !== i))
+  async function uploadBankFile(file: File) {
+    setBankUploading(true)
+    setBankUploadError('')
+    setBankExtracted(false)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/onboarding/extract-bank', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        setBankUploadError(data.error || 'Could not extract — enter manually.')
+        setShowBankManual(true)
+      } else {
+        const d = data.details
+        if (d.accountName) setBankAccountName(d.accountName)
+        if (d.bankName) setBankName(d.bankName)
+        if (d.iban) setBankIban(d.iban)
+        if (d.sortCode) setBankSortCode(d.sortCode)
+        if (d.bic) setBankBic(d.bic)
+        setBankExtracted(true)
+        setShowBankManual(true)
+      }
+    } catch {
+      setBankUploadError('Upload failed — enter manually.')
+      setShowBankManual(true)
+    } finally {
+      setBankUploading(false)
+    }
   }
 
-  function updateTrack(index: number, field: keyof Track, value: string) {
-    setTracks(prev => prev.map((t, i) => i === index ? { ...t, [field]: value } : t))
-  }
-
-  const filledTracks = tracks.filter(t => t.title || t.artist).length
-
-  async function analyseAndSave() {
-    if (filledTracks < 2) return
+  async function finish() {
     setStep(3)
-
-    // Save profile
+    const bankDetails = bankAccountName || bankIban
+      ? { accountName: bankAccountName, bankName, iban: bankIban, sortCode: bankSortCode, bic: bankBic }
+      : null
     await saveProfile({
       name: artistName,
-      genre,
-      soundsLike,
-      keyCenter,
-      bpmRange,
-      making,
-      techRider,
-      hospitalityRider,
+      soundsLike: aligned,
+      genre: discovery?.genre || 'Electronic',
+      bpmRange: discovery?.bpmRange || '',
+      management: mgmtName ? { name: mgmtName, email: mgmtEmail } : null,
+      booking: bookingName ? { name: bookingName, email: bookingEmail } : null,
+      label: label || null,
+      bankDetails,
     })
-
-    // Analyse set
-    const filled = tracks.filter(t => t.title || t.artist)
-    const trackList = filled.map((t, i) =>
-      `${i + 1}. ${t.artist ? t.artist + ' — ' : ''}${t.title}${t.bpm ? ` (${t.bpm} BPM` : ''}${t.key ? `, ${t.key})` : t.bpm ? ')' : ''}`
-    ).join('\n')
-
-    const result = await callClaude(
-      `Analyse this DJ set opener for ${artistName || 'an electronic music artist'}:\n\n${trackList}\n\nGive a 3-sentence analysis covering: harmonic flow, energy arc, and one specific transition to watch. Be direct and specific.`
-    )
-    setAnalysis(result)
-    setStep(4)
+    router.push('/dashboard')
   }
 
-  const progressDots = (current: number, total: number) => (
+  const progressDots = (current: number) => (
     <div style={{ display: 'flex', gap: '6px', marginTop: '32px', justifyContent: 'center' }}>
-      {Array.from({ length: total }, (_, i) => (
-        <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: i < current ? s.gold : s.border, transition: 'background 0.2s' }} />
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: i <= current ? s.gold : s.border, transition: 'background 0.2s' }} />
       ))}
-    </div>
-  )
-
-  const stepLabel = (n: number, total: number, label: string) => (
-    <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-      <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
-      Step {n} of {total} — {label}
     </div>
   )
 
   return (
     <div style={{ minHeight: '100vh', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: s.font, padding: '40px' }}>
-      <div style={{ maxWidth: '580px', width: '100%' }}>
+      <div style={{ maxWidth: '600px', width: '100%' }}>
 
-        {/* STEP 0 — WELCOME */}
+        {/* ── STEP 0 — ARTIST NAME ── */}
         {step === 0 && (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '0.4em', color: s.gold, textTransform: 'uppercase', marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+          <div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.4em', color: s.gold, textTransform: 'uppercase', marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '16px' }}>
               <span style={{ display: 'block', width: '40px', height: '1px', background: s.gold }} />
-              Artist OS
+              Signal Lab OS
               <span style={{ display: 'block', width: '40px', height: '1px', background: s.gold }} />
             </div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(28px, 5vw, 52px)', fontWeight: 300, letterSpacing: '0.03em', lineHeight: 1.1, marginBottom: '24px' }}>
+
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: '16px' }}>
               Let&apos;s set up<br />
               <span style={{ color: s.gold }}>your OS.</span>
             </div>
-            <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.9', marginBottom: '40px', letterSpacing: '0.04em' }}>
-              Two quick steps. Takes 2 minutes. The whole system uses what you tell us — content, advances, analysis, everything.
+            <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.9', marginBottom: '40px' }}>
+              Three quick steps. Everything in the system — content, advances, production — runs from what you tell us here.
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px', textAlign: 'left' }}>
-              <div>
-                <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Artist or act name</div>
-                <input value={artistName} onChange={e => setArtistName(e.target.value)}
-                  placeholder="Night Manoeuvres"
-                  style={input} />
-                {discovering && (
-                  <div style={{ fontSize: 10, color: s.dimmer, letterSpacing: '0.1em', marginTop: 6 }}>Searching Beatport...</div>
-                )}
-                {discovery?.found && !discovering && (
-                  <div style={{ background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '10px 14px', marginTop: 8, fontSize: 11 }}>
-                    <div style={{ color: s.gold, letterSpacing: '0.15em', textTransform: 'uppercase', fontSize: 9, marginBottom: 6 }}>Found on Beatport</div>
-                    {discovery.tracks?.map((t, i) => (
-                      <div key={i} style={{ color: s.dim, marginBottom: 2 }}>{t.title}{t.bpm ? ` · ${t.bpm} BPM` : ''}</div>
+
+            <div style={{ marginBottom: '32px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Artist or act name</div>
+              <input
+                value={artistName}
+                onChange={e => setArtistName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && artistName.trim()) setStep(1) }}
+                placeholder="Night Manoeuvres"
+                style={input}
+                autoFocus
+              />
+
+              {discovering && (
+                <div style={{ fontSize: 10, color: s.dimmer, letterSpacing: '0.12em', marginTop: 8 }}>Searching Beatport...</div>
+              )}
+
+              {discovery?.found && !discovering && (
+                <div style={{ background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.18)', padding: '12px 16px', marginTop: 10 }}>
+                  <div style={{ fontSize: '9px', color: s.gold, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>Found on Beatport</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {discovery.tracks?.slice(0, 4).map((t, i) => (
+                      <div key={i} style={{ fontSize: '10px', color: s.dim, background: 'rgba(255,255,255,0.03)', border: `1px solid ${s.border}`, padding: '4px 10px' }}>
+                        {t.title}{t.bpm ? ` · ${t.bpm}` : ''}
+                      </div>
                     ))}
-                    {discovery.genre && <div style={{ color: s.dimmer, marginTop: 4, fontSize: 10 }}>Genre pre-filled: {discovery.genre}</div>}
                   </div>
-                )}
-              </div>
-              <div>
-                <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Genre / scene</div>
-                <select value={genre} onChange={e => setGenre(e.target.value)} style={selectStyle}>
-                  {GENRES.map(g => <option key={g}>{g}</option>)}
-                </select>
-              </div>
+                  {discovery.genre && (
+                    <div style={{ fontSize: '10px', color: s.dimmer, marginTop: 8 }}>Genre: {discovery.genre}</div>
+                  )}
+                </div>
+              )}
+
+              {discovery && !discovery.found && !discovering && artistName.trim().length >= 3 && (
+                <div style={{ fontSize: '10px', color: s.dimmer, marginTop: 8, letterSpacing: '0.08em' }}>
+                  Not found on Beatport — no problem, continue.
+                </div>
+              )}
             </div>
-            <button onClick={() => setStep(1)} disabled={!artistName.trim()} style={{
-              background: artistName.trim() ? s.gold : 'transparent',
-              color: artistName.trim() ? '#070706' : s.dimmer,
-              border: `1px solid ${artistName.trim() ? s.gold : s.border}`,
-              fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
-              textTransform: 'uppercase', padding: '18px 48px',
-              cursor: artistName.trim() ? 'pointer' : 'default', width: '100%', transition: 'all 0.2s',
-            }}>
+
+            <button
+              onClick={() => setStep(1)}
+              disabled={!artistName.trim()}
+              style={{
+                background: artistName.trim() ? s.gold : 'transparent',
+                color: artistName.trim() ? '#070706' : s.dimmer,
+                border: `1px solid ${artistName.trim() ? s.gold : s.border}`,
+                fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
+                textTransform: 'uppercase', padding: '18px',
+                cursor: artistName.trim() ? 'pointer' : 'default',
+                width: '100%', transition: 'all 0.2s',
+              }}
+            >
               Next →
             </button>
+
+            {progressDots(0)}
           </div>
         )}
 
-        {/* STEP 1 — SOUND PROFILE */}
+        {/* ── STEP 1 — ALIGNMENT PICKER ── */}
         {step === 1 && (
           <div>
-            {stepLabel(1, 2, 'Your sound')}
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '8px' }}>
-              What do you sound like?
-            </div>
-            <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
-              This feeds captions, Sonix Lab, and content planning. Set it once.
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
+              Step 2 of 3 — Your sound
             </div>
 
-            {/* Sounds like */}
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '10px' }}>
-                Sounds like <span style={{ color: '#3a3830', textTransform: 'none', letterSpacing: 0 }}>(up to 6 references)</span>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-                {soundsLike.map((ref, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(176,141,87,0.08)', border: `1px solid rgba(176,141,87,0.25)`, padding: '6px 12px', fontSize: '12px', color: s.gold }}>
-                    {ref}
-                    <button onClick={() => removeRef(i)} style={{ background: 'none', border: 'none', color: s.dimmer, cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}>×</button>
-                  </div>
-                ))}
-              </div>
-              {soundsLike.length < 6 && (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input value={newRef} onChange={e => setNewRef(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') addRef() }}
-                    placeholder="Artist — Track  (press Enter)"
-                    style={{ ...input, flex: 1 }} />
-                  <button onClick={addRef} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 20px', cursor: 'pointer' }}>
-                    Add
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '12px' }}>
+              Who are you<br />most aligned with?
+            </div>
+            <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
+              Pick up to 5. Shapes how the OS understands your sound across everything.
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
+              {ALIGNMENT_ARTISTS.map(name => {
+                const selected = aligned.includes(name)
+                const maxed = aligned.length >= 5 && !selected
+                return (
+                  <button
+                    key={name}
+                    onClick={() => !maxed && toggleArtist(name)}
+                    style={{
+                      background: selected ? 'rgba(176,141,87,0.12)' : s.panel,
+                      border: `1px solid ${selected ? s.gold : '#2a2926'}`,
+                      color: selected ? s.gold : maxed ? s.dimmer : s.dim,
+                      fontFamily: s.font, fontSize: '12px', letterSpacing: '0.08em',
+                      padding: '10px 18px', cursor: maxed ? 'default' : 'pointer',
+                      transition: 'all 0.15s', opacity: maxed ? 0.45 : 1,
+                    }}
+                  >
+                    {name}
                   </button>
-                </div>
-              )}
-            </div>
+                )
+              })}
 
-            {/* Key, BPM, Making */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-              <div>
-                <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Key centre</div>
-                <select value={keyCenter} onChange={e => setKeyCenter(e.target.value)} style={selectStyle}>
-                  {KEYS.map(k => <option key={k}>{k}</option>)}
-                </select>
-              </div>
-              <div>
-                <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>BPM range</div>
-                <input value={bpmRange} onChange={e => setBpmRange(e.target.value)}
-                  placeholder="120–130"
-                  style={input} />
-              </div>
-            </div>
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>What you&apos;re making</div>
-              <input value={making} onChange={e => setMaking(e.target.value)}
-                placeholder="DJ tools, dark atmospheric, 6-min tracks..."
-                style={input} />
-            </div>
-
-            {/* Rider — collapsible */}
-            <div style={{ marginBottom: '28px' }}>
-              <button
-                onClick={() => setShowRider(v => !v)}
-                style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.12em', padding: 0, cursor: 'pointer' }}
-              >
-                {showRider ? 'Hide rider ↑' : 'Add your rider →'}
-              </button>
-              {showRider && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '14px' }}>
-                  <div>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Your tech rider</div>
-                    <textarea value={techRider} onChange={e => setTechRider(e.target.value)}
-                      placeholder="e.g. 2x CDJ-3000, DJM-900NXS2, KRK Rokit monitors…"
-                      style={{ ...input, height: '80px', resize: 'vertical' }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Hospitality requirements</div>
-                    <textarea value={hospitalityRider} onChange={e => setHospitalityRider(e.target.value)}
-                      placeholder="e.g. Hotel near venue, return flights, meal buyout…"
-                      style={{ ...input, height: '80px', resize: 'vertical' }} />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button onClick={() => setStep(2)} style={{
-              background: s.gold, color: '#070706', border: 'none',
-              fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
-              textTransform: 'uppercase', padding: '18px', cursor: 'pointer', width: '100%',
-            }}>
-              Next →
-            </button>
-            <button onClick={() => setStep(2)} style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.1em', padding: '14px', cursor: 'pointer', width: '100%', marginTop: '4px' }}>
-              Skip for now
-            </button>
-
-            {progressDots(1, 2)}
-          </div>
-        )}
-
-        {/* STEP 2 — TRACKS */}
-        {step === 2 && (
-          <div>
-            {stepLabel(2, 2, 'Your tracks')}
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '8px' }}>
-              What are you playing?
-            </div>
-            <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
-              Add 2–3 tracks from your next show. We&apos;ll analyse the harmonic flow and energy arc.
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
-              {tracks.map((track, i) => (
-                <div key={i} style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '18px 20px' }}>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px' }}>
-                    Track {i + 1}{i === 0 ? ' — opener' : i === 1 ? ' — second' : ' — third'}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-                    <input value={track.title} onChange={e => updateTrack(i, 'title', e.target.value)}
-                      placeholder="Track title"
-                      style={input} />
-                    <input value={track.artist} onChange={e => updateTrack(i, 'artist', e.target.value)}
-                      placeholder="Artist"
-                      style={input} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <input value={track.bpm} onChange={e => updateTrack(i, 'bpm', e.target.value)}
-                      placeholder="BPM (optional)" style={input} />
-                    <input value={track.key} onChange={e => updateTrack(i, 'key', e.target.value)}
-                      placeholder="Key (optional)" style={input} />
-                  </div>
-                </div>
+              {/* Custom added artists */}
+              {aligned.filter(a => !ALIGNMENT_ARTISTS.includes(a)).map(name => (
+                <button
+                  key={name}
+                  onClick={() => toggleArtist(name)}
+                  style={{
+                    background: 'rgba(176,141,87,0.12)', border: `1px solid ${s.gold}`,
+                    color: s.gold, fontFamily: s.font, fontSize: '12px', letterSpacing: '0.08em',
+                    padding: '10px 18px', cursor: 'pointer', transition: 'all 0.15s',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                  }}
+                >
+                  {name} <span style={{ fontSize: '14px', lineHeight: 1, color: s.dimmer }}>×</span>
+                </button>
               ))}
             </div>
 
-            <button onClick={analyseAndSave} disabled={filledTracks < 2} style={{
-              background: filledTracks >= 2 ? s.gold : 'transparent',
-              color: filledTracks >= 2 ? '#070706' : s.dimmer,
-              border: `1px solid ${filledTracks >= 2 ? s.gold : s.border}`,
-              fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
-              textTransform: 'uppercase', padding: '18px',
-              cursor: filledTracks >= 2 ? 'pointer' : 'default',
-              width: '100%', transition: 'all 0.2s',
-            }}>
-              {filledTracks < 2 ? `Add ${2 - filledTracks} more track${2 - filledTracks > 1 ? 's' : ''} to continue` : 'Finish setup →'}
+            {/* Add your own */}
+            {aligned.length < 5 && (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input
+                  value={customArtist}
+                  onChange={e => setCustomArtist(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addCustomArtist() }}
+                  placeholder="Add your own artist..."
+                  style={{ ...input, flex: 1, fontSize: '12px', padding: '10px 14px' }}
+                />
+                <button
+                  onClick={addCustomArtist}
+                  disabled={!customArtist.trim()}
+                  style={{
+                    background: 'transparent', border: `1px solid ${s.border}`,
+                    color: s.dim, fontFamily: s.font, fontSize: '10px',
+                    letterSpacing: '0.15em', textTransform: 'uppercase',
+                    padding: '10px 16px', cursor: customArtist.trim() ? 'pointer' : 'default',
+                    opacity: customArtist.trim() ? 1 : 0.4, flexShrink: 0,
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            )}
+
+            {aligned.length > 0 && (
+              <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.1em', marginBottom: '24px', marginTop: '8px' }}>
+                {aligned.length} selected{aligned.length === 5 ? ' — max reached' : ''}
+              </div>
+            )}
+
+            <button
+              onClick={() => setStep(2)}
+              disabled={aligned.length === 0}
+              style={{
+                background: aligned.length > 0 ? s.gold : 'transparent',
+                color: aligned.length > 0 ? '#070706' : s.dimmer,
+                border: `1px solid ${aligned.length > 0 ? s.gold : s.border}`,
+                fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
+                textTransform: 'uppercase', padding: '18px',
+                cursor: aligned.length > 0 ? 'pointer' : 'default',
+                width: '100%', transition: 'all 0.2s',
+              }}
+            >
+              Next →
             </button>
-            <button onClick={() => { saveProfile({ name: artistName, genre, soundsLike, keyCenter, bpmRange, making, techRider, hospitalityRider }); router.push('/dashboard') }}
-              style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.1em', padding: '14px', cursor: 'pointer', width: '100%', marginTop: '4px' }}>
-              Skip — go to dashboard
+            <button
+              onClick={() => setStep(2)}
+              style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.1em', padding: '14px', cursor: 'pointer', width: '100%', marginTop: '4px' }}
+            >
+              Skip
             </button>
 
-            {progressDots(2, 2)}
+            {progressDots(1)}
           </div>
         )}
 
-        {/* STEP 3 — ANALYSING */}
+        {/* ── STEP 2 — BUSINESS DETAILS ── */}
+        {step === 2 && (
+          <div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
+              Step 3 of 3 — Your team
+            </div>
+
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '12px' }}>
+              Management,<br />booking, label.
+            </div>
+            <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
+              Optional — used for advance emails and contract comms. Add now or fill in Settings later.
+            </div>
+
+            {/* Management */}
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '10px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Management</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <input value={mgmtName} onChange={e => setMgmtName(e.target.value)} placeholder="Name" style={input} />
+                <input value={mgmtEmail} onChange={e => setMgmtEmail(e.target.value)} placeholder="Email" style={input} type="email" />
+              </div>
+            </div>
+
+            {/* Booking */}
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '10px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Booking agent</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <input value={bookingName} onChange={e => setBookingName(e.target.value)} placeholder="Name" style={input} />
+                <input value={bookingEmail} onChange={e => setBookingEmail(e.target.value)} placeholder="Email" style={input} type="email" />
+              </div>
+            </div>
+
+            {/* Label */}
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '10px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Label</div>
+              <input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. Ostgut Ton, Self-released" style={input} />
+            </div>
+
+            {/* Bank details */}
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '28px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '6px' }}>Payment details</div>
+              <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '14px' }}>Used to auto-fill invoices. Never shared.</div>
+
+              {/* Upload zone */}
+              {!bankExtracted && !showBankManual && (
+                <div
+                  onClick={() => bankFileRef.current?.click()}
+                  style={{
+                    border: `1px dashed ${bankUploading ? s.gold : '#2a2926'}`,
+                    padding: '28px 20px',
+                    textAlign: 'center',
+                    cursor: bankUploading ? 'default' : 'pointer',
+                    transition: 'border-color 0.15s',
+                  }}
+                >
+                  {bankUploading ? (
+                    <div style={{ fontSize: '12px', color: s.gold, letterSpacing: '0.1em' }}>Extracting details...</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '12px', color: s.dim, marginBottom: '6px' }}>Upload a screenshot or bank statement</div>
+                      <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em' }}>JPG · PNG · WEBP</div>
+                    </>
+                  )}
+                  <input
+                    ref={bankFileRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadBankFile(f) }}
+                  />
+                </div>
+              )}
+
+              {bankUploadError && (
+                <div style={{ fontSize: '11px', color: '#c06060', marginBottom: '10px' }}>{bankUploadError}</div>
+              )}
+
+              {bankExtracted && !showBankManual && (
+                <div style={{ fontSize: '11px', color: s.gold, letterSpacing: '0.1em', marginBottom: '10px' }}>
+                  Details extracted — review below
+                </div>
+              )}
+
+              {/* Manual fields — shown after upload or by choice */}
+              {showBankManual && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {bankExtracted && (
+                    <div style={{ fontSize: '10px', color: s.gold, letterSpacing: '0.12em', marginBottom: '4px' }}>
+                      Details extracted — review and confirm
+                    </div>
+                  )}
+                  <input value={bankAccountName} onChange={e => setBankAccountName(e.target.value)} placeholder="Account name" style={input} />
+                  <input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="Bank name" style={input} />
+                  <input value={bankIban} onChange={e => setBankIban(e.target.value)} placeholder="IBAN / Account number" style={input} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <input value={bankSortCode} onChange={e => setBankSortCode(e.target.value)} placeholder="Sort code" style={input} />
+                    <input value={bankBic} onChange={e => setBankBic(e.target.value)} placeholder="BIC / SWIFT" style={input} />
+                  </div>
+                </div>
+              )}
+
+              {/* Toggle manual */}
+              {!showBankManual && !bankUploading && (
+                <button
+                  onClick={() => setShowBankManual(true)}
+                  style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.08em', padding: '10px 0 0', cursor: 'pointer' }}
+                >
+                  Enter manually instead →
+                </button>
+              )}
+              {showBankManual && !bankExtracted && (
+                <button
+                  onClick={() => { setShowBankManual(false); setBankUploadError('') }}
+                  style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.08em', padding: '10px 0 0', cursor: 'pointer' }}
+                >
+                  ← Upload instead
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={finish}
+              style={{
+                background: s.gold, color: '#070706', border: 'none',
+                fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
+                textTransform: 'uppercase', padding: '18px',
+                cursor: 'pointer', width: '100%',
+              }}
+            >
+              Finish setup →
+            </button>
+            <button
+              onClick={finish}
+              style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.1em', padding: '14px', cursor: 'pointer', width: '100%', marginTop: '4px' }}
+            >
+              Skip — go to dashboard
+            </button>
+
+            {progressDots(2)}
+          </div>
+        )}
+
+        {/* ── SAVING ── */}
         {step === 3 && (
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '32px' }}>
@@ -394,50 +503,8 @@ export default function Onboarding() {
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '20px', fontWeight: 300, color: s.gold, marginBottom: '12px' }}>
               Setting everything up...
             </div>
-            <div style={{ fontSize: '13px', color: s.dim, lineHeight: '1.7' }}>
-              Saving your sound profile and analysing your set
-            </div>
+            <div style={{ fontSize: '13px', color: s.dim, lineHeight: '1.7' }}>Saving your profile</div>
             <style>{`@keyframes pulse { 0%,100%{opacity:0.3;transform:scale(0.8)} 50%{opacity:1;transform:scale(1)} }`}</style>
-          </div>
-        )}
-
-        {/* STEP 4 — RESULT */}
-        {step === 4 && (
-          <div>
-            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
-              You&apos;re set up — {artistName}
-            </div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '24px' }}>
-              Here&apos;s your set analysis.
-            </div>
-
-            {analysis && (
-              <div style={{ background: s.panel, border: `1px solid ${s.gold}40`, padding: '28px 32px', marginBottom: '20px' }}>
-                <div style={{ fontSize: '14px', color: s.dim, lineHeight: '1.9' }}>
-                  {analysis}
-                </div>
-              </div>
-            )}
-
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '18px 20px', marginBottom: '24px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px' }}>Your tracks</div>
-              {tracks.filter(t => t.title || t.artist).map((t, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${s.border}`, fontSize: '13px' }}>
-                  <span style={{ color: s.text }}>{t.artist ? `${t.artist} — ` : ''}{t.title}</span>
-                  <span style={{ color: s.dimmer }}>{t.bpm ? `${t.bpm} BPM` : ''}{t.key ? ` · ${t.key}` : ''}</span>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <button onClick={() => router.push('/dashboard')} style={{ background: s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '16px', cursor: 'pointer' }}>
-                Go to dashboard →
-              </button>
-              <button onClick={() => router.push('/setlab')} style={{ background: 'transparent', color: s.dim, border: `1px solid ${s.border}`, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '16px', cursor: 'pointer' }}>
-                Open Set Lab
-              </button>
-            </div>
           </div>
         )}
 
