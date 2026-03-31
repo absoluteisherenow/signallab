@@ -233,7 +233,8 @@ export default function Dashboard() {
           text: (
             <span>
               <span style={{ color: 'var(--text)' }}>{label}</span>
-              <span style={{ color: 'var(--text-dimmer)' }}> · {dateLabel} · {days === 0 ? 'tonight' : `${days}d`}</span>
+              <span style={{ color: urgency ? 'var(--gold)' : 'var(--text-dimmer)' }}> · {days === 0 ? 'tonight' : days === 1 ? '1 day' : `${days} days`}</span>
+              <span style={{ color: 'var(--text-dimmer)' }}> · {dateLabel}</span>
               {issues.length > 0 && <span style={{ color: 'var(--gold-bright)' }}> — {issues.join(', ')}</span>}
               {issues.length === 0 && <span style={{ color: 'var(--green)' }}> — all good</span>}
             </span>
@@ -245,17 +246,16 @@ export default function Dashboard() {
     }
 
     if (overdueInvoices.length > 0) {
-      const inv = overdueInvoices[0]
-      const days = daysSince(inv.due_date)
+      const oldest = overdueInvoices.reduce((a, b) => (a.due_date < b.due_date ? a : b))
+      const oldestDays = daysSince(oldest.due_date)
+      const isCritical = oldestDays > 7
       briefingItems.push({
         key: 'invoices',
-        dot: 'red',
+        dot: isCritical ? 'redflag' : 'red',
         text: (
           <span>
-            <span style={{ color: 'var(--text)' }}>{inv.gig_title}</span>
-            <span style={{ color: 'var(--text-dimmer)'}}> invoice</span>
-            <span style={{ color: '#c05a4a' }}> {days} days overdue</span>
-            {overdueInvoices.length > 1 && <span style={{ color: 'var(--text-dimmer)' }}> (+{overdueInvoices.length - 1} more)</span>}
+            <span style={{ color: 'var(--text)' }}>{overdueInvoices.length} invoice{overdueInvoices.length !== 1 ? 's' : ''} overdue</span>
+            <span style={{ color: isCritical ? '#ff4040' : '#c05a4a' }}> — oldest {oldestDays} day{oldestDays !== 1 ? 's' : ''}</span>
           </span>
         ),
         href: '/business/finances',
@@ -281,6 +281,7 @@ export default function Dashboard() {
     green: 'var(--green)',
     amber: '#b08d57',
     red: '#c05a4a',
+    redflag: '#ff4040',
     dim: 'var(--border)',
   }
 

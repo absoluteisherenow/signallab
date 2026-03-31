@@ -11,7 +11,7 @@ interface Invoice {
   amount: number
   currency: string
   type?: string
-  status: 'pending' | 'paid'
+  status: 'pending' | 'paid' | 'overdue'
   due_date?: string
   created_at?: string
   paid_at?: string
@@ -253,8 +253,8 @@ export default function Finances() {
 
       {/* INVOICE TABLE */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 100px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
-          {['Show', 'Due date', 'Type', 'Amount', 'WHT', 'Net', '', ''].map(h => (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 80px 80px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
+          {['Show', 'Due date', 'Type', 'Amount', 'WHT', 'Net', '', 'Chase', ''].map(h => (
             <div key={h} style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{h}</div>
           ))}
         </div>
@@ -272,7 +272,7 @@ export default function Finances() {
             const whtAmount = inv.wht_rate ? Math.round(inv.amount * (inv.wht_rate / 100)) : 0
             const netAmount = inv.amount - whtAmount
             return (
-            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 100px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
+            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 80px 80px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
               <div>
                 <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.gig_title}</div>
               </div>
@@ -292,6 +292,30 @@ export default function Finances() {
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'}>
                   View →
                 </a>
+              </div>
+              <div>
+                {(inv.status === 'pending' || inv.status === 'overdue') && (
+                  <button
+                    onClick={() => {
+                      const subject = encodeURIComponent(`Payment Follow-up — ${inv.gig_title || 'Invoice'}`)
+                      const days = inv.due_date ? Math.floor((new Date().getTime() - new Date(inv.due_date).getTime()) / 86400000) : 0
+                      const body = encodeURIComponent(`Hi,\n\nI wanted to follow up on the invoice for ${inv.gig_title || 'our recent show'} (${inv.currency} ${inv.amount?.toLocaleString()})${days > 0 ? `, which was due ${days} day${days !== 1 ? 's' : ''} ago` : ', which is coming due soon'}.\n\nPlease find the invoice here: ${window.location.origin}/api/invoices/${inv.id}\n\nLet me know if you have any questions.\n\nBest,\nAnthony`)
+                      window.open(`mailto:?subject=${subject}&body=${body}`)
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#c9a46e',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      padding: '0 8px',
+                      fontFamily: 'inherit',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    Chase →
+                  </button>
+                )}
               </div>
               <div>
                 {inv.status === 'pending' && (

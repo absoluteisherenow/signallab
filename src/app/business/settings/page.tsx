@@ -358,6 +358,30 @@ export default function Settings() {
                 : 'One bank account on Free. Upgrade to Pro to add multiple currencies.'}
             </div>
 
+            {/* Completeness check */}
+            {(() => {
+              const missingCurrencies = ['EUR', 'GBP', 'USD'].filter(
+                c => !payment.bank_accounts.some((acc: BankAccount) => acc.currency === c && (acc.iban || acc.account_number))
+              )
+              if (missingCurrencies.length === 0) return null
+              return (
+                <div style={{
+                  padding: '12px 16px',
+                  background: 'rgba(192,64,64,0.06)',
+                  border: '1px solid rgba(192,64,64,0.2)',
+                  marginBottom: '20px',
+                  fontSize: '11px',
+                  color: '#c06060',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}>
+                  <span>●</span>
+                  <span>Missing bank details for: {missingCurrencies.join(', ')} — invoices in these currencies will send without payment info</span>
+                </div>
+              )
+            })()}
+
             {payment.bank_accounts.length === 0 && (
               <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '16px' }}>No bank accounts added yet.</div>
             )}
