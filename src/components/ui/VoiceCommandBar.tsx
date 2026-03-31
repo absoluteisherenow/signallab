@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ interface AssistantResult {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function VoiceCommandBar() {
+  const pathname = usePathname()
   const [isOpen,  setIsOpen]  = useState(false)
   const [query,   setQuery]   = useState('')
   const [result,  setResult]  = useState<AssistantResult | null>(null)
@@ -90,6 +92,8 @@ export function VoiceCommandBar() {
       setLoading(false)
     }
   }, [query])
+
+  if (pathname === '/join' || pathname.startsWith('/join/')) return null
 
   if (!isOpen) {
     return (
