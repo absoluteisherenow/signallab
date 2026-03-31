@@ -65,6 +65,7 @@ Due: ${new Date(invoice.due_date).toLocaleDateString('en-GB', { day: 'numeric', 
 Please arrange payment at your earliest convenience.
 
 Night Manoeuvres
+Signal Lab OS — signallabos.com
         `
         : `
 Hi,
@@ -79,6 +80,7 @@ Was due: ${new Date(invoice.due_date).toLocaleDateString('en-GB', { day: 'numeri
 Please arrange payment immediately or get in touch to discuss.
 
 Night Manoeuvres
+Signal Lab OS — signallabos.com
         `
 
       // Get promoter email from linked gig

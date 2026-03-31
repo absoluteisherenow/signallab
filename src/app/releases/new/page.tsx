@@ -68,7 +68,7 @@ export default function NewRelease() {
           <span style={{ color: s.dimmer }}>—</span>
           New release
         </div>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 300, letterSpacing: '0.03em' }}>Add new release</div>
+        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>Add new release</div>
       </div>
 
       <div style={{ maxWidth: '720px' }}>

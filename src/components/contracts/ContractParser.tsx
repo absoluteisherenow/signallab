@@ -194,7 +194,7 @@ If any field is not found, use null for strings and 0 for numbers.`
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
           Tour Lab — Contracts
         </div>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 300, letterSpacing: '0.03em', marginBottom: '8px' }}>
+        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '8px' }}>
           Contract <span style={{ color: s.gold }}>parser</span>
         </div>
         <div style={{ fontSize: '14px', color: s.dimmer, lineHeight: '1.7' }}>

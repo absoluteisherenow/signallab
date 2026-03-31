@@ -78,7 +78,7 @@ export default function Logistics() {
           <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
           Tour Lab — Gigs
         </div>
-        <div className="display" style={{ fontSize: '36px', letterSpacing: '0.03em', marginBottom: '8px' }}>
+        <div className="display" style={{ fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '8px' }}>
           Gigs
         </div>
         <div style={{ fontSize: '14px', color: 'var(--text-dimmer)' }}>All shows, advance requests and logistics</div>

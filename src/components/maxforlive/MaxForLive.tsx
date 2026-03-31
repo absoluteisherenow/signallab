@@ -128,7 +128,7 @@ export function MaxForLive() {
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
-            <div className="display" style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, lineHeight: 1.0 }}>Max for Live.</div>
+            <div className="display" style={{ fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.0 }}>Max for Live.</div>
             <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginTop: '10px' }}>4 devices · Live 11 / 12 · M4L required</div>
           </div>
           <button

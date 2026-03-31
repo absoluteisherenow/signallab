@@ -1181,7 +1181,7 @@ Return corrected JSON:
         const text = data.content?.[0]?.text || ''
         if (text.trim()) {
           setScannerTracklist(text.trim())
-          showToast('Tracklist extracted from screenshot', 'Signal Lab')
+          showToast('Tracklist extracted from screenshot', 'Set Lab')
         } else {
           showToast('No tracks found in screenshot', 'Error')
         }
@@ -1416,7 +1416,7 @@ Return corrected JSON:
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
           <div>
             <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Set Lab</div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(36px, 4vw, 52px)', fontWeight: 400, letterSpacing: '-0.03em', lineHeight: 1, color: s.text }}>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, color: s.text }}>
               Your sets
             </div>
           </div>

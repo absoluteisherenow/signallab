@@ -271,7 +271,7 @@ export default function Dashboard() {
         dot: 'green',
         text: <span><span style={{ color: 'var(--text)' }}>{weekPosts.length} post{weekPosts.length !== 1 ? 's' : ''}</span><span style={{ color: 'var(--text-dimmer)' }}> scheduled this week</span></span>,
         href: '/broadcast',
-        action: 'Open Signal Lab →',
+        action: 'Open Broadcast Lab →',
       })
     }
   }
@@ -290,31 +290,36 @@ export default function Dashboard() {
       <style>{`@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }`}</style>
       <div style={{ background: 'var(--bg)', color: 'var(--text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* ── HEADER ── */}
-        <div style={{ padding: '28px 52px 22px', borderBottom: '1px solid var(--border-dim)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div>
-            <div className="display" style={{ fontSize: 'clamp(22px, 2.8vw, 32px)', lineHeight: 1.0 }} suppressHydrationWarning>
-              {greeting}.
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '4px', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em' }} suppressHydrationWarning>
-              {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Link href="/broadcast" className="btn-secondary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-              + New post
-            </Link>
-            <Link href="/gigs/new" className="btn-primary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-              + New gig
-            </Link>
-            <Link href="/releases/new" className="btn-secondary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-              + New release
-            </Link>
-          </div>
+        {/* ── BRAND BAR ── */}
+        <div style={{ padding: '16px 52px', borderBottom: '1px solid var(--border-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '11px', fontWeight: 600, letterSpacing: '0.18em', color: 'rgba(234,229,220,0.5)', textTransform: 'uppercase' }}>Signal Lab OS</div>
         </div>
 
         {/* ── MAIN CONTENT: fills remaining height ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '24px 52px 0', gap: '20px', minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '32px 52px 0', gap: '20px', minHeight: 0 }}>
+
+          {/* ── GREETING + ACTIONS ── */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '12px', fontFamily: 'var(--font-mono)' }} suppressHydrationWarning>
+                {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </div>
+              <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 72px)', fontWeight: 300, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--text)' }} suppressHydrationWarning>
+                {greeting}.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', paddingBottom: '6px' }}>
+              <Link href="/broadcast" className="btn-secondary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+                + New post
+              </Link>
+              <Link href="/gigs/new" className="btn-primary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+                + New gig
+              </Link>
+              <Link href="/releases/new" className="btn-secondary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+                + New release
+              </Link>
+            </div>
+          </div>
 
           {/* ── YOUR WEEK BRIEFING ── */}
           <div style={{ flexShrink: 0 }}>
@@ -360,9 +365,9 @@ export default function Dashboard() {
                   { label: 'Posts live', value: loading ? '—' : String(monthStats.posts), sub: monthStats.posts === 0 ? 'Nothing posted' : 'published' },
                   { label: 'Revenue', value: loading ? '—' : monthStats.revenue > 0 ? `£${monthStats.revenue.toLocaleString()}` : '—', sub: monthStats.revenue === 0 ? 'No fees logged' : 'from gigs' },
                 ].map(stat => (
-                  <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '16px 18px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '6px' }}>{stat.label}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', lineHeight: 1, color: 'var(--text)', marginBottom: '4px' }}>{stat.value}</div>
+                  <div key={stat.label} style={{ borderRight: '1px solid var(--border-dim)', padding: '16px 24px 16px 0', marginRight: '24px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '10px' }}>{stat.label}</div>
+                    <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(28px, 3vw, 40px)', fontWeight: 300, lineHeight: 1, color: 'var(--text)', marginBottom: '6px' }}>{stat.value}</div>
                     <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>{stat.sub}</div>
                   </div>
                 ))}
@@ -374,7 +379,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {[
                   { label: 'Drop Lab', href: '/releases' },
-                  { label: 'Signal Lab', href: '/broadcast' },
+                  { label: 'Broadcast Lab', href: '/broadcast' },
                   { label: 'Set Lab', href: '/setlab' },
                   { label: 'SONIX Lab', href: '/sonix' },
                 ].map(({ label, href }) => (

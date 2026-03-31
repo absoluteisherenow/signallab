@@ -33,7 +33,7 @@ export function PageHeader({
           <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: sectionColor, textTransform: 'uppercase', marginBottom: '12px', fontFamily: font }}>
             {section}
           </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(36px, 4vw, 52px)', fontWeight: 400, letterSpacing: '-0.03em', lineHeight: 1, color: '#f0ebe2' }}>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, color: '#f0ebe2' }}>
             {title}
           </div>
         </div>

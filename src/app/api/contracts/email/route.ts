@@ -244,9 +244,10 @@ Contact: ${gig.promoter_email || 'TBA'}
 
 ${gig.notes ? `Notes: ${gig.notes}` : ''}
 
-Log in to Artist OS to view full details, upload contracts, and send advance requests.
+Log in to Signal Lab OS to view full details, upload contracts, and send advance requests.
 
 Night Manoeuvres
+Signal Lab OS — signallabos.com
       `.trim()
 
       try {

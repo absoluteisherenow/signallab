@@ -568,7 +568,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
 
       const posts: { day: string; platform: string; caption: string }[] = JSON.parse(raw.replace(/```json|```/g, '').trim())
       setWeekPreview(posts)
-      showToast('Week ready — review before saving', 'Signal Lab')
+      showToast('Week ready — review before saving', 'Broadcast Lab')
     } catch (err: any) {
       showToast(`Failed: ${err.message}`, 'Error')
     } finally {
@@ -645,7 +645,7 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
   function useTrend(trendContext: string) {
     setContext(trendContext)
     setTimeout(generateCaptions, 300)
-    showToast('Trend applied — generating captions', 'Signal Lab')
+    showToast('Trend applied — generating captions', 'Broadcast Lab')
   }
 
   function formatScore(score: number) {
@@ -687,7 +687,7 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
               onClick={() => {
                 setContext(trigger.context)
                 setTimeout(generateCaptions, 100)
-                showToast(`Generating — ${trigger.label}`, 'Signal Lab')
+                showToast(`Generating — ${trigger.label}`, 'Broadcast Lab')
                 const el = document.querySelector('.caption-panel')
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }}

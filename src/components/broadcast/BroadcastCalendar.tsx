@@ -416,7 +416,7 @@ export function BroadcastCalendar() {
       }}>
         <div style={{ padding: '24px', borderBottom: `1px solid ${s.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.gold, marginBottom: '4px' }}>Signal Lab</div>
+            <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.gold, marginBottom: '4px' }}>Broadcast Lab</div>
             <div className="font-['Unbounded'] text-lg font-bold tracking-tight" style={{ color: s.text }}>Plan content</div>
           </div>
           <button onClick={() => { setPlanOpen(false); setPlanResult([]) }} style={{ background: 'none', border: 'none', color: s.dim, fontSize: '18px', cursor: 'pointer' }}>×</button>

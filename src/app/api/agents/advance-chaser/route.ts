@@ -57,6 +57,7 @@ export async function GET() {
             <p style="color:#8a8780;margin:0 0 24px">${gig.venue} · ${new Date(gig.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
             <p style="color:#f0ebe2;margin:0 0 24px">Show is in ${daysTo} days — please complete the advance form at your earliest convenience.</p>
             <a href="${formUrl}" style="display:inline-block;background:#b08d57;color:#070706;padding:14px 28px;text-decoration:none;font-size:11px;letter-spacing:0.15em;text-transform:uppercase">Complete advance form →</a>
+            <div style="margin-top:40px;padding-top:20px;border-top:1px solid #1a1917;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#52504c">Signal Lab OS &middot; Tailored Artist OS &middot; signallabos.com</div>
           </div>`,
         })
       }

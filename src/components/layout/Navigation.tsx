@@ -18,7 +18,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: '',
     items: [
-      { label: 'Signal Lab', href: '/broadcast', sub: [] },
+      { label: 'Broadcast Lab', href: '/broadcast', sub: [] },
       { label: 'Set Lab', href: '/setlab', sub: [] },
       { label: 'SONIX Lab', href: '/sonix', sub: [] },
       { label: 'Tour Lab', href: '/gigs', sub: [] },
@@ -94,7 +94,7 @@ export function Navigation() {
             textTransform: 'uppercase',
             fontWeight: 400,
           }}>
-            Artist OS
+            Tailored Artist OS
           </div>
         </Link>
       </div>

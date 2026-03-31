@@ -100,7 +100,7 @@ export default function ReleasesPage() {
             <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
             Drop Lab
           </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 300, letterSpacing: '0.03em' }}>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>
             Your catalogue
           </div>
           <div style={{ fontSize: '12px', color: s.dim, marginTop: '8px' }}>

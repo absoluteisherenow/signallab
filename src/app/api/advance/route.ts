@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       from: 'NIGHT manoeuvres <onboarding@resend.dev>',
       to: promoterEmail,
       subject: `Advance sheet request — ${gigTitle} at ${venue}`,
-      html: `<div style="font-family:monospace;background:#070706;color:#f0ebe2;padding:40px"><div style="color:#b08d57;margin-bottom:24px">NIGHT MANOEUVRES — ADVANCE REQUEST</div><h2>${gigTitle}</h2><p style="color:#8a8780">${venue} · ${date}</p><p>Please complete the advance form for this show.</p><a href="${formUrl}" style="display:inline-block;background:#b08d57;color:#070706;padding:14px 28px;text-decoration:none">Complete advance form</a></div>`,
+      html: `<div style="font-family:monospace;background:#070706;color:#f0ebe2;padding:40px"><div style="color:#b08d57;margin-bottom:24px">NIGHT MANOEUVRES — ADVANCE REQUEST</div><h2>${gigTitle}</h2><p style="color:#8a8780">${venue} · ${date}</p><p>Please complete the advance form for this show.</p><a href="${formUrl}" style="display:inline-block;background:#b08d57;color:#070706;padding:14px 28px;text-decoration:none">Complete advance form</a><div style="margin-top:40px;padding-top:20px;border-top:1px solid #1a1917;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#52504c">Signal Lab OS &middot; Tailored Artist OS &middot; signallabos.com</div></div>`,
     })
 
     // Create in-app notification
