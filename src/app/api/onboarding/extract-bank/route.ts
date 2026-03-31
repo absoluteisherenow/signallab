@@ -49,8 +49,10 @@ export async function POST(req: NextRequest) {
 
 Return ONLY valid JSON with these fields (null if not found):
 {
-  "accountName": "<name on account>",
+  "accountName": "<recipient name / name on account>",
+  "recipientAddress": "<recipient's address>",
   "bankName": "<bank name>",
+  "bankAddress": "<bank's address>",
   "currency": "<3-letter currency code e.g. GBP, EUR, USD, AUD — infer from IBAN country prefix or bank country>",
   "sortCode": "<sort code, BSB, or routing number>",
   "accountNumber": "<domestic account number — separate from IBAN>",

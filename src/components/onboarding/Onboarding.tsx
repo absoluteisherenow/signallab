@@ -16,7 +16,9 @@ type BankAccount = {
   currency: string
   label: string
   accountName: string
+  recipientAddress: string
   bankName: string
+  bankAddress: string
   accountNumber: string
   iban: string
   sortCode: string
@@ -28,7 +30,9 @@ type AddingAccount = {
   currency: string
   label: string
   accountName: string
+  recipientAddress: string
   bankName: string
+  bankAddress: string
   accountNumber: string
   iban: string
   sortCode: string
@@ -41,7 +45,7 @@ type AddingAccount = {
 }
 
 function emptyAdding(): AddingAccount {
-  return { currency: '', label: '', accountName: '', bankName: '', accountNumber: '', iban: '', sortCode: '', bic: '', intermediaryBic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
+  return { currency: '', label: '', accountName: '', recipientAddress: '', bankName: '', bankAddress: '', accountNumber: '', iban: '', sortCode: '', bic: '', intermediaryBic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
 }
 
 async function saveProfile(profile: Record<string, unknown>) {
@@ -160,7 +164,9 @@ export default function Onboarding() {
           showManual: true,
           currency: d.currency || '',
           accountName: d.accountName || '',
+          recipientAddress: d.recipientAddress || '',
           bankName: d.bankName || '',
+          bankAddress: d.bankAddress || '',
           accountNumber: d.accountNumber || '',
           iban: d.iban || '',
           sortCode: d.sortCode || '',
@@ -179,7 +185,9 @@ export default function Onboarding() {
       currency: adding.currency,
       label: adding.label,
       accountName: adding.accountName,
+      recipientAddress: adding.recipientAddress,
       bankName: adding.bankName,
+      bankAddress: adding.bankAddress,
       accountNumber: adding.accountNumber,
       iban: adding.iban,
       sortCode: adding.sortCode,
@@ -548,7 +556,9 @@ export default function Onboarding() {
                         <input value={adding.currency} onChange={e => updateAdding({ currency: e.target.value.toUpperCase().slice(0, 3) })} placeholder="EUR" style={input} />
                         <input value={adding.accountName} onChange={e => updateAdding({ accountName: e.target.value })} placeholder="Account name" style={input} />
                       </div>
+                      <input value={adding.recipientAddress} onChange={e => updateAdding({ recipientAddress: e.target.value })} placeholder="Recipient address" style={input} />
                       <input value={adding.bankName} onChange={e => updateAdding({ bankName: e.target.value })} placeholder="Bank name" style={input} />
+                      <input value={adding.bankAddress} onChange={e => updateAdding({ bankAddress: e.target.value })} placeholder="Bank address" style={input} />
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
                         <input value={adding.sortCode} onChange={e => updateAdding({ sortCode: e.target.value })} placeholder="Sort code / BSB" style={input} />
                         <input value={adding.accountNumber} onChange={e => updateAdding({ accountNumber: e.target.value })} placeholder="Account number" style={input} />
