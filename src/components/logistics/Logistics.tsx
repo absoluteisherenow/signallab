@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 interface TravelBooking {
   id: string
@@ -69,6 +71,7 @@ function searchHotelUrl(destination: string, checkIn: string, checkOut?: string)
 }
 
 export default function Logistics() {
+  const pathname = usePathname()
   const [gigs, setGigs] = useState<Gig[] | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [gigDetails, setGigDetails] = useState<Record<string, Gig>>({})
@@ -206,18 +209,20 @@ export default function Logistics() {
   }
 
   return (
-    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh', padding: '48px 56px' }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
 
-      <div style={{ marginBottom: '40px' }}>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-          <span style={{ display: 'block', width: '28px', height: '1px', background: 'var(--gold)' }} />
-          Tour Lab — Gigs
-        </div>
-        <div className="display" style={{ fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '8px' }}>
-          Gigs
-        </div>
-        <div style={{ fontSize: '14px', color: 'var(--text-dimmer)' }}>All shows, advance requests and logistics</div>
-      </div>
+      <PageHeader
+        section="Tour Lab"
+        title="Travel"
+        tabs={[
+          { label: 'Gigs', href: '/gigs', active: pathname === '/gigs' || pathname.startsWith('/gigs/') },
+          { label: 'Travel', href: '/logistics', active: pathname === '/logistics' },
+          { label: 'Finances', href: '/business/finances', active: pathname === '/business/finances' },
+          { label: 'Contracts', href: '/contracts', active: pathname === '/contracts' },
+        ]}
+      />
+
+      <div style={{ padding: '48px 56px' }}>
 
       {/* ADVANCE STATUS SUMMARY */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '32px' }}>
@@ -634,6 +639,7 @@ export default function Logistics() {
       )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
     </div>
   )
 }

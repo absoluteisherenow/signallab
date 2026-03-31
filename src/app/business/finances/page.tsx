@@ -142,7 +142,8 @@ export default function Finances() {
         section="Tour Lab"
         title="Finances"
         tabs={[
-          { label: 'Gigs', href: '/gigs', active: pathname === '/gigs' },
+          { label: 'Gigs', href: '/gigs', active: pathname === '/gigs' || pathname.startsWith('/gigs/') },
+          { label: 'Travel', href: '/logistics', active: pathname === '/logistics' },
           { label: 'Finances', href: '/business/finances', active: pathname === '/business/finances' },
           { label: 'Contracts', href: '/contracts', active: pathname === '/contracts' },
         ]}
