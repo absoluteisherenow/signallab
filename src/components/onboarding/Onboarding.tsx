@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface Track {
@@ -50,6 +50,9 @@ export default function Onboarding() {
   // Step 0
   const [artistName, setArtistName] = useState('')
   const [genre, setGenre] = useState('Electronic')
+  const [discovery, setDiscovery] = useState<{ found: boolean; genre?: string; bpmRange?: string; tracks?: { title: string; bpm: number }[] } | null>(null)
+  const [discovering, setDiscovering] = useState(false)
+  const discoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Step 1 — sound profile
   const [soundsLike, setSoundsLike] = useState<string[]>([])
@@ -86,6 +89,24 @@ export default function Onboarding() {
   const selectStyle: React.CSSProperties = {
     ...input, appearance: 'none', cursor: 'pointer',
   }
+
+  useEffect(() => {
+    if (discoverTimer.current) clearTimeout(discoverTimer.current)
+    if (artistName.trim().length < 3) { setDiscovery(null); return }
+    setDiscovering(true)
+    discoverTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/onboarding/discover?name=${encodeURIComponent(artistName.trim())}`)
+        const data = await res.json()
+        setDiscovery(data)
+        if (data.found) {
+          if (data.genre) setGenre(data.genre.split(' ')[0] || genre)
+          if (data.bpmRange) setBpmRange(data.bpmRange)
+        }
+      } catch { setDiscovery(null) } finally { setDiscovering(false) }
+    }, 600)
+    return () => { if (discoverTimer.current) clearTimeout(discoverTimer.current) }
+  }, [artistName])
 
   function addRef() {
     const v = newRef.trim()
@@ -174,6 +195,18 @@ export default function Onboarding() {
                 <input value={artistName} onChange={e => setArtistName(e.target.value)}
                   placeholder="Night Manoeuvres"
                   style={input} />
+                {discovering && (
+                  <div style={{ fontSize: 10, color: s.dimmer, letterSpacing: '0.1em', marginTop: 6 }}>Searching Beatport...</div>
+                )}
+                {discovery?.found && !discovering && (
+                  <div style={{ background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '10px 14px', marginTop: 8, fontSize: 11 }}>
+                    <div style={{ color: s.gold, letterSpacing: '0.15em', textTransform: 'uppercase', fontSize: 9, marginBottom: 6 }}>Found on Beatport</div>
+                    {discovery.tracks?.map((t, i) => (
+                      <div key={i} style={{ color: s.dim, marginBottom: 2 }}>{t.title}{t.bpm ? ` · ${t.bpm} BPM` : ''}</div>
+                    ))}
+                    {discovery.genre && <div style={{ color: s.dimmer, marginTop: 4, fontSize: 10 }}>Genre pre-filled: {discovery.genre}</div>}
+                  </div>
+                )}
               </div>
               <div>
                 <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Genre / scene</div>

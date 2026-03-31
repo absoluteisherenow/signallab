@@ -23,6 +23,18 @@
     {
       "path": "/api/agents/post-gig",
       "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/crons/night-before",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/crons/sync-performance",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/crons/check-comments",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

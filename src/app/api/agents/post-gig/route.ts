@@ -43,7 +43,7 @@ export async function GET() {
         type: 'system',
         title: `How did it go? — ${gig.title}`,
         message: `${gig.venue} · ${new Date(gig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · Add notes, rate the show, or chase the invoice.`,
-        href: `/gigs/${gig.id}`,
+        href: `/gigs/${gig.id}/debrief`,
         gig_id: gig.id,
         sendEmail: false,
       })

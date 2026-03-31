@@ -244,8 +244,8 @@ export default function Finances() {
 
       {/* INVOICE TABLE */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 120px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
-          {['Show', 'Due date', 'Type', 'Amount', 'Status', ''].map(h => (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 80px 100px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
+          {['Show', 'Due date', 'Type', 'Amount', 'Status', '', ''].map(h => (
             <div key={h} style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{h}</div>
           ))}
         </div>
@@ -260,13 +260,13 @@ export default function Finances() {
           </div>
         ) : (
           invoices.map((inv, i) => (
-            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 120px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
+            <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 100px 100px 80px 100px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
               <div>
                 <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.gig_title}</div>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</div>
               <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{inv.type || '—'}</div>
-              <div style={{ fontSize: '14px', color: 'var(--text)' }}>{inv.currency}€{inv.amount.toLocaleString()}</div>
+              <div style={{ fontSize: '14px', color: 'var(--text)' }}>{inv.currency} {inv.amount.toLocaleString()}</div>
               <div>
                 <span style={{
                   fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase',
@@ -274,6 +274,14 @@ export default function Finances() {
                   background: inv.status === 'paid' ? 'rgba(61, 107, 74, 0.125)' : 'rgba(201, 164, 110, 0.1)',
                   padding: '4px 10px',
                 }}>{inv.status}</span>
+              </div>
+              <div>
+                <a href={`/api/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--gold)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'}>
+                  View →
+                </a>
               </div>
               <div>
                 {inv.status === 'pending' && (

@@ -22,6 +22,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Set Lab', href: '/setlab', sub: [] },
       { label: 'SONIX Lab', href: '/sonix', sub: [] },
       { label: 'Tour Lab', href: '/gigs', sub: [] },
+      { label: 'Drop Lab', href: '/releases', sub: [] },
     ],
   },
 ]
@@ -40,7 +41,7 @@ export function Navigation() {
     return () => clearInterval(t)
   }, [])
 
-  if (pathname === '/' || pathname === '/pricing' || pathname === '/login' || pathname === '/onboarding') {
+  if (pathname === '/' || pathname === '/pricing' || pathname === '/login' || pathname === '/onboarding' || pathname === '/mobile') {
     return null
   }
 
@@ -216,7 +217,19 @@ export function Navigation() {
           Settings
         </Link>
         <div style={{ padding: '2px 28px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 9, color: 'rgba(234,229,220,0.14)', letterSpacing: '0.1em' }}>Night Manoeuvres</span>
+          <Link href="/mobile" style={{
+            fontSize: 9,
+            color: 'rgba(234,229,220,0.14)',
+            letterSpacing: '0.1em',
+            textDecoration: 'none',
+            transition: 'color 0.12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'rgba(234,229,220,0.35)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(234,229,220,0.14)' }}
+          title="Mobile quick-actions"
+          >
+            Night Manoeuvres
+          </Link>
           <NotificationBell />
         </div>
       </div>

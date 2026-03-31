@@ -53,34 +53,17 @@ const TIERS = [
     name: 'Pro',
     price: '£99',
     period: '/month',
-    desc: 'You\'re managing artists. One command center.',
+    desc: 'You\'re at the top of your game. Full power, no limits.',
     color: '#6a8a7a',
     features: [
       'Everything in Artist',
-      'Multi-artist profiles (up to 10)',
-      'Roster analytics dashboard',
-      'Label-branded advance forms',
+      'Multi-currency invoicing',
       'Sonix stems analysis',
       'Advanced content scanning',
-      'Artist onboarding portal',
-      'Cross-artist revenue tracking',
       'API access & webhooks',
+      'Roster analytics dashboard',
+      'Label-branded advance forms',
       'Dedicated support',
-    ],
-  },
-  {
-    name: 'Agency',
-    price: '£249',
-    period: '/month',
-    desc: 'You\'re running the operation. Advanced tools, full control.',
-    color: '#7a8a6a',
-    features: [
-      'Everything in Pro',
-      'Advanced team permissions',
-      'Custom integrations',
-      'White-label options',
-      'Bulk operations & automation',
-      'Dedicated account manager',
     ],
   },
 ]
@@ -117,9 +100,9 @@ export default function PricingPage() {
 
       {/* HERO */}
       <section style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 48px 80px', textAlign: 'center', borderBottom: `1px solid ${COLORS.border}` }}>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>Creator to Agency</div>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>Creator to Pro</div>
         <h1 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', fontWeight: 300, letterSpacing: '0.04em', lineHeight: 1.1, marginBottom: '20px', maxWidth: '900px' }}>One system for every stage of your career.</h1>
-        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>From Creator to Agency. All tiers include music production, content, DJ tools, and tour management. No hidden fees. No feature gates.</p>
+        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>From first release to full touring. All tiers include music production, content, DJ tools, and tour management. No hidden fees. No feature gates.</p>
       </section>
 
       {/* PRICING TIERS */}

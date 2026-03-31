@@ -50,7 +50,9 @@ export async function GET() {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) return NextResponse.json({ error: 'No API key' }, { status: 500 })
 
-    const today = new Date()
+    // Use Europe/London for correct DST handling (GMT in winter, BST in summer)
+    const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }))
+    const today = nowLondon
     const in30Days = new Date(today.getTime() + 30 * 86400000)
 
     // Pull all real data sources in parallel

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { aiCache } from '@/lib/aiCache'
 import { SignalLabHeader } from './SignalLabHeader'
 
 interface ArtistProfile {
@@ -114,27 +115,12 @@ function Bar({ value, teal = false }: { value: number; teal?: boolean }) {
 }
 
 export function BroadcastLab() {
-  // ── localStorage cache — persists Signal Lab computed state across navigation ──
+  // ── aiCache — shared cache shared across modules, 12-hour TTL ──────────────
   // Prevents re-running Claude on every page visit (trends + captions are expensive)
-  const SL_CACHE_KEY = 'signallab_cache_v1'
-  const SL_CACHE_TTL = 12 * 60 * 60 * 1000 // 12 hours
+  const NS = 'signallab'
 
-  function readCache(): Record<string, unknown> {
-    try {
-      const raw = localStorage.getItem(SL_CACHE_KEY)
-      if (!raw) return {}
-      const parsed = JSON.parse(raw)
-      if (Date.now() - (parsed._ts || 0) > SL_CACHE_TTL) { localStorage.removeItem(SL_CACHE_KEY); return {} }
-      return parsed
-    } catch { return {} }
-  }
-
-  function writeCache(patch: Record<string, unknown>) {
-    try {
-      const existing = readCache()
-      localStorage.setItem(SL_CACHE_KEY, JSON.stringify({ ...existing, ...patch, _ts: Date.now() }))
-    } catch {}
-  }
+  const readCache = () => aiCache.get(NS)
+  const writeCache = (patch: Record<string, unknown>) => aiCache.patch(NS, patch)
 
   const _cache = typeof window !== 'undefined' ? readCache() : {}
 
@@ -235,6 +221,8 @@ export function BroadcastLab() {
   }
   const [toast, setToast] = useState<{ msg: string; tag: string } | null>(null)
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
+  const [signalData, setSignalData] = useState<{ posts: { caption: string; format_type: string | null; engagement_score: number; posted_at: string }[] } | null>(null)
+  const [signalLoading, setSignalLoading] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
 
   const showToast = (msg: string, tag = 'Info') => {
@@ -254,13 +242,13 @@ export function BroadcastLab() {
   async function saveArtist(artist: ArtistProfile) {
     await supabase.from('artist_profiles').upsert(artist, { onConflict: 'name' })
     // New artist data — invalidate trend/caption cache so it regenerates fresh
-    localStorage.removeItem(SL_CACHE_KEY)
+    aiCache.invalidate(NS)
   }
 
   async function removeArtistFromDb(name: string) {
     await supabase.from('artist_profiles').delete().eq('name', name)
     // Artist removed — invalidate trend/caption cache so it regenerates fresh
-    localStorage.removeItem(SL_CACHE_KEY)
+    aiCache.invalidate(NS)
   }
 
   useEffect(() => {
@@ -472,6 +460,22 @@ Respond ONLY with valid JSON, no markdown.`,
     }
     setPublishing(false)
   }
+
+  async function loadSignalData() {
+    setSignalLoading(true)
+    try {
+      const { data } = await supabase
+        .from('scheduled_posts')
+        .select('caption, format_type, engagement_score, posted_at')
+        .eq('status', 'posted')
+        .not('likes', 'is', null)
+        .order('posted_at', { ascending: false })
+        .limit(200)
+      setSignalData({ posts: data || [] })
+    } catch { } finally { setSignalLoading(false) }
+  }
+
+  useEffect(() => { loadSignalData() }, [])
 
   // Direct publish via Signal Lab OS connected accounts (no third-party)
   async function publishDirect(text: string, selectedPlatform: string, media?: string[]) {
@@ -1067,6 +1071,99 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
           </div>
         </div>
       </div>
+
+      {/* SIGNAL PANEL */}
+      {signalData && signalData.posts.length > 0 && (() => {
+        const posts = signalData.posts
+        const now = Date.now()
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000
+        const recent = posts.filter(p => now - new Date(p.posted_at).getTime() < thirtyDays)
+        const prior = posts.filter(p => {
+          const age = now - new Date(p.posted_at).getTime()
+          return age >= thirtyDays && age < thirtyDays * 2
+        })
+        const avg = (arr: typeof posts) => arr.length ? arr.reduce((s, p) => s + (p.engagement_score || 0), 0) / arr.length : 0
+        const recentAvg = avg(recent)
+        const priorAvg = avg(prior)
+        const trend = priorAvg > 0 ? Math.round(((recentAvg - priorAvg) / priorAvg) * 100) : null
+
+        const styleGroups: Record<string, number[]> = {}
+        for (const p of posts) {
+          const k = p.format_type || 'untagged'
+          if (!styleGroups[k]) styleGroups[k] = []
+          styleGroups[k].push(p.engagement_score || 0)
+        }
+        const styleStats = Object.entries(styleGroups)
+          .map(([label, scores]) => ({ label, avg: scores.reduce((s, v) => s + v, 0) / scores.length, count: scores.length }))
+          .sort((a, b) => b.avg - a.avg)
+        const maxStyleAvg = styleStats[0]?.avg || 1
+
+        const top3 = [...posts].sort((a, b) => (b.engagement_score || 0) - (a.engagement_score || 0)).slice(0, 3)
+
+        const best = styleStats[0]
+        const insight = best
+          ? `${best.label.charAt(0).toUpperCase() + best.label.slice(1)} tone posts average ${Math.round(best.avg)} engagement — your strongest format.`
+          : 'Post more to unlock format insights.'
+
+        return (
+          <div className="mt-8 border border-white/8 bg-[#0a0908]">
+            <div className="px-6 py-4 border-b border-white/8 flex items-center justify-between">
+              <div className="text-[10px] tracking-[.2em] uppercase text-[#b08d57]">Signal</div>
+              {trend !== null && (
+                <div className={`text-[11px] tracking-[.06em] ${trend >= 0 ? 'text-[#b08d57]' : 'text-[#f0ebe2]/40'}`}>
+                  {trend >= 0 ? '+' : ''}{trend}% vs prior 30d
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-white/8">
+              {/* Trend */}
+              <div className="px-5 py-4">
+                <div className="text-[10px] tracking-[.16em] uppercase text-[#f0ebe2]/40 mb-3">Engagement trend</div>
+                {trend !== null ? (
+                  <div className={`text-2xl font-light tracking-tight ${trend >= 0 ? 'text-[#b08d57]' : 'text-[#f0ebe2]/60'}`}>
+                    {trend >= 0 ? '+' : ''}{trend}%
+                  </div>
+                ) : (
+                  <div className="text-[#f0ebe2]/30 text-[11px]">Need 60d of data</div>
+                )}
+                <div className="text-[10px] text-[#f0ebe2]/30 mt-1">{recent.length} posts this month</div>
+              </div>
+
+              {/* Format breakdown */}
+              <div className="px-5 py-4">
+                <div className="text-[10px] tracking-[.16em] uppercase text-[#f0ebe2]/40 mb-3">By format</div>
+                <div className="space-y-2">
+                  {styleStats.slice(0, 4).map(s => (
+                    <div key={s.label}>
+                      <div className="flex justify-between text-[10px] mb-0.5">
+                        <span className="text-[#f0ebe2]/60 capitalize">{s.label}</span>
+                        <span className="text-[#f0ebe2]/40">{Math.round(s.avg)}</span>
+                      </div>
+                      <div className="h-0.5 bg-white/8 rounded-full overflow-hidden">
+                        <div className="h-full bg-[#b08d57]" style={{ width: `${(s.avg / maxStyleAvg) * 100}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top posts */}
+              <div className="px-5 py-4">
+                <div className="text-[10px] tracking-[.16em] uppercase text-[#f0ebe2]/40 mb-3">Top posts</div>
+                <div className="space-y-2.5">
+                  {top3.map((p, i) => (
+                    <div key={i} className="text-[10px]">
+                      <div className="text-[#f0ebe2]/60 truncate leading-tight">{p.caption.slice(0, 60)}{p.caption.length > 60 ? '…' : ''}</div>
+                      <div className="text-[#b08d57]/70 mt-0.5">{p.engagement_score} pts · {p.format_type || 'untagged'}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-3 border-t border-white/8 text-[10px] text-[#f0ebe2]/35 tracking-[.04em]">{insight}</div>
+          </div>
+        )
+      })()}
 
       {/* TOAST */}
       {toast && (

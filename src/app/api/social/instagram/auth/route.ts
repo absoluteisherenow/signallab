@@ -18,8 +18,11 @@ export async function GET(req: NextRequest) {
   const scope = [
     'instagram_basic',
     'instagram_content_publish',
+    'instagram_manage_comments',
+    'instagram_manage_messages',
     'pages_show_list',
     'pages_read_engagement',
+    'pages_messaging',
   ].join(',')
 
   const url = new URL('https://www.facebook.com/v19.0/dialog/oauth')

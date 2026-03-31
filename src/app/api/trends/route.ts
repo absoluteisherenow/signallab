@@ -70,7 +70,8 @@ Return ONLY this JSON array:
     "fit": number 70-99 (based on how many top posts used this pattern),
     "hot": true/false (true if 3+ of the top 10 posts used it),
     "context": "One sentence describing the pattern with a real number — e.g. 'Single-line captions averaged 2.4× more engagement than multi-line in this lane'",
-    "evidence": "Artist name + approximate engagement that proves this trend"
+    "evidence": "Artist name + approximate engagement that proves this trend",
+    "posts_supporting": number (how many of the ${topPosts.length} top posts showed this pattern)
   }
 ]`
 

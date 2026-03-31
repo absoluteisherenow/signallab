@@ -1,11 +1,25 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Navigation } from '@/components/layout/Navigation'
 import { VoiceCommandBar } from '@/components/ui/VoiceCommandBarWrapper'
 
 export const metadata: Metadata = {
-  title: 'Artist OS',
+  title: 'Night Manoeuvres — Artist OS',
   description: 'The operating system for electronic artists',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'NM OS',
+  },
+  manifest: '/manifest.json',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#070706',
 }
 
 export default function RootLayout({

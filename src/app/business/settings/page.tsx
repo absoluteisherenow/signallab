@@ -10,6 +10,28 @@ interface ConnectedAccount {
   label: string
 }
 
+interface BankAccount {
+  id: string
+  currency: string
+  account_name: string
+  bank_name: string
+  is_default: boolean
+  // UK
+  sort_code?: string
+  account_number?: string
+  // International
+  iban?: string
+  swift_bic?: string
+}
+
+interface PaymentSettings {
+  legal_name: string
+  address: string
+  vat_number: string
+  payment_terms: string
+  bank_accounts: BankAccount[]
+}
+
 export default function Settings() {
   const [profile, setProfile] = useState({ name: '', genre: '', country: '', bio: '' })
   const [team, setTeam] = useState([
@@ -19,8 +41,13 @@ export default function Settings() {
     { id: '4', role: 'Videographer', name: '', email: '', phone: '' },
   ])
   const [advance, setAdvance] = useState({ sender_name: '', reply_email: '' })
+  const [payment, setPayment] = useState<PaymentSettings>({
+    legal_name: '', address: '', vat_number: '', payment_terms: '30',
+    bank_accounts: [],
+  })
+  const [tier, setTier] = useState<'free' | 'pro'>('free')
   const [saved, setSaved] = useState(false)
-  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance' | 'payment'>('profile')
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
@@ -53,6 +80,8 @@ export default function Settings() {
         if (data.settings.profile) setProfile(data.settings.profile)
         if (data.settings.team) setTeam(data.settings.team)
         if (data.settings.advance) setAdvance(data.settings.advance)
+        if (data.settings.payment) setPayment(data.settings.payment)
+        if (data.settings.tier) setTier(data.settings.tier)
       }
     } catch {
       // Settings load failed silently — empty state will show
@@ -67,7 +96,7 @@ export default function Settings() {
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile, team, advance }),
+        body: JSON.stringify({ profile, team, advance, payment }),
       })
       const data = await res.json()
       if (data.success) {
@@ -99,8 +128,8 @@ export default function Settings() {
       <PageHeader
         section="Settings"
         title="Settings"
-        tabs={(['profile', 'team', 'integrations', 'advance'] as const).map(tab => ({
-          label: tab === 'advance' ? 'Advance form' : tab,
+        tabs={(['profile', 'team', 'integrations', 'advance', 'payment'] as const).map(tab => ({
+          label: tab === 'advance' ? 'Advance form' : tab === 'payment' ? 'Payment details' : tab,
           active: activeTab === tab,
           onClick: () => setActiveTab(tab),
         }))}
@@ -276,6 +305,164 @@ export default function Settings() {
           </div>
           <button onClick={save} disabled={isSaving} className="btn-primary" style={{ marginTop: '24px', opacity: isSaving ? 0.6 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
             {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save settings'}
+          </button>
+        </div>
+      )}
+
+      {/* PAYMENT TAB */}
+      {activeTab === 'payment' && (
+        <div style={{ maxWidth: '680px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Legal details */}
+          <div className="card">
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>Invoice details</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label style={labelStyle}>Legal / trading name</label>
+                <input value={payment.legal_name} onChange={e => setPayment(p => ({ ...p, legal_name: e.target.value }))}
+                  placeholder="Your full legal or trading name" style={inputStyle} />
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '6px' }}>Appears as the invoicing party on all invoices</div>
+              </div>
+              <div>
+                <label style={labelStyle}>Address</label>
+                <textarea value={payment.address} onChange={e => setPayment(p => ({ ...p, address: e.target.value }))}
+                  rows={3} placeholder="Street, City, Postcode, Country" style={{ ...inputStyle, resize: 'vertical' as const }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>VAT / ABN / Tax number</label>
+                  <input value={payment.vat_number} onChange={e => setPayment(p => ({ ...p, vat_number: e.target.value }))}
+                    placeholder="Optional" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Payment terms (days)</label>
+                  <input type="number" min="1" value={payment.payment_terms} onChange={e => setPayment(p => ({ ...p, payment_terms: e.target.value }))}
+                    placeholder="30" style={inputStyle} />
+                  <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '6px' }}>Default days for invoice due date</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bank accounts */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Bank accounts</div>
+              {tier !== 'pro' && (
+                <span style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', background: 'rgba(255,192,0,0.12)', color: 'var(--gold)', padding: '3px 8px', border: '1px solid rgba(255,192,0,0.2)' }}>Pro — multi-currency</span>
+              )}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '20px', lineHeight: '1.7' }}>
+              {tier === 'pro'
+                ? 'Add accounts in different currencies. The matching currency account is used automatically on each invoice.'
+                : 'One bank account on Free. Upgrade to Pro to add multiple currencies.'}
+            </div>
+
+            {payment.bank_accounts.length === 0 && (
+              <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '16px' }}>No bank accounts added yet.</div>
+            )}
+
+            {payment.bank_accounts.map((acct, i) => (
+              <div key={acct.id} style={{ border: '1px solid var(--border-dim)', padding: '16px', marginBottom: '12px', position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>{acct.currency || 'Currency'}</span>
+                    {acct.is_default && (
+                      <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)' }}>Default</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {!acct.is_default && (
+                      <button onClick={() => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => ({ ...a, is_default: j === i })) }))}
+                        style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer' }}>
+                        Set default
+                      </button>
+                    )}
+                    <button onClick={() => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.filter((_, j) => j !== i) }))}
+                      style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={labelStyle}>Currency</label>
+                    <input value={acct.currency} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, currency: e.target.value.toUpperCase() } : a) }))}
+                      placeholder="GBP / EUR / AUD / USD" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Account name</label>
+                    <input value={acct.account_name} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, account_name: e.target.value } : a) }))}
+                      placeholder="Name on account" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Bank name</label>
+                    <input value={acct.bank_name} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, bank_name: e.target.value } : a) }))}
+                      placeholder="Monzo, Barclays, etc." style={inputStyle} />
+                  </div>
+                </div>
+
+                {/* UK fields */}
+                {(acct.currency === 'GBP' || (!acct.currency && !acct.iban)) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
+                    <div>
+                      <label style={labelStyle}>Sort code</label>
+                      <input value={acct.sort_code || ''} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, sort_code: e.target.value } : a) }))}
+                        placeholder="00-00-00" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Account number</label>
+                      <input value={acct.account_number || ''} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, account_number: e.target.value } : a) }))}
+                        placeholder="00000000" style={inputStyle} />
+                    </div>
+                  </div>
+                )}
+
+                {/* International fields */}
+                {acct.currency && acct.currency !== 'GBP' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
+                    <div>
+                      <label style={labelStyle}>IBAN</label>
+                      <input value={acct.iban || ''} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, iban: e.target.value } : a) }))}
+                        placeholder="GB00 XXXX 0000 0000 0000 00" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>SWIFT / BIC</label>
+                      <input value={acct.swift_bic || ''} onChange={e => setPayment(p => ({ ...p, bank_accounts: p.bank_accounts.map((a, j) => j === i ? { ...a, swift_bic: e.target.value } : a) }))}
+                        placeholder="XXXXGB2L" style={inputStyle} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {(tier === 'pro' || payment.bank_accounts.length === 0) ? (
+              <button onClick={() => setPayment(p => ({
+                ...p,
+                bank_accounts: [...p.bank_accounts, {
+                  id: crypto.randomUUID(),
+                  currency: '', account_name: '', bank_name: '',
+                  is_default: p.bank_accounts.length === 0,
+                }]
+              }))}
+                style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '8px 18px', cursor: 'pointer' }}>
+                + Add bank account
+              </button>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button disabled style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '8px 18px', cursor: 'not-allowed', opacity: 0.4 }}>
+                  + Add bank account
+                </button>
+                <span style={{ fontSize: '10px', color: 'var(--text-dimmer)', letterSpacing: '0.08em' }}>Upgrade to Pro for multiple currencies</span>
+              </div>
+            )}
+          </div>
+
+          <button onClick={save} disabled={isSaving} className="btn-primary" style={{ alignSelf: 'flex-start', opacity: isSaving ? 0.6 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
+            {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save payment details'}
           </button>
         </div>
       )}

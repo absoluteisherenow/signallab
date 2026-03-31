@@ -31,39 +31,46 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { profile, team, advance } = body
-    
+    const { profile, team, advance, payment, tier } = body
+
     // Get existing settings to determine if we insert or update
     const { data: existing } = await supabase
       .from('artist_settings')
-      .select('id')
+      .select('id, tier')
       .single()
-    
+
     let result
-    
+
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    if (profile !== undefined) updates.profile = profile
+    if (team !== undefined) updates.team = team
+    if (advance !== undefined) updates.advance = advance
+    if (payment !== undefined) updates.payment = payment
+    if (tier !== undefined) updates.tier = tier
+
     if (existing) {
-      // Update existing
       const { data, error } = await supabase
         .from('artist_settings')
-        .update({ profile, team, advance, updated_at: new Date().toISOString() })
+        .update(updates)
         .eq('id', existing.id)
         .select()
-      
+
       if (error) throw error
       result = data?.[0]
     } else {
-      // Insert new
       const { data, error } = await supabase
         .from('artist_settings')
         .insert([{
           profile,
           team,
           advance,
+          payment: payment || {},
+          tier: tier || 'free',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }])
         .select()
-      
+
       if (error) throw error
       result = data?.[0]
     }

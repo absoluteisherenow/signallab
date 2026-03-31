@@ -39,6 +39,7 @@ interface Track {
   crowd_reaction: string  // expected crowd response
   similar_to: string      // similar tracks in library
   producer_style: string  // "Four Tet-esque organic textures" etc
+  crowd_hits?: number     // times tagged as standout in post-gig debrief
 }
 
 interface SetTrack extends Track {
@@ -342,6 +343,12 @@ export function SetLab() {
   const scanAudioRef = useRef<any>(null)
   const [tracklistImgParsing, setTracklistImgParsing] = useState(false)
   const tracklistImgRef = useRef<HTMLInputElement>(null)
+  // ── Gig context ──────────────────────────────────────────────────────────
+  const [upcomingGig, setUpcomingGig] = useState<{ id: string; title: string; venue: string; date: string; slot_time?: string; status: string } | null>(null)
+  const [currentSetId, setCurrentSetId] = useState<string | null>(null)
+  const [currentSetGigId, setCurrentSetGigId] = useState<string | null>(null)
+  const [gigBannerOpen, setGigBannerOpen] = useState(true)
+  const [linkingGig, setLinkingGig] = useState(false)
 
   const showToast = (msg: string, tag = 'Info') => {
     setToast({ msg, tag })
@@ -497,18 +504,21 @@ Return JSON:
     const usedIds = new Set(set.map(t => t.id))
     const available = library.filter(t => !usedIds.has(t.id))
 
-    // Score each available track
+    // Score each available track — crowd_hits from past gigs add a 10% boost
     const scored = available.map(t => ({
       ...t,
-      score: getFlowScore(lastTrack, t),
+      score: Math.min(100, getFlowScore(lastTrack, t) * (t.crowd_hits && t.crowd_hits > 0 ? 1.10 : 1)),
     })).sort((a, b) => b.score - a.score)
 
     // Get top 5 and ask Claude for reasoning
     const top5 = scored.slice(0, 5)
     try {
+      const gigContext = upcomingGig
+        ? `Context: This is a ${deriveSlotType(upcomingGig)} set for ${upcomingGig.venue} on ${new Date(upcomingGig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. Suggest tracks appropriate for this moment in a ${deriveSlotType(upcomingGig)} set.\n\n`
+        : ''
       const raw = await callClaude(
         'You are a DJ set construction expert. Return ONLY valid JSON array, no markdown.',
-        `I just played: ${lastTrack.artist} — ${lastTrack.title} (${lastTrack.bpm}BPM, ${lastTrack.camelot}, energy ${lastTrack.energy}/10, ${lastTrack.moment_type})
+        `${gigContext}I just played: ${lastTrack.artist} — ${lastTrack.title} (${lastTrack.bpm}BPM, ${lastTrack.camelot}, energy ${lastTrack.energy}/10, ${lastTrack.moment_type})
 
 Slot: ${slotType}, Set position: track ${set.length} of ~${Math.round(parseInt(setLength) / 5)} tracks
 
@@ -708,15 +718,53 @@ Provide:
 
   async function saveSet() {
     if (!set.length) { showToast('Nothing to save', 'Error'); return }
-    const setData = { name: setName, venue, slot_type: slotType, tracks: JSON.stringify(set), narrative, created_at: new Date().toISOString() }
+    const setData = { name: setName, venue, slot_type: slotType, tracks: JSON.stringify(set), narrative, gig_id: currentSetGigId, created_at: new Date().toISOString() }
     try {
-      await supabase.from('dj_sets').insert(setData)
+      const { data } = await supabase.from('dj_sets').insert(setData).select().single()
+      if (data?.id) setCurrentSetId(data.id)
       showToast('Set saved', 'Done')
       loadPastSets()
     } catch {
       showToast('Saved locally', 'Done')
       setPastSets(p => [...p, setData])
     }
+  }
+
+  async function fetchUpcomingGig() {
+    try {
+      const res = await fetch('/api/gigs')
+      const data = await res.json()
+      const today = new Date().toISOString().split('T')[0]
+      const upcoming = (data.gigs || []).find((g: any) =>
+        g.date >= today && (g.status === 'confirmed' || g.status === 'pending')
+      )
+      setUpcomingGig(upcoming || null)
+    } catch {}
+  }
+
+  async function linkSetToGig(gigId: string) {
+    if (!currentSetId) { showToast('Save your set first, then link it', 'Info'); return }
+    setLinkingGig(true)
+    try {
+      await supabase.from('dj_sets').update({ gig_id: gigId }).eq('id', currentSetId)
+      setCurrentSetGigId(gigId)
+      showToast('Set linked to gig', 'Set Lab')
+    } catch { showToast('Could not link set', 'Error') }
+    finally { setLinkingGig(false) }
+  }
+
+  function deriveSlotType(gig: { slot_time?: string }): string {
+    const t = (gig.slot_time || '').toLowerCase()
+    if (t.includes('warm')) return 'warm-up'
+    if (t.includes('clos')) return 'late/closing'
+    if (t.includes('headline') || t.includes('peak')) return 'peak/headline'
+    const hourMatch = t.match(/(\d{1,2})[:h]/)
+    if (hourMatch) {
+      const h = parseInt(hourMatch[1])
+      if (h >= 1 && h <= 5) return 'late/closing'
+      if (h >= 18 && h <= 21) return 'warm-up'
+    }
+    return 'peak/headline'
   }
 
   function loadSetIntoBuilder(ps: any) {
@@ -761,6 +809,7 @@ Provide:
           crowd_reaction: t.crowd_reaction || '',
           similar_to: t.similar_to || '',
           producer_style: t.producer_style || '',
+          crowd_hits: t.crowd_hits || 0,
         })))
       } else {
         setLibrary([])
@@ -1253,7 +1302,7 @@ Return corrected JSON:
     }
   }
 
-  useEffect(() => { loadLibrary(); loadPastSets() }, [])
+  useEffect(() => { loadLibrary(); loadPastSets(); fetchUpcomingGig() }, [])
 
   // ── Persist scanner state across navigation ──────────────────────────────
   const SCANNER_KEY = 'setlab_scanner_v1'
@@ -1537,6 +1586,47 @@ Return corrected JSON:
 
         {/* ═══ SET BUILDER TAB ═══ */}
         {activeTab === 'builder' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+          {/* ── Gig Context Banner ── */}
+          {upcomingGig && (
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, borderLeft: `3px solid ${s.gold}` }}>
+              <div
+                onClick={() => setGigBannerOpen(o => !o)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', cursor: 'pointer', userSelect: 'none' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase' }}>Next gig</span>
+                  <span style={{ fontSize: '12px', color: s.text }}>{upcomingGig.venue}</span>
+                  <span style={{ fontSize: '11px', color: s.textDim }}>
+                    {new Date(upcomingGig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {upcomingGig.slot_time ? ` · ${upcomingGig.slot_time}` : ''}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {currentSetGigId === upcomingGig.id ? (
+                    <span style={{ fontSize: '10px', color: '#4d9970', letterSpacing: '0.1em' }}>Set linked ✓</span>
+                  ) : (
+                    <button
+                      onClick={e => { e.stopPropagation(); linkSetToGig(upcomingGig.id) }}
+                      disabled={linkingGig}
+                      style={{ background: 'transparent', border: `1px solid ${s.gold}`, color: s.gold, fontFamily: s.font, fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer', opacity: linkingGig ? 0.5 : 1 }}
+                    >
+                      {linkingGig ? 'Linking…' : 'Link this set'}
+                    </button>
+                  )}
+                  <span style={{ fontSize: '10px', color: s.textDimmer }}>{gigBannerOpen ? '▲' : '▼'}</span>
+                </div>
+              </div>
+              {gigBannerOpen && (
+                <div style={{ padding: '0 16px 10px', fontSize: '11px', color: s.textDim }}>
+                  Slot detected: <span style={{ color: s.gold }}>{deriveSlotType(upcomingGig)}</span>
+                  {' · '}Track suggestions will be tailored to this slot.
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px' }}>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1725,6 +1815,7 @@ Return corrected JSON:
                 </div>
               )}
             </div>
+          </div>
           </div>
         )}
 
