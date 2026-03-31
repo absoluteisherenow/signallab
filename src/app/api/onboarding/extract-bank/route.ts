@@ -45,16 +45,33 @@ export async function POST(req: NextRequest) {
               fileContent,
               {
                 type: 'text',
-                text: `Extract bank account details from this document. Return ONLY valid JSON with these fields (use null if not found):
+                text: `Extract bank account details from this document. Many UK/international bank statements include BOTH local payment details (sort code + account number) AND international SWIFT/IBAN details on the same page.
+
+Return ONLY valid JSON in this format:
 {
   "accountName": "<name on account>",
   "bankName": "<bank name>",
-  "iban": "<IBAN or account number>",
-  "sortCode": "<sort code, BSB, or routing number>",
-  "bic": "<BIC or SWIFT code>",
-  "intermediaryBic": "<intermediary or correspondent bank BIC/SWIFT — common for AUD, USD accounts>",
-  "currency": "<3-letter currency code e.g. EUR, GBP, USD, AUD — infer from IBAN country prefix or bank country if not explicit>"
+  "currency": "<3-letter currency code e.g. GBP, EUR, USD, AUD — infer from IBAN country prefix or bank country>",
+  "local": {
+    "label": "Local",
+    "sortCode": "<sort code or BSB or routing number, null if not present>",
+    "accountNumber": "<domestic account number, null if not present>",
+    "iban": null,
+    "bic": null,
+    "intermediaryBic": null
+  },
+  "international": {
+    "label": "International",
+    "sortCode": null,
+    "accountNumber": null,
+    "iban": "<full IBAN, null if not present>",
+    "bic": "<BIC/SWIFT code, null if not present>",
+    "intermediaryBic": "<intermediary/correspondent BIC — common for AUD/USD, null if not present>"
+  }
 }
+
+If only ONE set of details exists (e.g. only IBAN, or only sort code), put it in the appropriate section and return null for the other section entirely.
+If the document has IBAN but also a sort code and account number, populate BOTH sections.
 No markdown, no explanation. Just the JSON object.`,
               },
             ],

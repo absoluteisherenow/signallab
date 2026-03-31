@@ -54,6 +54,37 @@ export async function PUT(req: NextRequest) {
     const data = await req.json()
     await supabase.from('advance_requests').upsert({ ...data, completed: true }, { onConflict: 'gig_id' })
 
+    // Cross-populate gig contacts from advance data
+    if (data.gig_id) {
+      const contactUpdate: Record<string, string> = {}
+      if (data.local_contact_name) contactUpdate.al_name = data.local_contact_name
+      if (data.local_contact_phone) contactUpdate.al_phone = data.local_contact_phone
+      if (Object.keys(contactUpdate).length > 0) {
+        await supabase.from('gigs').update(contactUpdate).eq('id', data.gig_id)
+      }
+
+      // Cross-populate hotel into travel_bookings
+      if (data.hotel_name) {
+        const existing = await supabase
+          .from('travel_bookings')
+          .select('id')
+          .eq('gig_id', data.gig_id)
+          .eq('type', 'hotel')
+          .eq('source', 'advance')
+          .maybeSingle()
+        if (!existing.data) {
+          await supabase.from('travel_bookings').insert([{
+            gig_id: data.gig_id,
+            type: 'hotel',
+            name: data.hotel_name,
+            from_location: data.hotel_address || null,
+            check_in: data.hotel_checkin || null,
+            source: 'advance',
+          }])
+        }
+      }
+    }
+
     // Fetch gig title for the notification
     let gigTitle = 'Unknown show'
     if (data.gig_id) {
