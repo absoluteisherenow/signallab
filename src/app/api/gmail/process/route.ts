@@ -116,7 +116,8 @@ Email types to detect:
 - "flight": flight confirmation → extract flight details, dates, cost
 - "tech_spec": technical specification confirmed for a show
 - "rider": hospitality or technical rider confirmed
-- "payment": invoice, payment receipt, deposit received
+- "invoice": invoice received, payment request, or payment receipt (deposit paid, balance due, payment confirmed)
+- "release": release confirmation, distribution email, label announcement, streaming live notification, mastering delivery
 - "gig_update": general info update for an existing show (schedule change, new contact, etc.)
 - "ignore": newsletters, spam, unrelated
 
@@ -149,10 +150,21 @@ Return:
     // For tech_spec / rider:
     "details": "summary of what was confirmed",
 
-    // For payment:
+    // For invoice:
+    "gig_title": "event or show this relates to, or null",
     "amount": <number>,
     "currency": "EUR/GBP/USD",
-    "description": "what the payment is for",
+    "type": "deposit or full or balance",
+    "due_date": "YYYY-MM-DD or null",
+    "description": "one-line summary of what this invoice/payment is for",
+
+    // For release:
+    "title": "release title",
+    "type": "single or ep or album",
+    "release_date": "YYYY-MM-DD or null",
+    "label": "label name or null",
+    "streaming_url": "URL if included or null",
+    "notes": "any relevant notes",
 
     // For gig_update:
     "update": "one sentence summary of the change"
@@ -225,6 +237,36 @@ async function handleGigUpdate(gigId: string | null, extracted: any) {
     notes: existingNotes ? `${existingNotes}\n\n${extracted.update}` : extracted.update,
     updated_at: new Date().toISOString(),
   }).eq('id', gigId)
+}
+
+async function handleInvoice(gigId: string | null, extracted: any) {
+  const { data: gig } = gigId
+    ? await supabase.from('gigs').select('title').eq('id', gigId).single()
+    : { data: null }
+
+  await supabase.from('invoices').insert([{
+    gig_id: gigId || null,
+    gig_title: gig?.title || extracted.gig_title || extracted.description || 'Email import',
+    amount: extracted.amount || 0,
+    currency: extracted.currency || 'EUR',
+    type: extracted.type || 'full',
+    status: 'pending',
+    due_date: extracted.due_date || null,
+  }])
+}
+
+async function handleRelease(extracted: any) {
+  if (!extracted.title) return
+  await supabase.from('releases').insert([{
+    title: extracted.title,
+    type: extracted.type || 'single',
+    release_date: extracted.release_date || null,
+    label: extracted.label || null,
+    streaming_url: extracted.streaming_url || null,
+    notes: extracted.notes || null,
+    source: 'gmail',
+    created_at: new Date().toISOString(),
+  }])
 }
 
 // ── Mark email as processed ────────────────────────────────────────────────
@@ -319,6 +361,14 @@ export async function POST() {
         case 'tech_spec':
           await handleRiderOrTechSpec(classification.type, classification.gig_id, classification.extracted)
           actionResult = { updated: classification.gig_id }
+          break
+        case 'invoice':
+          await handleInvoice(classification.gig_id, classification.extracted)
+          actionResult = { created: 'invoice' }
+          break
+        case 'release':
+          await handleRelease(classification.extracted)
+          actionResult = { created: 'release' }
           break
         case 'gig_update':
           await handleGigUpdate(classification.gig_id, classification.extracted)
