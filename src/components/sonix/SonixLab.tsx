@@ -160,7 +160,7 @@ export function SonixLab() {
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
 
   // ── Mode — null = tile home, else active tool ─────────────────────────
-  const [mode, setMode] = useState<null | 'reference' | 'track' | 'ask'>(null)
+  const [mode, setMode] = useState<null | 'reference' | 'track'>(null)
 
   // ── Sonic World (persistent) ─────────────────────────────────────────
   const [sonicWorld, setSonicWorld] = useState(DEFAULT_SONIC_WORLD)
@@ -175,11 +175,6 @@ export function SonixLab() {
   const [analysingRef, setAnalysingRef] = useState(false)
   const [addingToLibrary, setAddingToLibrary] = useState(false)
   const [addedToLibrary, setAddedToLibrary] = useState(false)
-
-  // ── Quick Ask ────────────────────────────────────────────────────────
-  const [question, setQuestion] = useState('')
-  const [questionResult, setQuestionResult] = useState('')
-  const [askingQuestion, setAskingQuestion] = useState(false)
 
   // ── Composition ──────────────────────────────────────────────────────
   const [chordVoicings, setChordVoicings] = useState<ChordVoicing[]>([])
@@ -243,7 +238,6 @@ export function SonixLab() {
     if (s.mode) setMode(s.mode as typeof mode)
     if (s.referenceIntel) { setReferenceIntel(s.referenceIntel as ReferenceIntel); if (s.refInput) setRefInput(s.refInput as string) }
     if (s.nextStepsResult) { setNextStepsResult(s.nextStepsResult as NextStepsResult); if (s.nextStepsMeasurements) setNextStepsMeasurements(s.nextStepsMeasurements as AudioMeasurements) }
-    if (s.questionResult) { setQuestionResult(s.questionResult as string); if (s.question) setQuestion(s.question as string) }
   }, [])
 
   useEffect(() => {
@@ -254,10 +248,8 @@ export function SonixLab() {
       referenceIntel,
       nextStepsResult,
       nextStepsMeasurements,
-      questionResult,
-      question,
     })
-  }, [sonicWorld, mode, refInput, referenceIntel, nextStepsResult, nextStepsMeasurements, questionResult, question])
+  }, [sonicWorld, mode, refInput, referenceIntel, nextStepsResult, nextStepsMeasurements])
 
   // ── Load installed plugins ────────────────────────────────────────────
   useEffect(() => {
@@ -386,26 +378,6 @@ Be specific. Real BPM and key. Real techniques with actual settings.`,
       showToast('Analysis failed — response malformed, try again', 'Error')
     } finally {
       setAnalysingRef(false)
-    }
-  }
-
-  // ── Quick Ask ─────────────────────────────────────────────────────────
-  async function askQuestion() {
-    if (!question.trim()) return
-    setAskingQuestion(true)
-    setQuestionResult('')
-    try {
-      const raw = await callClaude(
-        `You are an expert electronic music producer. ${sonicCtxString() ? `Session context: ${sonicCtxString()}.` : ''} ${pluginCtxString()}
-Answer as concisely as the question warrants — a simple question gets 1-2 sentences, a technical question gets as many as needed to be genuinely useful. Be specific and concrete — exact plugin names, frequencies, settings. No generic advice. No padding.`,
-        question.trim(),
-        300
-      )
-      setQuestionResult(raw)
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'Error')
-    } finally {
-      setAskingQuestion(false)
     }
   }
 
@@ -699,19 +671,17 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
         tabs={[
           { label: 'Reference Intel', active: mode === 'reference', onClick: () => setMode('reference') },
           { label: 'Track Analysis', active: mode === 'track', onClick: () => setMode('track') },
-          { label: 'Ask Anything', active: mode === 'ask', onClick: () => setMode('ask') },
         ]}
       />
 
       <div style={{ padding: '44px 56px' }}>
 
-        {/* ── HOME — 3 tiles ── */}
+        {/* ── HOME — 2 tiles ── */}
         {!mode && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', maxWidth: '960px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2px', maxWidth: '960px' }}>
             {([
               { id: 'reference', sub: 'How did they do that?', title: 'Break down\na reference', desc: 'Enter any track — get BPM, key, production techniques, key sounds and mix character. Specific and actionable.' },
               { id: 'track',     sub: 'Upload audio → next steps', title: 'Analyse\nmy track', desc: 'Drop in a file. Get acoustic measurements and a prioritised list of what to work on next — with exact plugin settings.' },
-              { id: 'ask',       sub: 'Quick production Q&A', title: 'Ask\nanything', desc: 'Why is my kick clashing? How do Four Tet get that bass width? Exact, concrete answer — as short or long as the question needs.' },
             ] as const).map(tile => (
               <button key={tile.id} onClick={() => setMode(tile.id)}
                 style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '40px 32px', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'var(--font-mono)' }}
@@ -1003,35 +973,6 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
                   }} style={btn(false, false, 'dim')}>
                     Copy →
                   </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── ASK ANYTHING ── */}
-        {mode === 'ask' && (
-          <div style={{ maxWidth: '720px' }}>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '28px' }}>
-              <input value={question} onChange={e => setQuestion(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') askQuestion() }}
-                placeholder={`Why is my kick clashing with the bass? How do ${sonicWorld.soundsLike[0] || 'Bicep'} get that pad width?`}
-                style={{ ...inputStyle, flex: 1, fontSize: '14px', padding: '14px 18px' }}
-                autoFocus
-              />
-              <button onClick={askQuestion} disabled={askingQuestion || !question.trim()} style={btn(askingQuestion, !question.trim())}>
-                {askingQuestion && spinner}{askingQuestion ? 'Thinking…' : 'Ask →'}
-              </button>
-            </div>
-            {askingQuestion && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>Thinking…</div>}
-            {questionResult && !askingQuestion && (
-              <div>
-                <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '32px', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '15px', color: 'var(--text-warm)', lineHeight: '1.85', letterSpacing: '0.03em' }}>{questionResult}</div>
-                </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={() => { setQuestionResult(''); setQuestion('') }} style={btn(false, false, 'dim')}>Ask another →</button>
-                  <button onClick={() => navigator.clipboard.writeText(questionResult).then(() => showToast('Copied', 'Done'))} style={btn(false, false, 'dim')}>Copy →</button>
                 </div>
               </div>
             )}

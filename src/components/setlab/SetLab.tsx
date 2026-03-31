@@ -343,6 +343,8 @@ export function SetLab() {
   const scanAudioRef = useRef<any>(null)
   const [tracklistImgParsing, setTracklistImgParsing] = useState(false)
   const tracklistImgRef = useRef<HTMLInputElement>(null)
+  const [screenshotDragging, setScreenshotDragging] = useState(false)
+  const [parsingScreenshot, setParsing] = useState(false)
   // ── Gig context ──────────────────────────────────────────────────────────
   const [upcomingGig, setUpcomingGig] = useState<{ id: string; title: string; venue: string; date: string; slot_time?: string; status: string } | null>(null)
   const [currentSetId, setCurrentSetId] = useState<string | null>(null)
@@ -1190,6 +1192,55 @@ Return corrected JSON:
       }
     }
     reader.readAsDataURL(file)
+  }
+
+  // ── Mix Scanner — Screenshot OCR → detectedTracks ───────────────────────
+  async function parseTracklistScreenshot(file: File) {
+    setParsing(true)
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 800,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
+              { type: 'text', text: 'Extract the tracklist from this image. Return ONLY a JSON array of objects: [{"title": "...", "artist": "..."}, ...]. If artist is unknown use "Unknown". No markdown, just the JSON array.' }
+            ]
+          }]
+        })
+      })
+      const data = await res.json()
+      const raw = data.content?.[0]?.text || '[]'
+      const jsonMatch = raw.match(/\[[\s\S]*\]/)
+      if (!jsonMatch) throw new Error('No tracks found')
+      const tracks: { title: string; artist: string }[] = JSON.parse(jsonMatch[0])
+      if (tracks.length === 0) throw new Error('No tracks found')
+      const formatted = tracks.map((t, i) => ({
+        time_in: `${String(i).padStart(2, '0')}:00`,
+        title: t.title,
+        artist: t.artist,
+        confidence: 1,
+        found: true,
+        source: 'screenshot' as string,
+      }))
+      setDetectedTracks(formatted)
+      setScanPhase('review')
+      showToast(`${tracks.length} tracks imported from screenshot`, 'Done')
+    } catch {
+      showToast('Could not read screenshot — try a clearer image', 'Error')
+    } finally {
+      setParsing(false)
+    }
   }
 
   // ── Mix Scanner — Phase 2: Claude Analysis ──────────────────────────────
@@ -2137,6 +2188,49 @@ Return corrected JSON:
                 <div style={{ fontSize: '10px', color: s.textDimmer }}>
                   MP3 · WAV · FLAC · M4A · up to 2 hours
                 </div>
+              </div>
+            )}
+
+            {/* Screenshot import — shown when no file and no result */}
+            {!scannerFile && !scanResult && scanPhase === 'upload' && (
+              <div
+                onDragOver={e => { e.preventDefault(); setScreenshotDragging(true) }}
+                onDragLeave={() => setScreenshotDragging(false)}
+                onDrop={async e => {
+                  e.preventDefault()
+                  setScreenshotDragging(false)
+                  const file = e.dataTransfer.files[0]
+                  if (!file || !file.type.startsWith('image/')) return
+                  await parseTracklistScreenshot(file)
+                }}
+                style={{
+                  border: `1px dashed ${screenshotDragging ? '#c9a46e' : '#2a2218'}`,
+                  borderRadius: 4,
+                  padding: '20px 24px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  background: screenshotDragging ? 'rgba(201,164,110,0.04)' : 'transparent',
+                  transition: 'all 0.15s',
+                  marginBottom: 16,
+                }}
+                onClick={() => {
+                  const inp = document.createElement('input')
+                  inp.type = 'file'; inp.accept = 'image/*'
+                  inp.onchange = async (ev) => {
+                    const f = (ev.target as HTMLInputElement).files?.[0]
+                    if (f) await parseTracklistScreenshot(f)
+                  }
+                  inp.click()
+                }}
+              >
+                {parsingScreenshot ? (
+                  <span style={{ fontSize: '11px', color: '#c9a46e', letterSpacing: '0.1em' }}>READING SCREENSHOT…</span>
+                ) : (
+                  <>
+                    <div style={{ fontSize: '10px', color: '#5a4a38', letterSpacing: '0.15em', marginBottom: 6 }}>IMPORT FROM SCREENSHOT</div>
+                    <div style={{ fontSize: '11px', color: '#3a2e1a' }}>Drop a photo of your tracklist (Traktor, Rekordbox, CDJ screen)</div>
+                  </>
+                )}
               </div>
             )}
 
