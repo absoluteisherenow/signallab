@@ -746,13 +746,27 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
             {analysingRef && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>Analysing — takes about 15 seconds…</div>}
             {referenceIntel && !analysingRef && (
               <div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', marginBottom: '2px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2px', marginBottom: '2px' }}>
                   {[{ l: 'BPM', v: String(referenceIntel.bpm) }, { l: 'Key', v: referenceIntel.key }].map(item => (
                     <div key={item.l} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px' }}>
                       <div style={fieldLabel}>{item.l}</div>
                       <div className="display" style={{ fontSize: '32px', fontWeight: 300 }}>{item.v}</div>
                     </div>
                   ))}
+                  {/* SONIX → SetLab pipeline */}
+                  <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div style={fieldLabel}>Set Lab</div>
+                    {addedToLibrary ? (
+                      <a href="/setlab" style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--green)', textDecoration: 'none' }}>
+                        Added to library →
+                      </a>
+                    ) : (
+                      <button onClick={addToSetLabLibrary} disabled={addingToLibrary}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: addingToLibrary ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: addingToLibrary ? 'var(--text-dimmer)' : 'var(--gold)', textAlign: 'left' }}>
+                        {addingToLibrary ? 'Adding…' : '+ Add to library →'}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px 24px', marginBottom: '2px' }}>
                   <div style={fieldLabel}>Energy arc</div>
@@ -787,18 +801,6 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
                 </div>
                 {/* CTAs — Add to Sonic World + Add to SetLab + Discover on Beatport */}
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  {addedToLibrary ? (
-                    <a href="/setlab" style={{ ...btn(false, false, 'dim'), fontSize: '10px', textDecoration: 'none', display: 'inline-block' }}>
-                      Added to SetLab →
-                    </a>
-                  ) : (
-                    <button
-                      onClick={addToSetLabLibrary}
-                      disabled={addingToLibrary}
-                      style={{ ...btn(false, addingToLibrary, 'dim'), fontSize: '10px' }}>
-                      {addingToLibrary ? 'Adding…' : '+ Add to SetLab library'}
-                    </button>
-                  )}
                   {(() => {
                     const artistName = refInput.includes('—') ? refInput.split('—')[0].trim() : refInput.split('-')[0].trim()
                     const alreadyAdded = sonicWorld.soundsLike.some(r => r.toLowerCase() === artistName.toLowerCase())
