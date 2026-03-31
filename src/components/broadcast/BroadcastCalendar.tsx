@@ -267,7 +267,7 @@ export function BroadcastCalendar() {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           background: release ? `${s.purple}18` : teaseWindow ? `${s.purple}08` : 'transparent',
         }}>
-          <div style={{ display: 'flex', align: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {!compact && <span style={{ fontSize: '9px', letterSpacing: '0.2em', color: isToday ? s.gold : s.dimmer, textTransform: 'uppercase' }}>
               {day.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}
             </span>}

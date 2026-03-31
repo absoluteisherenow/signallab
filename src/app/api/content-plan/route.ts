@@ -28,22 +28,15 @@ export async function POST(req: NextRequest) {
       endDate = new Date(today.getFullYear(), today.getMonth() + monthOffset + 1, 0)
     }
 
-    // Pull all data in parallel
-    const [gigsRes, releasesRes, topPostsRes, artistProfilesRes, settingsRes, tracksRes] = await Promise.all([
-      supabase.from('gigs').select('title, venue, location, date, status').gte('date', startDate.toISOString().split('T')[0]).lte('date', endDate.toISOString().split('T')[0]).neq('status', 'cancelled').order('date'),
-      supabase.from('releases').select('title, type, release_date, label, notes').gte('release_date', new Date(startDate.getTime() - 14 * 86400000).toISOString().split('T')[0]).lte('release_date', endDate.toISOString().split('T')[0]).order('release_date').catch(() => ({ data: [] })),
-      supabase.from('post_performance').select('artist_name, caption, likes, comments, media_type, engagement_score').order('engagement_score', { ascending: false }).limit(20).catch(() => ({ data: [] })),
-      supabase.from('artist_profiles').select('name, genre, lowercase_pct, short_caption_pct, no_hashtags_pct, style_rules').not('style_rules', 'is', null).limit(4).catch(() => ({ data: [] })),
-      supabase.from('artist_settings').select('profile').limit(1).single().catch(() => ({ data: null })),
-      supabase.from('dj_tracks').select('title, artist, bpm, key, moment_type').limit(10).order('created_at', { ascending: false }).catch(() => ({ data: [] })),
+    // Pull all data in parallel — each wrapped to fail gracefully
+    const [gigs, releases, topPosts, artistProfiles, settings, tracks] = await Promise.all([
+      supabase.from('gigs').select('title, venue, location, date, status').gte('date', startDate.toISOString().split('T')[0]).lte('date', endDate.toISOString().split('T')[0]).neq('status', 'cancelled').order('date').then(r => r.data || []).catch(() => []),
+      supabase.from('releases').select('title, type, release_date, label, notes').gte('release_date', new Date(startDate.getTime() - 14 * 86400000).toISOString().split('T')[0]).lte('release_date', endDate.toISOString().split('T')[0]).order('release_date').then(r => r.data || []).catch(() => []),
+      supabase.from('post_performance').select('artist_name, caption, likes, comments, media_type, engagement_score').order('engagement_score', { ascending: false }).limit(20).then(r => r.data || []).catch(() => []),
+      supabase.from('artist_profiles').select('name, genre, lowercase_pct, short_caption_pct, no_hashtags_pct, style_rules').not('style_rules', 'is', null).limit(4).then(r => r.data || []).catch(() => []),
+      supabase.from('artist_settings').select('profile').limit(1).single().then(r => r.data || null).catch(() => null),
+      supabase.from('dj_tracks').select('title, artist, bpm, key, moment_type').limit(10).order('created_at', { ascending: false }).then(r => r.data || []).catch(() => []),
     ])
-
-    const gigs = gigsRes.data || []
-    const releases = (releasesRes as any).data || []
-    const topPosts = (topPostsRes as any).data || []
-    const artistProfiles = (artistProfilesRes as any).data || []
-    const settings = (settingsRes as any).data
-    const tracks = (tracksRes as any).data || []
 
     const artistName = settings?.profile?.name || 'Night Manoeuvres'
     const artistGenre = settings?.profile?.genre || 'electronic / techno'
