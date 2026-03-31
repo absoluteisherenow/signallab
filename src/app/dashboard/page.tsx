@@ -306,6 +306,9 @@ export default function Dashboard() {
             <Link href="/gigs/new" className="btn-primary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
               + New gig
             </Link>
+            <Link href="/releases/new" className="btn-secondary" style={{ textDecoration: 'none', padding: '0 18px', height: 32, display: 'flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+              + New release
+            </Link>
           </div>
         </div>
 

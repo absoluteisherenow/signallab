@@ -363,22 +363,20 @@ Return ONLY this JSON object (no markdown, no preamble):
 Be specific. Real BPM and key. Real techniques with actual settings.`,
         1500
       )
-      const cleaned = raw.replace(/```json|```/g, '').trim()
-      // If response is truncated, try to extract what we have
+      // Extract the outermost JSON object, tolerating any preamble/postamble text
+      const jsonMatch = raw.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('No JSON in response')
       let parsed: ReferenceIntel
       try {
-        parsed = JSON.parse(cleaned) as ReferenceIntel
+        parsed = JSON.parse(jsonMatch[0]) as ReferenceIntel
       } catch {
-        // Try to recover partial JSON
-        const match = cleaned.match(/\{[\s\S]*"bpm"[\s\S]*"key"[\s\S]*/)
-        if (!match) throw new Error('Could not parse response')
-        // Attempt to close the JSON if truncated
-        const attempt = match[0].endsWith('}') ? match[0] : match[0] + '"}}'
+        // Truncated — try closing it
+        const attempt = jsonMatch[0] + '"}}'
         parsed = JSON.parse(attempt) as ReferenceIntel
-        if (!parsed.techniques) parsed.techniques = []
-        if (!parsed.key_sounds) parsed.key_sounds = []
-        if (!parsed.energy_arc) parsed.energy_arc = [5, 5, 6, 7, 7, 6]
       }
+      if (!parsed.techniques) parsed.techniques = []
+      if (!parsed.key_sounds) parsed.key_sounds = []
+      if (!parsed.energy_arc) parsed.energy_arc = [5, 5, 6, 7, 7, 6]
       setReferenceIntel(parsed)
       // Auto-populate Sonic World
       if (parsed.key) setSonicWorld(s => ({ ...s, key: parsed.key }))
