@@ -30,8 +30,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // Increment crowd_hits for each standout track
     if (standout_track_ids?.length) {
       for (const trackId of standout_track_ids) {
-        await supabase.rpc('increment_crowd_hits', { track_id: trackId }).catch(async () => {
-          // Fallback if RPC doesn't exist: manual increment
+        const { error: rpcError } = await supabase.rpc('increment_crowd_hits', { track_id: trackId })
+        if (rpcError) {
+          // Fallback: manual increment
           const { data: track } = await supabase
             .from('dj_tracks')
             .select('crowd_hits')
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
               .update({ crowd_hits: (track.crowd_hits || 0) + 1 })
               .eq('id', trackId)
           }
-        })
+        }
       }
     }
 
