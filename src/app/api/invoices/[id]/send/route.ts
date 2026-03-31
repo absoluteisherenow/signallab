@@ -53,7 +53,16 @@ async function buildEmailData(id: string, toOverride?: string) {
   }
 
   const subject = `Invoice: ${invoice.gig_title} — ${invoiceNumber}`
-  const greeting = promoterName ? `Hi ${promoterName.split(' ')[0]},` : 'Hi,'
+  // notes may be a multi-line billing block — use only the first line for display
+  const promoterFirstLine = promoterName ? promoterName.split('\n')[0].trim() : ''
+  // If it looks like a company (all caps, or contains Ltd/Pty/Trust/Group/Festival etc), greet as "Hi Team"
+  const isCompany = promoterFirstLine && (
+    /^[A-Z0-9\s&.,\-']+$/.test(promoterFirstLine) ||
+    /\b(Ltd|Pty|Trust|Group|Festival|Agency|Productions?|Events?|Management|Inc|LLC)\b/i.test(promoterFirstLine)
+  )
+  const greeting = promoterFirstLine
+    ? isCompany ? `Hi Team,` : `Hi ${promoterFirstLine.split(' ')[0]},`
+    : 'Hi,'
 
   const html = `<!DOCTYPE html>
 <html>
