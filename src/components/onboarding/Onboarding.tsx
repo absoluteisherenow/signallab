@@ -152,46 +152,18 @@ export default function Onboarding() {
         const hasLocal = d.local && (d.local.sortCode || d.local.accountNumber)
         const hasIntl = d.international && (d.international.iban || d.international.bic)
 
-        if (hasLocal && hasIntl) {
-          // Both local and international details found — create two accounts
-          const localAccount: BankAccount = {
-            currency: d.currency || '',
-            label: 'Local',
-            accountName: d.accountName || '',
-            bankName: d.bankName || '',
-            iban: d.local.accountNumber || '',
-            sortCode: d.local.sortCode || '',
-            bic: '',
-            intermediaryBic: '',
-          }
-          const intlAccount: BankAccount = {
-            currency: d.currency || '',
-            label: 'International',
-            accountName: d.accountName || '',
-            bankName: d.bankName || '',
-            iban: d.international.iban || '',
-            sortCode: '',
-            bic: d.international.bic || '',
-            intermediaryBic: d.international.intermediaryBic || '',
-          }
-          setBankAccounts(prev => [...prev, localAccount, intlAccount])
-          setAdding(null)
-        } else {
-          // Single set of details
-          const src = hasLocal ? d.local : (hasIntl ? d.international : d)
-          updateAdding({
-            uploading: false,
-            extracted: true,
-            showManual: true,
-            currency: d.currency || '',
-            accountName: d.accountName || '',
-            bankName: d.bankName || '',
-            iban: src.iban || src.accountNumber || '',
-            sortCode: src.sortCode || '',
-            bic: src.bic || '',
-            intermediaryBic: src.intermediaryBic || '',
-          })
-        }
+        updateAdding({
+          uploading: false,
+          extracted: true,
+          showManual: true,
+          currency: d.currency || '',
+          accountName: d.accountName || '',
+          bankName: d.bankName || '',
+          iban: d.iban || d.accountNumber || '',
+          sortCode: d.sortCode || '',
+          bic: d.bic || '',
+          intermediaryBic: d.intermediaryBic || '',
+        })
       }
     } catch {
       updateAdding({ uploading: false, uploadError: 'Upload failed — enter manually.', showManual: true })

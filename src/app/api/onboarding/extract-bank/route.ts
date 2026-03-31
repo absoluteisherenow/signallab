@@ -45,33 +45,19 @@ export async function POST(req: NextRequest) {
               fileContent,
               {
                 type: 'text',
-                text: `Extract bank account details from this document. Many UK/international bank statements include BOTH local payment details (sort code + account number) AND international SWIFT/IBAN details on the same page.
+                text: `Extract all bank account details from this document. UK bank statements often show BOTH local details (sort code + account number) AND international details (IBAN + BIC/SWIFT) for the same account — extract all of them.
 
-Return ONLY valid JSON in this format:
+Return ONLY valid JSON with these fields (null if not found):
 {
   "accountName": "<name on account>",
   "bankName": "<bank name>",
   "currency": "<3-letter currency code e.g. GBP, EUR, USD, AUD — infer from IBAN country prefix or bank country>",
-  "local": {
-    "label": "Local",
-    "sortCode": "<sort code or BSB or routing number, null if not present>",
-    "accountNumber": "<domestic account number, null if not present>",
-    "iban": null,
-    "bic": null,
-    "intermediaryBic": null
-  },
-  "international": {
-    "label": "International",
-    "sortCode": null,
-    "accountNumber": null,
-    "iban": "<full IBAN, null if not present>",
-    "bic": "<BIC/SWIFT code, null if not present>",
-    "intermediaryBic": "<intermediary/correspondent BIC — common for AUD/USD, null if not present>"
-  }
+  "sortCode": "<sort code, BSB, or routing number>",
+  "accountNumber": "<domestic account number — separate from IBAN>",
+  "iban": "<full IBAN>",
+  "bic": "<BIC or SWIFT code>",
+  "intermediaryBic": "<intermediary or correspondent BIC/SWIFT — common for AUD, USD>"
 }
-
-If only ONE set of details exists (e.g. only IBAN, or only sort code), put it in the appropriate section and return null for the other section entirely.
-If the document has IBAN but also a sort code and account number, populate BOTH sections.
 No markdown, no explanation. Just the JSON object.`,
               },
             ],
