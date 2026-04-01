@@ -32,13 +32,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert new waitlist entry
-    const record: Record<string, string> = { email }
-    if (name) record.name = name
-    if (role) record.role = role
-
     const { data, error } = await supabase
       .from('waitlist')
-      .insert([record])
+      .insert([{ email }])
       .select()
 
     if (error) throw error

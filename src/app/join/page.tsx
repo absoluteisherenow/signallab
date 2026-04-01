@@ -219,18 +219,6 @@ export default function JoinPage() {
 
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <input
-                  type="text"
-                  placeholder="Name (optional)"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  style={{
-                    background: C.bg, border: `1px solid ${C.borderMid}`,
-                    color: C.text, padding: '14px 16px', fontSize: '12px',
-                    fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
-                    outline: 'none', width: '100%', boxSizing: 'border-box',
-                  }}
-                />
-                <input
                   type="email"
                   placeholder="Email address"
                   value={email}
@@ -243,20 +231,6 @@ export default function JoinPage() {
                     outline: 'none', width: '100%', boxSizing: 'border-box',
                   }}
                 />
-                <select
-                  value={role}
-                  onChange={e => setRole(e.target.value)}
-                  style={{
-                    background: C.bg, border: `1px solid ${C.borderMid}`,
-                    color: role ? C.text : C.dimmer,
-                    padding: '14px 16px', fontSize: '12px',
-                    fontFamily: "'DM Mono', monospace", letterSpacing: '0.04em',
-                    outline: 'none', width: '100%', boxSizing: 'border-box', cursor: 'pointer',
-                  }}
-                >
-                  <option value="" disabled>I am a...</option>
-                  {ROLES.map(r => <option key={r} value={r} style={{ color: C.text }}>{r}</option>)}
-                </select>
 
                 {status === 'error' && (
                   <div style={{ fontSize: '11px', color: '#c97a7a', letterSpacing: '0.04em' }}>{errorMsg}</div>
