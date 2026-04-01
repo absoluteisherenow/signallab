@@ -42,8 +42,11 @@ export default function NewGig() {
   function currencyFromLocation(location: string): string {
     const loc = location.toLowerCase()
     if (/australia|melbourne|sydney|brisbane|perth|adelaide|hobart/.test(loc)) return 'AUD'
-    if (/\buk\b|united kingdom|london|manchester|glasgow|bristol|edinburgh|leeds|birmingham/.test(loc)) return 'GBP'
-    if (/\busa\b|united states|new york|los angeles|chicago|miami|san francisco/.test(loc)) return 'USD'
+    if (/\buk\b|united kingdom|england|scotland|wales|london|manchester|glasgow|bristol|edinburgh|leeds|birmingham|liverpool|nottingham|brighton|belfast|cardiff|sheffield|newcastle/.test(loc)) return 'GBP'
+    if (/\busa\b|\bus\b|united states|new york|los angeles|chicago|miami|san francisco|las vegas|detroit|brooklyn|boston|seattle|portland|denver|atlanta|austin|nashville|philadelphia|washington dc/.test(loc)) return 'USD'
+    if (/switzerland|zurich|zürich|geneva|genève|basel|bern/.test(loc)) return 'CHF'
+    if (/japan|tokyo|osaka|kyoto/.test(loc)) return 'JPY'
+    if (/canada|toronto|montreal|vancouver/.test(loc)) return 'CAD'
     return 'EUR'
   }
 
@@ -165,10 +168,13 @@ export default function NewGig() {
             <div>
               <label style={labelStyle}>Currency</label>
               <select value={form.currency} onChange={e => update('currency', e.target.value)} style={inputStyle}>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-                <option value="USD">USD</option>
-                <option value="AUD">AUD</option>
+                <option value="EUR">EUR €</option>
+                <option value="GBP">GBP £</option>
+                <option value="USD">USD $</option>
+                <option value="CHF">CHF</option>
+                <option value="AUD">AUD $</option>
+                <option value="CAD">CAD $</option>
+                <option value="JPY">JPY ¥</option>
               </select>
             </div>
             <div>

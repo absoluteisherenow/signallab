@@ -20,6 +20,11 @@ interface Gig {
 }
 
 
+function currencySymbol(c: string): string {
+  const map: Record<string, string> = { GBP: '£', USD: '$', EUR: '€', CHF: 'CHF ', AUD: 'A$', CAD: 'C$', JPY: '¥' }
+  return map[c] || c + ' '
+}
+
 const f = {
   bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)', mid: 'var(--border)',
   gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)', dimmest: 'var(--text-dimmest)',
@@ -174,7 +179,7 @@ export function GigsList() {
                   </span>
                 </div>
                 <div style={{ fontSize: '13px', color: f.dim }}>{gig.audience?.toLocaleString()}</div>
-                <div style={{ fontSize: '14px', color: f.text }}>{gig.currency === 'GBP' ? '£' : gig.currency === 'USD' ? '$' : gig.currency === 'CHF' ? 'CHF ' : '€'}{gig.fee?.toLocaleString()}</div>
+                <div style={{ fontSize: '14px', color: f.text }}>{currencySymbol(gig.currency)}{gig.fee?.toLocaleString()}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: aColor(advStatus), flexShrink: 0 }} />
                   <span style={{ fontSize: '11px', color: aColor(advStatus) }}>{aLabel(advStatus)}</span>

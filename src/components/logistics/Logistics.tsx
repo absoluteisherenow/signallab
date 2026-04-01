@@ -303,7 +303,7 @@ export default function Logistics() {
                         { l: 'Location', v: gig.location },
                         { l: 'Date', v: gigDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) },
                         { l: 'Set time', v: gig.time },
-                        { l: 'Fee', v: `${gig.currency === 'GBP' ? '£' : gig.currency === 'USD' ? '$' : gig.currency === 'CHF' ? 'CHF ' : '€'}${gig.fee?.toLocaleString()}` },
+                        { l: 'Fee', v: `${({'GBP':'£','USD':'$','EUR':'€','CHF':'CHF ','AUD':'A$','CAD':'C$','JPY':'¥'} as Record<string,string>)[gig.currency || 'EUR'] || '€'}${gig.fee?.toLocaleString()}` },
                         { l: 'Status', v: gig.status },
                       ].map(f => (
                         <div key={f.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid var(--border-dim)', fontSize: '12px' }}>

@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const model = body.model || 'claude-haiku-4-5-20251001'
+    const model = body.model || 'claude-sonnet-4-6'
     const nocache: boolean = body.nocache === true
 
     // --- Server-side cache check ---

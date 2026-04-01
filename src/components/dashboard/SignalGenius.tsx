@@ -286,20 +286,21 @@ Rules:
         onClick={() => setOpen(true)}
         style={{
           position: 'fixed', bottom: 28, right: 28,
-          width: 52, height: 52, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #b08d57 0%, #8a6a30 100%)',
-          border: '1px solid rgba(176,141,87,0.5)',
+          width: 48, height: 48, borderRadius: '50%',
+          background: 'rgba(14,13,11,0.95)',
+          border: '1px solid rgba(176,141,87,0.35)',
           cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
-          zIndex: 1000, transition: 'transform 0.15s, box-shadow 0.15s',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          zIndex: 1000, transition: 'all 0.2s ease',
+          backdropFilter: 'blur(12px)',
         }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 6px 32px rgba(176,141,87,0.3), inset 0 1px 0 rgba(255,255,255,0.1)' }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)' }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.7)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(176,141,87,0.15)' }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.35)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5)' }}
         title="Signal"
       >
-        <svg width="22" height="22" viewBox="0 0 64 64" fill="none">
-          <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="#070706" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        <svg width="20" height="20" viewBox="0 0 64 64" fill="none">
+          <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       </button>
     )

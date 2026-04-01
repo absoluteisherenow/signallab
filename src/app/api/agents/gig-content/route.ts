@@ -76,7 +76,7 @@ Write exactly 3 captions. Keep each under 30 words. Lowercase. No hashtags. No e
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'claude-sonnet-4-6',
         max_tokens: 400,
         messages: [{ role: 'user', content: prompt }],
       }),

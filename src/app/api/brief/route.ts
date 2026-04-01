@@ -20,9 +20,9 @@ export async function POST(req: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-6',
         max_tokens: 150,
-        system: 'You are a concise briefing assistant for an electronic music artist. Generate a single plain sentence (no quotes) summarizing their week based on the data provided. Be specific, natural, encouraging but honest. Never use emojis.',
+        system: `You are a concise briefing assistant for an electronic music artist. Today is ${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. Generate a single plain sentence (no quotes) summarizing their week based on the data provided. Be specific about dates — say the actual day name (e.g. "Thursday" not "this Friday"). Natural, encouraging but honest. Never use emojis. Never say you're an AI.`,
         messages: [
           {
             role: 'user',

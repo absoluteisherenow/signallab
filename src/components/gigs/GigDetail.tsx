@@ -23,6 +23,11 @@ interface GigDetailProps {
   gigId: string
 }
 
+function currencySymbol(c: string): string {
+  const map: Record<string, string> = { GBP: '£', USD: '$', EUR: '€', CHF: 'CHF ', AUD: 'A$', CAD: 'C$', JPY: '¥' }
+  return map[c] || c + ' '
+}
+
 const s = {
   label: { fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase' as const, marginBottom: '6px' },
   value: { fontSize: '14px', color: 'var(--text)', lineHeight: 1.4 },
@@ -241,7 +246,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
           {[
             { label: 'Date', value: gigDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }) },
             { label: 'Days away', value: daysTo >= 0 ? `${daysTo}d` : 'Past' },
-            { label: 'Fee', value: `${gig.currency === 'GBP' ? '£' : gig.currency === 'USD' ? '$' : gig.currency === 'EUR' ? '€' : gig.currency === 'CHF' ? 'CHF ' : gig.currency || ''}${(gig.fee || 0).toLocaleString()}` },
+            { label: 'Fee', value: `${currencySymbol(gig.currency)}${(gig.fee || 0).toLocaleString()}` },
             { label: 'Capacity', value: (gig.audience || 0).toLocaleString() },
           ].map(stat => (
             <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
@@ -276,7 +281,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
                 <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Financials</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <Field label="Fee" value={gig.fee} edit={editing} name="fee" type="number" />
-                  <Field label="Currency" value={gig.currency} edit={editing} name="currency" options={['EUR', 'GBP', 'USD', 'CHF']} />
+                  <Field label="Currency" value={gig.currency} edit={editing} name="currency" options={['EUR', 'GBP', 'USD', 'CHF', 'AUD', 'CAD', 'JPY']} />
                   <Field label="Capacity" value={gig.audience} edit={editing} name="audience" type="number" />
                 </div>
               </div>
