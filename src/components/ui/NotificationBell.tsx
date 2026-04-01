@@ -100,19 +100,18 @@ export function NotificationBell() {
         title="Notifications"
       >
         {/* Bell SVG */}
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {unread > 0 && (
           <span style={{
-            position: 'absolute', top: '2px', right: '2px',
-            minWidth: '16px', height: '16px', borderRadius: '8px',
+            position: 'absolute', top: '0px', right: '0px',
+            minWidth: '20px', height: '20px', borderRadius: '10px',
             background: '#b08d57', color: '#070706',
-            fontSize: '8px', fontWeight: 700, fontFamily: "'DM Mono', monospace",
+            fontSize: '10px', fontWeight: 700, fontFamily: "'DM Mono', monospace",
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            lineHeight: 1, padding: '0 4px',
-            boxShadow: '0 0 8px rgba(176,141,87,0.4)',
+            lineHeight: 1, padding: '0 5px',
           }}>
             {unread > 9 ? '9+' : unread}
           </span>

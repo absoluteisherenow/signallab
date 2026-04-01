@@ -151,6 +151,7 @@ export default function Dashboard() {
   const [speaking, setSpeaking] = useState(false)
   const [chaseToast, setChaseToast] = useState<string | null>(null)
   const [chasingGigId, setChasingGigId] = useState<string | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // Tonight Mode state
   const [tonightGig, setTonightGig] = useState<Gig | null>(null)
@@ -214,6 +215,10 @@ export default function Dashboard() {
         )
         setOverdueInvoices(overdue)
         fetchedOverdueInvoices = overdue
+      }).catch(() => {}),
+
+      fetch('/api/notifications?unread=true').then(r => r.json()).then(d => {
+        setUnreadCount(d.unread || 0)
       }).catch(() => {}),
 
       fetch('/api/schedule').then(r => r.json()).then(d => {
@@ -868,6 +873,51 @@ export default function Dashboard() {
     },
   ]
 
+  // ── ATTENTION ITEMS ──
+  const attentionItems: { label: string; detail: string; href: string }[] = []
+  if (!loading) {
+    // Overdue invoices
+    if (overdueInvoices.length > 0) {
+      const total = overdueInvoices.reduce((s, inv) => s + (inv.amount || 0), 0)
+      const currency = overdueInvoices[0]?.currency || '£'
+      const symbol = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : '£'
+      attentionItems.push({
+        label: `${overdueInvoices.length} overdue invoice${overdueInvoices.length !== 1 ? 's' : ''}`,
+        detail: `${symbol}${total.toLocaleString()} outstanding`,
+        href: '/business/finances',
+      })
+    }
+    // Gigs in next 7 days without advance sent
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const in7Str = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
+    const next7Gigs = allGigs.filter(g => g.date >= todayStr && g.date <= in7Str && g.status !== 'cancelled')
+    const noAdvanceGigs = next7Gigs.filter(g => !advanceMap[g.id])
+    if (noAdvanceGigs.length > 0) {
+      attentionItems.push({
+        label: `${noAdvanceGigs.length} gig${noAdvanceGigs.length !== 1 ? 's' : ''} this week without advance`,
+        detail: noAdvanceGigs.map(g => g.venue || g.title).join(', '),
+        href: noAdvanceGigs.length === 1 ? `/gigs/${noAdvanceGigs[0].id}` : '/gigs',
+      })
+    }
+    // Unread notifications
+    if (unreadCount > 0) {
+      attentionItems.push({
+        label: `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`,
+        detail: 'New activity since you last checked',
+        href: '/notifications',
+      })
+    }
+    // Gigs without promoter email (upcoming only)
+    const noPromoterGigs = next7Gigs.filter(g => !g.promoter_email)
+    if (noPromoterGigs.length > 0) {
+      attentionItems.push({
+        label: `${noPromoterGigs.length} gig${noPromoterGigs.length !== 1 ? 's' : ''} missing promoter email`,
+        detail: noPromoterGigs.map(g => g.venue || g.title).join(', '),
+        href: noPromoterGigs.length === 1 ? `/gigs/${noPromoterGigs[0].id}` : '/gigs',
+      })
+    }
+  }
+
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
@@ -899,6 +949,95 @@ export default function Dashboard() {
       <div style={{ padding: '0 48px', flexShrink: 0, marginBottom: '20px' }}>
         <SignalBar onAction={() => router.refresh()} />
       </div>
+
+      {/* ── ATTENTION PANEL ── */}
+      {attentionItems.length > 0 && (
+        <div style={{
+          padding: '0 48px',
+          flexShrink: 0,
+          marginBottom: '20px',
+        }}>
+          <div style={{
+            background: 'var(--panel)',
+            border: '1px solid var(--border-dim)',
+            borderLeft: '3px solid var(--gold)',
+            padding: '16px 20px',
+          }}>
+            <div style={{
+              fontSize: '9px',
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: 'var(--gold)',
+              fontFamily: 'var(--font-mono)',
+              marginBottom: '12px',
+            }}>
+              Needs your attention
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {attentionItems.map((item, i) => (
+                <Link
+                  key={i}
+                  href={item.href}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    textDecoration: 'none',
+                    padding: '6px 8px',
+                    marginLeft: '-8px',
+                    marginRight: '-8px',
+                    borderRadius: '2px',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(176,141,87,0.06)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', minWidth: 0 }}>
+                    <div style={{
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: 'var(--gold)',
+                      flexShrink: 0,
+                      position: 'relative',
+                      top: '-1px',
+                    }} />
+                    <span style={{
+                      fontSize: '12px',
+                      fontFamily: 'var(--font-mono)',
+                      color: 'var(--text)',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {item.label}
+                    </span>
+                    <span style={{
+                      fontSize: '11px',
+                      color: 'var(--text-dimmer)',
+                      fontFamily: 'var(--font-mono)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {item.detail}
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: '10px',
+                    letterSpacing: '0.1em',
+                    color: 'var(--text-dim)',
+                    textTransform: 'uppercase',
+                    fontFamily: 'var(--font-mono)',
+                    flexShrink: 0,
+                    marginLeft: '16px',
+                  }}>
+                    View →
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── LAUNCHPAD — always visible, fills viewport ── */}
       <div style={{ flex: 1, padding: '0 48px 28px', minHeight: 0 }}>

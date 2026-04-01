@@ -345,6 +345,9 @@ export function SetLab() {
   const tracklistImgRef = useRef<HTMLInputElement>(null)
   const [screenshotDragging, setScreenshotDragging] = useState(false)
   const [parsingScreenshot, setParsing] = useState(false)
+  const [currentScanId, setCurrentScanId] = useState<string | null>(null)
+  const [recentScans, setRecentScans] = useState<any[]>([])
+  const [loadingScans, setLoadingScans] = useState(false)
   // ── Gig context ──────────────────────────────────────────────────────────
   const [gigs, setGigs] = useState<any[]>([])
   const [upcomingGig, setUpcomingGig] = useState<{ id: string; title: string; venue: string; date: string; slot_time?: string; status: string } | null>(null)
@@ -1147,6 +1150,29 @@ Return corrected JSON:
       setScanning(false)
       setScanProgress('')
 
+      // Persist scan to Supabase
+      try {
+        const saveResp = await fetch('/api/mix-scans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: scannerFile.name,
+            duration_seconds: Math.round(duration),
+            bpm_estimate: bpmEstimate,
+            tracklist: autoTracklist,
+            detected_tracks: deduped,
+            context: scannerContext.trim() || null,
+            status: 'detected',
+          }),
+        })
+        const saveData = await saveResp.json()
+        if (saveData.success && saveData.scan?.id) {
+          setCurrentScanId(saveData.scan.id)
+        }
+      } catch {
+        // Non-blocking — persistence is best-effort
+      }
+
     } catch (err: any) {
       setScanError(err.message || 'Analysis failed')
       setScanning(false)
@@ -1239,6 +1265,29 @@ Return corrected JSON:
       setDetectedTracks(formatted)
       setScanPhase('review')
       showToast(`${tracks.length} tracks imported from screenshot`, 'Done')
+
+      // Persist screenshot-imported scan to Supabase
+      const autoTracklist = formatted.map((t, i) =>
+        `${i + 1}. ${t.artist ? t.artist + ' — ' : ''}${t.title}`
+      ).join('\n')
+      try {
+        const saveResp = await fetch('/api/mix-scans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: 'Screenshot import',
+            duration_seconds: 0,
+            tracklist: autoTracklist,
+            detected_tracks: formatted,
+            context: scannerContext.trim() || null,
+            status: 'detected',
+          }),
+        })
+        const saveData = await saveResp.json()
+        if (saveData.success && saveData.scan?.id) {
+          setCurrentScanId(saveData.scan.id)
+        }
+      } catch {}
     } catch {
       showToast('Could not read screenshot — try a clearer image', 'Error')
     } finally {
@@ -1273,6 +1322,19 @@ Return corrected JSON:
       if (!resp.ok || data.error) throw new Error(data.error || 'Analysis failed')
       setScanResult(data.result)
       setScanPhase('upload') // reset for next scan
+
+      // Persist analysis result to Supabase
+      if (currentScanId) {
+        try {
+          await fetch(`/api/mix-scans/${currentScanId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ result: data.result, status: 'analysed' }),
+          })
+        } catch {
+          // Non-blocking
+        }
+      }
     } catch (err: any) {
       setScanError(err.message || 'Analysis failed')
       setScanPhase('review') // go back to review so they can retry
@@ -1368,24 +1430,55 @@ Return corrected JSON:
   // ── Persist scanner state across navigation ──────────────────────────────
   const SCANNER_KEY = 'setlab_scanner_v1'
 
-  // Restore on mount
+  // Restore on mount — try Supabase first, fall back to localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(SCANNER_KEY)
-      if (!saved) return
-      const state = JSON.parse(saved)
-      if (state.detectedTracks?.length > 0) {
-        setDetectedTracks(state.detectedTracks)
-        setScannerTracklist(state.scannerTracklist || '')
-        setScannerContext(state.scannerContext || '')
-        if (state.scanResult) {
-          setScanResult(state.scanResult)
-          setScanPhase('upload') // show result
-        } else {
-          setScanPhase('review')
+    async function loadRecentScans() {
+      try {
+        setLoadingScans(true)
+        const resp = await fetch('/api/mix-scans')
+        const data = await resp.json()
+        if (data.success && data.scans?.length > 0) {
+          setRecentScans(data.scans)
+          // Auto-restore the most recent scan
+          const latest = data.scans[0]
+          if (latest.detected_tracks?.length > 0) {
+            setDetectedTracks(latest.detected_tracks)
+            setScannerTracklist(latest.tracklist || '')
+            setScannerContext(latest.context || '')
+            setCurrentScanId(latest.id)
+            if (latest.result) {
+              setScanResult(latest.result)
+              setScanPhase('upload') // show result
+            } else {
+              setScanPhase('review')
+            }
+            return // Supabase had data, skip localStorage
+          }
         }
+      } catch {
+        // Supabase unavailable — fall back to localStorage
+      } finally {
+        setLoadingScans(false)
       }
-    } catch {}
+      // Fallback: restore from localStorage
+      try {
+        const saved = localStorage.getItem(SCANNER_KEY)
+        if (!saved) return
+        const state = JSON.parse(saved)
+        if (state.detectedTracks?.length > 0) {
+          setDetectedTracks(state.detectedTracks)
+          setScannerTracklist(state.scannerTracklist || '')
+          setScannerContext(state.scannerContext || '')
+          if (state.scanResult) {
+            setScanResult(state.scanResult)
+            setScanPhase('upload') // show result
+          } else {
+            setScanPhase('review')
+          }
+        }
+      } catch {}
+    }
+    loadRecentScans()
   }, [])
 
   // Save whenever scanner state changes
@@ -1403,6 +1496,7 @@ Return corrected JSON:
 
   function clearScannerState() {
     try { localStorage.removeItem(SCANNER_KEY) } catch {}
+    setCurrentScanId(null)
   }
 
   // ── Styles ─────────────────────────────────────────────────────────────
@@ -2691,6 +2785,79 @@ Return corrected JSON:
                   </div>
                 )}
 
+              </div>
+            )}
+
+            {/* ── Recent Scans ──────────────────────────────────────────── */}
+            {recentScans.length > 0 && scanPhase === 'upload' && !scanResult && (
+              <div style={{ marginTop: '32px' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.gold, fontFamily: s.font, marginBottom: '12px' }}>
+                  Recent scans
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {recentScans.slice(0, 8).map((scan: any) => (
+                    <div
+                      key={scan.id}
+                      onClick={() => {
+                        setDetectedTracks(scan.detected_tracks || [])
+                        setScannerTracklist(scan.tracklist || '')
+                        setScannerContext(scan.context || '')
+                        setCurrentScanId(scan.id)
+                        if (scan.result) {
+                          setScanResult(scan.result)
+                          setScanPhase('upload')
+                        } else {
+                          setScanPhase('review')
+                        }
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 14px', background: s.panel, border: `1px solid ${s.border}`,
+                        cursor: 'pointer', transition: 'border-color 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ fontSize: '11px', color: s.text }}>{scan.filename}</div>
+                        <div style={{ fontSize: '9px', color: s.textDimmer }}>
+                          {(scan.detected_tracks || []).filter((t: any) => t.found).length} tracks
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {scan.result?.overall_score && (
+                          <div style={{
+                            fontSize: '11px', fontWeight: 600,
+                            color: scan.result.overall_score >= 8 ? '#4ecb71' : scan.result.overall_score >= 6 ? s.gold : '#c09030',
+                          }}>
+                            {scan.result.overall_score.toFixed(1)}
+                          </div>
+                        )}
+                        {scan.status === 'analysed' && (
+                          <div style={{ fontSize: '8px', letterSpacing: '0.1em', padding: '2px 6px', background: 'rgba(78,203,113,0.08)', border: '1px solid rgba(78,203,113,0.2)', color: '#4ecb71', textTransform: 'uppercase' }}>
+                            Analysed
+                          </div>
+                        )}
+                        <div style={{ fontSize: '9px', color: s.textDimmer }}>
+                          {new Date(scan.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        </div>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              await fetch(`/api/mix-scans/${scan.id}`, { method: 'DELETE' })
+                              setRecentScans(prev => prev.filter((s: any) => s.id !== scan.id))
+                            } catch {}
+                          }}
+                          style={{ background: 'none', border: 'none', color: s.textDimmer, cursor: 'pointer', fontSize: '11px', padding: '2px 4px', opacity: 0.5 }}
+                          title="Delete scan"
+                        >
+                          x
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

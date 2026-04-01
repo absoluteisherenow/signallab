@@ -286,19 +286,18 @@ Rules:
         onClick={() => setOpen(true)}
         style={{
           position: 'fixed', bottom: 28, right: 28,
-          width: 46, height: 46, borderRadius: '50%',
+          width: 56, height: 56, borderRadius: '50%',
           background: '#0e0d0b',
           border: '1px solid rgba(176,141,87,0.3)',
           cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.4)',
           zIndex: 1000, transition: 'all 0.2s ease',
         }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.6)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(176,141,87,0.12)' }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.3)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.4)' }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.6)' }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.3)' }}
         title="Signal"
       >
-        <svg width="18" height="18" viewBox="0 0 64 64" fill="none">
+        <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
           <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       </button>
