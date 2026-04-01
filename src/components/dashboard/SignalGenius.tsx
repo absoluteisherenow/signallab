@@ -106,7 +106,7 @@ export function SignalGenius() {
       audioRef.current = audio
       audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url) }
       audio.onerror = () => { setSpeaking(false); URL.revokeObjectURL(url) }
-      audio.play()
+      audio.play().catch(() => setSpeaking(false))
     } catch { setSpeaking(false) }
   }
 
@@ -124,21 +124,30 @@ export function SignalGenius() {
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      // Pick a supported mime type
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+        : MediaRecorder.isTypeSupported('audio/ogg') ? 'audio/ogg'
+        : ''
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream)
+      const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm'
       chunksRef.current = []
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        if (chunksRef.current.length === 0) return
+        const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' })
         const formData = new FormData()
-        formData.append('audio', blob, 'recording.webm')
+        formData.append('audio', blob, `recording.${ext}`)
         try {
           const res = await fetch('/api/transcribe', { method: 'POST', body: formData })
           const data = await res.json()
           if (data.text) {
             handleSend(data.text)
           }
-        } catch { /* silent */ }
+        } catch { /* transcription failed */ }
       }
       mediaRecorderRef.current = recorder
       recorder.start()
