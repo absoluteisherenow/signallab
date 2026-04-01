@@ -71,6 +71,7 @@ You answer questions about EVERYTHING in the artist's world:
 - DJ technique, set building, track selection, Camelot mixing
 - Gigs: upcoming shows, venues, dates, fees, advance status
 - Invoices: pending payments, overdue amounts, payment history
+- Revenue streams: streaming income, royalties, label payments, download sales by platform
 - Schedule: what's coming up this week / month
 - Releases: upcoming drops, campaigns
 - General creative business questions
@@ -223,7 +224,7 @@ export async function POST(req: NextRequest) {
   const todayStr = contextDate.toISOString().split('T')[0]
 
   // ── Fetch all relevant artist data in parallel ────────────────────────────
-  const [gigsRes, invoicesRes, setsRes, tracksRes] = await Promise.allSettled([
+  const [gigsRes, invoicesRes, setsRes, tracksRes, revenueRes] = await Promise.allSettled([
     supabase
       .from('gigs')
       .select('id, title, venue, location, date, time, fee, currency, status, notes')
@@ -246,12 +247,19 @@ export async function POST(req: NextRequest) {
       .select('title, artist, bpm, key, camelot, energy, genre, moment_type, producer_style, similar_to, play_count')
       .order('play_count', { ascending: false })
       .limit(100),
+
+    supabase
+      .from('revenue_streams')
+      .select('id, source, description, amount, currency, period_start, period_end, release_title, status, notes, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50),
   ])
 
   const gigs    = gigsRes.status    === 'fulfilled' ? (gigsRes.value.data    || []) : []
   const invoices = invoicesRes.status === 'fulfilled' ? (invoicesRes.value.data || []) : []
   const sets    = setsRes.status    === 'fulfilled' ? (setsRes.value.data    || []) : []
   const tracks  = tracksRes.status  === 'fulfilled' ? (tracksRes.value.data  || []) : []
+  const revenueStreams = revenueRes.status === 'fulfilled' ? (revenueRes.value.data || []) : []
 
   // ── Build context payload ─────────────────────────────────────────────────
   // Parse track lists inside sets for richer blueprint generation
@@ -273,6 +281,7 @@ export async function POST(req: NextRequest) {
     today: todayStr,
     gigs,
     invoices,
+    revenue_streams: revenueStreams,
     recent_sets: enrichedSets,
     track_library_top100_by_play_count: tracks,
   }

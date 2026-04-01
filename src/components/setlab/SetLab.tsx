@@ -1007,9 +1007,10 @@ Return corrected JSON:
 
   // ── Mix Scanner — Phase 2: Claude Analysis ──────────────────────────────
   async function runClaudeAnalysis() {
-    // Build tracklist from detected tracks if scannerTracklist is empty
-    const tracklistText = scannerTracklist.trim()
-      || detectedTracks.map((t, i) => `${i + 1}. ${t.artist ? t.artist + ' — ' : ''}${t.title}`).join('\n')
+    // Always build tracklist from detected tracks if available (they may have been edited)
+    const tracklistText = detectedTracks.length > 0
+      ? detectedTracks.filter(t => t.title.trim() || t.artist.trim()).map((t, i) => `${i + 1}. ${t.artist ? t.artist + ' — ' : ''}${t.title}`).join('\n')
+      : scannerTracklist.trim()
 
     if (!tracklistText) {
       showToast('Add a tracklist first — paste it or import from a screenshot', 'Error')
@@ -2134,7 +2135,28 @@ Return corrected JSON:
                 {/* Analyse button */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <button
-                    onClick={runClaudeAnalysis}
+                    onClick={() => {
+                      // Parse the pasted tracklist into detectedTracks for review
+                      const lines = scannerTracklist.trim().split('\n').filter(l => l.trim().length > 3)
+                      if (lines.length === 0) return
+                      const parsed = lines.map((line, i) => {
+                        const cleaned = line.replace(/^\d+[\.\)\-\s]+/, '').trim()
+                        const parts = cleaned.split(/\s*[-–—]\s*/)
+                        const artist = parts.length > 1 ? parts[0].trim() : ''
+                        const title = parts.length > 1 ? parts.slice(1).join(' — ').trim() : cleaned
+                        return {
+                          time_in: `${String(i).padStart(2, '0')}:00`,
+                          title,
+                          artist,
+                          confidence: 1,
+                          found: true,
+                          source: 'manual',
+                        }
+                      })
+                      setDetectedTracks(parsed)
+                      setScanPhase('review')
+                      fetchRaForScanner(parsed)
+                    }}
                     disabled={scanning || !scannerTracklist.trim()}
                     style={{
                       ...btn(s.setlab),
@@ -2142,7 +2164,7 @@ Return corrected JSON:
                       opacity: (scanning || !scannerTracklist.trim()) ? 0.5 : 1,
                       cursor: (scanning || !scannerTracklist.trim()) ? 'default' : 'pointer',
                     }}>
-                    {scanning ? scanProgress || 'Analysing...' : 'Analyse mix \u2192'}
+                    Review tracklist →
                   </button>
                 </div>
 
@@ -2213,30 +2235,36 @@ Return corrected JSON:
                     <div style={{ fontSize: '10px', color: s.textDimmer, marginBottom: '8px', letterSpacing: '0.1em' }}>Checking RA charts…</div>
                   )}
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '400px', overflowY: 'auto' }}>
                     {detectedTracks.map((t, i) => {
                       const raInfo = t.found ? getTrackRaInfo(t.artist, t.title) : null
                       return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 10px', background: s.black, border: `1px solid ${raInfo ? 'rgba(220,38,38,0.2)' : t.found ? 'rgba(78,203,113,0.15)' : s.border}` }}>
-                        <div style={{ fontSize: '10px', color: s.textDimmer, width: '24px', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
-                        <div style={{ fontSize: '10px', color: s.textDimmer, width: '36px', flexShrink: 0, fontFamily: 'monospace' }}>{t.time_in}</div>
-                        <div style={{ flex: 1, fontSize: '11px', color: t.found ? s.text : s.textDimmer, minWidth: 0 }}>
-                          <div>{t.found ? `${t.artist} — ${t.title}` : 'Unknown / White label'}</div>
-                          {raInfo && (
-                            <div style={{ fontSize: '9px', color: '#dc2626', marginTop: '2px', opacity: 0.8 }}>
-                              Charted by {raInfo.charted_by}
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: s.black, border: `1px solid ${raInfo ? 'rgba(220,38,38,0.2)' : t.found ? 'rgba(78,203,113,0.15)' : s.border}` }}>
+                        <div style={{ fontSize: '10px', color: s.textDimmer, width: '20px', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
+                        <input
+                          value={t.artist}
+                          onChange={e => {
+                            const updated = [...detectedTracks]
+                            updated[i] = { ...updated[i], artist: e.target.value, found: true }
+                            setDetectedTracks(updated)
+                          }}
+                          placeholder="Artist"
+                          style={{ width: '140px', background: 'transparent', border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '5px 8px', outline: 'none', flexShrink: 0 }}
+                        />
+                        <span style={{ color: s.textDimmer, fontSize: '11px', flexShrink: 0 }}>—</span>
+                        <input
+                          value={t.title}
+                          onChange={e => {
+                            const updated = [...detectedTracks]
+                            updated[i] = { ...updated[i], title: e.target.value, found: true }
+                            setDetectedTracks(updated)
+                          }}
+                          placeholder="Track title"
+                          style={{ flex: 1, background: 'transparent', border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '5px 8px', outline: 'none', minWidth: 0 }}
+                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                           {raInfo && (
                             <div style={{ fontSize: '8px', letterSpacing: '0.1em', padding: '2px 5px', background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)', color: '#dc2626', textTransform: 'uppercase', fontWeight: 600 }}>RA</div>
-                          )}
-                          {t.found && (
-                            <div style={{ fontSize: '9px', color: '#4ecb71', letterSpacing: '0.08em' }}>✓</div>
-                          )}
-                          {!t.found && (
-                            <div style={{ fontSize: '9px', color: s.textDimmer }}>?</div>
                           )}
                           <button
                             onClick={(e) => { e.stopPropagation(); setDetectedTracks(prev => prev.filter((_, idx) => idx !== i)) }}
@@ -2247,28 +2275,26 @@ Return corrected JSON:
                       </div>
                     )})}
                   </div>
+
+                  {/* Add track button */}
+                  <button
+                    onClick={() => setDetectedTracks(prev => [...prev, { time_in: `${String(prev.length).padStart(2, '0')}:00`, title: '', artist: '', confidence: 1, found: true, source: 'manual' }])}
+                    style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.textDimmer, background: 'none', border: `1px dashed ${s.border}`, padding: '8px', cursor: 'pointer', fontFamily: s.font, width: '100%', marginTop: '4px' }}
+                  >
+                    + Add track
+                  </button>
                 </div>
 
-                {/* Editable tracklist */}
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase' }}>
-                      Edit tracklist <span style={{ opacity: 0.5 }}>— correct any wrong IDs before analysis</span>
-                    </div>
-                    <button
-                      onClick={() => tracklistImgRef.current?.click()}
-                      disabled={tracklistImgParsing}
-                      style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: s.setlab, background: 'transparent', border: `1px solid ${s.setlab}50`, padding: '4px 10px', cursor: tracklistImgParsing ? 'wait' : 'pointer', fontFamily: s.font, opacity: tracklistImgParsing ? 0.5 : 1 }}
-                    >
-                      {tracklistImgParsing ? 'Reading...' : '↑ Screenshot'}
-                    </button>
-                  </div>
-                  <textarea
-                    value={scannerTracklist}
-                    onChange={e => setScannerTracklist(e.target.value)}
-                    rows={6}
-                    style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '10px 14px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' as const, lineHeight: '1.6' }}
-                  />
+                {/* Add more tracks from screenshot */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={() => tracklistImgRef.current?.click()}
+                    disabled={tracklistImgParsing}
+                    style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: s.setlab, background: 'transparent', border: `1px solid ${s.setlab}50`, padding: '6px 12px', cursor: tracklistImgParsing ? 'wait' : 'pointer', fontFamily: s.font, opacity: tracklistImgParsing ? 0.5 : 1 }}
+                  >
+                    {tracklistImgParsing ? 'Reading...' : '↑ Add from screenshot'}
+                  </button>
+                  <input ref={tracklistImgRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) parseTracklistImage(f) }} style={{ display: 'none' }} />
                 </div>
 
                 {/* Context + Analyse */}

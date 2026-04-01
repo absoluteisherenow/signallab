@@ -309,8 +309,47 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       </div>
     </div>
 
+    <!-- Quick actions -->
+    <div style="padding:24px 24px 16px;display:flex;flex-direction:column;gap:10px">
+      ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:14px 20px;border:1px solid #b08d57;color:#b08d57;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Get directions</a>` : ''}
+      ${gig.driver_phone ? `
+        <div style="display:flex;gap:10px">
+          <a href="tel:${esc(gig.driver_phone)}" style="flex:1;text-align:center;padding:14px 12px;border:1px solid #1a1917;color:#8a8780;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Call driver</a>
+          <a href="sms:${esc(gig.driver_phone)}" style="flex:1;text-align:center;padding:14px 12px;border:1px solid #1a1917;color:#8a8780;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Message driver</a>
+        </div>` : ''}
+      ${gig.al_phone ? `
+        <div style="display:flex;gap:10px">
+          <a href="tel:${esc(gig.al_phone)}" style="flex:1;text-align:center;padding:14px 12px;border:1px solid #1a1917;color:#8a8780;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Call ${esc(gig.al_name) || 'contact'}</a>
+          <a href="sms:${esc(gig.al_phone)}" style="flex:1;text-align:center;padding:14px 12px;border:1px solid #1a1917;color:#8a8780;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Message</a>
+        </div>` : ''}
+      ${!gig.al_phone && gig.promoter_phone ? `
+        <div style="display:flex;gap:10px">
+          <a href="tel:${esc(gig.promoter_phone)}" style="flex:1;text-align:center;padding:14px 12px;border:1px solid #1a1917;color:#8a8780;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Call promoter</a>
+          <a href="sms:${esc(gig.promoter_phone)}" style="flex:1;text-align:center;padding:14px 12px;border:1px solid #1a1917;color:#8a8780;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Message</a>
+        </div>` : ''}
+      ${gig.promoter_email ? `<a href="mailto:${esc(gig.promoter_email)}" style="display:block;text-align:center;padding:14px 20px;border:1px solid #1a1917;color:#8a8780;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Email promoter</a>` : ''}
+      <a href="/dashboard" style="display:block;text-align:center;padding:14px 20px;border:1px solid #1a1917;color:#52504c;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">← Back to dashboard</a>
+    </div>
+
+    <!-- Rider / hospitality notes -->
+    ${gig.hospitality || gig.backline ? `
+    <div style="margin:0 24px 24px">
+      <div style="background:#0d0d0b;border:1px solid #1a1917;padding:20px 28px;border-radius:8px">
+        ${gig.hospitality ? `
+        <div style="margin-bottom:${gig.backline ? '16px' : '0'}">
+          <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:#52504c;margin-bottom:8px">Rider / Hospitality</div>
+          <div style="font-size:13px;color:#8a8780;line-height:1.6;white-space:pre-wrap">${esc(gig.hospitality)}</div>
+        </div>` : ''}
+        ${gig.backline ? `
+        <div>
+          <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:#52504c;margin-bottom:8px">Backline</div>
+          <div style="font-size:13px;color:#8a8780;line-height:1.6;white-space:pre-wrap">${esc(gig.backline)}</div>
+        </div>` : ''}
+      </div>
+    </div>` : ''}
+
     <!-- Add to home screen hint -->
-    <div style="padding:32px 24px 48px;text-align:center">
+    <div style="padding:16px 24px 48px;text-align:center">
       <div style="font-size:11px;color:#52504c;margin-bottom:8px">Tap <span style="color:#8a8780">Share</span> then <span style="color:#8a8780">Add to Home Screen</span></div>
       <div style="font-size:10px;color:#2a2a28">to keep this pass on your phone</div>
     </div>

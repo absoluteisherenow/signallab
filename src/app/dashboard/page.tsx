@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SignalBar from '@/components/SignalBar'
 import { SkeletonRows } from '@/components/ui/Skeleton'
+import { useMobile } from '@/hooks/useMobile'
+import MobileShell from '@/components/mobile/MobileShell'
 
 interface Gig {
   id: string
@@ -135,6 +137,7 @@ function WeekStrip({ gigs, scheduledPosts }: { gigs: Gig[]; scheduledPosts: Sche
 
 export default function Dashboard() {
   const router = useRouter()
+  const mobile = useMobile()
   const [now, setNow] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -917,6 +920,8 @@ export default function Dashboard() {
       })
     }
   }
+
+  if (mobile) return <MobileShell />
 
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

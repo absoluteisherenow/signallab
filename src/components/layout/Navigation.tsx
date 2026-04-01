@@ -404,51 +404,68 @@ export function Navigation() {
         bottom: 0,
         left: 0,
         right: 0,
-        height: 56,
+        height: 64,
         background: 'var(--bg)',
         borderTop: '1px solid var(--border-dim)',
         zIndex: 1000,
         fontFamily: 'var(--font-mono)',
         backdropFilter: 'blur(16px)',
       }}>
-        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'space-around' }}>
-          {[
-            { label: 'Home', href: '/dashboard' },
-            { label: 'Broadcast', href: '/broadcast' },
-            { label: 'Sets', href: '/setlab' },
-            { label: 'Tour', href: '/gigs' },
-            { label: 'Drops', href: '/releases' },
-          ].map(item => {
-            const active = isActive(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 3,
-                  textDecoration: 'none',
-                  fontSize: 9,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: active ? 'var(--gold)' : 'var(--text-dimmer)',
-                  transition: 'color 0.12s',
-                  padding: '8px 12px',
-                }}
-              >
-                <div style={{
-                  width: 4,
-                  height: 4,
-                  borderRadius: '50%',
-                  background: active ? 'var(--gold)' : 'transparent',
-                  marginBottom: 2,
-                }} />
-                {item.label}
-              </Link>
-            )
-          })}
+        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'space-evenly', width: '100%', position: 'relative' }}>
+          {/* Home */}
+          <Link href="/dashboard" style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: isActive('/dashboard') ? 'var(--gold)' : 'var(--text-dimmer)',
+            padding: '8px 0', flex: 1,
+          }}>
+            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>—</div>
+            Home
+          </Link>
+
+          {/* Scan */}
+          <Link href="/setlab" style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: isActive('/setlab') ? 'var(--gold)' : 'var(--text-dimmer)',
+            padding: '8px 0', flex: 1,
+          }}>
+            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>◎</div>
+            Scan
+          </Link>
+
+          {/* Upload */}
+          <Link href="/broadcast" style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: isActive('/broadcast') ? 'var(--gold)' : 'var(--text-dimmer)',
+            padding: '8px 0', flex: 1,
+          }}>
+            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>↑</div>
+            Upload
+          </Link>
+
+          {/* Tour */}
+          <Link href="/gigs" style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: isActive('/gigs') ? 'var(--gold)' : 'var(--text-dimmer)',
+            padding: '8px 0', flex: 1,
+          }}>
+            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>◆</div>
+            Tour
+          </Link>
+
+          {/* Recharge */}
+          <Link href="/meditate" style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: isActive('/meditate') ? 'var(--gold)' : 'var(--text-dimmer)',
+            padding: '8px 0', flex: 1,
+          }}>
+            <div style={{ fontSize: '16px', lineHeight: 1, marginBottom: '2px' }}>✦</div>
+            Mind
+          </Link>
         </div>
       </nav>
     </>

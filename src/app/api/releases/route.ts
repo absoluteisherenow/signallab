@@ -27,14 +27,14 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { title, type, release_date, label, streaming_url, notes, source } = body
+    const { title, artist, type, release_date, label, streaming_url, artwork_url, notes, source } = body
     if (!title || !release_date) {
       return NextResponse.json({ success: false, error: 'Title and release_date required' }, { status: 400 })
     }
     const { data, error } = await supabase.from('releases').insert([{
-      title, type: type || 'single', release_date, label: label || null,
-      streaming_url: streaming_url || null, notes: notes || null,
-      source: source || 'manual', // 'manual' | 'gmail'
+      title, artist: artist || null, type: type || 'single', release_date, label: label || null,
+      streaming_url: streaming_url || null, artwork_url: artwork_url || null,
+      notes: notes || null, source: source || 'manual',
       created_at: new Date().toISOString(),
     }]).select()
 
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz default now(),
   title text not null,
+  artist text,
   type text default 'single',
   release_date date not null,
   label text,
@@ -58,6 +59,25 @@ export async function POST(req: NextRequest) {
       }
       throw error
     }
+    return NextResponse.json({ success: true, release: data?.[0] })
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { id, title, artist, type, release_date, label, streaming_url, artwork_url, notes } = body
+    if (!id || !title || !release_date) {
+      return NextResponse.json({ success: false, error: 'id, title, and release_date required' }, { status: 400 })
+    }
+    const { data, error } = await supabase.from('releases').update({
+      title, artist: artist || null, type: type || 'single', release_date, label: label || null,
+      streaming_url: streaming_url || null, artwork_url: artwork_url || null, notes: notes || null,
+    }).eq('id', id).select()
+
+    if (error) throw error
     return NextResponse.json({ success: true, release: data?.[0] })
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 })

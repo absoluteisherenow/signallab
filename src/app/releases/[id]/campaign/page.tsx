@@ -1,15 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
 
 interface Release {
   id: string
   title: string
+  artist?: string
   type: string
   release_date: string
   label?: string
+  artwork_url?: string
   notes?: string
 }
 
@@ -56,6 +59,9 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
   const [posts, setPosts] = useState<CampaignPost[]>([])
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([])
   const [generating, setGenerating] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [importingFromText, setImportingFromText] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
@@ -79,6 +85,69 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
     }
     load()
   }, [params.id])
+
+  async function parseImportedCampaign(rawText: string) {
+    if (!release) return
+    setImportingFromText(true)
+    setError('')
+    try {
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 4000,
+          nocache: true,
+          system: `You parse release campaign plans into structured post data. NEVER fabricate — only extract what is actually in the data. Return ONLY valid JSON.`,
+          messages: [{
+            role: 'user',
+            content: `Parse this campaign plan into structured posts for a release campaign.
+
+RELEASE: "${release.title}" by ${release.artist || 'the artist'}
+TYPE: ${release.type}
+RELEASE DATE: ${release.release_date}
+LABEL: ${release.label || 'unknown'}
+
+CAMPAIGN DATA TO PARSE:
+${rawText}
+
+Extract each post/task/action into this format. Match the phases to these standard names where possible:
+SILENCE BREAKER, AUDIO PREVIEW 1, ANNOUNCEMENT, DEEP DIVE, AUDIO PREVIEW 2, PRE-SAVE / PRE-ORDER, AUDIO PREVIEW 3, DROP DAY, EARLY MOMENTUM, PRESS BLURB
+
+Return JSON array:
+[{
+  "phase": "phase name",
+  "days_offset": <number, negative = before release, 0 = drop day, positive = after>,
+  "platform": "Instagram|Stories|TikTok|Twitter|All",
+  "caption": "the post content or task description",
+  "dm_reply": "",
+  "rationale": "brief note on why this post matters"
+}]
+
+If the imported data has specific dates, calculate the days_offset from the release date ${release.release_date}.
+If it's a general plan without specific dates, space them out sensibly before and after release.
+Only include posts/actions you can actually see in the data — NEVER invent extra ones.`,
+          }],
+        }),
+      })
+      const data = await res.json()
+      const raw = data.content?.[0]?.text || '[]'
+      const cleaned = raw.replace(/```json|```/g, '').trim()
+      const parsed = JSON.parse(cleaned)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setPosts(parsed)
+        setSaved(false)
+        setImporting(false)
+        setImportText('')
+      } else {
+        setError('Could not extract campaign posts from that data')
+      }
+    } catch {
+      setError('Failed to parse campaign data')
+    } finally {
+      setImportingFromText(false)
+    }
+  }
 
   async function generate() {
     setGenerating(true)
@@ -226,23 +295,114 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Empty state */}
-      {!generating && posts.length === 0 && savedPosts.length === 0 && (
-        <div style={{ padding: '64px 52px', textAlign: 'center' }}>
-          <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', marginBottom: '8px' }}>No campaign generated yet</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', opacity: 0.6, marginBottom: '32px' }}>
-            10 posts · audio preview cadence · platform-optimised timing
+      {!generating && posts.length === 0 && savedPosts.length === 0 && !importing && (
+        <div style={{ padding: '64px 52px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', maxWidth: '640px', margin: '0 auto' }}>
+            {/* Generate */}
+            <button
+              onClick={generate}
+              style={{
+                background: 'var(--panel)', border: '1px solid var(--border-dim)',
+                padding: '40px 28px', cursor: 'pointer', textAlign: 'center',
+                transition: 'border-color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--gold)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-dim)'}
+            >
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '12px', fontFamily: 'var(--font-mono)' }}>
+                Generate campaign
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: 1.6, fontFamily: 'var(--font-mono)' }}>
+                10 posts · audio preview cadence · platform-optimised timing
+              </div>
+            </button>
+
+            {/* Import */}
+            <button
+              onClick={() => setImporting(true)}
+              style={{
+                background: 'var(--panel)', border: '1px solid var(--border-dim)',
+                padding: '40px 28px', cursor: 'pointer', textAlign: 'center',
+                transition: 'border-color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--gold)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-dim)'}
+            >
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '12px', fontFamily: 'var(--font-mono)' }}>
+                Import campaign
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: 1.6, fontFamily: 'var(--font-mono)' }}>
+                Screenshot or paste from label plan, Google Sheet, or notes
+              </div>
+            </button>
           </div>
-          <button
-            onClick={generate}
-            style={{
-              background: 'var(--gold)', color: '#070706', border: 'none',
-              padding: '0 32px', height: '44px', fontSize: '10px',
-              letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            Generate campaign
-          </button>
+        </div>
+      )}
+
+      {/* Import mode */}
+      {importing && posts.length === 0 && (
+        <div style={{ padding: '36px 52px 48px', maxWidth: '720px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>
+              Import campaign
+            </div>
+            <button onClick={() => setImporting(false)} style={{
+              fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: 'var(--text-dimmer)', background: 'none', border: '1px solid var(--border-dim)',
+              padding: '5px 12px', cursor: 'pointer', fontFamily: 'var(--font-mono)',
+            }}>
+              Cancel
+            </button>
+          </div>
+
+          {/* Screenshot upload */}
+          <div style={{ marginBottom: '20px' }}>
+            <ScreenshotUpload
+              extractionPrompt={`Extract a release campaign plan from this image. Return JSON array of posts/tasks with: phase (e.g. ANNOUNCEMENT, AUDIO PREVIEW 1, DROP DAY, etc.), days_offset (number relative to release date, negative = before), platform (Instagram/Stories/TikTok/Twitter/All), caption (the post content or task), dm_reply (empty string), rationale (brief note). The release date is ${release?.release_date || 'unknown'}. Only extract what you can see — NEVER fabricate.`}
+              onExtracted={(fields) => {
+                if (Array.isArray(fields)) {
+                  setPosts(fields)
+                  setSaved(false)
+                  setImporting(false)
+                } else {
+                  setError('Could not extract campaign from screenshot')
+                }
+              }}
+            />
+          </div>
+
+          {/* Or paste text */}
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '28px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '14px' }}>
+              Or paste campaign plan
+            </div>
+            <textarea
+              value={importText}
+              onChange={e => setImportText(e.target.value)}
+              placeholder="Paste from Google Sheet, email, Notion, label campaign doc..."
+              rows={8}
+              style={{
+                width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)',
+                color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '12px',
+                padding: '14px 16px', outline: 'none', boxSizing: 'border-box',
+                resize: 'vertical', lineHeight: 1.6, marginBottom: '14px',
+              }}
+            />
+            <button
+              onClick={() => parseImportedCampaign(importText)}
+              disabled={!importText.trim() || importingFromText}
+              style={{
+                background: 'var(--gold)', color: '#070706', border: 'none',
+                padding: '0 28px', height: '40px', fontSize: '10px',
+                letterSpacing: '0.16em', textTransform: 'uppercase',
+                cursor: !importText.trim() || importingFromText ? 'not-allowed' : 'pointer',
+                opacity: !importText.trim() || importingFromText ? 0.5 : 1,
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              {importingFromText ? 'Parsing…' : 'Import →'}
+            </button>
+          </div>
         </div>
       )}
 

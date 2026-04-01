@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useMobile } from '@/hooks/useMobile'
 
 interface Message {
   id: string
@@ -13,6 +14,7 @@ interface ArtistContext {
   invoices: any[]
   posts: any[]
   mixScans: any[]
+  revenueStreams: any[]
   profile: any
   quarterStats: { gigs: number; posts: number; revenue: number }
 }
@@ -70,6 +72,7 @@ async function streamClaude(
 }
 
 export function SignalGenius() {
+  const mobile = useMobile()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -152,12 +155,14 @@ export function SignalGenius() {
       fetch('/api/schedule').then(r => r.json()),
       fetch('/api/settings').then(r => r.json()),
       fetch('/api/mix-scans?limit=3').then(r => r.json()).catch(() => ({ scans: [] })),
+      fetch('/api/revenue-streams').then(r => r.json()).catch(() => ({ revenue_streams: [] })),
     ]).then(results => {
       const gigs = results[0].status === 'fulfilled' ? results[0].value.gigs || [] : []
       const invoices = results[1].status === 'fulfilled' ? results[1].value.invoices || [] : []
       const posts = results[2].status === 'fulfilled' ? results[2].value.posts || [] : []
       const settings = results[3].status === 'fulfilled' ? results[3].value.settings || {} : {}
       const mixScans = results[4].status === 'fulfilled' ? results[4].value.scans || [] : []
+      const revenueStreams = results[5].status === 'fulfilled' ? results[5].value.revenue_streams || [] : []
 
       const today = new Date()
       const yr = today.getFullYear()
@@ -171,6 +176,7 @@ export function SignalGenius() {
         invoices,
         posts,
         mixScans,
+        revenueStreams,
         profile: settings.profile || {},
         quarterStats: {
           gigs: qGigs.length,
@@ -246,6 +252,23 @@ export function SignalGenius() {
           contextBlock += `\nFull tracklist:\n${latestScan.tracklist}`
         }
       }
+
+      // Streaming / royalty revenue data
+      if (c.revenueStreams?.length > 0) {
+        const totalBySource: Record<string, number> = {}
+        c.revenueStreams.forEach((r: any) => {
+          totalBySource[r.source] = (totalBySource[r.source] || 0) + (r.amount || 0)
+        })
+        const paidTotal = c.revenueStreams.filter((r: any) => r.status === 'paid').reduce((s: number, r: any) => s + (r.amount || 0), 0)
+        const pendingTotal = c.revenueStreams.filter((r: any) => r.status === 'pending').reduce((s: number, r: any) => s + (r.amount || 0), 0)
+
+        contextBlock += `\n\nStreaming & royalty revenue (${c.revenueStreams.length} entries):`
+        contextBlock += `\nPaid: ${paidTotal.toFixed(2)} · Pending: ${pendingTotal.toFixed(2)}`
+        contextBlock += `\nBy source: ${Object.entries(totalBySource).map(([src, amt]) => `${src}: ${(amt as number).toFixed(2)}`).join(' · ')}`
+
+        const recent = c.revenueStreams.slice(0, 5)
+        contextBlock += `\nRecent entries:\n${recent.map((r: any) => `- ${r.source}: ${r.currency}${r.amount} — ${r.description} (${r.status})`).join('\n')}`
+      }
     }
 
     return `You are Signal — a genius embedded inside Signal Lab OS, a creative business platform for electronic music artists.
@@ -309,14 +332,52 @@ Rules:
     'What\'s my financial position?',
   ]
 
-  // Floating button
+  const [deviceType, setDeviceType] = useState<'unknown' | 'mobile' | 'desktop'>('unknown')
+  useEffect(() => {
+    // Check immediately with window.innerWidth — no waiting for React state
+    setDeviceType(window.innerWidth <= 768 ? 'mobile' : 'desktop')
+  }, [])
+
+  if (deviceType === 'unknown') return null
+
+  // Mobile: floating mic centred above the toolbar
+  if (deviceType === 'mobile') {
+    return (
+      <div style={{
+        position: 'fixed', bottom: 72, left: 0, right: 0,
+        display: 'flex', justifyContent: 'center',
+        zIndex: 999, pointerEvents: 'none',
+      }}>
+        <a
+          href="/signal?speak=1"
+          style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: '#0e0d0b',
+            border: '1.5px solid rgba(176,141,87,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            textDecoration: 'none', pointerEvents: 'auto',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+          }}
+        >
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+          </svg>
+        </a>
+      </div>
+    )
+  }
+
+  // Desktop: floating button opens chat panel
   if (!open) {
     return (
       <button
+        className="signal-desktop-fab"
         onClick={() => setOpen(true)}
         style={{
           position: 'fixed', bottom: 28, right: 28,
-          width: 72, height: 72, borderRadius: '50%',
+          width: 56, height: 56, borderRadius: '50%',
           background: '#0e0d0b',
           border: '1.5px solid rgba(176,141,87,0.35)',
           cursor: 'pointer',
@@ -328,7 +389,7 @@ Rules:
         onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.35)' }}
         title="Signal"
       >
-        <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
+        <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
           <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       </button>
@@ -337,9 +398,13 @@ Rules:
 
   // Chat panel
   return (
-    <div style={{
-      position: 'fixed', bottom: 28, right: 28,
-      width: 440, maxHeight: 'calc(100vh - 100px)',
+    <div className="signal-desktop-fab" style={{
+      position: 'fixed',
+      bottom: 28,
+      right: 28,
+      left: 'auto',
+      width: 440,
+      maxHeight: 'calc(100vh - 100px)',
       background: 'var(--bg)', border: '1px solid var(--border-dim)',
       display: 'flex', flexDirection: 'column',
       zIndex: 1000, boxShadow: 'none',

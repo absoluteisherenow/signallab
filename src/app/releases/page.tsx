@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useMobile } from '@/hooks/useMobile'
 
 type Release = {
   id: string
   title: string
+  artist?: string
   type: string
   release_date: string
   label?: string
   streaming_url?: string
+  artwork_url?: string
   notes?: string
   created_at: string
 }
@@ -20,6 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 export default function ReleasesPage() {
+  const mobile = useMobile()
   const [releases, setReleases] = useState<Release[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -46,18 +50,50 @@ export default function ReleasesPage() {
 
   function ReleaseRow({ release }: { release: Release }) {
     const isPast = new Date(release.release_date) < now
+
+    if (mobile) {
+      return (
+        <div style={{ padding: '14px 16px', borderBottom: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', minWidth: 0 }}>
+            {release.artwork_url && (
+              <img src={release.artwork_url} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 }} />
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '13px', color: s.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{release.title}</div>
+              <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '2px' }}>
+                {release.artist && `${release.artist} · `}{TYPE_LABELS[release.type] || release.type} · {formatDate(release.release_date)}
+              </div>
+            </div>
+          </div>
+          <Link href={`/releases/${release.id}/edit`}
+            style={{ fontSize: '9px', color: s.dimmer, textDecoration: 'none', flexShrink: 0 }}>
+            Edit
+          </Link>
+        </div>
+      )
+    }
+
     return (
       <div style={{
-        display: 'grid', gridTemplateColumns: '140px 1fr 100px 140px 1fr',
+        display: 'grid', gridTemplateColumns: '120px 1fr 80px 120px 1fr auto',
         alignItems: 'center', gap: '16px',
         padding: '18px 24px', borderBottom: `1px solid ${s.border}`,
       }}>
         <div style={{ fontSize: '12px', color: isPast ? s.dimmer : s.text, fontVariantNumeric: 'tabular-nums' }}>
           {formatDate(release.release_date)}
         </div>
-        <div>
-          <div style={{ fontSize: '14px', color: s.text }}>{release.title}</div>
-          {release.label && <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '3px' }}>{release.label}</div>}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {release.artwork_url && (
+            <img src={release.artwork_url} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 }} />
+          )}
+          <div>
+            <div style={{ fontSize: '14px', color: s.text }}>{release.title}</div>
+            <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '3px', display: 'flex', gap: '8px' }}>
+              {release.artist && <span>{release.artist}</span>}
+              {release.artist && release.label && <span style={{ color: s.border }}>·</span>}
+              {release.label && <span>{release.label}</span>}
+            </div>
+          </div>
         </div>
         <div style={{
           fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
@@ -69,11 +105,11 @@ export default function ReleasesPage() {
         <div>
           {release.streaming_url ? (
             <a href={release.streaming_url} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '10px', color: s.goldBright, textDecoration: 'none', letterSpacing: '0.1em' }}>
-              → Stream / Buy
+              style={{ fontSize: '10px', color: isPast ? s.goldBright : s.dimmer, textDecoration: 'none', letterSpacing: '0.1em' }}>
+              {isPast ? '→ Stream / Buy' : '→ Private preview'}
             </a>
           ) : (
-            <span style={{ fontSize: '10px', color: s.dimmer }}>No link yet</span>
+            <span style={{ fontSize: '10px', color: s.dimmer }}>{isPast ? 'No link' : '—'}</span>
           )}
         </div>
         <div>
@@ -86,6 +122,15 @@ export default function ReleasesPage() {
             Build campaign →
           </Link>
         </div>
+        <div>
+          <Link href={`/releases/${release.id}/edit`}
+            style={{
+              fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: s.dimmer, textDecoration: 'none', padding: '5px 8px',
+            }}>
+            Edit
+          </Link>
+        </div>
       </div>
     )
   }
@@ -94,7 +139,7 @@ export default function ReleasesPage() {
     <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh' }}>
 
       {/* Header */}
-      <div style={{ padding: '40px 48px 32px', borderBottom: `1px solid ${s.border}`, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+      <div style={{ padding: mobile ? '20px 16px 16px' : '40px 48px 32px', borderBottom: `1px solid ${s.border}`, display: 'flex', alignItems: mobile ? 'flex-start' : 'flex-end', justifyContent: 'space-between', flexDirection: mobile ? 'column' : 'row', gap: mobile ? '16px' : '0' }}>
         <div>
           <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
             <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
@@ -116,7 +161,7 @@ export default function ReleasesPage() {
         </Link>
       </div>
 
-      <div style={{ padding: '32px 48px' }}>
+      <div style={{ padding: mobile ? '16px' : '32px 48px' }}>
 
         {loading && (
           <div style={{ color: s.dimmer, fontSize: '12px', padding: '40px 0' }}>Loading…</div>
@@ -142,18 +187,21 @@ export default function ReleasesPage() {
             </div>
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
               {/* Table header */}
-              <div style={{
-                display: 'grid', gridTemplateColumns: '140px 1fr 100px 140px 1fr',
-                gap: '16px', padding: '12px 24px',
-                borderBottom: `1px solid ${s.borderMid}`,
-                fontSize: '9px', letterSpacing: '0.2em', color: s.dimmer, textTransform: 'uppercase',
-              }}>
-                <div>Date</div>
-                <div>Title</div>
-                <div>Type</div>
-                <div>Links</div>
-                <div>Campaign</div>
-              </div>
+              {!mobile && (
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '120px 1fr 80px 120px 1fr auto',
+                  gap: '16px', padding: '12px 24px',
+                  borderBottom: `1px solid ${s.borderMid}`,
+                  fontSize: '9px', letterSpacing: '0.2em', color: s.dimmer, textTransform: 'uppercase',
+                }}>
+                  <div>Date</div>
+                  <div>Title</div>
+                  <div>Type</div>
+                  <div>Links</div>
+                  <div>Campaign</div>
+                  <div></div>
+                </div>
+              )}
               {upcoming.map(r => <ReleaseRow key={r.id} release={r} />)}
             </div>
           </div>
@@ -166,7 +214,7 @@ export default function ReleasesPage() {
             </div>
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
               <div style={{
-                display: 'grid', gridTemplateColumns: '140px 1fr 100px 140px 1fr',
+                display: 'grid', gridTemplateColumns: '120px 1fr 80px 120px 1fr auto',
                 gap: '16px', padding: '12px 24px',
                 borderBottom: `1px solid ${s.borderMid}`,
                 fontSize: '9px', letterSpacing: '0.2em', color: s.dimmer, textTransform: 'uppercase',
@@ -176,6 +224,7 @@ export default function ReleasesPage() {
                 <div>Type</div>
                 <div>Links</div>
                 <div>Campaign</div>
+                <div></div>
               </div>
               {past.map(r => <ReleaseRow key={r.id} release={r} />)}
             </div>

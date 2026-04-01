@@ -1,11 +1,11 @@
 {
-  "name": "Night Manoeuvres — Artist OS",
-  "short_name": "NM OS",
-  "description": "The operating system for electronic artists",
-  "start_url": "/mobile",
+  "name": "Signal Lab",
+  "short_name": "Signal Lab",
+  "description": "Your creative operating system",
+  "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#070706",
-  "theme_color": "#070706",
+  "background_color": "#0a0908",
+  "theme_color": "#0a0908",
   "orientation": "portrait",
   "scope": "/",
   "categories": ["music", "productivity"],
@@ -25,16 +25,16 @@
   ],
   "shortcuts": [
     {
-      "name": "Tonight's Set",
-      "short_name": "Set",
-      "url": "/mobile?action=set",
-      "description": "Check your set for tonight"
+      "name": "Scan Mix",
+      "short_name": "Scan",
+      "url": "/setlab",
+      "description": "Screenshot your tracklist"
     },
     {
-      "name": "Next Post",
-      "short_name": "Post",
-      "url": "/mobile?action=caption",
-      "description": "Copy your next scheduled caption"
+      "name": "Signal",
+      "short_name": "Signal",
+      "url": "/signal",
+      "description": "Ask Signal anything"
     }
   ]
 }

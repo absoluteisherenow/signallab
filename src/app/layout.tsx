@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: 'Tailored Artist OS',
   icons: {
     icon: '/favicon.svg',
+    apple: '/apple-touch-icon.png',
   },
   appleWebApp: {
     capable: true,

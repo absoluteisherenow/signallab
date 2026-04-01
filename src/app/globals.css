@@ -576,4 +576,5 @@ a:focus-visible {
   .mobile-tab-bar { display: flex !important; }
   .app-shell { flex-direction: column; }
   .app-main { padding-bottom: 56px; }
+  .signal-desktop-fab { display: none !important; }
 }

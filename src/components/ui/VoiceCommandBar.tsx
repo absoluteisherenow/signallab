@@ -93,7 +93,14 @@ export function VoiceCommandBar() {
     }
   }, [query])
 
+  // Hide on join pages and mobile
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    setIsMobile(window.innerWidth <= 768)
+  }, [])
+
   if (pathname === '/join' || pathname.startsWith('/join/')) return null
+  if (isMobile) return null
 
   if (!isOpen) {
     return (

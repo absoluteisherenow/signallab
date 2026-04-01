@@ -1,17 +1,16 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
-import { ScanPulse } from '@/components/ui/ScanPulse'
 
-export default function NewRelease() {
+export default function EditRelease() {
   const router = useRouter()
+  const params = useParams()
+  const id = params.id as string
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [linkInput, setLinkInput] = useState('')
-  const [fetchingLink, setFetchingLink] = useState(false)
   const [artworkUrl, setArtworkUrl] = useState('')
   const [uploadingArt, setUploadingArt] = useState(false)
   const [form, setForm] = useState({
@@ -46,93 +45,28 @@ export default function NewRelease() {
     setForm(f => ({ ...f, [key]: value }))
   }
 
-  async function fetchFromLink() {
-    const url = linkInput.trim()
-    if (!url) return
-    setFetchingLink(true)
-    setError('')
-    try {
-      // Step 1: Fetch oEmbed data for real metadata
-      let oembedRaw: Record<string, unknown> = {}
-      try {
-        const isSoundCloud = url.includes('soundcloud.com')
-        const isSpotify = url.includes('spotify.com') || url.includes('open.spotify.com')
-        if (isSoundCloud) {
-          const oRes = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`)
-          if (oRes.ok) oembedRaw = await oRes.json()
-        } else if (isSpotify) {
-          const oRes = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
-          if (oRes.ok) oembedRaw = await oRes.json()
+  useEffect(() => {
+    fetch('/api/releases')
+      .then(r => r.json())
+      .then(d => {
+        const release = (d.releases || []).find((r: { id: string }) => r.id === id)
+        if (release) {
+          setForm({
+            title: release.title || '',
+            artist: release.artist || '',
+            type: release.type || 'single',
+            release_date: release.release_date || '',
+            label: release.label || '',
+            streaming_url: release.streaming_url || '',
+            artwork_url: release.artwork_url || '',
+            notes: release.notes || '',
+          })
+          if (release.artwork_url) setArtworkUrl(release.artwork_url)
         }
-      } catch { /* oEmbed optional */ }
-
-      // Step 2: Send URL + oEmbed data to Claude to parse into clean fields
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 600,
-          nocache: true,
-          system: 'You parse music release metadata into clean, separate fields. Return ONLY valid JSON. NEVER fabricate — only include what the data tells you.',
-          messages: [{
-            role: 'user',
-            content: `I have a music release link and its metadata. Parse this into clean, separate fields.
-
-URL: ${url}
-
-oEmbed metadata from the platform:
-${JSON.stringify(oembedRaw, null, 2)}
-
-RULES:
-- The oEmbed "title" often contains multiple pieces mashed together like "ARTIST — Title [Label]" or "Artist - Track Name". SPLIT these into separate fields.
-- The oEmbed "author_name" is the ACCOUNT that uploaded it — this might be the label, not the artist. Look at the title to determine the actual artist.
-- For SoundCloud "sets/" URLs, the release type is likely an EP or album, not a single.
-- For single track URLs, type is "single".
-- If the oEmbed data contains "upload_date", "created_at", or any date field, use it for release_date in YYYY-MM-DD format.
-- The label might be in square brackets in the title, or it might be the author_name if the URL path starts with a label name.
-- The artist name is usually BEFORE the dash/em-dash in the title. Extract it separately.
-- Clean up capitalisation — use proper title case for the release title. Keep artist name as-is.
-
-Return JSON with ONLY these fields (omit any you can't determine):
-{
-  "title": "just the release/track title, nothing else",
-  "artist": "the artist name, separate from title",
-  "type": "single|ep|album|remix",
-  "release_date": "YYYY-MM-DD if available in the data",
-  "label": "the record label if identifiable",
-  "streaming_url": "the full URL"
-}`,
-          }],
-        }),
+        setLoading(false)
       })
-      const data = await res.json()
-      const raw = data.content?.[0]?.text || '{}'
-      const cleaned = raw.replace(/```json|```/g, '').trim()
-      const fields = JSON.parse(cleaned)
-
-      // Grab artwork thumbnail from oEmbed if available
-      const thumbnail = oembedRaw.thumbnail_url as string | undefined
-      if (thumbnail) {
-        setArtworkUrl(thumbnail)
-      }
-
-      setForm(f => ({
-        ...f,
-        ...(fields.title && { title: fields.title }),
-        ...(fields.artist && { artist: fields.artist }),
-        ...(fields.type && { type: fields.type }),
-        ...(fields.release_date && { release_date: fields.release_date }),
-        ...(fields.label && { label: fields.label }),
-        ...(thumbnail && { artwork_url: thumbnail }),
-        streaming_url: fields.streaming_url || url,
-      }))
-    } catch {
-      setError('Could not extract release info from that link')
-    } finally {
-      setFetchingLink(false)
-    }
-  }
+      .catch(() => setLoading(false))
+  }, [id])
 
   async function save() {
     if (!form.title) { setError('Release title is required'); return }
@@ -141,9 +75,9 @@ Return JSON with ONLY these fields (omit any you can't determine):
     setError('')
     try {
       const res = await fetch('/api/releases', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ id, ...form }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error || 'Failed to save')
@@ -154,6 +88,14 @@ Return JSON with ONLY these fields (omit any you can't determine):
     }
   }
 
+  if (loading) {
+    return (
+      <div style={{ background: s.bg, color: s.dimmer, fontFamily: s.font, minHeight: '100vh', padding: '48px 56px', fontSize: '12px' }}>
+        Loading...
+      </div>
+    )
+  }
+
   return (
     <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh', padding: '48px 56px' }}>
 
@@ -162,61 +104,12 @@ Return JSON with ONLY these fields (omit any you can't determine):
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
           <Link href="/releases" style={{ color: s.gold, textDecoration: 'none' }}>Releases</Link>
           <span style={{ color: s.dimmer }}>—</span>
-          New release
+          Edit
         </div>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>Add new release</div>
+        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>Edit release</div>
       </div>
 
       <div style={{ maxWidth: '720px' }}>
-
-        {/* LINK IMPORT */}
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input
-              value={linkInput}
-              onChange={e => setLinkInput(e.target.value)}
-              placeholder="Paste SoundCloud, Spotify, or Bandcamp link..."
-              onKeyDown={e => e.key === 'Enter' && linkInput.trim() && !fetchingLink && fetchFromLink()}
-              style={{
-                flex: 1, background: s.bg, border: `1px solid ${s.border}`,
-                color: s.text, fontFamily: s.font, fontSize: '12px',
-                padding: '12px 16px', outline: 'none',
-              }}
-            />
-            <button
-              onClick={fetchFromLink}
-              disabled={fetchingLink || !linkInput.trim()}
-              style={{
-                background: 'transparent', border: `1px solid ${s.gold}`,
-                color: s.gold, fontFamily: s.font, fontSize: '10px',
-                letterSpacing: '0.15em', textTransform: 'uppercase',
-                padding: '0 20px', cursor: fetchingLink ? 'wait' : 'pointer',
-                opacity: fetchingLink || !linkInput.trim() ? 0.5 : 1,
-                display: 'flex', alignItems: 'center', gap: '8px',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {fetchingLink ? <><ScanPulse size="sm" /> Fetching...</> : 'Import →'}
-            </button>
-          </div>
-        </div>
-
-        {/* SCREENSHOT UPLOAD */}
-        <div style={{ marginBottom: '20px' }}>
-          <ScreenshotUpload
-            extractionPrompt="Extract music release details from this image. Return JSON with: title, type (single/ep/album), release_date (YYYY-MM-DD), label, streaming_url. Only include fields you can confidently extract. NEVER fabricate — only include what you can see."
-            onExtracted={fields => {
-              setForm(f => ({
-                ...f,
-                ...(fields.title && { title: fields.title }),
-                ...(fields.type && { type: fields.type }),
-                ...(fields.release_date && { release_date: fields.release_date }),
-                ...(fields.label && { label: fields.label }),
-                ...(fields.streaming_url && { streaming_url: fields.streaming_url }),
-              }))
-            }}
-          />
-        </div>
 
         {/* RELEASE DETAILS */}
         <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '32px', marginBottom: '16px' }}>
@@ -298,7 +191,7 @@ Return JSON with ONLY these fields (omit any you can't determine):
                 } catch { setError('Failed to upload artwork') }
                 finally { setUploadingArt(false) }
               }} />
-              {uploadingArt ? 'Uploading…' : 'Click to upload artwork'}
+              {uploadingArt ? 'Uploading...' : 'Click to upload artwork'}
             </label>
           )}
         </div>
@@ -321,7 +214,7 @@ Return JSON with ONLY these fields (omit any you can't determine):
         <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={save} disabled={saving}
             style={{ background: s.gold, color: '#070706', border: 'none', padding: '0 32px', height: '44px', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
-            {saving ? 'Saving…' : 'Save release'}
+            {saving ? 'Saving...' : 'Save changes'}
           </button>
           <Link href="/releases"
             style={{ border: `1px solid ${s.border}`, color: s.dim, textDecoration: 'none', padding: '0 24px', height: '44px', display: 'flex', alignItems: 'center', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
