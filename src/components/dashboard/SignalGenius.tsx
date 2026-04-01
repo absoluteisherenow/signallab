@@ -256,7 +256,16 @@ export function SignalGenius() {
       contextBlock += `\nThis quarter: ${c.quarterStats.gigs} gigs, ${c.quarterStats.posts} posts published, ${c.quarterStats.revenue > 0 ? '£' + c.quarterStats.revenue.toLocaleString() + ' revenue' : 'no revenue logged'}.`
 
       if (upcoming.length > 0) {
-        contextBlock += `\n\nUpcoming gigs:\n${upcoming.map((g: any) => `- ${g.title} at ${g.venue || '?'} · ${g.date} · ${g.time || 'TBC'} · Fee: ${g.currency || ''}${g.fee || '?'} · Status: ${g.status}`).join('\n')}`
+        contextBlock += `\n\nUpcoming gigs:\n${upcoming.map((g: any) => {
+          let line = `- ${g.title} at ${g.venue || '?'} · ${g.date} · ${g.time || 'TBC'} · Fee: ${g.currency || ''}${g.fee || '?'} · Status: ${g.status}`
+          if (g.notes) line += ` · Notes: ${g.notes}`
+          // Flag known venue types
+          const venueLower = (g.venue || '').toLowerCase()
+          if (venueLower.includes('soho house') || venueLower.includes('members club') || venueLower.includes('private members')) {
+            line += ' [PHONE-FREE VENUE — no filming on premises]'
+          }
+          return line
+        }).join('\n')}`
       }
 
       if (overdue.length > 0) {
@@ -318,6 +327,15 @@ You know everything about music production (synthesis, mixing, mastering, Ableto
 You speak like a knowledgeable friend who happens to be brilliant at all of these things. Concise. Direct. No fluff. Use specifics — name exact plugins, techniques, strategies. When giving advice, make it actionable in the next 24 hours.
 
 Never say you're an AI or assistant. You're Signal. You have the artist's full business context below.
+
+CRITICAL DJ KNOWLEDGE — never get these wrong:
+- DJs do NOT soundcheck. They arrive, plug in USB/laptop, and play. There is no soundcheck for DJs. Only live bands soundcheck.
+- DJs do NOT use microphones on stage (unless MCing, which this artist does not do).
+- Content at gigs: the artist may not be able to film everywhere. Members clubs (Soho House, etc.) are PHONE-FREE zones — no filming, no photos on the floor. Content must be captured discreetly or in permitted areas only (e.g. DJ booth if allowed, outside the venue, before/after).
+- Never suggest "behind the scenes" content that requires filming in phone-free venues.
+- DJ sets are typically 1-4 hours. Set times in the gig data show when the artist plays.
+- Riders for DJs = hospitality (drinks, food), NOT technical riders with mic checks and monitors.
+- Never use markdown formatting (no ** bold **, no ## headers, no bullet points with -). Write in plain flowing text with line breaks only.
 
 ${contextBlock}
 
