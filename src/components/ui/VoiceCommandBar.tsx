@@ -106,28 +106,29 @@ export function VoiceCommandBar() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        title="Artist OS  (⌘.)"
+        title="Search Signal Lab (⌘.)"
         style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          zIndex: 9999,
+          bottom: '96px',
+          right: '28px',
+          zIndex: 999,
           width: '44px',
           height: '44px',
           borderRadius: '50%',
-          background: '#1a1410',
-          border: `1.5px solid ${isListening ? '#c04040' : '#b08d57'}`,
+          background: 'var(--bg)',
+          border: '1.5px solid var(--border-dim)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: isListening
-            ? '0 0 16px rgba(192,64,64,0.4)'
-            : '0 0 0 1px rgba(176,141,87,0.15), 0 4px 16px rgba(0,0,0,0.7)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
           transition: 'all 0.2s',
         }}
       >
-        <MicIcon active={isListening} size={18} />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-dimmer)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
       </button>
     )
   }
