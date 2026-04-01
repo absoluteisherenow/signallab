@@ -288,7 +288,7 @@ export default function Finances() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gig_title: newInvoice.gig_title,
-          amount: parseInt(newInvoice.amount),
+          amount: parseFloat(newInvoice.amount),
           currency: newInvoice.currency,
           type: newInvoice.type,
           due_date: newInvoice.due_date,
