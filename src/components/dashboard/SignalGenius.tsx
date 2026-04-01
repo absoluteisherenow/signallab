@@ -449,15 +449,17 @@ Rules:
       <div style={{ padding: '14px 22px 18px', borderTop: '1px solid var(--border-dim)', display: 'flex', gap: '8px' }}>
         <button onClick={toggleRecording} disabled={loading} title={recording ? 'Stop recording' : 'Voice input'} style={{
           background: recording ? 'rgba(200,60,60,0.15)' : 'transparent',
-          border: `1px solid ${recording ? 'rgba(200,60,60,0.5)' : 'var(--border-dim)'}`,
+          border: `1px solid ${recording ? 'rgba(200,60,60,0.5)' : 'rgba(176,141,87,0.3)'}`,
           color: recording ? '#c83c3c' : 'var(--text-dimmer)',
-          width: 40, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 52, height: 52, borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
+          boxShadow: 'none',
         }}
           onMouseEnter={e => { if (!recording) { (e.currentTarget as HTMLElement).style.color = 'var(--gold)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.4)' } }}
-          onMouseLeave={e => { if (!recording) { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' } }}
+          onMouseLeave={e => { if (!recording) { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.3)' } }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
             <line x1="12" y1="19" x2="12" y2="23" />

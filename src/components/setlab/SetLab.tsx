@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { analyseAudioFile, type AudioAnalysisResult } from '@/lib/audioAnalysis'
+import { analyseAudioFile } from '@/lib/audioAnalysis'
 import { ScanPulse } from '@/components/ui/ScanPulse'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800): Promise<string> {
@@ -109,199 +109,6 @@ const SAMPLE_LIBRARY: Track[] = [
   { id: '8', title: 'Jungle', artist: 'Drake feat. Tems', bpm: 120, key: 'G minor', camelot: '6A', energy: 7, genre: 'Afrobeats', duration: '3:45', notes: 'Crowd pleaser — use sparingly', analysed: true, moment_type: 'builder', position_score: 'build', mix_in: 'Acappella over outgoing track, then drop', mix_out: 'Cut during verse, blend next track percussion', crowd_reaction: 'Instant recognition — phones out, singing', similar_to: '', producer_style: 'Smooth Afrobeats production, vocal-driven' },
 ]
 
-// ── AIFF chunked reader ────────────────────────────────────────────────────
-// Parses AIFF/AIFC headers and streams PCM in chunks — handles 1GB+ files
-// without loading the full file into memory
-
-function ieee754_80ToNumber(b: Uint8Array, o: number): number {
-  const exp = ((b[o] & 0x7F) << 8) | b[o + 1]
-  let m = 0; for (let i = 0; i < 8; i++) m = m * 256 + b[o + 2 + i]
-  if (exp === 0 && m === 0) return 0
-  return m * Math.pow(2, exp - 16383 - 63)
-}
-
-interface AIFFInfo {
-  channels: number; sampleRate: number; bitDepth: number
-  dataOffset: number; dataSize: number; bytesPerFrame: number
-}
-
-async function parseAIFFInfo(file: File): Promise<AIFFInfo | null> {
-  const hdr = new Uint8Array(await file.slice(0, Math.min(1024 * 1024, file.size)).arrayBuffer())
-  const v = new DataView(hdr.buffer)
-  const t4 = (o: number) => String.fromCharCode(hdr[o], hdr[o+1], hdr[o+2], hdr[o+3])
-  if (t4(0) !== 'FORM' || (t4(8) !== 'AIFF' && t4(8) !== 'AIFC')) return null
-  let channels = 0, sampleRate = 0, bitDepth = 0, dataOffset = 0, dataSize = 0
-  let pos = 12
-  while (pos + 8 < hdr.length) {
-    const id = t4(pos)
-    const sz = v.getUint32(pos + 4, false)
-    if (id === 'COMM') {
-      channels = v.getInt16(pos + 8, false)
-      bitDepth = v.getInt16(pos + 14, false)
-      sampleRate = ieee754_80ToNumber(hdr, pos + 16)
-    } else if (id === 'SSND') {
-      const inner = v.getUint32(pos + 8, false)
-      dataOffset = pos + 16 + inner
-      dataSize = sz - 8 - inner
-    }
-    pos += 8 + sz + (sz % 2 !== 0 ? 1 : 0)
-    if (id === 'SSND' && dataOffset > 0) break // found what we need
-  }
-  if (!channels || !sampleRate || !bitDepth || !dataOffset) return null
-  const bytesPerFrame = channels * Math.ceil(bitDepth / 8)
-  return { channels, sampleRate, bitDepth, dataOffset, dataSize, bytesPerFrame }
-}
-
-function pcmBigEndianToMono(raw: Uint8Array, channels: number, bitDepth: number, frames: number): Float32Array {
-  const bps = Math.ceil(bitDepth / 8)
-  const bpf = channels * bps
-  const mono = new Float32Array(frames)
-  for (let f = 0; f < frames; f++) {
-    let sum = 0
-    for (let c = 0; c < channels; c++) {
-      const o = f * bpf + c * bps
-      if (bps === 2) {
-        sum += (((raw[o] << 8) | raw[o+1]) << 16 >> 16) / 32768
-      } else if (bps === 3) {
-        const u = (raw[o] << 16) | (raw[o+1] << 8) | raw[o+2]
-        sum += (u & 0x800000 ? u - 0x1000000 : u) / 8388608
-      } else if (bps === 4) {
-        sum += new DataView(raw.buffer, raw.byteOffset + o, 4).getInt32(0, false) / 2147483648
-      }
-    }
-    mono[f] = sum / channels
-  }
-  return mono
-}
-
-// Returns energy windows (1-second RMS) and a snippet extractor for fingerprinting
-async function processAIFFChunked(
-  file: File,
-  info: AIFFInfo,
-  onProgress?: (pct: number) => void
-): Promise<{ energyWindows: number[]; getSnippet: (startSec: number, durSec: number) => Promise<Float32Array> }> {
-  const CHUNK_BYTES = 8 * 1024 * 1024 // 8MB per chunk
-  const { channels, sampleRate, bitDepth, dataOffset, dataSize, bytesPerFrame } = info
-  const windowFrames = sampleRate // 1-second RMS windows
-  const windowBytes = windowFrames * bytesPerFrame
-  const energyWindows: number[] = []
-  let pending = new Uint8Array(0)
-  let processed = 0
-
-  for (let offset = dataOffset; offset < dataOffset + dataSize; offset += CHUNK_BYTES) {
-    const sliceEnd = Math.min(offset + CHUNK_BYTES, dataOffset + dataSize)
-    const raw = new Uint8Array(await file.slice(offset, sliceEnd).arrayBuffer())
-    // prepend any partial window from last chunk
-    const combined = new Uint8Array(pending.length + raw.length)
-    combined.set(pending); combined.set(raw, pending.length)
-    // process complete windows
-    let pos = 0
-    while (pos + windowBytes <= combined.length) {
-      const frames = windowFrames
-      let sum = 0
-      const bps = Math.ceil(bitDepth / 8)
-      const bpf = channels * bps
-      for (let f = 0; f < frames; f++) {
-        let s = 0
-        for (let c = 0; c < channels; c++) {
-          const o = pos + f * bpf + c * bps
-          if (bps === 2) s += (((combined[o] << 8) | combined[o+1]) << 16 >> 16) / 32768
-          else if (bps === 3) { const u = (combined[o] << 16) | (combined[o+1] << 8) | combined[o+2]; s += (u & 0x800000 ? u - 0x1000000 : u) / 8388608 }
-          else if (bps === 4) s += new DataView(combined.buffer, combined.byteOffset + o, 4).getInt32(0, false) / 2147483648
-        }
-        sum += (s / channels) ** 2
-      }
-      energyWindows.push(Math.sqrt(sum / frames))
-      pos += windowBytes
-    }
-    pending = combined.slice(pos)
-    processed += sliceEnd - offset
-    onProgress?.(Math.round((processed / dataSize) * 100))
-  }
-
-  const getSnippet = async (startSec: number, durSec: number): Promise<Float32Array> => {
-    const startFrame = Math.floor(startSec * sampleRate)
-    const numFrames = Math.floor(durSec * sampleRate)
-    const startByte = dataOffset + startFrame * bytesPerFrame
-    const numBytes = numFrames * bytesPerFrame
-    const raw = new Uint8Array(await file.slice(startByte, startByte + numBytes).arrayBuffer())
-    return pcmBigEndianToMono(raw, channels, bitDepth, Math.floor(raw.length / bytesPerFrame))
-  }
-
-  return { energyWindows, getSnippet }
-}
-
-// ── BPM estimator (shared between AIFF and decoded paths) ──────────────────
-function estimateBPM(mono: Float32Array, sampleRate: number): number | null {
-  if (mono.length < sampleRate * 10) return null
-  const hopSize = Math.round(sampleRate / 20)
-  const onsets: number[] = []
-  for (let i = hopSize; i < mono.length; i += hopSize) {
-    let s = 0; for (let j = 0; j < hopSize && i + j < mono.length; j++) s += mono[i + j] ** 2
-    onsets.push(Math.sqrt(s / hopSize))
-  }
-  let bestBpm = 128, bestScore = -1
-  for (let bpm = 90; bpm <= 180; bpm++) {
-    const period = (60 / bpm) * 20; let score = 0
-    for (let i = 0; i < onsets.length; i++) {
-      const j = Math.round(i + period) % onsets.length; score += onsets[i] * onsets[j]
-    }
-    if (score > bestScore) { bestScore = score; bestBpm = bpm }
-  }
-  return bestBpm
-}
-
-// ── WAV snippet encoder — for dual fingerprinting (AudD + ACRCloud) ──────────
-// CRITICAL: Send at original sample rate (44100 Hz) — downsampling to 16 kHz
-// strips all spectral content above 8 kHz (hi-hats, synths, vocals) which
-// destroys the audio fingerprint. ACRCloud/AudD handle any sample rate.
-// For mixes longer than needed, we downsample to 22050 Hz to keep file size
-// manageable while preserving enough spectrum for reliable recognition.
-const TARGET_SAMPLE_RATE = 22050
-
-function encodeWAVSnippet(mono: Float32Array, sampleRate: number, startSample: number, numSamples: number): Blob {
-  const srcCount = Math.min(numSamples, Math.max(0, mono.length - startSample))
-  if (srcCount === 0) return new Blob([], { type: 'audio/wav' })
-
-  // Downsample to TARGET_SAMPLE_RATE if source is higher, otherwise keep original
-  const outRate = sampleRate > TARGET_SAMPLE_RATE ? TARGET_SAMPLE_RATE : sampleRate
-  const ratio = sampleRate / outRate
-  const outCount = Math.floor(srcCount / ratio)
-  const resampled = new Float32Array(outCount)
-
-  if (ratio === 1) {
-    // No resampling needed — direct copy
-    for (let i = 0; i < outCount; i++) {
-      resampled[i] = mono[startSample + i]
-    }
-  } else {
-    // Downsample using linear interpolation
-    for (let i = 0; i < outCount; i++) {
-      const srcIdx = i * ratio
-      const lo = Math.floor(srcIdx)
-      const hi = Math.min(lo + 1, srcCount - 1)
-      const frac = srcIdx - lo
-      resampled[i] = mono[startSample + lo] * (1 - frac) + mono[startSample + hi] * frac
-    }
-  }
-
-  const count = outCount
-  const buf = new ArrayBuffer(44 + count * 2)
-  const v = new DataView(buf)
-  const ws = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)) }
-  ws(0, 'RIFF'); v.setUint32(4, 36 + count * 2, true); ws(8, 'WAVE')
-  ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
-  v.setUint32(24, outRate, true); v.setUint32(28, outRate * 2, true)
-  v.setUint16(32, 2, true); v.setUint16(34, 16, true)
-  ws(36, 'data'); v.setUint32(40, count * 2, true)
-  let off = 44
-  for (let i = 0; i < count; i++) {
-    const s = Math.max(-1, Math.min(1, resampled[i]))
-    v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true)
-    off += 2
-  }
-  return new Blob([buf], { type: 'audio/wav' })
-}
 
 export function SetLab() {
   const [activeTab, setActiveTab] = useState<'library' | 'builder' | 'history' | 'discover' | 'scanner' | 'intelligence'>('library')
@@ -340,24 +147,20 @@ export function SetLab() {
   // RA rich index: key → attribution
   const raRichMapRef = useRef<Map<string, { charted_by: string; chart_title: string }>>(new Map())
   const audioInputRef = useRef<HTMLInputElement>(null)
+  const screenshotInputRef = useRef<HTMLInputElement>(null)
+  const [screenshotImporting, setScreenshotImporting] = useState(false)
+  const [screenshotImportDrag, setScreenshotImportDrag] = useState(false)
+  const [screenshotImportProgress, setScreenshotImportProgress] = useState('')
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
   // ── Mix Scanner state ───────────────────────────────────────────────────
-  const [scannerFile, setScannerFile] = useState<File | null>(null)
-  const [scannerDragOver, setScannerDragOver] = useState(false)
   const [scannerTracklist, setScannerTracklist] = useState('')
   const [scannerContext, setScannerContext] = useState('')
   const [scanning, setScanning] = useState(false)
-  const [acrStatus, setAcrStatus] = useState<{ok: boolean, detail: string} | null>(null)
-  const [testingAcr, setTestingAcr] = useState(false)
   const [scanProgress, setScanProgress] = useState('')
   const [scanResult, setScanResult] = useState<any>(null)
   const [scanError, setScanError] = useState('')
-  const scannerFileRef = useRef<HTMLInputElement>(null)
-  const [scanPhase, setScanPhase] = useState<'upload' | 'detecting' | 'fingerprinting' | 'review' | 'analysing'>('upload')
-  const [detectedTracks, setDetectedTracks] = useState<Array<{time_in: string, title: string, artist: string, confidence: number, found: boolean, source?: string, acrCode?: number, acrMsg?: string}>>([])
-  const scanAudioRef = useRef<any>(null)
-  const [tracklistImgParsing, setTracklistImgParsing] = useState(false)
-  const tracklistImgRef = useRef<HTMLInputElement>(null)
+  const [scanPhase, setScanPhase] = useState<'upload' | 'review' | 'analysing'>('upload')
+  const [detectedTracks, setDetectedTracks] = useState<Array<{time_in: string, title: string, artist: string, confidence: number, found: boolean, source?: string}>>([])
   const [screenshotDragging, setScreenshotDragging] = useState(false)
   const [parsingScreenshot, setParsing] = useState(false)
   const [currentScanId, setCurrentScanId] = useState<string | null>(null)
@@ -471,6 +274,118 @@ Return JSON:
     setDragOver(false)
     if (e.dataTransfer.files.length > 0) handleAudioFiles(e.dataTransfer.files)
   }, [])
+
+  // ── Screenshot Import → Extract tracks via vision → Add to library ─────
+  async function importTracksFromScreenshot(file: File) {
+    if (!file.type.startsWith('image/')) {
+      showToast('Please drop an image file (PNG, JPG, etc.)', 'Error')
+      return
+    }
+    setScreenshotImporting(true)
+    setScreenshotImportProgress('Reading screenshot...')
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      setScreenshotImportProgress('Extracting tracks from image...')
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 2000,
+          system: 'You are a tracklist extraction assistant for DJs. Return ONLY valid JSON, no markdown.',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
+              { type: 'text', text: 'Extract every track visible in this screenshot (from Traktor, Rekordbox, CDJ screen, or any DJ software). Return ONLY a JSON array:\n[{"title": "track title", "artist": "artist name", "bpm": number or null, "key": "key or null"}]\n\nRules:\n- Include BPM and key if visible in the screenshot, otherwise null\n- If artist is unknown use "Unknown"\n- No markdown, just the JSON array' }
+            ]
+          }]
+        })
+      })
+      const data = await res.json()
+      const raw = data.content?.[0]?.text || '[]'
+      const jsonMatch = raw.match(/\[[\s\S]*\]/)
+      if (!jsonMatch) throw new Error('No tracks found')
+      const extracted: { title: string; artist: string; bpm?: number | null; key?: string | null }[] = JSON.parse(jsonMatch[0])
+      if (extracted.length === 0) throw new Error('No tracks found')
+
+      setScreenshotImportProgress(`Enriching ${extracted.length} tracks...`)
+      let added = 0
+      for (const ext of extracted) {
+        try {
+          setScreenshotImportProgress(`Enriching ${ext.title} (${added + 1}/${extracted.length})...`)
+          const enrichRaw = await callClaude(
+            'You are a music intelligence expert for DJs. Return ONLY valid JSON, no markdown.',
+            `Enrich this track for a DJ library:
+Title: ${ext.title}
+Artist: ${ext.artist}
+${ext.bpm ? `BPM from screenshot: ${ext.bpm}` : ''}
+${ext.key ? `Key from screenshot: ${ext.key}` : ''}
+
+Return JSON:
+{
+  "title": "correct track title",
+  "artist": "correct artist name",
+  "bpm": BPM as number,
+  "key": "musical key (e.g. F minor)",
+  "camelot": "Camelot code (e.g. 4A)",
+  "energy": number 1-10,
+  "genre": "genre",
+  "moment_type": "opener|builder|peak|breakdown|closer",
+  "position_score": "warm-up|build|peak|cool-down",
+  "mix_in": "specific DJ mix-in technique",
+  "mix_out": "specific mix-out technique",
+  "crowd_reaction": "expected crowd response in 5-8 words",
+  "producer_style": "one sentence about production style",
+  "notes": "when/how to use in a set"
+}`, 400)
+
+          const d = JSON.parse(enrichRaw.replace(/```json|```/g, '').trim())
+          const track: Track = {
+            id: Date.now().toString() + Math.random(),
+            title: d.title || ext.title,
+            artist: d.artist || ext.artist,
+            bpm: d.bpm || ext.bpm || 128,
+            key: d.key || ext.key || '',
+            camelot: d.camelot || '',
+            energy: d.energy || 5,
+            genre: d.genre || 'Electronic',
+            duration: '',
+            notes: d.notes || '',
+            analysed: true,
+            moment_type: d.moment_type || 'builder',
+            position_score: d.position_score || 'build',
+            mix_in: d.mix_in || '',
+            mix_out: d.mix_out || '',
+            crowd_reaction: d.crowd_reaction || '',
+            similar_to: '',
+            producer_style: d.producer_style || '',
+          }
+
+          await fetch('/api/tracks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tracks: [track] }),
+          })
+          setLibrary(prev => [...prev, track])
+          added++
+        } catch {
+          showToast(`Could not enrich ${ext.title}`, 'Error')
+        }
+      }
+      showToast(`${added} track${added !== 1 ? 's' : ''} imported from screenshot`, 'Done')
+    } catch {
+      showToast('Could not read screenshot — try a clearer image', 'Error')
+    } finally {
+      setScreenshotImporting(false)
+      setScreenshotImportProgress('')
+    }
+  }
 
   const filteredLibrary = library.filter(t =>
     t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -912,298 +827,9 @@ Return corrected JSON:
     showToast('Track updated', 'Done')
   }
 
-  // ── Mix Scanner — Phase 1: Decode + Detect + Fingerprint ───────────────
-  async function analyseMix() {
-    if (!scannerFile) { showToast('No mix file loaded', 'Error'); return }
-    setScanPhase('detecting')
-    setScanning(true)
-    setScanResult(null)
-    setScanError('')
-    setDetectedTracks([])
-
-    try {
-      // 1. Decode / stream audio
-      const isAiff = /\.aiff?$/i.test(scannerFile.name)
-      let duration = 0
-      let sampleRate = 44100
-      let energyWindows: number[] = []
-      let bpmEstimate: number | null = null
-      // For fingerprinting — either a full mono buffer or a per-snippet loader
-      let monoFull: Float32Array | null = null
-      let aiffSnippet: ((startSec: number, durSec: number) => Promise<Float32Array>) | null = null
-
-      if (isAiff) {
-        setScanProgress('Reading AIFF header…')
-        const info = await parseAIFFInfo(scannerFile)
-        if (!info) throw new Error('Could not read AIFF file — check it is a valid AIFF/AIFC')
-        sampleRate = Math.round(info.sampleRate)
-        duration = info.dataSize / info.bytesPerFrame / sampleRate
-        setScanProgress('Reading mix…')
-        const aiff = await processAIFFChunked(scannerFile, info, pct => setScanProgress(`Reading mix… ${pct}%`))
-        energyWindows = aiff.energyWindows
-        aiffSnippet = aiff.getSnippet
-        // BPM from 60s middle window
-        const midSec = Math.max(0, duration / 2 - 30)
-        const bmpMono = await aiff.getSnippet(midSec, Math.min(60, duration - midSec))
-        bpmEstimate = estimateBPM(bmpMono, sampleRate)
-      } else {
-        setScanProgress('Reading mix…')
-        const arrayBuffer = await scannerFile.arrayBuffer()
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
-        const audioCtx = new AudioCtx()
-        let decoded: AudioBuffer
-        try {
-          decoded = await audioCtx.decodeAudioData(arrayBuffer)
-        } catch {
-          throw new Error('Could not decode audio — try MP3, WAV, AIFF, or FLAC')
-        }
-        audioCtx.close()
-        duration = decoded.duration
-        sampleRate = decoded.sampleRate
-        setScanProgress('Reading mix…')
-        const mono = new Float32Array(decoded.length)
-        for (let c = 0; c < decoded.numberOfChannels; c++) {
-          const ch = decoded.getChannelData(c)
-          for (let i = 0; i < decoded.length; i++) mono[i] += ch[i] / decoded.numberOfChannels
-        }
-        monoFull = mono
-        const windowSize = sampleRate
-        for (let i = 0; i < mono.length; i += windowSize) {
-          let sum = 0; const end = Math.min(i + windowSize, mono.length)
-          for (let j = i; j < end; j++) sum += mono[j] * mono[j]
-          energyWindows.push(Math.sqrt(sum / (end - i)))
-        }
-        if (duration < 7200) {
-          const midStart = Math.floor((mono.length / 2) - sampleRate * 30)
-          bpmEstimate = estimateBPM(mono.slice(Math.max(0, midStart), midStart + sampleRate * 60), sampleRate)
-        }
-      }
-
-      // Normalise energy + detect transitions
-      setScanProgress('Finding tracks…')
-      const maxEnergy  = Math.max(...energyWindows) || 1
-      const normEnergy = energyWindows.map(e => e / maxEnergy)
-      const avgEnergy  = normEnergy.reduce((a, b) => a + b, 0) / normEnergy.length
-      const peakEnergy = Math.max(...normEnergy)
-
-      const smoothWindow = 4
-      const smoothed: number[] = []
-      for (let i = 0; i < normEnergy.length; i++) {
-        let sum = 0, count = 0
-        for (let j = Math.max(0, i - smoothWindow); j <= Math.min(normEnergy.length - 1, i + smoothWindow); j++) {
-          sum += normEnergy[j]; count++
-        }
-        smoothed.push(sum / count)
-      }
-      const transitions: { time_seconds: number; energy_before: number; energy_after: number; energy_dip: number }[] = []
-      let lastAt = -60
-      for (let i = smoothWindow; i < smoothed.length - smoothWindow; i++) {
-        const before = smoothed.slice(Math.max(0, i - 8), i).reduce((a, b) => a + b, 0) / 8
-        const after  = smoothed.slice(i + 1, Math.min(smoothed.length, i + 9)).reduce((a, b) => a + b, 0) / 8
-        const here   = smoothed[i]
-        const dip    = ((before + after) / 2) - here
-        const isMin  = smoothed[i - 1] >= here && smoothed[i + 1] >= here
-        if (isMin && dip > 0.05 && (i - lastAt) >= 60) {
-          transitions.push({ time_seconds: i, energy_before: before, energy_after: after, energy_dip: dip })
-          lastAt = i
-        }
-      }
-      const topTransitions = transitions.sort((a, b) => b.energy_dip - a.energy_dip).slice(0, 25).sort((a, b) => a.time_seconds - b.time_seconds)
-
-      // Store audio analysis data for later Claude call
-      scanAudioRef.current = {
-        filename:          scannerFile.name,
-        duration_seconds:  Math.round(duration),
-        avg_energy:        parseFloat(avgEnergy.toFixed(3)),
-        peak_energy:       parseFloat(peakEnergy.toFixed(3)),
-        transition_points: topTransitions,
-        bpm_estimate:      bpmEstimate,
-      }
-
-      // 2. Fingerprint each segment
-      setScanPhase('fingerprinting')
-      const segmentStarts = [0, ...topTransitions.map(t => t.time_seconds)]
-      const segments = segmentStarts.map((startTime, i) => ({
-        startTime,
-        endTime: i < segmentStarts.length - 1 ? segmentStarts[i + 1] : duration,
-      })).slice(0, 30)
-
-      const results: Array<{ time_in: string; title: string; artist: string; confidence: number; found: boolean; source?: string; acrCode?: number; acrMsg?: string }> = []
-
-      // ── Helper: get a WAV blob for a given start + duration ──────────────
-      async function getWavBlob(startSec: number, durSec: number): Promise<Blob | null> {
-        if (monoFull) {
-          return encodeWAVSnippet(monoFull, sampleRate, Math.floor(startSec * sampleRate), Math.floor(durSec * sampleRate))
-        } else if (aiffSnippet) {
-          const mono = await aiffSnippet(startSec, durSec)
-          return encodeWAVSnippet(mono, sampleRate, 0, mono.length)
-        }
-        return null
-      }
-
-      for (let i = 0; i < segments.length; i++) {
-        const seg    = segments[i]
-        const segLen = seg.endTime - seg.startTime
-
-        const mm = Math.floor(seg.startTime / 60).toString().padStart(2, '0')
-        const ss = Math.floor(seg.startTime % 60).toString().padStart(2, '0')
-        const timeIn = `${mm}:${ss}`
-
-        // ── Multi-position retry ─────────────────────────────────────────
-        // DJs pitch-shift and time-stretch, which moves the audio fingerprint.
-        // Transition zones contain two blended tracks — any sample landing there
-        // will fail to match. Retrying at different positions within the segment
-        // dramatically increases the chance of hitting a clean, single-track zone.
-        //
-        // Attempts (in order):
-        //   1. Centre of the middle third (deepest into the track, cleanest)
-        //   2. 65% through the segment (later, past the mix-in)
-        //   3. 35% through the segment (earlier, before mix-out begins)
-        //
-        // Sample duration increases on each retry to give AudD more audio to work with.
-
-        type SampleAttempt = { startRatio: number; durSec: number; label: string }
-        let attempts: SampleAttempt[]
-
-        if (segLen >= 40) {
-          // Long segment — three attempts across middle zone with generous samples
-          // ACRCloud needs 10-20s of clean audio; longer = more reliable
-          attempts = [
-            { startRatio: 0.45, durSec: Math.min(30, segLen * 0.25), label: 'centre' },
-            { startRatio: 0.65, durSec: Math.min(30, segLen * 0.25), label: 'late'   },
-            { startRatio: 0.25, durSec: Math.min(30, segLen * 0.25), label: 'early'  },
-          ]
-        } else if (segLen >= 20) {
-          // Medium segment — two attempts with longer samples
-          attempts = [
-            { startRatio: 0.45, durSec: Math.min(18, segLen * 0.45), label: 'centre' },
-            { startRatio: 0.70, durSec: Math.min(18, segLen * 0.40), label: 'late'   },
-          ]
-        } else if (segLen >= 10) {
-          // Short segment — one attempt from centre, use most of it
-          attempts = [
-            { startRatio: 0.30, durSec: Math.min(10, segLen * 0.60), label: 'centre' },
-          ]
-        } else {
-          // Too short — skip
-          results.push({ time_in: timeIn, title: 'Unknown / White label', artist: '', confidence: 0, found: false })
-          continue
-        }
-
-        let trackResult: (typeof results)[number] | null = null
-
-        for (let a = 0; a < attempts.length; a++) {
-          const attempt = attempts[a]
-          if (attempt.durSec < 5) continue
-
-          const sampleStart = seg.startTime + segLen * attempt.startRatio
-          // Clamp so sample doesn't run past end of segment
-          const sampleDur = Math.min(attempt.durSec, seg.endTime - sampleStart - 1)
-          if (sampleDur < 5) continue
-
-          setScanProgress(`Identifying track ${i + 1} of ${segments.length}${a > 0 ? ` (retry ${a})` : ''}…`)
-
-          try {
-            const wavBlob = await getWavBlob(sampleStart, sampleDur)
-            if (!wavBlob) break
-
-            const fd = new FormData()
-            fd.append('audio', wavBlob, 'snippet.wav')
-            const resp = await fetch('/api/fingerprint', { method: 'POST', body: fd })
-            const data = await resp.json()
-
-            if (data.found && data.confidence >= 50) {
-              trackResult = { time_in: timeIn, title: data.title, artist: data.artist, confidence: data.confidence, found: true, source: data.source }
-              break // found with sufficient confidence — no need to retry
-            }
-            // Low confidence match — treat as not found, try next position
-            // Not found — loop to next attempt position
-          } catch {
-            // Network error — continue to next attempt
-          }
-        }
-
-        results.push(trackResult ?? { time_in: timeIn, title: 'Unknown / White label', artist: '', confidence: 0, found: false })
-      }
-
-      // ── Deduplication pass ─────────────────────────────────────────────
-      // Remove consecutive fingerprint hits on the same track — happens when
-      // the energy detector splits a long track or catches the same track at
-      // two sample points within a 5-minute window.
-      const normaliseTitle = (t: string) =>
-        t.toLowerCase()
-          .replace(/\(.*?\)/g, '')              // strip (Ploy Remix), (Original Mix) etc
-          .replace(/remix|edit|version|mix|original|extended|radio/gi, '')
-          .replace(/\s+/g, ' ').trim()
-      const parseTimeSecs = (t: string) => {
-        const parts = t.split(':').map(Number)
-        return parts.length === 3
-          ? parts[0] * 3600 + parts[1] * 60 + parts[2]
-          : parts[0] * 60 + (parts[1] || 0)
-      }
-
-      const deduped: typeof results = []
-      for (const track of results) {
-        if (!track.found) { deduped.push(track); continue }
-        const lastFound = [...deduped].reverse().find(t => t.found)
-        if (lastFound) {
-          const sameArtist = lastFound.artist.toLowerCase() === track.artist.toLowerCase()
-          const sameTitle  = normaliseTitle(lastFound.title) === normaliseTitle(track.title)
-          const timeDiff   = parseTimeSecs(track.time_in) - parseTimeSecs(lastFound.time_in)
-          if (sameArtist && sameTitle && timeDiff < 300) {
-            // Same track within 5 min — suppress duplicate, mark slot unknown
-            deduped.push({ ...track, found: false, title: 'Unknown / White label', artist: '', confidence: 0 })
-            continue
-          }
-        }
-        deduped.push(track)
-      }
-
-      setDetectedTracks(deduped)
-
-      // Auto-populate the tracklist textarea
-      const autoTracklist = deduped.map((t, i) =>
-        `${i + 1}. ${t.time_in}  ${t.found ? `${t.artist} - ${t.title}` : 'Unknown / White label'}`
-      ).join('\n')
-      setScannerTracklist(autoTracklist)
-
-      setScanPhase('review')
-      setScanning(false)
-      setScanProgress('')
-
-      // Cross-reference with RA charts in background
-      fetchRaForScanner(deduped)
-
-      // Persist scan to Supabase
-      try {
-        const saveResp = await fetch('/api/mix-scans', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: scannerFile.name,
-            duration_seconds: Math.round(duration),
-            bpm_estimate: bpmEstimate,
-            tracklist: autoTracklist,
-            detected_tracks: deduped,
-            context: scannerContext.trim() || null,
-            status: 'detected',
-          }),
-        })
-        const saveData = await saveResp.json()
-        if (saveData.success && saveData.scan?.id) {
-          setCurrentScanId(saveData.scan.id)
-        }
-      } catch {
-        // Non-blocking — persistence is best-effort
-      }
-
-    } catch (err: any) {
-      setScanError(err.message || 'Analysis failed')
-      setScanning(false)
-      setScanProgress('')
-      setScanPhase('upload')
-    }
-  }
+  // ── Mix Scanner — Screenshot-only flow ────────────────────────────────────
+  const [tracklistImgParsing, setTracklistImgParsing] = useState(false)
+  const tracklistImgRef = useRef<HTMLInputElement>(null)
 
   // ── Mix Scanner — Tracklist Screenshot Parser ────────────────────────────
   async function parseTracklistImage(file: File) {
@@ -1385,8 +1011,8 @@ Return corrected JSON:
     const tracklistText = scannerTracklist.trim()
       || detectedTracks.map((t, i) => `${i + 1}. ${t.artist ? t.artist + ' — ' : ''}${t.title}`).join('\n')
 
-    if (!scanAudioRef.current && !tracklistText) {
-      showToast('Upload a mix or add a tracklist first', 'Error')
+    if (!tracklistText) {
+      showToast('Add a tracklist first — paste it or import from a screenshot', 'Error')
       return
     }
     setScanPhase('analysing')
@@ -1397,7 +1023,6 @@ Return corrected JSON:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...(scanAudioRef.current || {}),
           tracklist: tracklistText || undefined,
           context:   scannerContext.trim()   || undefined,
         }),
@@ -1569,7 +1194,7 @@ Return corrected JSON:
 
   // Save whenever scanner state changes
   useEffect(() => {
-    if (scanPhase === 'upload' || scanPhase === 'detecting' || scanPhase === 'fingerprinting') return
+    if (scanPhase === 'upload') return
     try {
       localStorage.setItem(SCANNER_KEY, JSON.stringify({
         detectedTracks,
@@ -1702,6 +1327,47 @@ Return corrected JSON:
                   </div>
                   <div style={{ fontSize: '10px', color: s.textDimmer }}>
                     Extracts BPM from audio waveform · adds key, energy, mix techniques, crowd reaction
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Screenshot import zone — snap a photo of Traktor/Rekordbox tracklist */}
+            <div
+              onDragOver={e => { e.preventDefault(); setScreenshotImportDrag(true) }}
+              onDragLeave={() => setScreenshotImportDrag(false)}
+              onDrop={e => {
+                e.preventDefault()
+                setScreenshotImportDrag(false)
+                const file = e.dataTransfer.files[0]
+                if (file) importTracksFromScreenshot(file)
+              }}
+              onClick={() => !screenshotImporting && screenshotInputRef.current?.click()}
+              style={{
+                border: `1px dashed ${screenshotImportDrag ? s.setlab : s.border}`,
+                background: screenshotImportDrag ? 'rgba(154,106,90,0.06)' : s.panel,
+                padding: screenshotImporting ? '16px 24px' : '20px 24px',
+                textAlign: 'center',
+                cursor: screenshotImporting ? 'default' : 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              <input ref={screenshotInputRef} type="file" accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) importTracksFromScreenshot(f); e.target.value = '' }} />
+
+              {screenshotImporting ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <ScanPulse size="sm" color={s.setlab} />
+                  <div style={{ fontSize: '12px', color: s.setlab }}>{screenshotImportProgress}</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: screenshotImportDrag ? s.setlab : s.textDim, marginBottom: '4px' }}>
+                    {screenshotImportDrag ? 'Drop screenshot here' : 'Import from screenshot'}
+                  </div>
+                  <div style={{ fontSize: '10px', color: s.textDimmer }}>
+                    Drop a photo of your tracklist (Traktor, Rekordbox, CDJ screen) — tracks extracted and added to library
                   </div>
                 </div>
               )}
@@ -2363,95 +2029,133 @@ Return corrected JSON:
               <div>
                 <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.25em', color: s.setlab, marginBottom: '6px' }}>MIX SCANNER</div>
                 <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
-                  Upload a recorded DJ mix · Breaks down transitions, energy arc and flow · Rated out of 10
+                  Upload a screenshot of your tracklist · Track-by-track feedback, curation analysis · Rated out of 10
                 </div>
               </div>
               {scanResult && (
-                <button onClick={() => { setScanResult(null); setScannerFile(null); setScanError(''); setScanPhase('upload'); setDetectedTracks([]); clearScannerState() }}
+                <button onClick={() => { setScanResult(null); setScanError(''); setScanPhase('upload'); setDetectedTracks([]); setScannerTracklist(''); clearScannerState() }}
                   style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '8px 14px' }}>
                   Scan another mix
                 </button>
               )}
             </div>
 
-            {/* Upload zone — only shown when no file and no result */}
-            {!scannerFile && !scanResult && scanPhase === 'upload' && (
-              <div
-                onDragOver={e => { e.preventDefault(); setScannerDragOver(true) }}
-                onDragLeave={() => setScannerDragOver(false)}
-                onDrop={e => {
-                  e.preventDefault(); setScannerDragOver(false)
-                  const f = e.dataTransfer.files[0]
-                  if (f && /\.(mp3|wav|flac|aac|m4a|ogg|aiff?)$/i.test(f.name)) setScannerFile(f)
-                  else showToast('Drop an audio file — MP3, WAV, or FLAC', 'Error')
-                }}
-                onClick={() => scannerFileRef.current?.click()}
-                style={{
-                  border: `2px dashed ${scannerDragOver ? s.setlab : s.border}`,
-                  background: scannerDragOver ? 'rgba(154,106,90,0.06)' : s.panel,
-                  padding: '64px 32px', textAlign: 'center', cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}>
-                <input ref={scannerFileRef} type="file" accept=".mp3,.wav,.flac,.aac,.m4a,.ogg,.aif,.aiff"
-                  style={{ display: 'none' }} onChange={e => {
-                    const f = e.target.files?.[0]
-                    if (f) setScannerFile(f)
-                  }} />
-                <div style={{ fontSize: '28px', marginBottom: '16px', opacity: 0.3 }}>◎</div>
-                <div style={{ fontSize: '12px', letterSpacing: '0.18em', color: s.text, textTransform: 'uppercase', marginBottom: '8px' }}>
-                  Drop mix file here or click to browse
-                </div>
-                <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                  MP3 · WAV · FLAC · M4A · up to 2 hours
-                </div>
-              </div>
-            )}
+            {/* Screenshot import — primary upload zone */}
+            {!scanResult && scanPhase === 'upload' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-            {/* Screenshot import — shown when no file and no result */}
-            {!scannerFile && !scanResult && scanPhase === 'upload' && (
-              <div
-                onDragOver={e => { e.preventDefault(); setScreenshotDragging(true) }}
-                onDragLeave={() => setScreenshotDragging(false)}
-                onDrop={async e => {
-                  e.preventDefault()
-                  setScreenshotDragging(false)
-                  const file = e.dataTransfer.files[0]
-                  if (!file || !file.type.startsWith('image/')) return
-                  await parseTracklistScreenshot(file)
-                }}
-                style={{
-                  border: `1px dashed ${screenshotDragging ? '#c9a46e' : '#2a2218'}`,
-                  borderRadius: 4,
-                  padding: '20px 24px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  background: screenshotDragging ? 'rgba(201,164,110,0.04)' : 'transparent',
-                  transition: 'all 0.15s',
-                  marginBottom: 16,
-                }}
-                onClick={() => {
-                  const inp = document.createElement('input')
-                  inp.type = 'file'; inp.accept = 'image/*'
-                  inp.onchange = async (ev) => {
-                    const f = (ev.target as HTMLInputElement).files?.[0]
-                    if (f) await parseTracklistScreenshot(f)
-                  }
-                  inp.click()
-                }}
-              >
-                {parsingScreenshot ? (
-                  <span style={{ fontSize: '11px', color: '#c9a46e', letterSpacing: '0.1em' }}>READING SCREENSHOT…</span>
-                ) : (
-                  <>
-                    <div style={{ fontSize: '10px', color: '#5a4a38', letterSpacing: '0.15em', marginBottom: 6 }}>IMPORT FROM SCREENSHOT</div>
-                    <div style={{ fontSize: '11px', color: '#3a2e1a' }}>Drop a photo of your tracklist (Traktor, Rekordbox, CDJ screen)</div>
-                  </>
+                {/* Screenshot drop zone */}
+                <div
+                  onDragOver={e => { e.preventDefault(); setScreenshotDragging(true) }}
+                  onDragLeave={() => setScreenshotDragging(false)}
+                  onDrop={async e => {
+                    e.preventDefault()
+                    setScreenshotDragging(false)
+                    const file = e.dataTransfer.files[0]
+                    if (!file || !file.type.startsWith('image/')) return
+                    await parseTracklistScreenshot(file)
+                  }}
+                  style={{
+                    border: `2px dashed ${screenshotDragging ? s.setlab : s.border}`,
+                    background: screenshotDragging ? 'rgba(154,106,90,0.06)' : s.panel,
+                    padding: '64px 32px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  onClick={() => {
+                    const inp = document.createElement('input')
+                    inp.type = 'file'; inp.accept = 'image/*'
+                    inp.onchange = async (ev) => {
+                      const f = (ev.target as HTMLInputElement).files?.[0]
+                      if (f) await parseTracklistScreenshot(f)
+                    }
+                    inp.click()
+                  }}
+                >
+                  {parsingScreenshot ? (
+                    <span style={{ fontSize: '11px', color: s.setlab, letterSpacing: '0.1em' }}>READING SCREENSHOT...</span>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '28px', marginBottom: '16px', opacity: 0.3 }}>◎</div>
+                      <div style={{ fontSize: '12px', letterSpacing: '0.18em', color: s.text, textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Drop tracklist screenshot or click to browse
+                      </div>
+                      <div style={{ fontSize: '10px', color: s.textDimmer }}>
+                        Traktor history · Rekordbox · CDJ screen · Any tracklist image
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ flex: 1, height: '1px', background: s.border }} />
+                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase' }}>Or paste manually</div>
+                  <div style={{ flex: 1, height: '1px', background: s.border }} />
+                </div>
+
+                {/* Manual paste section */}
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>
+                    Set context <span style={{ opacity: 0.5 }}>(optional)</span>
+                  </div>
+                  <input
+                    value={scannerContext}
+                    onChange={e => setScannerContext(e.target.value)}
+                    placeholder="e.g. 2hr techno set, club warm-up, festival peak time..."
+                    style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.gold, textTransform: 'uppercase' }}>
+                      Tracklist
+                    </div>
+                    <button
+                      onClick={() => tracklistImgRef.current?.click()}
+                      disabled={tracklistImgParsing}
+                      style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: s.setlab, background: 'transparent', border: `1px solid ${s.setlab}50`, padding: '4px 10px', cursor: tracklistImgParsing ? 'wait' : 'pointer', fontFamily: s.font, opacity: tracklistImgParsing ? 0.5 : 1 }}
+                    >
+                      {tracklistImgParsing ? 'Reading...' : '↑ Screenshot'}
+                    </button>
+                    <input ref={tracklistImgRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) parseTracklistImage(f) }} style={{ display: 'none' }} />
+                  </div>
+                  <textarea
+                    value={scannerTracklist}
+                    onChange={e => setScannerTracklist(e.target.value)}
+                    placeholder={'1. Artist - Title\n2. Artist - Title\n3. Artist - Title\n...'}
+                    rows={6}
+                    style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '10px 14px', outline: 'none', resize: 'vertical', boxSizing: 'border-box', lineHeight: '1.6' }}
+                  />
+                </div>
+
+                {/* Analyse button */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button
+                    onClick={runClaudeAnalysis}
+                    disabled={scanning || !scannerTracklist.trim()}
+                    style={{
+                      ...btn(s.setlab),
+                      fontSize: '11px', padding: '14px 32px',
+                      opacity: (scanning || !scannerTracklist.trim()) ? 0.5 : 1,
+                      cursor: (scanning || !scannerTracklist.trim()) ? 'default' : 'pointer',
+                    }}>
+                    {scanning ? scanProgress || 'Analysing...' : 'Analyse mix \u2192'}
+                  </button>
+                </div>
+
+                {scanError && (
+                  <div style={{ background: 'rgba(192,64,64,0.1)', border: '1px solid rgba(192,64,64,0.3)', padding: '14px 18px', fontSize: '12px', color: '#c04040' }}>
+                    {scanError}
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Scanning progress — shown during detect, fingerprint, and analysing phases */}
-            {(scanPhase === 'detecting' || scanPhase === 'fingerprinting' || scanPhase === 'analysing') && (
+            {/* Scanning progress — shown during analysing phase */}
+            {scanPhase === 'analysing' && (
               <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '48px 32px', textAlign: 'center' }}>
 
                 {/* Animated pulse emblem */}
@@ -2460,113 +2164,15 @@ Return corrected JSON:
                 </div>
 
                 <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>
-                  {scanPhase === 'detecting' ? 'Analysing mix' : scanPhase === 'fingerprinting' ? 'Identifying tracks' : 'Generating analysis'}
+                  Generating analysis
                 </div>
                 <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '4px' }}>
-                  {scanPhase === 'analysing' ? 'Reading your tracklist and building feedback…' : scanProgress}
+                  Reading your tracklist and building feedback...
                 </div>
-                {scanPhase === 'fingerprinting' && detectedTracks.length > 0 && (
-                  <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '8px' }}>
-                    {detectedTracks.filter(t => t.found).length} of {detectedTracks.length} tracks identified so far
-                  </div>
-                )}
-                {scanPhase === 'analysing' && (
-                  <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '6px', letterSpacing: '0.08em' }}>
-                    This takes 15–30 seconds
-                  </div>
-                )}
-
-              </div>
-            )}
-
-            {/* File loaded — ready to analyse */}
-            {scannerFile && !scanResult && scanPhase === 'upload' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                {/* File info bar */}
-                <div style={{ background: s.panel, border: `1px solid ${s.borderBright}`, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.setlab, flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontSize: '12px', color: s.text, letterSpacing: '0.05em' }}>{scannerFile.name}</div>
-                      <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>
-                        {(scannerFile.size / 1024 / 1024).toFixed(1)} MB
-                      </div>
-                    </div>
-                  </div>
-                  <button onClick={() => setScannerFile(null)}
-                    style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '6px 12px' }}>
-                    Remove
-                  </button>
+                <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '6px', letterSpacing: '0.08em' }}>
+                  This takes 15-30 seconds
                 </div>
 
-                {/* Tracklist note */}
-                <div style={{ background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '12px 16px', fontSize: '11px', color: s.textDim, lineHeight: '1.6' }}>
-                  <span style={{ color: s.gold }}>Add your tracklist for the full breakdown.</span>{' '}
-                  Track-by-track feedback, key mixing, curation scoring — paste it below or upload a screenshot.
-                </div>
-
-                {/* Optional context */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>
-                      Set context <span style={{ opacity: 0.5 }}>(optional)</span>
-                    </div>
-                    <input
-                      value={scannerContext}
-                      onChange={e => setScannerContext(e.target.value)}
-                      placeholder="e.g. 2hr techno set, club warm-up, festival peak time..."
-                      style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }}
-                    />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.gold, textTransform: 'uppercase' }}>
-                        Tracklist <span style={{ color: s.textDimmer }}>— recommended for real analysis</span>
-                      </div>
-                      <button
-                        onClick={() => tracklistImgRef.current?.click()}
-                        disabled={tracklistImgParsing}
-                        style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: s.setlab, background: 'transparent', border: `1px solid ${s.setlab}50`, padding: '4px 10px', cursor: tracklistImgParsing ? 'wait' : 'pointer', fontFamily: s.font, opacity: tracklistImgParsing ? 0.5 : 1 }}
-                      >
-                        {tracklistImgParsing ? 'Reading...' : '↑ Screenshot'}
-                      </button>
-                      <input ref={tracklistImgRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) parseTracklistImage(f) }} style={{ display: 'none' }} />
-                    </div>
-                    <textarea
-                      value={scannerTracklist}
-                      onChange={e => setScannerTracklist(e.target.value)}
-                      placeholder={'1. Artist - Title\n2. Artist - Title\n3. Artist - Title\n...'}
-                      rows={4}
-                      style={{ width: '100%', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '10px 14px', outline: 'none', resize: 'vertical', boxSizing: 'border-box', lineHeight: '1.6' }}
-                    />
-                  </div>
-                </div>
-
-                {/* Analyse button */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={analyseMix}
-                    disabled={scanning}
-                    style={{
-                      ...btn(s.setlab),
-                      fontSize: '11px', padding: '14px 32px',
-                      opacity: scanning ? 0.5 : 1, cursor: scanning ? 'wait' : 'pointer',
-                    }}>
-                    {scanning ? scanProgress || 'Analysing...' : 'Analyse mix →'}
-                  </button>
-                  {scanning && (
-                    <div style={{ fontSize: '10px', color: s.textDimmer, letterSpacing: '0.1em' }}>
-                      This takes 30–60s for a long mix
-                    </div>
-                  )}
-                </div>
-
-                {scanError && (
-                  <div style={{ background: 'rgba(192,64,64,0.1)', border: '1px solid rgba(192,64,64,0.3)', padding: '14px 18px', fontSize: '12px', color: '#c04040' }}>
-                    {scanError}
-                  </div>
-                )}
               </div>
             )}
 
@@ -2587,9 +2193,9 @@ Return corrected JSON:
                           : 'Review and correct any track IDs before analysis'}
                       </div>
                     </div>
-                    <button onClick={() => { setScanPhase('upload'); setScannerFile(null); setDetectedTracks([]); clearScannerState() }}
+                    <button onClick={() => { setScanPhase('upload'); setDetectedTracks([]); setScannerTracklist(''); clearScannerState() }}
                       style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '6px 12px' }}>
-                      Re-upload
+                      Start over
                     </button>
                   </div>
 
@@ -2679,6 +2285,48 @@ Return corrected JSON:
                     />
                   </div>
                   <button
+                    onClick={async () => {
+                      const found = detectedTracks.filter(t => t.found)
+                      if (found.length === 0) { showToast('No identified tracks to save', 'Error'); return }
+                      let added = 0
+                      for (const dt of found) {
+                        const alreadyExists = library.some(l => l.title.toLowerCase() === dt.title.toLowerCase() && l.artist.toLowerCase() === dt.artist.toLowerCase())
+                        if (alreadyExists) continue
+                        const t: Track = {
+                          id: crypto.randomUUID(),
+                          title: dt.title,
+                          artist: dt.artist,
+                          bpm: 0,
+                          key: '',
+                          camelot: '',
+                          energy: 5,
+                          genre: 'Electronic',
+                          duration: '',
+                          notes: '',
+                          analysed: false,
+                          moment_type: '',
+                          position_score: '',
+                          mix_in: '',
+                          mix_out: '',
+                          crowd_reaction: '',
+                          similar_to: '',
+                          producer_style: '',
+                        }
+                        await fetch('/api/tracks', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ tracks: [t] }),
+                        })
+                        setLibrary(prev => [...prev, t])
+                        added++
+                      }
+                      showToast(added > 0 ? `${added} track${added !== 1 ? 's' : ''} saved to library` : 'All tracks already in library', added > 0 ? 'Done' : 'Info')
+                    }}
+                    disabled={scanning || detectedTracks.filter(t => t.found).length === 0}
+                    style={{ ...btn(s.setlab, 'transparent'), fontSize: '11px', padding: '14px 20px', flexShrink: 0, opacity: detectedTracks.filter(t => t.found).length === 0 ? 0.4 : 1 }}>
+                    Save to library
+                  </button>
+                  <button
                     onClick={runClaudeAnalysis}
                     disabled={scanning}
                     style={{ ...btn(s.setlab), fontSize: '11px', padding: '14px 28px', flexShrink: 0 }}>
@@ -2743,12 +2391,6 @@ Return corrected JSON:
                         <div>
                           <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '3px' }}>Transitions</div>
                           <div style={{ fontSize: '11px', color: s.setlab, textTransform: 'capitalize' }}>{scanResult.transition_quality}</div>
-                        </div>
-                      )}
-                      {scannerFile && (
-                        <div>
-                          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '3px' }}>Duration</div>
-                          <div style={{ fontSize: '11px', color: s.textDim }}>{Math.round(scannerFile.size / 1024 / 1024)} MB</div>
                         </div>
                       )}
                     </div>

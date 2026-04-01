@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // ── POST /api/mix-scan ─────────────────────────────────────────────────────
-// Accepts JSON body with mix analysis data + optional tracklist
+// Accepts JSON body with tracklist + optional context
 // Calls Claude for expert DJ mix analysis, returns structured result + rating
-
-interface TransitionPoint {
-  time_seconds: number
-  energy_before: number
-  energy_after: number
-  energy_dip: number
-}
+// RULE: Never fabricate. Only analyse what's actually provided.
 
 interface MixScanRequest {
-  filename: string
-  duration_seconds: number
-  avg_energy: number
-  peak_energy: number
-  transition_points: TransitionPoint[]
-  bpm_estimate: number | null
-  tracklist?: string   // free-text tracklist the user optionally typed in
+  tracklist?: string   // free-text tracklist
   context?: string     // e.g. "techno set, 2 hours, club warm-up"
 }
 
@@ -35,96 +23,69 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const {
-    filename,
-    duration_seconds,
-    avg_energy,
-    peak_energy,
-    transition_points,
-    bpm_estimate,
-    tracklist,
-    context,
-  } = body
-
-  const hasAudio = !!(filename && duration_seconds)
-  const durationMin = hasAudio ? Math.round(duration_seconds / 60) : 0
-  const transitionCount = (transition_points || []).length
-
-  // Format transition data for Claude
-  const transitionSummary = (transition_points || []).slice(0, 20).map((t, i) => {
-    const mm = Math.floor(t.time_seconds / 60).toString().padStart(2, '0')
-    const ss = Math.floor(t.time_seconds % 60).toString().padStart(2, '0')
-    const quality = t.energy_dip > 0.4 ? 'hard cut / large dip' : t.energy_dip > 0.2 ? 'noticeable dip' : 'smooth blend'
-    return `  T${i + 1}: ${mm}:${ss} — energy ${(t.energy_before * 100).toFixed(0)}% → ${(t.energy_after * 100).toFixed(0)}% (${quality})`
-  }).join('\n')
-
+  const { tracklist, context } = body
   const hasTracklist = !!(tracklist && tracklist.trim().length > 10)
 
-  if (!hasAudio && !hasTracklist) {
-    return NextResponse.json({ error: 'Provide either an audio file or a tracklist' }, { status: 400 })
+  if (!hasTracklist) {
+    return NextResponse.json({ error: 'Provide a tracklist to analyse' }, { status: 400 })
   }
 
+  // Count tracks for context
+  const trackLines = tracklist!.trim().split('\n').filter(l => l.trim().length > 3)
+  const trackCount = trackLines.length
+
   const userPrompt = `
-You are analysing a DJ mix.${hasAudio ? ' You have been given raw audio signal measurements from a Web Audio API analysis.' : ' No audio was provided — analysing from tracklist only.'}
-${hasAudio ? `
-CRITICAL — UNDERSTAND WHAT THESE NUMBERS MEAN:
-- "Energy %" = normalised RMS amplitude (loudness), NOT musical tension or crowd energy
-- A professionally mastered mix will naturally show flat RMS (35-50% throughout) — this is CORRECT gain staging, NOT a problem
-- "Detected transitions" = local amplitude dips — these are probable track change points but NOT confirmed
-- BPM estimate = autocorrelation guess from a 60-second sample — treat as approximate only
-- DO NOT invent analysis that cannot be derived from these measurements
+You are analysing a DJ set based on a tracklist provided by the DJ.
 
-FILE: ${filename}
-DURATION: ${durationMin} minutes
-ESTIMATED BPM: ${bpm_estimate ? `~${bpm_estimate} BPM (approximate)` : 'Could not determine'}
-RMS AMPLITUDE — average: ${((avg_energy || 0) * 100).toFixed(0)}%, peak: ${((peak_energy || 0) * 100).toFixed(0)}%
-PROBABLE TRACK CHANGES DETECTED: ${transitionCount} points where amplitude dips significantly` : ''}
+ABSOLUTE RULE — NEVER FABRICATE:
+- You can ONLY comment on what is present in the tracklist
+- You have NO audio data — do not mention amplitude, RMS, energy levels, waveforms, or transition smoothness
+- Do not invent BPM values, key signatures, or transition quality unless the tracklist explicitly includes them
+- If you don't know something, say "not available from tracklist alone" — NEVER guess
+- If the tracklist has very few tracks or limited info, reflect that honestly in the score and analysis
+- A short or incomplete tracklist should result in a lower confidence analysis, not a fabricated one
+
+WHAT YOU CAN ANALYSE FROM A TRACKLIST:
+- Track selection and curation quality
+- Genre coherence and flow
+- Artist diversity vs repetition
+- Set narrative (opener → build → peak → close) based on known tracks
+- Whether track choices suit the stated context
+- Known key relationships IF you genuinely know the keys of these specific tracks (otherwise skip)
+- Known BPM ranges IF you genuinely know the tempos (otherwise skip)
+
+WHAT YOU CANNOT ANALYSE WITHOUT AUDIO (DO NOT MENTION THESE):
+- Transition quality or smoothness
+- EQ technique or blending
+- Amplitude, RMS, energy measurements
+- Beat-matching precision
+- Gain staging
+- "Amplitude dip points" or "energy troughs"
+
 ${context ? `CONTEXT PROVIDED BY DJ: ${context}` : ''}
-${hasAudio ? `
-AMPLITUDE DIP DATA (probable transitions — based on loudness only, not confirmed track changes):
-${transitionSummary || 'No significant dips detected — mix may be very consistent or analysis inconclusive'}` : ''}
 
-${hasTracklist
-  ? `TRACKLIST (provided by DJ — use this as the PRIMARY basis for your analysis):\n${tracklist}`
-  : 'NO TRACKLIST PROVIDED — your analysis will be LIMITED to what amplitude data can actually tell us. Do not speculate about tracks, keys, or curation.'
-}
+TRACKLIST (${trackCount} tracks):
+${tracklist}
 
 Return JSON:
 {
-  "overall_score": ${hasTracklist
-    ? '<number 1-10, one decimal — based on tracklist curation, flow, key mixing, set narrative>'
-    : '<number 1-10, one decimal — score ONLY what the audio data confirms. Be conservative. Without a tracklist you cannot assess curation, key mixing, or artistry — reflect this in the score>'
-  },
+  "overall_score": <number 1-10, one decimal — based ONLY on tracklist curation, flow, and track selection. Be honest about confidence level.>,
   "grade": <"A+"|"A"|"A-"|"B+"|"B"|"B-"|"C+"|"C"|"D"|"F">,
-  "headline": <one honest sentence — if no tracklist, acknowledge the analysis is amplitude-only>,
-  "summary": <2-3 sentences — be explicit about what was and wasn't measured>,
-  "data_quality": <"full" if tracklist provided, "amplitude-only" if not — include a sentence about what this means for the analysis>,
-  "structure_analysis": ${hasTracklist
-    ? '<analyse the set arc based on tracklist — opening, build, peak, close — is the narrative logical?>'
-    : '<describe only what amplitude data shows — length, consistency, notable dips. Do NOT invent narrative structure you cannot see>'
-  },
-  "technical_assessment": ${hasTracklist
-    ? '<assess BPM journey, key transitions, gain staging based on tracklist + amplitude data>'
-    : '<amplitude-only: note BPM estimate, gain consistency, transition smoothness from dip data only>'
-  },
-  "transition_quality": <"excellent"|"good"|"average"|"rough"|"inconsistent"|"unknown — no tracklist">,
-  "transition_notes": <what the dip data actually shows — be honest about limitations if no tracklist>,
-  "energy_arc": <describe the amplitude curve honestly — flat RMS in a well-mastered mix is NORMAL, not a flaw>,
-  "tracks": ${hasTracklist
-    ? `<array of objects from tracklist — ONLY include tracks with issues or notable moments, skip tracks that are fine. Format: {"position": number, "title": string, "artist": string, "mix_quality": "smooth"|"rough"|"unknown", "issue": string or null, "fix": string or null}. Keep issue/fix under 15 words each.>`
-    : '[]'
-  },
-  "strengths": <array of 3 short strengths — one sentence each max>,
-  "improvements": ${hasTracklist
-    ? '<array of 3 specific improvements — one sentence each max>'
-    : '<array of 2 improvements — one sentence each>'
-  },
-  "key_moments": <array of 2-3 notable moments — keep each under 20 words>,
-  "overall_verdict": <2-3 sentences max — concise final assessment>
+  "headline": <one honest sentence summarising the set based on what you can see>,
+  "summary": <2-3 sentences — be explicit that this is a tracklist-only analysis>,
+  "structure_analysis": <analyse the set arc based on tracklist — opening, build, peak, close — based on your knowledge of these tracks. If you don't know the tracks well enough, say so.>,
+  "technical_assessment": <ONLY include info you genuinely know about these tracks — known BPM ranges, key relationships. If you can't determine this, say "Technical assessment requires audio data or tracklist with BPM/key information.">,
+  "transition_quality": "not assessed — tracklist only",
+  "transition_notes": "Transition quality cannot be assessed from a tracklist alone.",
+  "energy_arc": <describe the likely energy arc based on your knowledge of these tracks. If you don't know them, acknowledge this.>,
+  "tracks": <array of objects — ONLY include tracks with notable observations. Format: {"position": number, "title": string, "artist": string, "observation": string or null}. Keep observations under 15 words. Do NOT fabricate mix quality assessments.>,
+  "strengths": <array of 2-3 short strengths — ONLY things you can actually determine from the tracklist>,
+  "improvements": <array of 2-3 specific improvements — ONLY things you can actually determine from the tracklist>,
+  "key_moments": <array of 2-3 notable track choices — keep each under 20 words>,
+  "overall_verdict": <2-3 sentences max — concise final assessment, honest about what you could and couldn't assess>
 }
 
-CRITICAL: Keep your TOTAL response under 3000 tokens. Be concise. For tracks array, ONLY list tracks that have issues or are standouts — do NOT list every track if they're fine.
-IMPORTANT: Flat RMS amplitude is NOT evidence of bad mixing. Do not penalise a mix for consistent loudness — that's professional mastering. Only flag amplitude issues if there are genuine clipping events or jarring 40%+ drops.
+CRITICAL: Keep your TOTAL response under 3000 tokens. Be concise. Only state facts you know.
 `
 
   try {
@@ -138,7 +99,11 @@ IMPORTANT: Flat RMS amplitude is NOT evidence of bad mixing. Do not penalise a m
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 8192,
-        system: 'You are an expert DJ, electronic music producer, and booker with 20+ years of experience. You analyse DJ mixes with precision and honesty. Return ONLY valid JSON, no markdown, no code fences.',
+        system: `You are an expert DJ, electronic music producer, and booker with 20+ years of experience. You analyse DJ set tracklists with precision and honesty.
+
+CORE RULE: NEVER fabricate or guess. Only state what you genuinely know or can determine from the provided data. If you cannot assess something, say so clearly rather than making something up. Credibility is everything — one fabricated detail destroys trust.
+
+Return ONLY valid JSON, no markdown, no code fences.`,
         messages: [{ role: 'user', content: userPrompt }],
       }),
     })
@@ -154,14 +119,9 @@ IMPORTANT: Flat RMS amplitude is NOT evidence of bad mixing. Do not penalise a m
 
     // Robust JSON repair for truncated responses
     function repairJSON(str: string): Record<string, unknown> {
-      // Try as-is first
       try { return JSON.parse(str) } catch {}
 
-      // Walk backwards to find a safe truncation point
-      // Remove any trailing incomplete value (string, number, etc)
       let s = str
-
-      // If we're inside a string, close it
       let inString = false
       let escaped = false
       for (let i = 0; i < s.length; i++) {
@@ -170,21 +130,14 @@ IMPORTANT: Flat RMS amplitude is NOT evidence of bad mixing. Do not penalise a m
         if (s[i] === '"') inString = !inString
       }
       if (inString) {
-        // Truncate back to last complete string or value
         const lastQuote = s.lastIndexOf('"')
-        if (lastQuote > 0) {
-          // Check if this quote opens or closes — find the matching context
-          s = s.substring(0, lastQuote) + '"'
-        }
+        if (lastQuote > 0) s = s.substring(0, lastQuote) + '"'
       }
 
-      // Remove trailing comma or colon with incomplete value
       s = s.replace(/,\s*$/, '')
       s = s.replace(/:\s*$/, ': null')
-      // Remove trailing key without value
       s = s.replace(/,\s*"[^"]*"\s*$/, '')
 
-      // Count unclosed brackets and braces (outside strings)
       let brackets = 0, braces = 0
       inString = false; escaped = false
       for (let i = 0; i < s.length; i++) {
@@ -198,30 +151,20 @@ IMPORTANT: Flat RMS amplitude is NOT evidence of bad mixing. Do not penalise a m
         else if (s[i] === '}') braces--
       }
 
-      // Close them
       for (let i = 0; i < brackets; i++) s += ']'
       for (let i = 0; i < braces; i++) s += '}'
 
       try { return JSON.parse(s) } catch {}
 
-      // Last resort: regex extraction
       const scoreMatch = str.match(/"overall_score"\s*:\s*([\d.]+)/)
       const gradeMatch = str.match(/"grade"\s*:\s*"([^"]+)"/)
       const headlineMatch = str.match(/"headline"\s*:\s*"([^"]+)"/)
       const summaryMatch = str.match(/"summary"\s*:\s*"([^"]+)"/)
-      const structureMatch = str.match(/"structure_analysis"\s*:\s*"([^"]+)"/)
-      const techMatch = str.match(/"technical_assessment"\s*:\s*"([^"]+)"/)
-      const energyMatch = str.match(/"energy_arc"\s*:\s*"([^"]+)"/)
-      const verdictMatch = str.match(/"overall_verdict"\s*:\s*"([^"]+)"/)
       return {
         overall_score: scoreMatch ? parseFloat(scoreMatch[1]) : 5.0,
         grade: gradeMatch ? gradeMatch[1] : 'N/A',
         headline: headlineMatch ? headlineMatch[1] : 'Analysis completed',
-        summary: summaryMatch ? summaryMatch[1] : 'Analysis was partially truncated but key scores were extracted.',
-        structure_analysis: structureMatch ? structureMatch[1] : undefined,
-        technical_assessment: techMatch ? techMatch[1] : undefined,
-        energy_arc: energyMatch ? energyMatch[1] : undefined,
-        overall_verdict: verdictMatch ? verdictMatch[1] : undefined,
+        summary: summaryMatch ? summaryMatch[1] : 'Analysis was partially truncated.',
         strengths: [],
         improvements: [],
         tracks: [],
