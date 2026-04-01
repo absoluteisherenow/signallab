@@ -166,6 +166,9 @@ export function SignalGenius() {
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    // Clear input immediately to prevent double-fire
+    e.target.value = ''
+    if (uploading || loading) return
     setUploading(true)
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: `📎 ${file.name}` }
     const assistantId = crypto.randomUUID()
@@ -190,7 +193,7 @@ export function SignalGenius() {
           userMsg,
           {
             role: 'user',
-            content: `I just uploaded "${file.name}". Here is the extracted content:\n\n${extracted}\n\nIn 1-2 plain sentences (no markdown, no bullet points, no headers): tell me what this document is and the key figure. Then ask if I want you to create the invoice. If you have enough data, end your message with the [INVOICE_READY:{...}] marker as instructed.`,
+            content: `I just uploaded "${file.name}". Here is the extracted content:\n\n${extracted}\n\nRespond in one sentence only — name what it is and the key amount. Then on a new line ask: "Shall I create your invoice for that?" No markdown, no headers, no bullet points. If you have enough data to create the invoice, end your message with the [INVOICE_READY:{...}] marker as instructed.`,
           },
         ],
         (partialText) => {

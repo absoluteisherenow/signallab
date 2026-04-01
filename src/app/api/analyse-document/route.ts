@@ -21,16 +21,26 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(buffer).toString('base64')
     const mimeType = file.type || 'application/pdf'
 
-    // Build content array with the document
+    // Build content array — images use 'image' block, PDFs use 'document' block
+    const isImage = mimeType.startsWith('image/')
     const content: any[] = [
-      {
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: mimeType,
-          data: base64,
-        },
-      },
+      isImage
+        ? {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: mimeType,
+              data: base64,
+            },
+          }
+        : {
+            type: 'document',
+            source: {
+              type: 'base64',
+              media_type: 'application/pdf',
+              data: base64,
+            },
+          },
       {
         type: 'text',
         text: context || 'Please analyse this document. Extract all key financial data, amounts, dates, and any important details. Be specific with numbers.',

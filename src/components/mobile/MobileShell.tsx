@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useMobile } from '@/hooks/useMobile'
 
 interface Gig {
@@ -37,6 +38,107 @@ interface Release {
   label?: string
   streaming_url?: string
   artwork_url?: string
+}
+
+interface SystemNotification {
+  id: string
+  created_at: string
+  type: string
+  title: string
+  message: string | null
+  href: string | null
+  read: boolean
+}
+
+function SystemNotificationTicker({ notifications }: { notifications: SystemNotification[] }) {
+  const router = useRouter()
+  const [index, setIndex] = useState(0)
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    if (notifications.length <= 1) return
+    const interval = setInterval(() => {
+      setVisible(false)
+      setTimeout(() => {
+        setIndex(prev => (prev + 1) % notifications.length)
+        setVisible(true)
+      }, 400)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [notifications.length])
+
+  if (notifications.length === 0) return null
+
+  const current = notifications[index]
+
+  function notifTimeAgo(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime()
+    const m = Math.floor(diff / 60000)
+    if (m < 1) return 'just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    return `${Math.floor(h / 24)}d ago`
+  }
+
+  return (
+    <button
+      onClick={() => router.push('/notifications')}
+      style={{
+        display: 'block',
+        width: '100%',
+        background: 'var(--panel)',
+        borderLeft: '3px solid var(--gold)',
+        borderTop: 'none',
+        borderRight: 'none',
+        borderBottom: 'none',
+        padding: '14px 16px',
+        cursor: 'pointer',
+        fontFamily: 'var(--font-mono)',
+        textAlign: 'left',
+        transition: 'opacity 0.35s ease',
+        opacity: visible ? 1 : 0,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: '13px',
+            color: 'var(--text)',
+            lineHeight: 1.4,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            {current.title}
+          </div>
+          {current.message && (
+            <div style={{
+              fontSize: '11px',
+              color: 'var(--text-dimmer)',
+              lineHeight: 1.4,
+              marginTop: '3px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              {current.message}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <span style={{ fontSize: '10px', color: 'var(--text-dimmest)' }}>
+            {notifTimeAgo(current.created_at)}
+          </span>
+          {notifications.length > 1 && (
+            <span style={{ fontSize: '9px', color: 'var(--text-dimmest)' }}>
+              {index + 1}/{notifications.length}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  )
 }
 
 const s = {
@@ -166,9 +268,35 @@ export default function MobileShell() {
   const [loading, setLoading] = useState(true)
   const [isInstalled, setIsInstalled] = useState(true)
   const [showHowTo, setShowHowTo] = useState(false)
+  const [systemNotifications, setSystemNotifications] = useState<SystemNotification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     setIsInstalled(window.matchMedia('(display-mode: standalone)').matches)
+  }, [])
+
+  // Fetch system notifications
+  useEffect(() => {
+    fetch('/api/notifications?limit=10')
+      .then(r => r.json())
+      .then(d => {
+        const notifs: SystemNotification[] = (d.notifications || []).filter((n: SystemNotification) => !n.read)
+        setSystemNotifications(notifs)
+        setUnreadCount(d.unread || notifs.length)
+      })
+      .catch(() => {})
+
+    const interval = setInterval(() => {
+      fetch('/api/notifications?limit=10')
+        .then(r => r.json())
+        .then(d => {
+          const notifs: SystemNotification[] = (d.notifications || []).filter((n: SystemNotification) => !n.read)
+          setSystemNotifications(notifs)
+          setUnreadCount(d.unread || notifs.length)
+        })
+        .catch(() => {})
+    }, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -240,19 +368,33 @@ export default function MobileShell() {
             Signal Lab
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ fontSize: '11px', letterSpacing: '0.1em', color: s.dimmer, textTransform: 'uppercase' }}>
             {now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
           </div>
-          {notifCount > 0 && (
-            <div style={{
-              width: '22px', height: '22px', borderRadius: '50%', background: s.red,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '10px', color: '#fff', fontWeight: 600,
-            }}>
-              {notifCount}
-            </div>
-          )}
+          <Link href="/notifications" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '44px', height: '44px', position: 'relative',
+            textDecoration: 'none', WebkitTapHighlightColor: 'transparent',
+            marginRight: '-10px',
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s.dimmer} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {(unreadCount > 0 || notifCount > 0) && (
+              <span style={{
+                position: 'absolute', top: '6px', right: '6px',
+                minWidth: '16px', height: '16px', borderRadius: '8px',
+                background: s.gold, color: '#070706',
+                fontSize: '9px', fontWeight: 700, fontFamily: s.font,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                lineHeight: 1, padding: '0 4px',
+              }}>
+                {(unreadCount + notifCount) > 9 ? '9+' : unreadCount + notifCount}
+              </span>
+            )}
+          </Link>
         </div>
       </div>
 
@@ -451,6 +593,13 @@ export default function MobileShell() {
           </div>
         )
       })()}
+
+      {/* System notifications ticker — above releases */}
+      {systemNotifications.length > 0 && (
+        <div style={{ padding: '0 16px', marginBottom: '24px' }}>
+          <SystemNotificationTicker notifications={systemNotifications} />
+        </div>
+      )}
 
       {/* Upcoming releases — at the bottom */}
       {upcomingReleases.length > 0 && (

@@ -1,8 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 const s = {
   bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
@@ -81,12 +79,9 @@ function formatTime(totalSec: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-function MeditateInner() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const modeKey = searchParams.get('mode') as ModeKey | null
-  const mode = modeKey ? MODES.find(m => m.key === modeKey) || null : null
-
+export default function MeditatePage() {
+  // Pure state — no URL params, no useSearchParams, no Suspense needed
+  const [activeMode, setActiveMode] = useState<ModeConfig | null>(null)
   const [screen, setScreen] = useState<'choose' | 'session' | 'complete'>('choose')
   const [paused, setPaused] = useState(false)
   const [remaining, setRemaining] = useState(0)
@@ -97,9 +92,8 @@ function MeditateInner() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const breathRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeRef = useRef(false)
-  const sessionStartedRef = useRef(false)
 
-  // Cleanup
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       activeRef.current = false
@@ -109,26 +103,17 @@ function MeditateInner() {
     }
   }, [])
 
-  // Auto-start session when mode is in URL
-  useEffect(() => {
-    if (mode && !sessionStartedRef.current) {
-      sessionStartedRef.current = true
-      startSession(mode)
-    }
-    if (!mode) {
-      sessionStartedRef.current = false
-    }
-  }, [mode])
-
-  function runBreath(m: ModeConfig, phase: BreathPhase) {
+  const runBreath = useCallback((m: ModeConfig, phase: BreathPhase) => {
     if (!activeRef.current) return
     setBreathPhase(phase)
     const dur = phase === 'in' ? m.breatheIn : phase === 'hold' ? m.hold : m.breatheOut
     const next: BreathPhase = phase === 'in' ? 'hold' : phase === 'hold' ? 'out' : 'in'
     breathRef.current = setTimeout(() => runBreath(m, next), dur * 1000)
-  }
+  }, [])
 
-  function startSession(m: ModeConfig) {
+  function selectMode(m: ModeConfig) {
+    // Direct state update — no URL navigation
+    setActiveMode(m)
     setScreen('session')
     setRemaining(m.duration)
     setPaused(false)
@@ -221,7 +206,8 @@ function MeditateInner() {
   }
 
   function togglePause() {
-    if (!mode) return
+    if (!activeMode) return
+    const mode = activeMode
     setPaused(prev => {
       if (!prev) {
         // Pause
@@ -254,23 +240,24 @@ function MeditateInner() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     if (breathRef.current) { clearTimeout(breathRef.current); breathRef.current = null }
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    setActiveMode(null)
     setScreen('choose')
     setPaused(false)
     setIntroPlaying(false)
     setIntroText('')
-    router.push('/meditate')
   }
 
+  const mode = activeMode
   const cycleDuration = mode ? mode.breatheIn + mode.hold + mode.breatheOut : 12
   const breatheInPct = mode ? (mode.breatheIn / cycleDuration) * 100 : 33
   const holdEndPct = mode ? ((mode.breatheIn + mode.hold) / cycleDuration) * 100 : 66
 
-  // ── CHOOSE ── (no mode in URL — show mode picker with <Link> elements)
-  if (!mode || screen === 'choose') {
+  // ── CHOOSE ── mode picker
+  if (screen === 'choose' || !mode) {
     return (
       <div style={{
         minHeight: '100vh', background: s.bg, fontFamily: s.font, color: s.text,
-        padding: '48px 20px 72px', display: 'flex', flexDirection: 'column', alignItems: 'center',
+        padding: '48px 20px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center',
       }}>
         <div style={{ maxWidth: 520, width: '100%' }}>
           <div style={{ fontSize: '13px', letterSpacing: '0.12em', textTransform: 'uppercase', color: s.dim, marginBottom: '8px' }}>
@@ -282,9 +269,13 @@ function MeditateInner() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {MODES.map(m => (
-              <Link
+              <a
                 key={m.key}
-                href={`/meditate?mode=${m.key}`}
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.preventDefault(); selectMode(m) }}
+                onTouchEnd={(e) => { e.preventDefault(); selectMode(m) }}
+                onKeyDown={(e) => { if (e.key === 'Enter') selectMode(m) }}
                 style={{
                   background: s.panel, border: `1px solid ${s.border}`,
                   padding: '20px 24px', cursor: 'pointer',
@@ -292,7 +283,11 @@ function MeditateInner() {
                   textDecoration: 'none',
                   fontFamily: s.font,
                   width: '100%',
+                  boxSizing: 'border-box',
                   WebkitTapHighlightColor: 'transparent',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  touchAction: 'manipulation',
                 }}
               >
                 <span>
@@ -306,7 +301,7 @@ function MeditateInner() {
                 <span style={{ fontSize: '11px', color: s.dimmer, flexShrink: 0, marginLeft: '16px' }}>
                   {m.duration / 60}m
                 </span>
-              </Link>
+              </a>
             ))}
           </div>
         </div>
@@ -320,7 +315,7 @@ function MeditateInner() {
       <div style={{
         minHeight: '100vh', background: s.bg, fontFamily: s.font, color: s.text,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: '48px 20px 72px',
+        padding: '48px 20px 100px',
       }}>
         <div style={{ fontSize: '13px', letterSpacing: '0.12em', textTransform: 'uppercase', color: s.dim, marginBottom: '12px' }}>
           Session Complete
@@ -331,17 +326,22 @@ function MeditateInner() {
         <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '48px' }}>
           {mode.name}
         </div>
-        <Link
-          href="/meditate"
+        <a
+          role="button"
+          tabIndex={0}
+          onClick={(e) => { e.preventDefault(); exitSession() }}
+          onTouchEnd={(e) => { e.preventDefault(); exitSession() }}
           style={{
             background: 'transparent', border: `1px solid ${s.border}`,
             padding: '10px 28px', color: s.dim, fontFamily: s.font,
             fontSize: '12px', cursor: 'pointer', letterSpacing: '0.05em',
             textDecoration: 'none',
+            WebkitTapHighlightColor: 'transparent',
+            touchAction: 'manipulation',
           }}
         >
           Back
-        </Link>
+        </a>
       </div>
     )
   }
@@ -367,14 +367,17 @@ function MeditateInner() {
           cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none',
           zIndex: 9999, overflow: 'hidden',
           WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
         }}
       >
         {/* Exit */}
         <div
           onClick={e => { e.stopPropagation(); exitSession() }}
+          onTouchEnd={e => { e.stopPropagation(); e.preventDefault(); exitSession() }}
           style={{
             position: 'absolute', top: 20, right: 20, color: s.dimmer,
-            fontSize: '20px', cursor: 'pointer', padding: 12, lineHeight: 1, zIndex: 10,
+            fontSize: '20px', cursor: 'pointer', padding: 16, lineHeight: 1, zIndex: 10,
+            minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
           ✕
@@ -425,13 +428,5 @@ function MeditateInner() {
         </div>
       </div>
     </>
-  )
-}
-
-export default function MeditatePage() {
-  return (
-    <Suspense>
-      <MeditateInner />
-    </Suspense>
   )
 }
