@@ -86,7 +86,7 @@ export default function JoinPage() {
         borderBottom: `1px solid ${C.border}`,
       }}>
         <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: C.gold, textTransform: 'uppercase', marginBottom: '8px', whiteSpace: 'nowrap' }}>
-          Tailored Artist OS For Electronic Music Artists
+          Tailored OS For Electronic Music Artists
         </div>
 
         <h1 style={{

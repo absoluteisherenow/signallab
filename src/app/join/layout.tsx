@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Signal Lab OS — Early Access',
-  description: 'Tailored Artist OS. Tour, content, production, sets — one system for the electronic music artist.',
+  description: 'Tailored OS for electronic music. Tour, content, production, sets — one connected system.',
 }
 
 export default function JoinLayout({ children }: { children: React.ReactNode }) {
