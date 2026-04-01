@@ -316,18 +316,19 @@ Rules:
         onClick={() => setOpen(true)}
         style={{
           position: 'fixed', bottom: 28, right: 28,
-          width: 56, height: 56, borderRadius: '50%',
+          width: 72, height: 72, borderRadius: '50%',
           background: '#0e0d0b',
-          border: '1px solid rgba(176,141,87,0.3)',
+          border: '1.5px solid rgba(176,141,87,0.35)',
           cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 1000, transition: 'all 0.2s ease',
+          boxShadow: 'none',
         }}
         onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.6)' }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.3)' }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.35)' }}
         title="Signal"
       >
-        <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
+        <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
           <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       </button>
@@ -341,7 +342,7 @@ Rules:
       width: 440, maxHeight: 'calc(100vh - 100px)',
       background: 'var(--bg)', border: '1px solid var(--border-dim)',
       display: 'flex', flexDirection: 'column',
-      zIndex: 1000, boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+      zIndex: 1000, boxShadow: 'none',
       fontFamily: 'var(--font-mono)',
     }}>
 
@@ -451,7 +452,7 @@ Rules:
           background: recording ? 'rgba(200,60,60,0.15)' : 'transparent',
           border: `1px solid ${recording ? 'rgba(200,60,60,0.5)' : 'rgba(176,141,87,0.3)'}`,
           color: recording ? '#c83c3c' : 'var(--text-dimmer)',
-          width: 52, height: 52, borderRadius: '50%',
+          width: 56, height: 56, borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
           boxShadow: 'none',
@@ -459,7 +460,7 @@ Rules:
           onMouseEnter={e => { if (!recording) { (e.currentTarget as HTMLElement).style.color = 'var(--gold)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.4)' } }}
           onMouseLeave={e => { if (!recording) { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.3)' } }}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
             <line x1="12" y1="19" x2="12" y2="23" />
