@@ -48,7 +48,21 @@ export default function NewRelease() {
     setFetchingLink(true)
     setError('')
     try {
-      // Use Claude to extract metadata from the URL via oEmbed or page content
+      // Step 1: Fetch oEmbed data for real metadata
+      let oembedRaw: Record<string, unknown> = {}
+      try {
+        const isSoundCloud = url.includes('soundcloud.com')
+        const isSpotify = url.includes('spotify.com') || url.includes('open.spotify.com')
+        if (isSoundCloud) {
+          const oRes = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`)
+          if (oRes.ok) oembedRaw = await oRes.json()
+        } else if (isSpotify) {
+          const oRes = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
+          if (oRes.ok) oembedRaw = await oRes.json()
+        }
+      } catch { /* oEmbed optional */ }
+
+      // Step 2: Send URL + oEmbed data to Claude to parse into clean fields
       const res = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,25 +70,32 @@ export default function NewRelease() {
           model: 'claude-sonnet-4-6',
           max_tokens: 600,
           nocache: true,
-          system: 'You extract music release metadata from URLs. Return ONLY valid JSON. NEVER fabricate — only include fields you can confidently determine from the URL itself.',
+          system: 'You parse music release metadata into clean, separate fields. Return ONLY valid JSON. NEVER fabricate — only include what the data tells you.',
           messages: [{
             role: 'user',
-            content: `Extract release details from this URL: ${url}
+            content: `I have a music release link and its metadata. Parse this into clean, separate fields.
 
-Parse the URL structure and any embedded info (artist name, track title, etc).
-For SoundCloud private links, the URL often contains the artist slug and track slug.
-For Spotify, Bandcamp, etc., the URL contains identifying info.
+URL: ${url}
 
-Return JSON:
+oEmbed metadata from the platform:
+${JSON.stringify(oembedRaw, null, 2)}
+
+RULES:
+- The oEmbed "title" often contains multiple pieces mashed together like "ARTIST — Title [Label]" or "Artist - Track Name". SPLIT these into separate fields.
+- The oEmbed "author_name" is the ACCOUNT that uploaded it — this might be the label, not the artist. Look at the title to determine the actual artist.
+- For SoundCloud "sets/" URLs, the release type is likely an EP or album, not a single.
+- For single track URLs, type is "single".
+- Do NOT guess the release date — omit it if not present in the data.
+- The label might be in square brackets in the title, or it might be the author_name if the URL path starts with a label name.
+- Clean up capitalisation — use proper title case for the release title.
+
+Return JSON with ONLY these fields (omit any you can't determine):
 {
-  "title": "track/release title if visible in URL",
-  "artist": "artist name if visible in URL",
-  "type": "single or ep or album — guess from context or omit",
-  "streaming_url": "${url}",
-  "label": "label if known, otherwise omit"
-}
-
-Only include fields you can actually determine. The URL is: ${url}`,
+  "title": "just the release/track title, nothing else",
+  "type": "single|ep|album|remix",
+  "label": "the record label if identifiable",
+  "streaming_url": "the full URL"
+}`,
           }],
         }),
       })
@@ -83,53 +104,13 @@ Only include fields you can actually determine. The URL is: ${url}`,
       const cleaned = raw.replace(/```json|```/g, '').trim()
       const fields = JSON.parse(cleaned)
 
-      // Also try oEmbed for richer metadata
-      let oembedData: Record<string, string> = {}
-      try {
-        const isSoundCloud = url.includes('soundcloud.com')
-        const isSpotify = url.includes('spotify.com') || url.includes('open.spotify.com')
-        if (isSoundCloud) {
-          const oRes = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`)
-          if (oRes.ok) {
-            const o = await oRes.json()
-            oembedData = {
-              title: o.title || '',
-              artist: o.author_name || '',
-            }
-          }
-        } else if (isSpotify) {
-          const oRes = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
-          if (oRes.ok) {
-            const o = await oRes.json()
-            // Spotify oembed title is "Track by Artist"
-            const parts = (o.title || '').split(' by ')
-            oembedData = {
-              title: parts[0]?.trim() || '',
-              artist: parts[1]?.trim() || '',
-            }
-          }
-        }
-      } catch { /* oEmbed optional */ }
-
-      // Merge — oEmbed takes priority for title/artist since it's real data
-      const merged = {
-        ...fields,
-        ...(oembedData.title && { title: oembedData.title }),
-        ...(oembedData.artist && { artist: oembedData.artist }),
-      }
-
       setForm(f => ({
         ...f,
-        ...(merged.title && { title: merged.title }),
-        ...(merged.type && { type: merged.type }),
-        ...(merged.streaming_url && { streaming_url: merged.streaming_url }),
-        ...(merged.label && { label: merged.label }),
+        ...(fields.title && { title: fields.title }),
+        ...(fields.type && { type: fields.type }),
+        ...(fields.label && { label: fields.label }),
+        streaming_url: fields.streaming_url || url,
       }))
-
-      // Store the URL as streaming link regardless
-      if (!form.streaming_url && url) {
-        setForm(f => ({ ...f, streaming_url: url }))
-      }
     } catch {
       setError('Could not extract release info from that link')
     } finally {
