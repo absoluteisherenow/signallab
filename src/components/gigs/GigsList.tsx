@@ -183,6 +183,19 @@ export function GigsList() {
 
               {isOpen && (
                 <div style={{ background: '#0a0906', border: `1px solid ${f.gold}20`, borderTop: 'none', padding: '28px 24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '18px' }}>
+                    <button
+                      onClick={() => router.push(`/gigs/${gig.id}`)}
+                      style={{
+                        background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+                        border: `1px solid ${f.gold}`,
+                        color: f.gold, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.16em',
+                        textTransform: 'uppercase', padding: '10px 22px', cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = f.gold; e.currentTarget.style.color = '#070706' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)'; e.currentTarget.style.color = f.gold }}
+                    >Edit gig →</button>
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '28px' }}>
 
                     {/* DETAILS */}
@@ -246,8 +259,6 @@ export function GigsList() {
                     <div>
                       <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: f.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Quick actions</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <Link href={`/gigs/${gig.id}`}
-                          style={{ fontSize: '12px', color: f.gold, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${f.gold}30`, display: 'block' }}>Edit / full detail →</Link>
                         <Link href={`/broadcast?gig=${gig.id}&title=${encodeURIComponent(gig.title)}&venue=${encodeURIComponent(gig.venue)}&location=${encodeURIComponent(gig.location)}&date=${gig.date}`}
                           style={{ fontSize: '12px', color: f.green, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${f.green}30`, display: 'block' }}>Create post →</Link>
                         <Link href="/contracts" style={{ fontSize: '12px', color: f.dimmer, textDecoration: 'none', padding: '12px 16px', border: `1px solid ${f.border}`, display: 'block' }}>Upload contract →</Link>
