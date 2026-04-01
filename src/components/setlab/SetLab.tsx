@@ -2435,12 +2435,48 @@ Return corrected JSON:
 
             {/* Scanning progress — shown during detect, fingerprint, and analysing phases */}
             {(scanPhase === 'detecting' || scanPhase === 'fingerprinting' || scanPhase === 'analysing') && (
-              <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '40px 32px', textAlign: 'center' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>
+              <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '48px 32px', textAlign: 'center' }}>
+
+                {/* Animated pulse emblem */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+                  <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+                    {/* Outer ring — slow pulse */}
+                    <div style={{
+                      position: 'absolute', inset: 0, borderRadius: '16px',
+                      border: '1px solid rgba(176,141,87,0.15)',
+                      animation: 'scan-pulse 2s ease-in-out infinite',
+                    }} />
+                    {/* Inner ring — counter-rotate */}
+                    <div style={{
+                      position: 'absolute', inset: '8px', borderRadius: '12px',
+                      border: '1px solid rgba(176,141,87,0.1)',
+                      animation: 'scan-pulse 2s ease-in-out infinite 0.5s',
+                    }} />
+                    {/* Signal line SVG — animated draw */}
+                    <svg viewBox="0 0 64 64" fill="none" style={{ position: 'absolute', inset: '8px', width: '64px', height: '64px' }}>
+                      <polyline
+                        points="8,32 16,32 20,20 24,44 28,16 32,40 36,22 40,38 44,28 48,32 56,32"
+                        stroke="var(--gold)"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        fill="none"
+                        style={{
+                          strokeDasharray: '120',
+                          strokeDashoffset: '0',
+                          animation: 'scan-draw 1.8s ease-in-out infinite',
+                          filter: 'drop-shadow(0 0 4px rgba(176,141,87,0.4))',
+                        }}
+                      />
+                    </svg>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>
                   {scanPhase === 'detecting' ? 'Analysing mix' : scanPhase === 'fingerprinting' ? 'Identifying tracks' : 'Generating analysis'}
                 </div>
-                <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '8px' }}>
-                  {scanPhase === 'analysing' ? 'Reading your tracklist and building feedback — this takes 15–30 seconds…' : scanProgress}
+                <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '4px' }}>
+                  {scanPhase === 'analysing' ? 'Reading your tracklist and building feedback…' : scanProgress}
                 </div>
                 {scanPhase === 'fingerprinting' && detectedTracks.length > 0 && (
                   <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '8px' }}>
@@ -2448,14 +2484,23 @@ Return corrected JSON:
                   </div>
                 )}
                 {scanPhase === 'analysing' && (
-                  <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
-                    <div style={{
-                      width: '24px', height: '24px', borderRadius: '50%',
-                      border: `2px solid ${s.border}`, borderTopColor: s.setlab,
-                      animation: 'screenshot-spin 0.8s linear infinite',
-                    }} />
+                  <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '6px', letterSpacing: '0.08em' }}>
+                    This takes 15–30 seconds
                   </div>
                 )}
+
+                <style>{`
+                  @keyframes scan-pulse {
+                    0%, 100% { opacity: 0.3; transform: scale(1); }
+                    50% { opacity: 1; transform: scale(1.04); }
+                  }
+                  @keyframes scan-draw {
+                    0% { stroke-dashoffset: 120; opacity: 0.3; }
+                    40% { stroke-dashoffset: 0; opacity: 1; }
+                    60% { stroke-dashoffset: 0; opacity: 1; }
+                    100% { stroke-dashoffset: -120; opacity: 0.3; }
+                  }
+                `}</style>
               </div>
             )}
 
