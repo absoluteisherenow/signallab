@@ -4,11 +4,14 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
+import { ScanPulse } from '@/components/ui/ScanPulse'
 
 export default function NewRelease() {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [linkInput, setLinkInput] = useState('')
+  const [fetchingLink, setFetchingLink] = useState(false)
   const [form, setForm] = useState({
     title: '',
     type: 'single',
@@ -37,6 +40,101 @@ export default function NewRelease() {
 
   function update(key: string, value: string) {
     setForm(f => ({ ...f, [key]: value }))
+  }
+
+  async function fetchFromLink() {
+    const url = linkInput.trim()
+    if (!url) return
+    setFetchingLink(true)
+    setError('')
+    try {
+      // Use Claude to extract metadata from the URL via oEmbed or page content
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 600,
+          nocache: true,
+          system: 'You extract music release metadata from URLs. Return ONLY valid JSON. NEVER fabricate — only include fields you can confidently determine from the URL itself.',
+          messages: [{
+            role: 'user',
+            content: `Extract release details from this URL: ${url}
+
+Parse the URL structure and any embedded info (artist name, track title, etc).
+For SoundCloud private links, the URL often contains the artist slug and track slug.
+For Spotify, Bandcamp, etc., the URL contains identifying info.
+
+Return JSON:
+{
+  "title": "track/release title if visible in URL",
+  "artist": "artist name if visible in URL",
+  "type": "single or ep or album — guess from context or omit",
+  "streaming_url": "${url}",
+  "label": "label if known, otherwise omit"
+}
+
+Only include fields you can actually determine. The URL is: ${url}`,
+          }],
+        }),
+      })
+      const data = await res.json()
+      const raw = data.content?.[0]?.text || '{}'
+      const cleaned = raw.replace(/```json|```/g, '').trim()
+      const fields = JSON.parse(cleaned)
+
+      // Also try oEmbed for richer metadata
+      let oembedData: Record<string, string> = {}
+      try {
+        const isSoundCloud = url.includes('soundcloud.com')
+        const isSpotify = url.includes('spotify.com') || url.includes('open.spotify.com')
+        if (isSoundCloud) {
+          const oRes = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`)
+          if (oRes.ok) {
+            const o = await oRes.json()
+            oembedData = {
+              title: o.title || '',
+              artist: o.author_name || '',
+            }
+          }
+        } else if (isSpotify) {
+          const oRes = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
+          if (oRes.ok) {
+            const o = await oRes.json()
+            // Spotify oembed title is "Track by Artist"
+            const parts = (o.title || '').split(' by ')
+            oembedData = {
+              title: parts[0]?.trim() || '',
+              artist: parts[1]?.trim() || '',
+            }
+          }
+        }
+      } catch { /* oEmbed optional */ }
+
+      // Merge — oEmbed takes priority for title/artist since it's real data
+      const merged = {
+        ...fields,
+        ...(oembedData.title && { title: oembedData.title }),
+        ...(oembedData.artist && { artist: oembedData.artist }),
+      }
+
+      setForm(f => ({
+        ...f,
+        ...(merged.title && { title: merged.title }),
+        ...(merged.type && { type: merged.type }),
+        ...(merged.streaming_url && { streaming_url: merged.streaming_url }),
+        ...(merged.label && { label: merged.label }),
+      }))
+
+      // Store the URL as streaming link regardless
+      if (!form.streaming_url && url) {
+        setForm(f => ({ ...f, streaming_url: url }))
+      }
+    } catch {
+      setError('Could not extract release info from that link')
+    } finally {
+      setFetchingLink(false)
+    }
   }
 
   async function save() {
@@ -74,10 +172,42 @@ export default function NewRelease() {
 
       <div style={{ maxWidth: '720px' }}>
 
+        {/* LINK IMPORT */}
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              value={linkInput}
+              onChange={e => setLinkInput(e.target.value)}
+              placeholder="Paste SoundCloud, Spotify, or Bandcamp link..."
+              onKeyDown={e => e.key === 'Enter' && linkInput.trim() && !fetchingLink && fetchFromLink()}
+              style={{
+                flex: 1, background: s.bg, border: `1px solid ${s.border}`,
+                color: s.text, fontFamily: s.font, fontSize: '12px',
+                padding: '12px 16px', outline: 'none',
+              }}
+            />
+            <button
+              onClick={fetchFromLink}
+              disabled={fetchingLink || !linkInput.trim()}
+              style={{
+                background: 'transparent', border: `1px solid ${s.gold}`,
+                color: s.gold, fontFamily: s.font, fontSize: '10px',
+                letterSpacing: '0.15em', textTransform: 'uppercase',
+                padding: '0 20px', cursor: fetchingLink ? 'wait' : 'pointer',
+                opacity: fetchingLink || !linkInput.trim() ? 0.5 : 1,
+                display: 'flex', alignItems: 'center', gap: '8px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {fetchingLink ? <><ScanPulse size="sm" /> Fetching...</> : 'Import →'}
+            </button>
+          </div>
+        </div>
+
         {/* SCREENSHOT UPLOAD */}
         <div style={{ marginBottom: '20px' }}>
           <ScreenshotUpload
-            extractionPrompt="Extract music release details from this image. Return JSON with: title, type (single/ep/album), release_date (YYYY-MM-DD), label, streaming_url. Only include fields you can confidently extract."
+            extractionPrompt="Extract music release details from this image. Return JSON with: title, type (single/ep/album), release_date (YYYY-MM-DD), label, streaming_url. Only include fields you can confidently extract. NEVER fabricate — only include what you can see."
             onExtracted={fields => {
               setForm(f => ({
                 ...f,
