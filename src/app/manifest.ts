@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Artist OS',
-    short_name: 'Night Manoeuvres',
+    name: 'Signal Lab OS',
+    short_name: 'Signal Lab OS',
     description: 'The operating system for electronic artists',
     start_url: '/',
     display: 'standalone',

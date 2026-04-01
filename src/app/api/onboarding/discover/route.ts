@@ -42,46 +42,61 @@ async function discoverLastfm(name: string) {
 
 // ── Resident Advisor ──────────────────────────────────────────────────────────
 
+const RA_GQL = 'https://ra.co/graphql'
+const RA_HEADERS = {
+  'Content-Type': 'application/json',
+  'Referer': 'https://ra.co/',
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+}
+
 async function discoverRA(name: string) {
   try {
-    // Derive slug from name: "Night Manoeuvres" → "night-manoeuvres"
-    const slug = name.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
+    // Derive slug variants: "Night Manoeuvres" → "night-manoeuvres", "nightmanoeuvres"
+    const base = name.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    const dashed = base.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const nospaces = base.replace(/[^a-z0-9]/g, '')
+    const slugs = Array.from(new Set([dashed, nospaces]))
 
-    // Try slug-based artist lookup first
-    const slugQuery = {
+    // Full artist query with bio, image, genres, links
+    const fullQuery = {
       query: `query GetArtist($slug: String!) {
         artist(slug: $slug) {
           id
           name
           country { name }
-          biography { blurb }
+          bio
+          imageUrl
+          genres { name }
+          links { platform url }
         }
       }`,
-      variables: { slug },
     }
 
-    const slugRes = await fetch('https://ra.co/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Referer': 'https://ra.co/',
-        'User-Agent': 'Mozilla/5.0 (compatible; SignalLabOS/1.0)',
-      },
-      body: JSON.stringify(slugQuery),
-    })
+    for (const slug of slugs) {
+      const res = await fetch(RA_GQL, {
+        method: 'POST',
+        headers: RA_HEADERS,
+        body: JSON.stringify({ ...fullQuery, variables: { slug } }),
+      })
 
-    if (slugRes.ok) {
-      const slugData = await slugRes.json()
-      const artist = slugData?.data?.artist
+      if (!res.ok) continue
+      const data = await res.json()
+      const artist = data?.data?.artist
       if (artist?.id) {
         return {
           found: true,
           raSlug: slug,
+          raUrl: `https://ra.co/dj/${slug}`,
+          name: artist.name || name,
           country: artist.country?.name || null,
-          bio: artist.biography?.blurb ? artist.biography.blurb.slice(0, 200) : null,
+          bio: artist.bio || null,
+          imageUrl: artist.imageUrl || null,
+          genres: (artist.genres || []).map((g: { name: string }) => g.name),
+          links: (artist.links || []).map((l: { platform: string; url: string }) => ({
+            platform: l.platform,
+            url: l.url,
+          })),
         }
       }
     }
@@ -101,13 +116,9 @@ async function discoverRA(name: string) {
       variables: { query: name },
     }
 
-    const searchRes = await fetch('https://ra.co/graphql', {
+    const searchRes = await fetch(RA_GQL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Referer': 'https://ra.co/',
-        'User-Agent': 'Mozilla/5.0 (compatible; SignalLabOS/1.0)',
-      },
+      headers: RA_HEADERS,
       body: JSON.stringify(searchQuery),
     })
 
@@ -120,11 +131,45 @@ async function discoverRA(name: string) {
     const exact = results.find((a: { name?: string }) => a.name?.toLowerCase() === name.toLowerCase())
     const match = exact || results[0]
 
+    // If we found via search, try to get full profile
+    if (match?.slug) {
+      const fullRes = await fetch(RA_GQL, {
+        method: 'POST',
+        headers: RA_HEADERS,
+        body: JSON.stringify({ ...fullQuery, variables: { slug: match.slug } }),
+      })
+      if (fullRes.ok) {
+        const fullData = await fullRes.json()
+        const artist = fullData?.data?.artist
+        if (artist) {
+          return {
+            found: true,
+            raSlug: match.slug,
+            raUrl: `https://ra.co/dj/${match.slug}`,
+            name: artist.name || match.name || name,
+            country: artist.country?.name || match.country?.name || null,
+            bio: artist.bio || null,
+            imageUrl: artist.imageUrl || null,
+            genres: (artist.genres || []).map((g: { name: string }) => g.name),
+            links: (artist.links || []).map((l: { platform: string; url: string }) => ({
+              platform: l.platform,
+              url: l.url,
+            })),
+          }
+        }
+      }
+    }
+
     return {
       found: true,
       raSlug: match.slug,
+      raUrl: `https://ra.co/dj/${match.slug}`,
+      name: match.name || name,
       country: match.country?.name || null,
       bio: null,
+      imageUrl: null,
+      genres: [],
+      links: [],
     }
   } catch {
     return null
@@ -149,13 +194,17 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     found: true,
     sources: ['ra'],
-    artistName: lastfm?.artistName || name,
+    artistName: ra?.name || lastfm?.artistName || name,
     raSlug: ra?.raSlug || null,
-    genre: lastfm?.genre || null,
+    raUrl: ra?.raUrl || null,
+    genre: (ra?.genres && ra.genres.length > 0 ? ra.genres[0] : null) || lastfm?.genre || null,
+    genres: ra?.genres || [],
     tags: lastfm?.tags || [],
     bpmRange: null,
     country: ra?.country || null,
     bio: ra?.bio || lastfm?.bio || null,
+    imageUrl: ra?.imageUrl || null,
+    links: ra?.links || [],
     tracks: lastfm?.tracks || [],
   })
 }

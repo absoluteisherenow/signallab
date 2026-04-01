@@ -65,12 +65,18 @@ async function saveProfile(profile: Record<string, unknown>) {
 export default function Onboarding() {
   const router = useRouter()
 
-  // Steps: 0=name, 1=alignment, 2=business, 3=saving
+  // Steps: 0=name, 1=confirm RA profile, 2=alignment, 3=business, 4=saving
   const [step, setStep] = useState(0)
+
+  // Step 1 — editable confirmed profile from RA
+  const [confirmedBio, setConfirmedBio] = useState('')
+  const [confirmedGenres, setConfirmedGenres] = useState<string[]>([])
+  const [confirmedCountry, setConfirmedCountry] = useState('')
+  const [confirmedImageUrl, setConfirmedImageUrl] = useState<string | null>(null)
 
   // Step 0
   const [artistName, setArtistName] = useState('')
-  const [discovery, setDiscovery] = useState<{ found: boolean; sources?: string[]; genre?: string; bpmRange?: string; country?: string; bio?: string; tracks?: { title: string; bpm: number }[] } | null>(null)
+  const [discovery, setDiscovery] = useState<{ found: boolean; sources?: string[]; artistName?: string; genre?: string; genres?: string[]; bpmRange?: string; country?: string; bio?: string; imageUrl?: string; raUrl?: string; links?: { platform: string; url: string }[]; tracks?: { title: string; bpm: number }[] } | null>(null)
   const [discovering, setDiscovering] = useState(false)
   const discoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -123,6 +129,17 @@ export default function Onboarding() {
     }, 600)
     return () => { if (discoverTimer.current) clearTimeout(discoverTimer.current) }
   }, [artistName])
+
+  function goToConfirm() {
+    // Pre-populate confirmed fields from discovery
+    if (discovery?.found) {
+      setConfirmedBio(discovery.bio || '')
+      setConfirmedGenres(discovery.genres || (discovery.genre ? [discovery.genre] : []))
+      setConfirmedCountry(discovery.country || '')
+      setConfirmedImageUrl(discovery.imageUrl || null)
+    }
+    setStep(1)
+  }
 
   function toggleArtist(name: string) {
     setAligned(prev =>
@@ -199,14 +216,18 @@ export default function Onboarding() {
   }
 
   async function finish() {
-    setStep(3)
+    setStep(4)
     await saveProfile({
       name: artistName,
       soundsLike: aligned,
-      genre: discovery?.genre || 'Electronic',
+      genre: confirmedGenres.length > 0 ? confirmedGenres.join(', ') : (discovery?.genre || 'Electronic'),
+      genres: confirmedGenres,
       bpmRange: discovery?.bpmRange || '',
-      country: discovery?.country || null,
-      bio: discovery?.bio || null,
+      country: confirmedCountry || discovery?.country || null,
+      bio: confirmedBio || discovery?.bio || null,
+      imageUrl: confirmedImageUrl || null,
+      raUrl: discovery?.raUrl || null,
+      links: discovery?.links || null,
       tracks: discovery?.tracks || null,
       management: mgmtName ? { name: mgmtName, email: mgmtEmail } : null,
       booking: bookingName ? { name: bookingName, email: bookingEmail } : null,
@@ -220,7 +241,7 @@ export default function Onboarding() {
 
   const progressDots = (current: number) => (
     <div style={{ display: 'flex', gap: '6px', marginTop: '32px', justifyContent: 'center' }}>
-      {[0, 1, 2].map(i => (
+      {[0, 1, 2, 3].map(i => (
         <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: i <= current ? s.gold : s.border, transition: 'background 0.2s' }} />
       ))}
     </div>
@@ -252,7 +273,7 @@ export default function Onboarding() {
               <input
                 value={artistName}
                 onChange={e => setArtistName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && artistName.trim()) setStep(1) }}
+                onKeyDown={e => { if (e.key === 'Enter' && artistName.trim()) goToConfirm() }}
                 placeholder="Night Manoeuvres"
                 style={panelInput}
                 autoFocus
@@ -296,7 +317,7 @@ export default function Onboarding() {
             </div>
 
             <button
-              onClick={() => setStep(1)}
+              onClick={goToConfirm}
               disabled={!artistName.trim()}
               style={{
                 background: artistName.trim() ? s.gold : 'transparent',
@@ -315,12 +336,171 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── STEP 1 — ALIGNMENT PICKER ── */}
+        {/* ── STEP 1 — CONFIRM RA PROFILE ── */}
         {step === 1 && (
           <div>
             <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
-              Step 2 of 3 — Your sound
+              {discovery?.found ? 'We found you' : 'Your profile'}
+            </div>
+
+            {discovery?.found ? (
+              <>
+                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '12px' }}>
+                  {discovery.artistName || artistName}
+                </div>
+                <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.7', marginBottom: '32px' }}>
+                  Pulled from Resident Advisor. Check everything looks right — you can edit anything below.
+                </p>
+
+                {/* RA profile card */}
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px', marginBottom: '16px' }}>
+                  {/* Image + basic info */}
+                  <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+                    {confirmedImageUrl && (
+                      <div style={{
+                        width: '100px', height: '100px', flexShrink: 0,
+                        backgroundImage: `url(${confirmedImageUrl})`,
+                        backgroundSize: 'cover', backgroundPosition: 'center',
+                        border: `1px solid ${s.border}`,
+                      }} />
+                    )}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '16px', color: s.text, fontWeight: 500, marginBottom: '6px' }}>
+                        {discovery.artistName || artistName}
+                      </div>
+                      {confirmedGenres.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                          {confirmedGenres.map(g => (
+                            <span key={g} style={{ fontSize: '10px', color: s.gold, background: 'rgba(176,141,87,0.1)', border: `1px solid rgba(176,141,87,0.25)`, padding: '3px 10px', letterSpacing: '0.08em' }}>
+                              {g}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {confirmedCountry && (
+                        <div style={{ fontSize: '11px', color: s.dimmer, letterSpacing: '0.06em' }}>
+                          {confirmedCountry}
+                        </div>
+                      )}
+                      {discovery.raUrl && (
+                        <a href={discovery.raUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.06em', textDecoration: 'none', display: 'inline-block', marginTop: '4px', opacity: 0.6 }}>
+                          ra.co ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Editable bio */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Bio</div>
+                    <textarea
+                      value={confirmedBio}
+                      onChange={e => setConfirmedBio(e.target.value)}
+                      rows={4}
+                      style={{ ...input, resize: 'vertical', lineHeight: '1.6' }}
+                      placeholder="Your bio..."
+                    />
+                  </div>
+
+                  {/* Editable country */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Country</div>
+                    <input
+                      value={confirmedCountry}
+                      onChange={e => setConfirmedCountry(e.target.value)}
+                      style={input}
+                      placeholder="Australia"
+                    />
+                  </div>
+
+                  {/* Social links from RA */}
+                  {discovery.links && discovery.links.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Links</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {discovery.links.map((l, i) => (
+                          <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: s.dim, background: s.bg, border: `1px solid ${s.border}`, padding: '6px 14px', textDecoration: 'none', letterSpacing: '0.06em' }}>
+                            {l.platform}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '12px' }}>
+                  Tell us about<br />
+                  <span style={{ color: s.gold }}>{artistName}</span>
+                </div>
+                <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.7', marginBottom: '32px' }}>
+                  We couldn&apos;t find you on Resident Advisor — no worries. Fill in what you can.
+                </p>
+
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px', marginBottom: '16px' }}>
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Bio</div>
+                    <textarea
+                      value={confirmedBio}
+                      onChange={e => setConfirmedBio(e.target.value)}
+                      rows={4}
+                      style={{ ...input, resize: 'vertical', lineHeight: '1.6' }}
+                      placeholder="Your bio..."
+                    />
+                  </div>
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Genre</div>
+                    <input
+                      value={confirmedGenres.join(', ')}
+                      onChange={e => setConfirmedGenres(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                      style={input}
+                      placeholder="Electronic, Deep House, Techno..."
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Country</div>
+                    <input
+                      value={confirmedCountry}
+                      onChange={e => setConfirmedCountry(e.target.value)}
+                      style={input}
+                      placeholder="Australia"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <button
+              onClick={() => setStep(2)}
+              style={{
+                background: s.gold, color: '#070706',
+                border: `1px solid ${s.gold}`,
+                fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
+                textTransform: 'uppercase', padding: '18px',
+                cursor: 'pointer', width: '100%', transition: 'all 0.2s',
+              }}
+            >
+              {discovery?.found ? 'Looks good →' : 'Next →'}
+            </button>
+            <button
+              onClick={() => setStep(0)}
+              style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.1em', padding: '14px', cursor: 'pointer', width: '100%', marginTop: '4px' }}
+            >
+              ← Back
+            </button>
+
+            {progressDots(1)}
+          </div>
+        )}
+
+        {/* ── STEP 2 — ALIGNMENT PICKER ── */}
+        {step === 2 && (
+          <div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
+              Step 3 of 4 — Your sound
             </div>
 
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '12px' }}>
@@ -400,7 +580,7 @@ export default function Onboarding() {
             )}
 
             <button
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               disabled={aligned.length === 0}
               style={{
                 background: aligned.length > 0 ? s.gold : 'transparent',
@@ -415,22 +595,22 @@ export default function Onboarding() {
               Next →
             </button>
             <button
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.1em', padding: '14px', cursor: 'pointer', width: '100%', marginTop: '4px' }}
             >
               Skip
             </button>
 
-            {progressDots(1)}
+            {progressDots(2)}
           </div>
         )}
 
-        {/* ── STEP 2 — BUSINESS DETAILS ── */}
-        {step === 2 && (
+        {/* ── STEP 3 — BUSINESS DETAILS ── */}
+        {step === 3 && (
           <div>
             <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
-              Step 3 of 3 — Your team
+              Step 4 of 4 — Your team
             </div>
 
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '12px' }}>
@@ -677,12 +857,12 @@ export default function Onboarding() {
               Skip — go to dashboard
             </button>
 
-            {progressDots(2)}
+            {progressDots(3)}
           </div>
         )}
 
         {/* ── SAVING ── */}
-        {step === 3 && (
+        {step === 4 && (
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '32px' }}>
               {[0, 1, 2].map(i => (

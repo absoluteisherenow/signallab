@@ -83,6 +83,11 @@ export function SignalGenius() {
   const [speaking, setSpeaking] = useState(false)
   const [recording, setRecording] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [pendingInvoice, setPendingInvoice] = useState<any>(null)
+  const [createdInvoice, setCreatedInvoice] = useState<any>(null)
+  const [creatingInvoice, setCreatingInvoice] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState<{ html: string; invoiceId: string } | null>(null)
+  const [sendingEmail, setSendingEmail] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -162,7 +167,7 @@ export function SignalGenius() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: `📎 Analysing ${file.name}...` }
+    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: `📎 ${file.name}` }
     const assistantId = crypto.randomUUID()
     setMessages(prev => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '' }])
     setLoading(true)
@@ -170,15 +175,32 @@ export function SignalGenius() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('context', 'Analyse this document thoroughly. Extract all financial data: amounts, currencies, dates, line items, totals, parties involved. If it\'s a royalty statement, list each release/track with its earnings. If it\'s an invoice or contract, extract key terms. Present clearly.')
+      formData.append('context', 'Extract all data from this document: amounts, currencies, dates, parties, line items, totals, reference numbers. Return raw extracted data only — no commentary.')
 
       const res = await fetch('/api/analyse-document', { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Failed')
       const data = await res.json()
-      const text = data.text || 'Could not read document'
-      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: text } : m))
+      const extracted = data.text || 'Could not read document'
+
+      // Feed the extracted data through Signal so it can respond naturally
+      const fullResponse = await streamClaude(
+        buildSystemPrompt(),
+        [
+          ...messages,
+          userMsg,
+          {
+            role: 'user',
+            content: `I just uploaded "${file.name}". Here is the extracted content:\n\n${extracted}\n\nIn 1-2 plain sentences (no markdown, no bullet points, no headers): tell me what this document is and the key figure. Then ask if I want you to create the invoice. If you have enough data, end your message with the [INVOICE_READY:{...}] marker as instructed.`,
+          },
+        ],
+        (partialText) => {
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: partialText } : m))
+        },
+      )
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullResponse } : m))
+      speakResponse(fullResponse)
     } catch {
-      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: 'Failed to analyse document — try again.' } : m))
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: 'Failed to read document — try again.' } : m))
     } finally {
       setLoading(false)
       setUploading(false)
@@ -255,6 +277,36 @@ export function SignalGenius() {
       contextBlock += `\n\nArtist: ${c.profile.name || 'Unknown'} · ${c.profile.genre || 'Electronic'} · ${c.profile.country || ''}`
       contextBlock += `\nThis quarter: ${c.quarterStats.gigs} gigs, ${c.quarterStats.posts} posts published, ${c.quarterStats.revenue > 0 ? '£' + c.quarterStats.revenue.toLocaleString() + ' revenue' : 'no revenue logged'}.`
 
+      // Bank accounts — needed for invoice building
+      if (c.profile.bankAccounts?.length > 0) {
+        contextBlock += `\n\nBank accounts for invoicing:`
+        c.profile.bankAccounts.forEach((acc: any) => {
+          const parts = [`${acc.currency || ''} account`]
+          if (acc.accountName) parts.push(`Name: ${acc.accountName}`)
+          if (acc.bankName) parts.push(`Bank: ${acc.bankName}`)
+          if (acc.iban) parts.push(`IBAN: ${acc.iban}`)
+          if (acc.accountNumber) parts.push(`Account: ${acc.accountNumber}`)
+          if (acc.sortCode) parts.push(`Sort code: ${acc.sortCode}`)
+          if (acc.bic) parts.push(`BIC/SWIFT: ${acc.bic}`)
+          if (acc.bankAddress) parts.push(`Address: ${acc.bankAddress}`)
+          contextBlock += `\n- ${parts.join(' · ')}`
+        })
+      }
+
+      // Management, booking & label contacts
+      if (c.profile.management?.name || c.profile.management?.email) {
+        contextBlock += `\nManagement: ${[c.profile.management.name, c.profile.management.email].filter(Boolean).join(' · ')}`
+      }
+      if (c.profile.booking?.name || c.profile.booking?.email) {
+        contextBlock += `\nBooking: ${[c.profile.booking.name, c.profile.booking.email].filter(Boolean).join(' · ')}`
+      }
+      if (c.profile.label) {
+        contextBlock += `\nLabel: ${c.profile.label}`
+      }
+      if (c.profile.vatRegistered && c.profile.vatNumber) {
+        contextBlock += `\nVAT number: ${c.profile.vatNumber}`
+      }
+
       if (upcoming.length > 0) {
         contextBlock += `\n\nUpcoming gigs:\n${upcoming.map((g: any) => {
           let line = `- ${g.title} at ${g.venue || '?'} · ${g.date} · ${g.time || 'TBC'} · Fee: ${g.currency || ''}${g.fee || '?'} · Status: ${g.status}`
@@ -268,8 +320,24 @@ export function SignalGenius() {
         }).join('\n')}`
       }
 
-      if (overdue.length > 0) {
-        contextBlock += `\n\nOverdue invoices (${overdue.length}):\n${overdue.map((i: any) => `- ${i.gig_title}: ${i.currency || ''}${i.amount} · Due: ${i.due_date}`).join('\n')}`
+      // Full invoice history — so Signal can match format and reference previous invoices
+      if (c.invoices.length > 0) {
+        const recentInvoices = c.invoices.slice(0, 30)
+        contextBlock += `\n\nInvoice history (${c.invoices.length} total, showing ${recentInvoices.length} most recent):`
+        recentInvoices.forEach((i: any) => {
+          let line = `- [${i.status?.toUpperCase() || 'PENDING'}] ${i.gig_title}`
+          if (i.artist_name) line += ` · Artist: ${i.artist_name}`
+          line += ` · ${i.currency || ''}${i.amount}`
+          if (i.type && i.type !== 'full') line += ` (${i.type})`
+          if (i.due_date) line += ` · Due: ${i.due_date}`
+          if (i.wht_rate) line += ` · WHT: ${i.wht_rate}%`
+          if (i.notes) line += ` · Notes: ${i.notes}`
+          if (i.created_at) line += ` · Created: ${i.created_at.slice(0, 10)}`
+          contextBlock += `\n${line}`
+        })
+        if (overdue.length > 0) {
+          contextBlock += `\n⚠ ${overdue.length} overdue`
+        }
       }
 
       if (weekPosts.length > 0) {
@@ -346,7 +414,10 @@ Rules:
 - Use the artist's actual data when relevant (upcoming gigs, overdue invoices, etc.)
 - If asked about something outside your data, answer from your deep knowledge of the music industry.
 - Format with line breaks for readability, not markdown headers.
-- Currency: use the same currency as the artist's invoices/gigs.`
+- Currency: use the same currency as the artist's invoices/gigs.
+- BANK ACCOUNT CURRENCY MATCHING — CRITICAL: When building or referencing an invoice, always use the bank account whose currency matches the invoice currency. If the invoice is in EUR, use the EUR bank account. If GBP, use the GBP account. If a document is uploaded and its amounts are in a specific currency, automatically use the matching bank account for any invoice you build from it. Never mix currencies across bank accounts.
+- OUTGOING CORRESPONDENCE — CRITICAL: Never send any email, invoice, or message without first showing the exact copy to the artist and receiving explicit confirmation. This applies every single time, with no exceptions. Show the full text before any send action.
+- INVOICE CREATION: When you have enough data to create an invoice (from a document upload, a conversation, or a confirmed gig), append this marker at the very end of your message (after all your text): [INVOICE_READY:{"gig_title":"...","amount":0.00,"currency":"EUR","due_date":"YYYY-MM-DD","artist_name":"...","wht_rate":null,"notes":"..."}] — fill in every field you know, leave unknown fields null. Only include this marker when you are ready to create the invoice and have asked the artist to confirm.`
   }
 
   async function handleSend(text?: string) {
@@ -369,17 +440,77 @@ Rules:
         buildSystemPrompt(),
         conversationHistory,
         (partialText) => {
-          // Update the assistant message in-place as text streams in
-          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: partialText } : m))
+          // Strip INVOICE_READY marker from display while streaming
+          const display = partialText.replace(/\[INVOICE_READY:[^\]]*\]/g, '').trim()
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: display } : m))
         },
       )
-      // Final update with complete text
-      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullResponse } : m))
-      speakResponse(fullResponse)
+      // Parse and strip INVOICE_READY marker from final response
+      const invoiceMatch = fullResponse.match(/\[INVOICE_READY:(\{.*?\})\]/)
+      const displayText = fullResponse.replace(/\[INVOICE_READY:[^\]]*\]/g, '').trim()
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: displayText } : m))
+      if (invoiceMatch) {
+        try {
+          setPendingInvoice(JSON.parse(invoiceMatch[1]))
+          setCreatedInvoice(null)
+          setPendingEmail(null)
+        } catch { /* malformed JSON — ignore */ }
+      }
+      speakResponse(displayText)
     } catch {
       setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: 'Something went wrong. Try again.' } : m))
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleCreateInvoice() {
+    if (!pendingInvoice) return
+    setCreatingInvoice(true)
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pendingInvoice),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error('Failed to create invoice')
+      setCreatedInvoice(data.invoice)
+      setPendingInvoice(null)
+    } catch {
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: 'Failed to create the invoice — try again.' }])
+    } finally {
+      setCreatingInvoice(false)
+    }
+  }
+
+  async function handlePreviewEmail() {
+    if (!createdInvoice) return
+    try {
+      const res = await fetch(`/api/invoices/${createdInvoice.id}/send`)
+      const html = await res.text()
+      setPendingEmail({ html, invoiceId: createdInvoice.id })
+    } catch {
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: 'Failed to load email preview — try again.' }])
+    }
+  }
+
+  async function handleSendEmail() {
+    if (!pendingEmail) return
+    setSendingEmail(true)
+    try {
+      const res = await fetch(`/api/invoices/${pendingEmail.invoiceId}/send`, { method: 'POST' })
+      const data = await res.json()
+      const sentMsg = data.sent
+        ? `Invoice sent to ${data.to} from ${data.sentFrom}.`
+        : 'Email client opened — send from there.'
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: sentMsg }])
+      setPendingEmail(null)
+      setCreatedInvoice(null)
+    } catch {
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: 'Failed to send — try again.' }])
+    } finally {
+      setSendingEmail(false)
     }
   }
 
@@ -546,6 +677,103 @@ Rules:
                 animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
               }} />
             ))}
+          </div>
+        )}
+
+        {/* Invoice action cards */}
+        {pendingInvoice && !loading && (
+          <div style={{
+            alignSelf: 'flex-start', padding: '14px 16px',
+            background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.3)',
+            maxWidth: '88%',
+          }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '10px', lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--gold)' }}>{pendingInvoice.gig_title}</strong>
+              {pendingInvoice.artist_name && ` · ${pendingInvoice.artist_name}`}
+              {` · ${pendingInvoice.currency || ''}${pendingInvoice.amount}`}
+              {pendingInvoice.due_date && ` · Due ${pendingInvoice.due_date}`}
+              {pendingInvoice.wht_rate && ` · WHT ${pendingInvoice.wht_rate}%`}
+            </div>
+            <button onClick={handleCreateInvoice} disabled={creatingInvoice}
+              style={{
+                background: 'var(--gold)', border: 'none', color: '#070706',
+                fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
+                textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer',
+                opacity: creatingInvoice ? 0.6 : 1,
+              }}>
+              {creatingInvoice ? 'Creating...' : 'Create invoice →'}
+            </button>
+          </div>
+        )}
+
+        {createdInvoice && !pendingEmail && (
+          <div style={{
+            alignSelf: 'flex-start', padding: '14px 16px',
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(176,141,87,0.3)',
+            maxWidth: '88%',
+          }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '10px' }}>
+              Invoice created. Would you like to send it?
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <a href={`/api/invoices/${createdInvoice.id}?preview=1`} target="_blank" rel="noreferrer"
+                style={{
+                  background: 'transparent', border: '1px solid var(--border-dim)',
+                  color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '10px',
+                  letterSpacing: '0.12em', textTransform: 'uppercase', padding: '8px 14px',
+                  textDecoration: 'none', cursor: 'pointer',
+                }}>
+                View invoice ↗
+              </a>
+              <button onClick={handlePreviewEmail}
+                style={{
+                  background: 'var(--gold)', border: 'none', color: '#070706',
+                  fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
+                  textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer',
+                }}>
+                Preview email →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {pendingEmail && (
+          <div style={{
+            alignSelf: 'flex-start', width: '100%', maxWidth: '100%',
+            border: '1px solid rgba(176,141,87,0.3)',
+          }}>
+            <div style={{
+              padding: '10px 14px', borderBottom: '1px solid var(--border-dim)',
+              fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: 'var(--gold)',
+            }}>
+              Email preview — confirm before sending
+            </div>
+            <iframe
+              srcDoc={pendingEmail.html}
+              style={{ width: '100%', height: '320px', border: 'none', background: '#fff' }}
+              title="Email preview"
+            />
+            <div style={{ padding: '10px 14px', display: 'flex', gap: '8px', borderTop: '1px solid var(--border-dim)' }}>
+              <button onClick={() => setPendingEmail(null)}
+                style={{
+                  background: 'transparent', border: '1px solid var(--border-dim)',
+                  color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '10px',
+                  letterSpacing: '0.12em', textTransform: 'uppercase', padding: '8px 14px',
+                  cursor: 'pointer',
+                }}>
+                Cancel
+              </button>
+              <button onClick={handleSendEmail} disabled={sendingEmail}
+                style={{
+                  background: 'var(--gold)', border: 'none', color: '#070706',
+                  fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
+                  textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer',
+                  opacity: sendingEmail ? 0.6 : 1,
+                }}>
+                {sendingEmail ? 'Sending...' : 'Confirm & send →'}
+              </button>
+            </div>
           </div>
         )}
 
