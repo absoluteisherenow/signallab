@@ -1,8 +1,29 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import SocialConnect from '@/components/social/SocialConnect'
 import { PageHeader } from '@/components/ui/PageHeader'
+
+interface Document {
+  id: string
+  created_at: string
+  name: string
+  type: string
+  file_url: string
+  file_size: number
+  mime_type: string
+  notes: string | null
+  tags: string[] | null
+}
+
+const DOC_TYPES = [
+  { value: 'rider_tech', label: 'Tech Rider' },
+  { value: 'rider_hospitality', label: 'Hospitality Rider' },
+  { value: 'invoice', label: 'Invoice/Statement' },
+  { value: 'contract', label: 'Contract' },
+  { value: 'strategy', label: 'Content Strategy' },
+  { value: 'other', label: 'Other' },
+] as const
 
 interface ConnectedAccount {
   id: string
@@ -65,7 +86,7 @@ export default function Settings() {
   const [newAlias, setNewAlias] = useState({ name: '', genre: '' })
   const [tier, setTier] = useState<'free' | 'pro'>('free')
   const [saved, setSaved] = useState(false)
-  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance' | 'payment' | 'aliases'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance' | 'payment' | 'aliases' | 'documents'>('profile')
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
@@ -74,6 +95,67 @@ export default function Settings() {
   const [gmailConnected, setGmailConnected] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [scanResult, setScanResult] = useState<{ processed: number; results: any[] } | null>(null)
+
+  // RA profile pull state
+  const [raPulling, setRaPulling] = useState(false)
+  const [raError, setRaError] = useState<string | null>(null)
+  const [raSuccess, setRaSuccess] = useState(false)
+
+  // Document vault state
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [uploadType, setUploadType] = useState('other')
+  const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const loadDocuments = useCallback(async () => {
+    setDocsLoading(true)
+    try {
+      const res = await fetch('/api/documents')
+      const data = await res.json()
+      if (data.documents) setDocuments(data.documents)
+    } catch { /* silent */ } finally { setDocsLoading(false) }
+  }, [])
+
+  async function uploadDocument(file: File) {
+    setUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('type', uploadType)
+      const res = await fetch('/api/documents', { method: 'POST', body: form })
+      const data = await res.json()
+      if (data.success) {
+        setDocuments(prev => [data.document, ...prev])
+      }
+    } catch { /* silent */ } finally { setUploading(false) }
+  }
+
+  async function deleteDocument(id: string) {
+    try {
+      const res = await fetch(`/api/documents?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) setDocuments(prev => prev.filter(d => d.id !== id))
+    } catch { /* silent */ }
+  }
+
+  function formatFileSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  function handleFileDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) uploadDocument(file)
+  }
+
+  useEffect(() => {
+    if (activeTab === 'documents') loadDocuments()
+  }, [activeTab, loadDocuments])
 
   useEffect(() => {
     fetch('/api/gmail/accounts')
@@ -106,6 +188,36 @@ export default function Settings() {
   async function disconnectAccount(id: string) {
     await fetch(`/api/gmail/accounts?id=${id}`, { method: 'DELETE' })
     setConnectedAccounts(prev => prev.filter(a => a.id !== id))
+  }
+
+  async function pullFromRA() {
+    if (!profile.name.trim()) {
+      setRaError('Enter an artist name first')
+      return
+    }
+    setRaPulling(true)
+    setRaError(null)
+    setRaSuccess(false)
+    try {
+      const res = await fetch(`/api/ra-profile?artist=${encodeURIComponent(profile.name)}`)
+      const data = await res.json()
+      if (!res.ok) {
+        setRaError(data.error || 'Could not find artist on RA')
+        return
+      }
+      setProfile(p => ({
+        ...p,
+        bio: data.bio || p.bio,
+        genre: (data.genres?.length ? data.genres.join(', ') : '') || p.genre,
+        country: data.country || p.country,
+      }))
+      setRaSuccess(true)
+      setTimeout(() => setRaSuccess(false), 3000)
+    } catch {
+      setRaError('Failed to connect to Resident Advisor')
+    } finally {
+      setRaPulling(false)
+    }
   }
 
   // Load settings from Supabase
@@ -171,8 +283,8 @@ export default function Settings() {
       <PageHeader
         section="Settings"
         title="Settings"
-        tabs={([...(['profile', 'team', 'integrations', 'advance', 'payment'] as const), ...(tier === 'pro' ? ['aliases' as const] : [])]).map(tab => ({
-          label: tab === 'advance' ? 'Advance form' : tab === 'payment' ? 'Payment details' : tab === 'aliases' ? 'Aliases' : tab,
+        tabs={([...(['profile', 'team', 'integrations', 'advance', 'payment', 'documents'] as const), ...(tier === 'pro' ? ['aliases' as const] : [])]).map(tab => ({
+          label: tab === 'advance' ? 'Advance form' : tab === 'payment' ? 'Payment details' : tab === 'aliases' ? 'Aliases' : tab === 'documents' ? 'Vault' : tab,
           active: activeTab === tab,
           onClick: () => setActiveTab(tab),
         }))}
@@ -202,9 +314,33 @@ export default function Settings() {
                 rows={3} style={{ ...inputStyle, resize: 'vertical' as const }} />
             </div>
           </div>
-          <button onClick={save} disabled={isSaving} className="btn-primary" style={{ marginTop: '24px', opacity: isSaving ? 0.6 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
-            {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save profile'}
-          </button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '24px', flexWrap: 'wrap' }}>
+            <button onClick={save} disabled={isSaving} className="btn-primary" style={{ opacity: isSaving ? 0.6 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
+              {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save profile'}
+            </button>
+            <button
+              onClick={pullFromRA}
+              disabled={raPulling}
+              className="btn-secondary"
+              style={{
+                opacity: raPulling ? 0.6 : 1,
+                cursor: raPulling ? 'not-allowed' : 'pointer',
+                borderColor: 'var(--border)',
+              }}
+            >
+              {raPulling ? 'Pulling...' : raSuccess ? 'Imported ✓' : 'Pull from RA'}
+            </button>
+          </div>
+          {raError && (
+            <div style={{ marginTop: '10px', fontSize: '11px', color: '#e06c75', fontFamily: 'var(--font-mono)' }}>
+              {raError}
+            </div>
+          )}
+          {raSuccess && (
+            <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--green, #98c379)', fontFamily: 'var(--font-mono)' }}>
+              Profile data imported from Resident Advisor
+            </div>
+          )}
         </div>
       )}
 
@@ -827,6 +963,111 @@ export default function Settings() {
           <button onClick={save} disabled={isSaving} className="btn-primary" style={{ alignSelf: 'flex-start', opacity: isSaving ? 0.6 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
             {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save aliases'}
           </button>
+        </div>
+      )}
+
+      {/* DOCUMENTS / VAULT TAB */}
+      {activeTab === 'documents' && (
+        <div style={{ maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Upload area */}
+          <div className="card">
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>Upload document</div>
+
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Document type</label>
+                <select
+                  value={uploadType}
+                  onChange={e => setUploadType(e.target.value)}
+                  style={{ ...inputStyle, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
+                >
+                  {DOC_TYPES.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div
+              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleFileDrop}
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: `1px dashed ${dragOver ? 'var(--gold)' : 'var(--border-dim)'}`,
+                background: dragOver ? 'rgba(176,141,87,0.06)' : 'transparent',
+                padding: '32px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              <div style={{ fontSize: '12px', color: dragOver ? 'var(--gold)' : 'var(--text-dim)', marginBottom: '6px' }}>
+                {uploading ? 'Uploading...' : 'Drop file here or click to browse'}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', letterSpacing: '0.06em' }}>
+                PDF, PNG, JPG, DOC, DOCX, CSV, XLSX
+              </div>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.csv,.xlsx"
+              style={{ display: 'none' }}
+              onChange={e => {
+                const file = e.target.files?.[0]
+                if (file) uploadDocument(file)
+                e.target.value = ''
+              }}
+            />
+          </div>
+
+          {/* Document list grouped by type */}
+          {docsLoading ? (
+            <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>Loading documents...</div>
+          ) : documents.length === 0 ? (
+            <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>No documents uploaded yet.</div>
+          ) : (
+            DOC_TYPES.map(docType => {
+              const group = documents.filter(d => d.type === docType.value)
+              if (group.length === 0) return null
+              return (
+                <div key={docType.value} className="card">
+                  <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>{docType.label}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {group.map(doc => (
+                      <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dim)' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                          <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>
+                              {new Date(doc.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>
+                              {formatFileSize(doc.file_size)}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', marginLeft: '16px', flexShrink: 0 }}>
+                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                            style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', textDecoration: 'none', display: 'inline-block' }}>
+                            View
+                          </a>
+                          <button onClick={() => deleteDocument(doc.id)}
+                            style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       )}
 
