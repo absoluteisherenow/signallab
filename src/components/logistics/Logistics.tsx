@@ -54,16 +54,23 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function searchFlightsUrl(destination: string, date: string) {
-  const city = destination.split(',')[0].trim()
-  const d = new Date(date)
-  const dateStr = d.toISOString().slice(0, 10)
-  return `https://www.google.com/flights#flt=DUB.${encodeURIComponent(city)}.${dateStr};c:EUR;e:1;s:0*1;sd:1;t:f`
+function currencySymbol(c: string): string {
+  const map: Record<string, string> = { GBP: '£', USD: '$', EUR: '€', CHF: 'CHF ', AUD: 'A$', CAD: 'C$', JPY: '¥' }
+  return map[c] || c + ' '
 }
 
-function searchTrainsUrl(destination: string, date: string) {
+function searchFlightsUrl(destination: string, date: string, origin?: string) {
   const city = destination.split(',')[0].trim()
-  return `https://www.thetrainline.com/book/results?origin=Dublin&destination=${encodeURIComponent(city)}&outwardDate=${date}&outwardDateType=departing`
+  const originCode = origin ? encodeURIComponent(origin.split(',')[0].trim()) : ''
+  const d = new Date(date)
+  const dateStr = d.toISOString().slice(0, 10)
+  return `https://www.google.com/flights#flt=${originCode}.${encodeURIComponent(city)}.${dateStr};c:EUR;e:1;s:0*1;sd:1;t:f`
+}
+
+function searchTrainsUrl(destination: string, date: string, origin?: string) {
+  const city = destination.split(',')[0].trim()
+  const originCity = origin ? origin.split(',')[0].trim() : ''
+  return `https://www.thetrainline.com/book/results?origin=${encodeURIComponent(originCity)}&destination=${encodeURIComponent(city)}&outwardDate=${date}&outwardDateType=departing`
 }
 
 function searchHotelUrl(destination: string, checkIn: string, checkOut?: string) {
@@ -80,8 +87,9 @@ export default function Logistics() {
   const [promoterEmail, setPromoterEmail] = useState('')
   const [showEmailInput, setShowEmailInput] = useState<string | null>(null)
   const [sending, setSending] = useState<string | null>(null)
-  const [advanceStatus, setAdvanceStatus] = useState<Record<string, string>>({ '1': 'complete', '2': 'sent' })
+  const [advanceStatus, setAdvanceStatus] = useState<Record<string, string>>({})
   const [toast, setToast] = useState('')
+  const [artistLocation, setArtistLocation] = useState<string>('')
 
   // Contacts editing
   const [editingContacts, setEditingContacts] = useState<string | null>(null)
@@ -98,6 +106,12 @@ export default function Logistics() {
       .then(r => r.json())
       .then(d => setGigs(d.gigs || []))
       .catch(() => setGigs([]))
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => {
+        if (d.settings?.profile?.country) setArtistLocation(d.settings.profile.country)
+      })
+      .catch(() => {})
   }, [])
 
   function showToast(msg: string) {
@@ -409,11 +423,11 @@ export default function Logistics() {
 
                           {/* Smart search links */}
                           <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                            <a href={searchFlightsUrl(gig.location, gig.date)} target="_blank" rel="noopener noreferrer"
+                            <a href={searchFlightsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
                               style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '7px 14px', textDecoration: 'none', textTransform: 'uppercase' }}>
                               Search flights ↗
                             </a>
-                            <a href={searchTrainsUrl(gig.location, gig.date)} target="_blank" rel="noopener noreferrer"
+                            <a href={searchTrainsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
                               style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '7px 14px', textDecoration: 'none', textTransform: 'uppercase' }}>
                               Search trains ↗
                             </a>
@@ -652,7 +666,17 @@ export default function Logistics() {
             <div></div>
             <div></div>
             <div style={{ fontSize: '14px', color: 'var(--gold)', textAlign: 'right', fontWeight: '600' }}>
-              €{(gigs ?? []).filter(g => g.status === 'confirmed').reduce((sum, g) => sum + (g.fee || 0), 0).toLocaleString()}
+              {(() => {
+                const confirmed = (gigs ?? []).filter(g => g.status === 'confirmed')
+                const byCurrency: Record<string, number> = {}
+                confirmed.forEach(g => {
+                  const c = g.currency || 'EUR'
+                  byCurrency[c] = (byCurrency[c] || 0) + (g.fee || 0)
+                })
+                const entries = Object.entries(byCurrency)
+                if (entries.length === 0) return `${currencySymbol('EUR')}0`
+                return entries.map(([c, total]) => `${currencySymbol(c)}${total.toLocaleString()}`).join(' + ')
+              })()}
             </div>
           </div>
         )}

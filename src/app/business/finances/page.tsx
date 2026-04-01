@@ -44,16 +44,24 @@ interface Expense {
 
 const EXPENSE_CATEGORIES = ['Studio', 'Equipment', 'Travel', 'Accommodation', 'Food', 'Marketing', 'Other']
 
-const MONTHLY_TEMPLATE = [
-  { month: 'Oct', amount: 0 },
-  { month: 'Nov', amount: 0 },
-  { month: 'Dec', amount: 0 },
-  { month: 'Jan', amount: 0 },
-  { month: 'Feb', amount: 0 },
-  { month: 'Mar', amount: 0 },
-  { month: 'Apr', amount: 0 },
-  { month: 'May', amount: 0 },
-]
+function currencySymbol(c: string): string {
+  const map: Record<string, string> = { GBP: '£', USD: '$', EUR: '€', CHF: 'CHF ', AUD: 'A$', CAD: 'C$', JPY: '¥' }
+  return map[c] || c + ' '
+}
+
+function fmtCurrency(currency: string, amount: number, opts?: Intl.NumberFormatOptions): string {
+  return `${currencySymbol(currency)}${amount.toLocaleString(undefined, opts)}`
+}
+
+function generateMonthlyTemplate(): { month: string; amount: number }[] {
+  const now = new Date()
+  const months: { month: string; amount: number }[] = []
+  for (let i = 7; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    months.push({ month: d.toLocaleDateString('en-GB', { month: 'short' }), amount: 0 })
+  }
+  return months
+}
 
 function getNextThreeMonths(): { key: string; label: string }[] {
   const now = new Date()
@@ -72,7 +80,7 @@ export default function Finances() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [gigs, setGigs] = useState<Gig[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
-  const [monthly, setMonthly] = useState(MONTHLY_TEMPLATE)
+  const [monthly, setMonthly] = useState(generateMonthlyTemplate)
   const [showAdd, setShowAdd] = useState(false)
   const [showAddExpense, setShowAddExpense] = useState(false)
   const [newInvoice, setNewInvoice] = useState({ gig_title: '', amount: '', currency: '', type: 'full', due_date: '', wht_rate: '', location: '', artist_name: '', promoter: '' })
@@ -87,6 +95,7 @@ export default function Finances() {
   const [sendEmail, setSendEmail] = useState<Record<string, string>>({})
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [editExpense, setEditExpense] = useState<Partial<Expense>>({})
+  const [artistName, setArtistName] = useState('Artist')
   const pathname = usePathname()
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
@@ -102,6 +111,9 @@ export default function Finances() {
   useEffect(() => {
     fetchInvoices()
     fetchGigs()
+    fetch('/api/settings').then(r => r.json()).then(d => {
+      if (d?.artist_name) setArtistName(d.artist_name)
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -156,12 +168,17 @@ export default function Finances() {
   }
 
   function updateMonthlyChart(invoiceList: Invoice[]) {
-    const monthlyData = [...MONTHLY_TEMPLATE]
+    const monthlyData = generateMonthlyTemplate()
+    const now = new Date()
     invoiceList.forEach(inv => {
       if (inv.status === 'paid' || inv.created_at) {
         const date = new Date(inv.paid_at || inv.created_at || new Date())
-        const monthIndex = date.getMonth()
-        monthlyData[monthIndex].amount += inv.amount
+        // Calculate how many months ago this invoice is relative to now
+        const monthsAgo = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth())
+        const idx = 7 - monthsAgo // 7 = last index (current month)
+        if (idx >= 0 && idx < monthlyData.length) {
+          monthlyData[idx].amount += inv.amount
+        }
       }
     })
     setMonthly(monthlyData)
@@ -453,10 +470,10 @@ export default function Finances() {
           {/* STATS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', marginBottom: '32px' }}>
             {[
-              { label: 'Total invoiced', value: `${statCurrency} ${grandTotal.toLocaleString()}`, sub: 'All time' },
-              { label: 'Received', value: `${statCurrency} ${paidTotal.toLocaleString()}`, sub: `${invoices.filter(i => i.status === 'paid' && i.currency === statCurrency).length} invoices paid`, green: true },
-              { label: 'Outstanding', value: `${statCurrency} ${pendingTotal.toLocaleString()}`, sub: `${invoices.filter(i => i.status === 'pending' && i.currency === statCurrency).length} awaiting payment`, alert: pendingTotal > 0 },
-              { label: 'This month', value: `${statCurrency} ${(byCurrency[statCurrency] ? (byCurrency[statCurrency].paid + byCurrency[statCurrency].pending) : 0).toLocaleString()}`, sub: now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) },
+              { label: 'Total invoiced', value: fmtCurrency(statCurrency, grandTotal), sub: 'All time' },
+              { label: 'Received', value: fmtCurrency(statCurrency, paidTotal), sub: `${invoices.filter(i => i.status === 'paid' && i.currency === statCurrency).length} invoices paid`, green: true },
+              { label: 'Outstanding', value: fmtCurrency(statCurrency, pendingTotal), sub: `${invoices.filter(i => i.status === 'pending' && i.currency === statCurrency).length} awaiting payment`, alert: pendingTotal > 0 },
+              { label: 'This month', value: fmtCurrency(statCurrency, byCurrency[statCurrency] ? (byCurrency[statCurrency].paid + byCurrency[statCurrency].pending) : 0), sub: now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) },
             ].map(stat => (
               <div key={stat.label} style={{ background: 'var(--panel)', border: `1px solid ${stat.alert ? 'rgba(138, 74, 58, 0.25)' : 'var(--border-dim)'}`, padding: '24px 28px' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>{stat.label}</div>
@@ -645,12 +662,12 @@ export default function Finances() {
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</div>
                     <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{inv.type || '—'}</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.currency} {inv.amount.toLocaleString()}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text)' }}>{fmtCurrency(inv.currency, inv.amount)}</div>
                     <div style={{ fontSize: '12px', color: inv.wht_rate ? 'var(--gold-bright)' : 'var(--text-dimmer)' }}>
                       {inv.wht_rate ? `${inv.wht_rate}%` : '—'}
                     </div>
                     <div style={{ fontSize: '13px', color: inv.wht_rate ? 'var(--text)' : 'var(--text-dimmer)' }}>
-                      {inv.wht_rate ? `${inv.currency} ${netAmount.toLocaleString()}` : '—'}
+                      {inv.wht_rate ? fmtCurrency(inv.currency, netAmount) : '—'}
                     </div>
                     <div>
                       <a href={`/api/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer"
@@ -688,7 +705,7 @@ export default function Finances() {
                           onClick={() => {
                             const subject = encodeURIComponent(`Payment Follow-up — ${inv.gig_title || 'Invoice'}`)
                             const days = inv.due_date ? Math.floor((new Date().getTime() - new Date(inv.due_date).getTime()) / 86400000) : 0
-                            const body = encodeURIComponent(`Hi,\n\nI wanted to follow up on the invoice for ${inv.gig_title || 'our recent show'} (${inv.currency} ${inv.amount?.toLocaleString()})${days > 0 ? `, which was due ${days} day${days !== 1 ? 's' : ''} ago` : ', which is coming due soon'}.\n\nPlease find the invoice here: ${window.location.origin}/api/invoices/${inv.id}\n\nLet me know if you have any questions.\n\nBest,\nAnthony\n\n--\nSignal Lab OS — Tailored Artist OS`)
+                            const body = encodeURIComponent(`Hi,\n\nI wanted to follow up on the invoice for ${inv.gig_title || 'our recent show'} (${currencySymbol(inv.currency)}${inv.amount?.toLocaleString()})${days > 0 ? `, which was due ${days} day${days !== 1 ? 's' : ''} ago` : ', which is coming due soon'}.\n\nPlease find the invoice here: ${window.location.origin}/api/invoices/${inv.id}\n\nLet me know if you have any questions.\n\nBest,\n${artistName}\n\n--\nSignal Lab OS — Tailored Artist OS`)
                             window.open(`mailto:?subject=${subject}&body=${body}`)
                           }}
                           style={{ background: 'transparent', border: 'none', color: '#c9a46e', fontSize: '11px', cursor: 'pointer', padding: '0 8px', fontFamily: 'inherit', letterSpacing: '0.05em' }}>
@@ -761,13 +778,13 @@ export default function Finances() {
               <div>
                 <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>This month</div>
                 <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, color: thisMonthExpTotal > 0 ? 'var(--gold-bright)' : 'var(--text-dimmer)' }}>
-                  {expenseCurrency} {thisMonthExpTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {fmtCurrency(expenseCurrency, thisMonthExpTotal, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>All time</div>
                 <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, color: 'var(--text-dim)' }}>
-                  {expenseCurrency} {(expensesByCurrency[expenseCurrency] || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {fmtCurrency(expenseCurrency, expensesByCurrency[expenseCurrency] || 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
             </div>

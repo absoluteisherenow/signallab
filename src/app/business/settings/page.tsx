@@ -227,7 +227,7 @@ export default function Settings() {
                     </div>}
                   </div>
                 </div>
-                {team.length > 4 && (
+                {!['Photographer', 'Tour Manager', 'Driver', 'Videographer'].includes(member.role) && (
                   <button onClick={() => setTeam(prev => prev.filter((_, j) => j !== i))}
                     style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}

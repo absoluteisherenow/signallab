@@ -86,6 +86,15 @@ function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24))
 }
 
+// Use the browser's actual timezone instead of hardcoded Europe/London
+function getUserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    return 'Europe/London'
+  }
+}
+
 async function callClaude(system: string, userPrompt: string, maxTokens = 600): Promise<string> {
   const res = await fetch('/api/claude', {
     method: 'POST',
@@ -125,6 +134,8 @@ export function BroadcastLab() {
 
   const _cache = typeof window !== 'undefined' ? readCache() : {}
 
+  const [artistName, setArtistName] = useState('NIGHT manoeuvres')
+  const [artistCountry, setArtistCountry] = useState('Australia')
   const [artists, setArtists] = useState<ArtistProfile[]>([])
   const [addingArtist, setAddingArtist] = useState(false)
   const [newArtistName, setNewArtistName] = useState('')
@@ -173,6 +184,18 @@ export function BroadcastLab() {
     fetch('/api/social/connected')
       .then(r => r.json())
       .then(d => setConnectedSocials((d.accounts || []).map((a: {platform: string}) => a.platform)))
+      .catch(() => {})
+  }, [])
+
+  // Load artist name + country from settings
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => {
+        const p = d.settings?.profile
+        if (p?.name) setArtistName(p.name)
+        if (p?.country) setArtistCountry(p.country)
+      })
       .catch(() => {})
   }, [])
 
@@ -388,7 +411,7 @@ export function BroadcastLab() {
         .map(a => `${a.name}: ${a.style_rules}`)
         .join('\n\n')
       const raw = await callClaude(
-        `You write social media captions for Night Manoeuvres, an Australian electronic music artist.
+        `You write social media captions for ${artistName}, an ${artistCountry} electronic music artist.
 
 REFERENCE ARTISTS — studied voice profiles:
 ${profilesText || artists.map(a => a.name).join(', ')}
@@ -528,7 +551,7 @@ Respond ONLY with valid JSON, no markdown.`,
         .join('\n\n')
 
       // Pull in gigs + releases happening this week or next 30 days for context
-      const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }))
+      const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: getUserTimezone() }))
       const in30 = new Date(nowLondon); in30.setDate(nowLondon.getDate() + 30)
 
       const [gigsRes, releasesRes] = await Promise.allSettled([
@@ -556,7 +579,7 @@ Respond ONLY with valid JSON, no markdown.`,
 
       const raw = await callClaude(
         'You are a social media strategist for electronic music artists. Respond ONLY with a valid JSON array, no markdown.',
-        `Generate a 5-post week for Night Manoeuvres, an Australian electronic music artist.
+        `Generate a 5-post week for ${artistName}, an ${artistCountry} electronic music artist.
 
 Voice references:
 ${profilesText || artists.map(a => a.name).join(', ')}
@@ -585,7 +608,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
     try {
       const raw = await callClaude(
         'You are a social media strategist for electronic music artists. Respond ONLY with the caption text, no JSON, no explanation.',
-        `Write one ${post.platform} caption for ${post.day} for Night Manoeuvres.
+        `Write one ${post.platform} caption for ${post.day} for ${artistName}.
 
 Voice references:
 ${profilesText || artists.map(a => a.name).join(', ')}
@@ -607,7 +630,7 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
     if (!weekPreview) return
     setSavingWeek(true)
     try {
-      const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }))
+      const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: getUserTimezone() }))
       const dayOfWeek = nowLondon.getDay()
       const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7 || 7
       const monday = new Date(nowLondon)
