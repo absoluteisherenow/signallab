@@ -241,7 +241,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
           {[
             { label: 'Date', value: gigDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }) },
             { label: 'Days away', value: daysTo >= 0 ? `${daysTo}d` : 'Past' },
-            { label: 'Fee', value: `${gig.currency === 'EUR' ? '€' : gig.currency}${(gig.fee || 0).toLocaleString()}` },
+            { label: 'Fee', value: `${gig.currency === 'GBP' ? '£' : gig.currency === 'USD' ? '$' : gig.currency === 'EUR' ? '€' : gig.currency === 'CHF' ? 'CHF ' : gig.currency || ''}${(gig.fee || 0).toLocaleString()}` },
             { label: 'Capacity', value: (gig.audience || 0).toLocaleString() },
           ].map(stat => (
             <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>

@@ -174,7 +174,7 @@ export function GigsList() {
                   </span>
                 </div>
                 <div style={{ fontSize: '13px', color: f.dim }}>{gig.audience?.toLocaleString()}</div>
-                <div style={{ fontSize: '14px', color: f.text }}>€{gig.fee?.toLocaleString()}</div>
+                <div style={{ fontSize: '14px', color: f.text }}>{gig.currency === 'GBP' ? '£' : gig.currency === 'USD' ? '$' : gig.currency === 'CHF' ? 'CHF ' : '€'}{gig.fee?.toLocaleString()}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: aColor(advStatus), flexShrink: 0 }} />
                   <span style={{ fontSize: '11px', color: aColor(advStatus) }}>{aLabel(advStatus)}</span>
@@ -206,7 +206,7 @@ export function GigsList() {
                         { l: 'Location', v: gig.location },
                         { l: 'Date', v: gigDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) },
                         { l: 'Set time', v: gig.time },
-                        { l: 'Fee', v: `€${gig.fee?.toLocaleString()}` },
+                        { l: 'Fee', v: `${gig.currency === 'GBP' ? '£' : gig.currency === 'USD' ? '$' : gig.currency === 'CHF' ? 'CHF ' : '€'}${gig.fee?.toLocaleString()}` },
                         { l: 'Audience', v: gig.audience?.toLocaleString() },
                       ].map(item => (
                         <div key={item.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${f.border}`, fontSize: '12px' }}>
