@@ -160,7 +160,7 @@ export function SonixLab() {
   const toastTimer = useRef<NodeJS.Timeout | null>(null)
 
   // ── Mode — null = tile home, else active tool ─────────────────────────
-  const [mode, setMode] = useState<null | 'reference' | 'track'>(null)
+  const [mode, setMode] = useState<null | 'reference' | 'track' | 'devices'>(null)
 
   // ── Sonic World (persistent) ─────────────────────────────────────────
   const [sonicWorld, setSonicWorld] = useState(DEFAULT_SONIC_WORLD)
@@ -671,6 +671,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
         tabs={[
           { label: 'Reference Intel', active: mode === 'reference', onClick: () => setMode('reference') },
           { label: 'Track Analysis', active: mode === 'track', onClick: () => setMode('track') },
+          { label: 'Devices', active: mode === 'devices', onClick: () => setMode('devices') },
         ]}
       />
 
@@ -678,11 +679,12 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
 
         {/* ── HOME — 2 tiles ── */}
         {!mode && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2px', maxWidth: '960px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', maxWidth: '960px' }}>
             {([
-              { id: 'reference', sub: 'How did they do that?', title: 'Break down\na reference', desc: 'Enter any track — get BPM, key, production techniques, key sounds and mix character. Specific and actionable.' },
-              { id: 'track',     sub: 'Upload audio → next steps', title: 'Analyse\nmy track', desc: 'Drop in a file. Get acoustic measurements and a prioritised list of what to work on next — with exact plugin settings.' },
-            ] as const).map(tile => (
+              { id: 'reference' as const, sub: 'How did they do that?', title: 'Break down\na reference', desc: 'Enter any track — get BPM, key, production techniques, key sounds and mix character. Specific and actionable.' },
+              { id: 'track' as const,     sub: 'Upload audio → next steps', title: 'Analyse\nmy track', desc: 'Drop in a file. Get acoustic measurements and a prioritised list of what to work on next — with exact plugin settings.' },
+              { id: 'devices' as const,   sub: 'Max for Live + tools', title: 'Your\ndevices', desc: 'Signal Lab devices for Ableton. Chord engine, mix chains, plugin scanner — all connected to your account.' },
+            ]).map(tile => (
               <button key={tile.id} onClick={() => setMode(tile.id)}
                 style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '40px 32px', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'var(--font-mono)' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(176,141,87,0.4)'; (e.currentTarget as HTMLButtonElement).style.background = '#111009' }}
@@ -976,6 +978,201 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── DEVICES ── */}
+        {mode === 'devices' && (
+          <div style={{ maxWidth: '960px' }}>
+
+            {/* Download all banner */}
+            <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '28px 32px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '14px', color: 'var(--text)', marginBottom: '6px' }}>Signal Lab M4L Suite</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: '1.6' }}>All devices in one download. Drop into your Ableton User Library.</div>
+              </div>
+              <a href="/api/download" style={{ background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '12px 24px', textDecoration: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Download All →
+              </a>
+            </div>
+
+            {/* Device cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px' }}>
+
+              {/* SL Chord Engine */}
+              <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Max for Live</div>
+                <div style={{ fontSize: '18px', color: 'var(--text)', fontWeight: 300, marginBottom: '8px', fontFamily: 'var(--font-display)' }}>Chord Engine</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.7', marginBottom: '24px' }}>
+                  Play one note, get a full chord. Pick a key, set how jazzy you want it, and play.
+                </div>
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>How it works</div>
+                  {[
+                    'Pick your key (A minor, C major, etc.)',
+                    'Turn the Tension knob — low = simple triads, high = jazzy extensions',
+                    'Play any MIDI note → out comes the full chord',
+                  ].map((step, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: i < 2 ? '1px solid var(--border-dim)' : 'none' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--gold)', minWidth: '16px' }}>{i + 1}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{step}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', lineHeight: '1.7', marginBottom: '20px' }}>
+                  <span style={{ color: 'var(--gold)', opacity: 0.6 }}>10 keys</span> · Major, minor, diminished · Extensions up to 13ths at high tension
+                </div>
+                <a href="/downloads/SL_Chord_Engine.amxd" download style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--gold)', textTransform: 'uppercase', textDecoration: 'none' }}>
+                  Download .amxd →
+                </a>
+              </div>
+
+              {/* SL Mix Chain */}
+              <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Max for Live</div>
+                <div style={{ fontSize: '18px', color: 'var(--text)', fontWeight: 300, marginBottom: '8px', fontFamily: 'var(--font-display)' }}>Mix Chain</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.7', marginBottom: '24px' }}>
+                  One-click mixing presets. Pick a sound type, get a full effects chain loaded instantly.
+                </div>
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>How it works</div>
+                  {[
+                    'Pick your sound type (Vocal, Bass, Synth, Drum, etc.)',
+                    'Choose a flavour (Warmth, Presence, Punch, Dark…)',
+                    'Chain loads automatically — Stock or VST versions available',
+                  ].map((step, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: i < 2 ? '1px solid var(--border-dim)' : 'none' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--gold)', minWidth: '16px' }}>{i + 1}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{step}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', lineHeight: '1.7', marginBottom: '20px' }}>
+                  <span style={{ color: 'var(--gold)', opacity: 0.6 }}>12 presets</span> · Vocal · Bass · Synth · Drums · Each with Stock + VST variants
+                </div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>
+                  Coming soon
+                </div>
+              </div>
+
+              {/* SL Scanner */}
+              <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Max for Live</div>
+                <div style={{ fontSize: '18px', color: 'var(--text)', fontWeight: 300, marginBottom: '8px', fontFamily: 'var(--font-display)' }}>Plugin Scanner</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.7', marginBottom: '24px' }}>
+                  Scans every plugin on your machine and syncs the list to Signal Lab. Powers smart mix suggestions.
+                </div>
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>How it works</div>
+                  {[
+                    'Drop it on any track in Ableton',
+                    'Hit Scan — finds all your VST3 and AU plugins',
+                    'List syncs to your Signal Lab account automatically',
+                  ].map((step, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: i < 2 ? '1px solid var(--border-dim)' : 'none' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--gold)', minWidth: '16px' }}>{i + 1}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{step}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', lineHeight: '1.7', marginBottom: '20px' }}>
+                  <span style={{ color: 'var(--gold)', opacity: 0.6 }}>Mac + Windows</span> · VST3 · Audio Units · Automatic sync
+                </div>
+                <a href="/downloads/SL_Scanner.amxd" download style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--gold)', textTransform: 'uppercase', textDecoration: 'none' }}>
+                  Download .amxd →
+                </a>
+              </div>
+
+              {/* Chord Lab */}
+              <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Max for Live</div>
+                <div style={{ fontSize: '18px', color: 'var(--text)', fontWeight: 300, marginBottom: '8px', fontFamily: 'var(--font-display)' }}>Chord Lab</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.7', marginBottom: '24px' }}>
+                  Visual chord theory right inside Ableton. See chord shapes, inversions, and voicings without leaving your session.
+                </div>
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>How it works</div>
+                  {[
+                    'Opens a visual panel inside Ableton',
+                    'Browse chords by key and type',
+                    'Click to hear — drag to your MIDI clip',
+                  ].map((step, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: i < 2 ? '1px solid var(--border-dim)' : 'none' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--gold)', minWidth: '16px' }}>{i + 1}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{step}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', lineHeight: '1.7', marginBottom: '20px' }}>
+                  <span style={{ color: 'var(--gold)', opacity: 0.6 }}>Visual</span> · Interactive chord browser · Theory reference
+                </div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>
+                  Coming soon
+                </div>
+              </div>
+
+              {/* Signal Genius */}
+              <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Max for Live</div>
+                <div style={{ fontSize: '18px', color: 'var(--text)', fontWeight: 300, marginBottom: '8px', fontFamily: 'var(--font-display)' }}>Signal Genius</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.7', marginBottom: '24px' }}>
+                  Your production assistant inside Ableton. Ask it anything about your session — mixing, arrangement, sound design.
+                </div>
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>How it works</div>
+                  {[
+                    'Opens a chat panel inside Ableton',
+                    'Ask anything — "How do I get this bass sound thicker?"',
+                    'Gets answers tailored to your plugins and workflow',
+                  ].map((step, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: i < 2 ? '1px solid var(--border-dim)' : 'none' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--gold)', minWidth: '16px' }}>{i + 1}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{step}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', lineHeight: '1.7', marginBottom: '20px' }}>
+                  <span style={{ color: 'var(--gold)', opacity: 0.6 }}>Smart</span> · Context-aware · Knows your plugins
+                </div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>
+                  Coming soon
+                </div>
+              </div>
+
+              {/* Voice / Artist OS */}
+              <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Max for Live</div>
+                <div style={{ fontSize: '18px', color: 'var(--text)', fontWeight: 300, marginBottom: '8px', fontFamily: 'var(--font-display)' }}>Artist OS Bridge</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.7', marginBottom: '24px' }}>
+                  Connects Ableton directly to your Signal Lab dashboard. Your session data flows into your artist profile.
+                </div>
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>How it works</div>
+                  {[
+                    'Runs in the background on any track',
+                    'Syncs session info to your Signal Lab profile',
+                    'Powers smart suggestions across the whole platform',
+                  ].map((step, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: i < 2 ? '1px solid var(--border-dim)' : 'none' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--gold)', minWidth: '16px' }}>{i + 1}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.6' }}>{step}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', lineHeight: '1.7', marginBottom: '20px' }}>
+                  <span style={{ color: 'var(--gold)', opacity: 0.6 }}>Background sync</span> · Feeds your dashboard · Zero friction
+                </div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>
+                  Coming soon
+                </div>
+              </div>
+
+            </div>
+
+            {/* Requirements note */}
+            <div style={{ marginTop: '24px', padding: '20px 24px', border: '1px solid var(--border-dim)', fontSize: '11px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>
+              <span style={{ color: 'var(--gold)', opacity: 0.6 }}>Requirements:</span> Ableton Live 11+ with Max for Live · macOS or Windows · Signal Lab account for sync features
+            </div>
           </div>
         )}
 

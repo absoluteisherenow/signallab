@@ -177,7 +177,7 @@ export default function PricingPage() {
                   ['Gig management', '✓', '✓', '✗'],
                   ['Invoicing', '✓', '✗', '✗'],
                   ['Content scheduling', '✓', '✗', '✗'],
-                  ['AI captions', '✓', '✗', '✗'],
+                  ['Smart captions', '✓', '✗', '✗'],
                   ['Music production (Sonix)', '✓', '✗', '✗'],
                   ['DJ tools', '✓', '✗', '✗'],
                   ['Multi-artist mgmt', '✓ (Label+)', '✗', '✗'],

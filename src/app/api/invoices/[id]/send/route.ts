@@ -66,21 +66,30 @@ async function buildEmailData(id: string, toOverride?: string) {
 
   const html = `<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><style>
-body { font-family: 'Courier New', monospace; color: #111; background: #fff; padding: 40px; max-width: 600px; margin: 0 auto; }
-.header { border-bottom: 2px solid #111; padding-bottom: 16px; margin-bottom: 28px; }
-.artist { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
-.body-text { font-size: 14px; line-height: 1.8; color: #333; margin-bottom: 28px; }
-.box { background: #111; color: #fff; padding: 20px 24px; margin: 24px 0; display: flex; justify-content: space-between; align-items: flex-start; }
-.box-label { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 4px; }
-.box-value { font-size: 22px; font-weight: 700; }
-.box-meta { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px; }
-.btn { display: inline-block; background: #111; color: #fff; text-decoration: none; padding: 14px 28px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; margin: 8px 0; }
-.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 10px; color: #888; line-height: 1.8; }
+<head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@200;300&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+body { font-family: 'DM Mono', 'Courier New', monospace; color: #070706; background: #fff; padding: 40px; max-width: 600px; margin: 0 auto; font-size: 14px; font-weight: 400; }
+.header { border-bottom: 1.5px solid #070706; padding-bottom: 16px; margin-bottom: 28px; }
+.artist { font-family: 'Unbounded', Arial, sans-serif; font-weight: 200; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: #070706; }
+.body-text { font-size: 14px; line-height: 1.8; color: #52504c; margin-bottom: 28px; font-weight: 300; }
+.body-text strong { color: #070706; font-weight: 500; }
+.box { background: #070706; color: #f0ebe2; padding: 20px 24px; margin: 24px 0; display: flex; justify-content: space-between; align-items: flex-start; border-top: 2px solid #b08d57; }
+.box-label { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(240,235,226,0.45); margin-bottom: 4px; font-weight: 300; }
+.box-value { font-family: 'Unbounded', Arial, sans-serif; font-weight: 300; font-size: 22px; color: #f0ebe2; }
+.box-meta { font-size: 11px; color: rgba(240,235,226,0.45); margin-top: 4px; font-weight: 300; }
+.btn { display: inline-block; background: #070706; color: #f0ebe2; text-decoration: none; padding: 14px 28px; font-family: 'DM Mono', 'Courier New', monospace; font-size: 11px; font-weight: 300; letter-spacing: 0.18em; text-transform: uppercase; margin: 8px 0; border-left: 3px solid #b08d57; }
+.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e8e3da; font-size: 10px; color: #8a8780; line-height: 1.8; font-weight: 300; }
 </style></head>
 <body>
 <div class="header">
-  <div class="artist">${artistName}</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#070706" stroke-width="1.2" opacity="0.12"/>
+      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#070706" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <div class="artist">${artistName}</div>
+  </div>
 </div>
 <div class="body-text">
   <p>${greeting}</p>
@@ -95,17 +104,23 @@ body { font-family: 'Courier New', monospace; color: #111; background: #fff; pad
   </div>
   <div style="text-align:right">
     <div class="box-label">Due</div>
-    <div style="font-size:14px;color:#fff;margin-top:4px">${dueDate}</div>
+    <div style="font-size:14px;color:#c9a96e;margin-top:4px;font-weight:500">${dueDate}</div>
   </div>
 </div>
-<p style="margin:24px 0 8px;font-size:13px;color:#333">View full invoice with payment details:</p>
+<p style="margin:24px 0 8px;font-size:13px;color:#52504c;font-weight:300">View full invoice with payment details:</p>
 <a href="${invoiceUrl}" class="btn">View Invoice →</a>
 <div class="footer">
   Reference: ${invoiceNumber}<br>
   ${payment.address ? payment.address.replace(/\n/g, ' · ') + '<br>' : ''}
   ${payment.vat_number ? `VAT / Tax: ${payment.vat_number}<br>` : ''}
-  <br>
-  <span style="letter-spacing:0.1em;text-transform:uppercase;font-size:9px">Signal Lab OS — Tailored Artist OS</span>
+</div>
+<div style="margin-top:24px;padding-top:20px;border-top:1px solid #e8e3da;text-align:center">
+  <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
+    <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.25"/>
+    <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+  <span style="font-family:'Unbounded',Arial,sans-serif;font-weight:200;font-size:10px;color:#b08d57;letter-spacing:0.12em;text-transform:uppercase;margin-left:6px;vertical-align:middle">Signal Lab OS</span>
+  <div style="font-size:9px;color:#8a8780;margin-top:6px;font-weight:300">Tailored Artist OS platform for electronic music</div>
 </div>
 </body>
 </html>`

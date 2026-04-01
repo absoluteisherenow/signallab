@@ -329,7 +329,7 @@ export default function MixScannerPage() {
         section="SET LAB"
         sectionColor="var(--red-brown)"
         title="Mix Scanner"
-        subtitle="Upload a recorded DJ mix for AI-powered analysis. Get scored on structure, transitions, energy arc, and track selection."
+        subtitle="Upload a recorded DJ mix for deep analysis. Get scored on structure, transitions, energy arc, and track selection."
       />
 
       <div style={{ padding: '48px', maxWidth: '960px' }}>

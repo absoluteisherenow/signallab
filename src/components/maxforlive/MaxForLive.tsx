@@ -42,7 +42,7 @@ const DEVICES = [
     name: 'Mix Chain',
     version: '1.0.0',
     type: 'Audio Effect',
-    description: 'Loads AI-generated signal chains from Sonix Lab as Ableton rack presets. Chains are built for your actual installed plugins and session context — not generic presets.',
+    description: 'Loads tailored signal chains from Sonix Lab as Ableton rack presets. Chains are built for your actual installed plugins and session context — not generic presets.',
     params: [
       { name: 'Chain', range: '18 categories', default: 'Vocal — Warmth' },
       { name: 'Intensity', range: '0 – 100%', default: '70%' },
