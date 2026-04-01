@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 export async function POST(req: NextRequest) {
@@ -32,10 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert new waitlist entry
-    const record: Record<string, string> = {
-      email,
-      status: 'pending',
-    }
+    const record: Record<string, string> = { email }
     if (name) record.name = name
     if (role) record.role = role
 
