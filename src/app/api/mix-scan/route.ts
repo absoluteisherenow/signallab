@@ -46,11 +46,12 @@ export async function POST(req: NextRequest) {
     context,
   } = body
 
-  const durationMin = Math.round(duration_seconds / 60)
-  const transitionCount = transition_points.length
+  const hasAudio = !!(filename && duration_seconds)
+  const durationMin = hasAudio ? Math.round(duration_seconds / 60) : 0
+  const transitionCount = (transition_points || []).length
 
   // Format transition data for Claude
-  const transitionSummary = transition_points.slice(0, 20).map((t, i) => {
+  const transitionSummary = (transition_points || []).slice(0, 20).map((t, i) => {
     const mm = Math.floor(t.time_seconds / 60).toString().padStart(2, '0')
     const ss = Math.floor(t.time_seconds % 60).toString().padStart(2, '0')
     const quality = t.energy_dip > 0.4 ? 'hard cut / large dip' : t.energy_dip > 0.2 ? 'noticeable dip' : 'smooth blend'
@@ -59,26 +60,29 @@ export async function POST(req: NextRequest) {
 
   const hasTracklist = !!(tracklist && tracklist.trim().length > 10)
 
-  const userPrompt = `
-You are analysing a DJ mix. You have been given raw audio signal measurements from a Web Audio API analysis.
+  if (!hasAudio && !hasTracklist) {
+    return NextResponse.json({ error: 'Provide either an audio file or a tracklist' }, { status: 400 })
+  }
 
+  const userPrompt = `
+You are analysing a DJ mix.${hasAudio ? ' You have been given raw audio signal measurements from a Web Audio API analysis.' : ' No audio was provided — analysing from tracklist only.'}
+${hasAudio ? `
 CRITICAL — UNDERSTAND WHAT THESE NUMBERS MEAN:
 - "Energy %" = normalised RMS amplitude (loudness), NOT musical tension or crowd energy
 - A professionally mastered mix will naturally show flat RMS (35-50% throughout) — this is CORRECT gain staging, NOT a problem
 - "Detected transitions" = local amplitude dips — these are probable track change points but NOT confirmed
 - BPM estimate = autocorrelation guess from a 60-second sample — treat as approximate only
-- You CANNOT determine: key, harmonic mixing, track selection quality, or crowd impact from this data alone
 - DO NOT invent analysis that cannot be derived from these measurements
 
 FILE: ${filename}
 DURATION: ${durationMin} minutes
 ESTIMATED BPM: ${bpm_estimate ? `~${bpm_estimate} BPM (approximate)` : 'Could not determine'}
-RMS AMPLITUDE — average: ${(avg_energy * 100).toFixed(0)}%, peak: ${(peak_energy * 100).toFixed(0)}%
-PROBABLE TRACK CHANGES DETECTED: ${transitionCount} points where amplitude dips significantly
+RMS AMPLITUDE — average: ${((avg_energy || 0) * 100).toFixed(0)}%, peak: ${((peak_energy || 0) * 100).toFixed(0)}%
+PROBABLE TRACK CHANGES DETECTED: ${transitionCount} points where amplitude dips significantly` : ''}
 ${context ? `CONTEXT PROVIDED BY DJ: ${context}` : ''}
-
+${hasAudio ? `
 AMPLITUDE DIP DATA (probable transitions — based on loudness only, not confirmed track changes):
-${transitionSummary || 'No significant dips detected — mix may be very consistent or analysis inconclusive'}
+${transitionSummary || 'No significant dips detected — mix may be very consistent or analysis inconclusive'}` : ''}
 
 ${hasTracklist
   ? `TRACKLIST (provided by DJ — use this as the PRIMARY basis for your analysis):\n${tracklist}`

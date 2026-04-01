@@ -1248,7 +1248,14 @@ Return corrected JSON:
 
   // ── Mix Scanner — Phase 2: Claude Analysis ──────────────────────────────
   async function runClaudeAnalysis() {
-    if (!scanAudioRef.current) { showToast('No scan data — re-upload the mix', 'Error'); return }
+    // Build tracklist from detected tracks if scannerTracklist is empty
+    const tracklistText = scannerTracklist.trim()
+      || detectedTracks.map((t, i) => `${i + 1}. ${t.artist ? t.artist + ' — ' : ''}${t.title}`).join('\n')
+
+    if (!scanAudioRef.current && !tracklistText) {
+      showToast('Upload a mix or add a tracklist first', 'Error')
+      return
+    }
     setScanPhase('analysing')
     setScanning(true)
     setScanProgress('Analysing mix…')
@@ -1257,8 +1264,8 @@ Return corrected JSON:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...scanAudioRef.current,
-          tracklist: scannerTracklist.trim() || undefined,
+          ...(scanAudioRef.current || {}),
+          tracklist: tracklistText || undefined,
           context:   scannerContext.trim()   || undefined,
         }),
       })
