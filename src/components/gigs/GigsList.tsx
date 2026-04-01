@@ -185,7 +185,7 @@ export function GigsList() {
                 <div style={{ background: '#0a0906', border: `1px solid ${f.gold}20`, borderTop: 'none', padding: '28px 24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '18px' }}>
                     <button
-                      onClick={() => router.push(`/gigs/${gig.id}`)}
+                      onClick={() => router.push(`/gigs/${gig.id}?edit=true`)}
                       style={{
                         background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
                         border: `1px solid ${f.gold}`,

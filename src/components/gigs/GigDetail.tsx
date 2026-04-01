@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 interface Gig {
@@ -61,9 +62,11 @@ function Field({ label, value, edit, name, type = 'text', options }: {
 }
 
 export function GigDetail({ gigId }: GigDetailProps) {
+  const searchParams = useSearchParams()
+  const startInEdit = searchParams.get('edit') === 'true'
   const [gig, setGig] = useState<Gig | null>(null)
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(startInEdit)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [advanceStatus, setAdvanceStatus] = useState<string | null>(null)
@@ -219,8 +222,8 @@ export function GigDetail({ gigId }: GigDetailProps) {
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {!editing && (
               <button onClick={() => setEditing(true)}
-                style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer' }}>
-                Edit
+                style={{ background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                Edit gig
               </button>
             )}
             <button onClick={handleDelete} disabled={deleting}
