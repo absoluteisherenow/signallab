@@ -28,6 +28,17 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // Check for a Supabase session cookie
+  const token =
+    req.cookies.get('sb-access-token')?.value ||
+    req.cookies.get(`sb-${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]}-auth-token`)?.value
+
+  if (!token) {
+    const loginUrl = new URL('/login', req.url)
+    loginUrl.searchParams.set('next', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
   return NextResponse.next()
 }
 
