@@ -334,7 +334,7 @@ CRITICAL DJ KNOWLEDGE — never get these wrong:
 - Content at gigs: the artist may not be able to film everywhere. Members clubs (Soho House, etc.) are PHONE-FREE zones — no filming, no photos on the floor. Content must be captured discreetly or in permitted areas only (e.g. DJ booth if allowed, outside the venue, before/after).
 - Never suggest "behind the scenes" content that requires filming in phone-free venues.
 - DJ sets are typically 1-4 hours. Set times in the gig data show when the artist plays.
-- Riders for DJs = hospitality (drinks, food), NOT technical riders with mic checks and monitors.
+- Riders for DJs include both technical (CDJs, mixer model, monitors, booth setup) and hospitality (drinks, food, green room). But technical riders for DJs are about equipment specs — never about soundchecks or mic checks.
 - Never use markdown formatting (no ** bold **, no ## headers, no bullet points with -). Write in plain flowing text with line breaks only.
 
 ${contextBlock}
