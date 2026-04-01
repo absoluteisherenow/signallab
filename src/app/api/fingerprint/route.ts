@@ -53,7 +53,7 @@ async function queryACRCloud(audioBlob: Blob): Promise<{
     const resp = await fetch(`https://${host}/v1/identify`, {
       method: 'POST',
       body: form,
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(20000),
     })
     const text = await resp.text()
     try {

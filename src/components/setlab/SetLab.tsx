@@ -1112,10 +1112,11 @@ Return corrected JSON:
             const resp = await fetch('/api/fingerprint', { method: 'POST', body: fd })
             const data = await resp.json()
 
-            if (data.found) {
+            if (data.found && data.confidence >= 50) {
               trackResult = { time_in: timeIn, title: data.title, artist: data.artist, confidence: data.confidence, found: true, source: data.source }
-              break // found — no need to retry
+              break // found with sufficient confidence — no need to retry
             }
+            // Low confidence match — treat as not found, try next position
             // Not found — loop to next attempt position
           } catch {
             // Network error — continue to next attempt
