@@ -813,31 +813,80 @@ export default function Dashboard() {
     )
   }
 
-  const hasActivity = upcomingGigs.length > 0 || overdueInvoices.length > 0 || weekPosts.length > 0
+  // ── Build contextual status for each card ──
+  const nextGig = upcomingGigs[0]
+  const nextGigLabel = nextGig
+    ? `${nextGig.venue || nextGig.title} · ${daysUntil(nextGig.date) === 0 ? 'Tonight' : daysUntil(nextGig.date) === 1 ? 'Tomorrow' : `${daysUntil(nextGig.date)} days`}`
+    : null
+  const invoiceAlert = overdueInvoices.length > 0
+    ? `${overdueInvoices.length} overdue`
+    : null
+
+  const launchCards: { href: string; label: string; title: string; desc: string; accent: string; status?: string; statusColor?: string }[] = [
+    {
+      href: nextGig ? `/gigs/${nextGig.id}` : '/gigs/new',
+      label: 'Tour Lab', accent: 'var(--gold)',
+      title: nextGig ? nextGig.venue || nextGig.title : 'Book your next gig',
+      desc: nextGig
+        ? `${fmtGigDate(nextGig.date)} · ${nextGig.time || 'TBC'}${!advanceMap[nextGig.id] ? ' · Advance not sent' : ''}`
+        : 'Offers, contracts, advance, travel, invoicing.',
+      status: nextGigLabel || undefined,
+      statusColor: nextGig && daysUntil(nextGig.date) <= 3 ? 'var(--gold)' : 'var(--text-dim)',
+    },
+    {
+      href: '/broadcast', label: 'Broadcast Lab', accent: 'var(--green)',
+      title: weekPosts.length > 0 ? `${weekPosts.length} post${weekPosts.length !== 1 ? 's' : ''} scheduled` : 'Plan your content',
+      desc: weekPosts.length > 0
+        ? 'Content queued and ready to go this week.'
+        : 'Captions in your voice, scheduled across every channel.',
+      status: weekPosts.length > 0 ? 'This week' : undefined,
+      statusColor: 'var(--green)',
+    },
+    {
+      href: '/setlab', label: 'Set Lab', accent: '#6b8aad',
+      title: 'Build a set',
+      desc: 'Key analysis, energy arc, crowd favourites, track intelligence.',
+    },
+    {
+      href: '/sonix', label: 'SONIX Lab', accent: '#ad6b8a',
+      title: 'Analyse a track',
+      desc: 'BPM, key, production techniques, mix character — actionable.',
+    },
+    {
+      href: '/releases', label: 'Drop Lab', accent: '#8aad6b',
+      title: 'Plan a release',
+      desc: 'Pre-save to launch day. Phase-by-phase rollout.',
+    },
+    {
+      href: '/business/finances', label: 'Finances', accent: '#ad8a6b',
+      title: invoiceAlert ? `${overdueInvoices.length} invoice${overdueInvoices.length !== 1 ? 's' : ''} overdue` : 'Track your money',
+      desc: invoiceAlert
+        ? `Oldest ${daysSince(overdueInvoices.reduce((a, b) => a.due_date < b.due_date ? a : b).due_date)} days. Chase or mark paid.`
+        : 'Invoices, expenses, revenue forecast, smart chasing.',
+      status: invoiceAlert || undefined,
+      statusColor: overdueInvoices.length > 0 ? '#ff6b4a' : 'var(--text-dim)',
+    },
+  ]
 
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* ── TOP BAR: date + actions ── */}
-      <div style={{ padding: '28px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+      {/* ── TOP BAR ── */}
+      <div style={{ padding: '24px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ fontSize: '11px', letterSpacing: '0.35em', color: 'var(--gold)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }} suppressHydrationWarning>
           {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {!loading && typeof window !== 'undefined' && 'speechSynthesis' in window && (
-            <button
-              onClick={toggleAudioBrief}
-              style={{
-                background: 'none', border: '1px solid var(--border)', padding: '6px 14px',
-                color: speaking ? 'var(--gold)' : 'var(--text-dim)',
-                fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase' as const,
-                cursor: 'pointer', transition: 'all 0.15s', marginRight: '8px',
-              }}
+            <button onClick={toggleAudioBrief} style={{
+              background: 'none', border: '1px solid var(--border)', padding: '6px 14px',
+              color: speaking ? 'var(--gold)' : 'var(--text-dim)',
+              fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase' as const,
+              cursor: 'pointer', transition: 'all 0.15s', marginRight: '4px',
+            }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)' }}
               onMouseLeave={e => { if (!speaking) { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.borderColor = 'var(--border)' } }}
-            >
-              {speaking ? '⏹ Stop' : '▶ Brief'}
-            </button>
+            >{speaking ? '⏹ Stop' : '▶ Brief'}</button>
           )}
           <Link href="/gigs/new" className="btn-primary btn-sm" style={{ textDecoration: 'none' }}>+ New gig</Link>
           <Link href="/broadcast" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ New post</Link>
@@ -846,132 +895,63 @@ export default function Dashboard() {
       </div>
 
       {/* ── GREETING + BRIEF ── */}
-      <div style={{ padding: '0 48px 24px', flexShrink: 0 }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(44px, 5vw, 64px)', fontWeight: 300, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--text)', marginBottom: brief ? '16px' : '0' }} suppressHydrationWarning>
+      <div style={{ padding: '0 48px', flexShrink: 0, marginBottom: '20px' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(40px, 4.5vw, 56px)', fontWeight: 300, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--text)', marginBottom: brief ? '14px' : '0' }} suppressHydrationWarning>
           {greeting}.
         </div>
         {!loading && brief && (
-          <div style={{ maxWidth: '700px', fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', lineHeight: 1.7 }}>
+          <div style={{ maxWidth: '640px', fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', lineHeight: 1.6 }}>
             {brief}
           </div>
         )}
       </div>
 
       {/* ── SIGNAL BAR ── */}
-      <div style={{ padding: '0 48px', flexShrink: 0 }}>
+      <div style={{ padding: '0 48px', flexShrink: 0, marginBottom: '20px' }}>
         <SignalBar onAction={() => router.refresh()} />
       </div>
 
-      {/* ── MAIN GRID — fills remaining viewport ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0 48px 32px', minHeight: 0 }}>
-
-        {/* Stats row */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-dim)', flexShrink: 0 }}>
-          {[
-            { label: 'Gigs', value: loading ? '—' : String(quarterStats.gigs), sub: quarterStats.gigs === 0 ? 'None booked' : quarterLabel, href: '/gigs' },
-            { label: 'Posts', value: loading ? '—' : String(quarterStats.posts), sub: quarterStats.posts === 0 ? 'None posted' : 'published', href: '/broadcast' },
-            { label: 'Revenue', value: loading ? '—' : quarterStats.revenue > 0 ? `£${quarterStats.revenue.toLocaleString()}` : '—', sub: quarterStats.revenue === 0 ? 'No fees logged' : 'from gigs', href: '/business/finances' },
-          ].map((stat, i) => (
-            <Link key={stat.label} href={stat.href} style={{
-              flex: 1, padding: '24px 0', textDecoration: 'none',
-              borderRight: i < 2 ? '1px solid var(--border-dim)' : 'none',
-              paddingRight: i < 2 ? '28px' : '0',
-              paddingLeft: i > 0 ? '28px' : '0',
-              transition: 'opacity 0.15s',
-            }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-            >
-              <div style={{ fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '8px' }}>{stat.label}</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: 300, color: 'var(--text)', lineHeight: 1, marginBottom: '6px' }}>{stat.value}</div>
-              <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>{stat.sub}</div>
-            </Link>
-          ))}
-        </div>
-
-        {/* ── CONTENT AREA — briefing OR launchpad ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: '20px', minHeight: 0 }}>
-
-          {loading ? (
-            <SkeletonRows count={3} />
-          ) : hasActivity ? (
-            /* ── ACTIVE STATE: briefing rows ── */
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {briefingItems.map((item) => (
-                <div key={item.key} style={{
-                  display: 'grid', gridTemplateColumns: '8px 1fr auto', alignItems: 'center', gap: '18px',
-                  padding: '14px 0',
-                  borderBottom: '1px solid var(--border-dim)',
-                }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor[item.dot] || 'var(--border)', flexShrink: 0 }} />
-                  <div style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', lineHeight: 1.4, color: 'var(--text)' }}>{item.text}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {item.chaseGig && (
-                      <button
-                        onClick={() => sendAdvanceChase(item.chaseGig!)}
-                        disabled={chasingGigId === item.chaseGig.id}
-                        style={{
-                          background: 'none', border: '1px solid var(--border)',
-                          color: chasingGigId === item.chaseGig.id ? 'var(--text-dimmer)' : 'var(--gold)',
-                          fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase' as const,
-                          fontFamily: 'var(--font-mono)', padding: '4px 10px',
-                          cursor: chasingGigId === item.chaseGig.id ? 'wait' : 'pointer',
-                          whiteSpace: 'nowrap' as const, transition: 'border-color 0.12s',
-                        }}
-                        onMouseEnter={e => { if (!chasingGigId) (e.currentTarget as HTMLElement).style.borderColor = 'var(--gold)' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
-                      >
-                        {chasingGigId === item.chaseGig.id ? 'Sending...' : 'Chase'}
-                      </button>
-                    )}
-                    <Link href={item.href} style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dim)', textDecoration: 'none', whiteSpace: 'nowrap', transition: 'color 0.12s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--gold)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dim)'}>
-                      {item.action} →
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            /* ── EMPTY STATE: launchpad grid ── */
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: '1fr 1fr', gap: '1px', minHeight: 0 }}>
-              {([
-                { href: '/gigs/new', label: 'Tour Lab', title: 'Add your first gig', desc: 'Offers, contracts, advance, travel, invoicing — the full cycle.', accent: 'var(--gold)' },
-                { href: '/broadcast', label: 'Broadcast Lab', title: 'Plan your content', desc: 'Captions in your voice, scheduled across every channel.', accent: 'var(--green)' },
-                { href: '/setlab', label: 'Set Lab', title: 'Build a set', desc: 'Key analysis, energy arc, crowd favourites, track intelligence.', accent: '#6b8aad' },
-                { href: '/sonix', label: 'SONIX Lab', title: 'Analyse a track', desc: 'BPM, key, production techniques, mix character — actionable.', accent: '#ad6b8a' },
-                { href: '/releases', label: 'Drop Lab', title: 'Plan a release', desc: 'Pre-save to launch day. Phase-by-phase rollout.', accent: '#8aad6b' },
-                { href: '/business/finances', label: 'Finances', title: 'Track your money', desc: 'Invoices, expenses, revenue forecasting, smart chasing.', accent: '#ad8a6b' },
-              ]).map(card => (
-                <Link key={card.href} href={card.href} style={{
-                  background: 'var(--panel)', border: '1px solid var(--border-dim)',
-                  padding: '28px 24px', textDecoration: 'none',
-                  transition: 'border-color 0.2s, background 0.2s',
-                  display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.3)'; (e.currentTarget as HTMLElement).style.background = '#0f0e0c' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLElement).style.background = 'var(--panel)' }}
-                >
-                  <div>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: card.accent, fontFamily: 'var(--font-mono)', marginBottom: '14px' }}>
+      {/* ── LAUNCHPAD — always visible, fills viewport ── */}
+      <div style={{ flex: 1, padding: '0 48px 28px', minHeight: 0 }}>
+        {loading ? (
+          <SkeletonRows count={3} />
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: '1fr 1fr', gap: '1px', height: '100%' }}>
+            {launchCards.map(card => (
+              <Link key={card.href} href={card.href} style={{
+                background: 'var(--panel)', border: '1px solid var(--border-dim)',
+                padding: '24px 24px 20px', textDecoration: 'none',
+                transition: 'border-color 0.2s, background 0.2s',
+                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+              }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.35)'; (e.currentTarget as HTMLElement).style.background = '#0f0e0c' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLElement).style.background = 'var(--panel)' }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: card.accent, fontFamily: 'var(--font-mono)' }}>
                       {card.label}
                     </div>
-                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 300, color: 'var(--text)', marginBottom: '8px', lineHeight: 1.2 }}>
-                      {card.title}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: 1.6 }}>
-                      {card.desc}
-                    </div>
+                    {card.status && (
+                      <div style={{ fontSize: '9px', letterSpacing: '0.1em', color: card.statusColor || 'var(--text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>
+                        {card.status}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.16em', color: 'var(--text-dim)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginTop: '16px' }}>
-                    Open →
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 300, color: 'var(--text)', marginBottom: '8px', lineHeight: 1.25 }}>
+                    {card.title}
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: 1.6 }}>
+                    {card.desc}
+                  </div>
+                </div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.16em', color: 'var(--text-dim)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginTop: '12px' }}>
+                  Open →
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Chase toast */}
