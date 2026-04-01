@@ -122,7 +122,7 @@ export default function Settings() {
         if (data.settings.profile) setProfile(data.settings.profile)
         if (data.settings.team) setTeam(data.settings.team)
         if (data.settings.advance) setAdvance(data.settings.advance)
-        if (data.settings.payment) setPayment(data.settings.payment)
+        if (data.settings.payment) setPayment(p => ({ ...p, ...data.settings.payment, bank_accounts: data.settings.payment.bank_accounts || p.bank_accounts || [] }))
         if (data.settings.aliases) setAliases(data.settings.aliases)
         if (data.settings.tier) setTier(data.settings.tier)
       }
@@ -461,7 +461,7 @@ export default function Settings() {
             {/* Completeness check */}
             {(() => {
               const missingCurrencies = ['EUR', 'GBP', 'USD'].filter(
-                c => !payment.bank_accounts.some((acc: BankAccount) => acc.currency === c && (acc.iban || acc.account_number))
+                c => !(payment.bank_accounts || []).some((acc: BankAccount) => acc.currency === c && (acc.iban || acc.account_number))
               )
               if (missingCurrencies.length === 0) return null
               return (
@@ -482,11 +482,11 @@ export default function Settings() {
               )
             })()}
 
-            {payment.bank_accounts.length === 0 && (
+            {(payment.bank_accounts || []).length === 0 && (
               <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '16px' }}>No bank accounts added yet.</div>
             )}
 
-            {payment.bank_accounts.map((acct, i) => (
+            {(payment.bank_accounts || []).map((acct, i) => (
               <div key={acct.id} style={{ border: '1px solid var(--border-dim)', padding: '16px', marginBottom: '12px', position: 'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
