@@ -140,7 +140,7 @@ export function GigsList() {
           <div style={{ fontSize: '15px', color: f.dim, marginBottom: '8px' }}>Your upcoming shows will appear here.</div>
           <div style={{ fontSize: '12px', color: f.dimmer, marginBottom: '32px' }}>Paste a booking email to create your first gig automatically, or add one manually.</div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <Link href="/contracts" style={{ textDecoration: 'none', background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: `1px solid ${f.gold}`, color: f.gold, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', display: 'inline-block' }}>Parse booking email →</Link>
+            <Link href="/contracts" style={{ textDecoration: 'none', background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: `1px solid ${f.gold}`, color: f.gold, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', display: 'inline-block' }}>Add from booking email →</Link>
             <button onClick={() => router.push('/gigs/new')} style={{ background: 'transparent', border: `1px solid ${f.border}`, color: f.dimmer, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 24px', cursor: 'pointer' }}>Add manually</button>
           </div>
         </div>
