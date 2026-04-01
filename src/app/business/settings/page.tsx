@@ -211,13 +211,39 @@ export default function Settings() {
       {/* TEAM TAB */}
       {activeTab === 'team' && (
         <div style={{ maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '8px', lineHeight: '1.7' }}>
-            Your team contacts appear automatically in advance request forms. Add your regular photographer, driver, and tour manager once — they'll be available on every gig.
+          <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '4px', lineHeight: '1.7' }}>
+            Add anyone you work with regularly. These contacts auto-fill across the platform — advance forms, content crew briefs, gig debriefs.
           </div>
+
           {team.map((member, i) => (
             <div key={member.id} className="card">
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>{member.role}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: member.name ? 'var(--green)' : 'var(--border)' }} />
+                  <div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase' }}>{member.role}</div>
+                    {member.name && <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '2px' }}>
+                      Used in: advance forms{member.role === 'Photographer' || member.role === 'Videographer' ? ', content crew briefs' : member.role === 'Driver' ? ', tonight mode' : ', gig logistics'}
+                    </div>}
+                  </div>
+                </div>
+                {team.length > 4 && (
+                  <button onClick={() => setTeam(prev => prev.filter((_, j) => j !== i))}
+                    style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: !['Photographer', 'Tour Manager', 'Driver', 'Videographer'].includes(member.role) ? '120px 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: '12px' }}>
+                {!['Photographer', 'Tour Manager', 'Driver', 'Videographer'].includes(member.role) && (
+                  <div>
+                    <label style={labelStyle}>Role</label>
+                    <input value={member.role} onChange={e => setTeam(prev => prev.map((m, j) => j === i ? { ...m, role: e.target.value } : m))}
+                      placeholder="Role" style={inputStyle} />
+                  </div>
+                )}
                 {[
                   { label: 'Name', key: 'name', placeholder: 'Full name' },
                   { label: 'Email', key: 'email', placeholder: 'email@example.com' },
@@ -232,6 +258,12 @@ export default function Settings() {
               </div>
             </div>
           ))}
+
+          <button onClick={() => setTeam(prev => [...prev, { id: crypto.randomUUID(), role: '', name: '', email: '', phone: '' }])}
+            style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '10px 18px', cursor: 'pointer', alignSelf: 'flex-start' }}>
+            + Add team member
+          </button>
+
           <button onClick={save} disabled={isSaving} className="btn-primary" style={{ alignSelf: 'flex-start', opacity: isSaving ? 0.6 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
             {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save team'}
           </button>

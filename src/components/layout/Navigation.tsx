@@ -128,31 +128,19 @@ export function Navigation() {
       }}>
 
         {/* Brand */}
-        <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid var(--border-dim)' }}>
-          <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <LogoIcon size={28} />
-            <div>
-              <div style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: 11,
-                fontWeight: 200,
-                letterSpacing: '0.04em',
-                color: 'var(--text)',
-                lineHeight: 1.3,
-                whiteSpace: 'nowrap',
-              }}>
-                Signal Lab <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 300, letterSpacing: '0.08em', color: 'var(--text-dimmer)' }}>OS</span>
-              </div>
-              <div style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 8,
-                fontWeight: 300,
-                letterSpacing: '0.12em',
-                color: 'var(--text-dimmest)',
-                marginTop: 2,
-              }}>
-                Tailored Artist OS
-              </div>
+        <div style={{ padding: '24px 24px 22px', borderBottom: '1px solid var(--border-dim)' }}>
+          <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <LogoIcon size={32} />
+            <div style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 13,
+              fontWeight: 300,
+              letterSpacing: '0.06em',
+              color: 'var(--text)',
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+            }}>
+              Signal Lab <span style={{ color: 'var(--gold)', fontWeight: 300 }}>OS</span>
             </div>
           </Link>
         </div>

@@ -877,17 +877,6 @@ export default function Dashboard() {
           {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {!loading && typeof window !== 'undefined' && 'speechSynthesis' in window && (
-            <button onClick={toggleAudioBrief} style={{
-              background: 'none', border: '1px solid var(--border)', padding: '6px 14px',
-              color: speaking ? 'var(--gold)' : 'var(--text-dim)',
-              fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase' as const,
-              cursor: 'pointer', transition: 'all 0.15s', marginRight: '4px',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)' }}
-              onMouseLeave={e => { if (!speaking) { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.borderColor = 'var(--border)' } }}
-            >{speaking ? '⏹ Stop' : '▶ Brief'}</button>
-          )}
           <Link href="/gigs/new" className="btn-primary btn-sm" style={{ textDecoration: 'none' }}>+ New gig</Link>
           <Link href="/broadcast" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ New post</Link>
           <Link href="/releases/new" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ New release</Link>
