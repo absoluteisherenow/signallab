@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
 
 export default function NewGig() {
   const router = useRouter()
@@ -86,6 +87,28 @@ export default function NewGig() {
       </div>
 
       <div style={{ maxWidth: '720px' }}>
+
+        {/* SCREENSHOT UPLOAD */}
+        <div style={{ marginBottom: '20px' }}>
+          <ScreenshotUpload
+            extractionPrompt="Extract gig booking details from this image. Return JSON with: title, venue, location, date (YYYY-MM-DD), time (HH:MM), fee (number), currency (3-letter code), promoter_email, promoter_name. Only include fields you can confidently extract."
+            onExtracted={fields => {
+              setForm(f => ({
+                ...f,
+                ...(fields.title && { title: fields.title }),
+                ...(fields.venue && { venue: fields.venue }),
+                ...(fields.location && { location: fields.location }),
+                ...(fields.date && { date: fields.date }),
+                ...(fields.time && { time: fields.time }),
+                ...(fields.fee && { fee: String(fields.fee) }),
+                ...(fields.currency && { currency: fields.currency }),
+                ...(fields.promoter_email && { promoter_email: fields.promoter_email }),
+                // promoter_name has no dedicated field so append to notes
+                ...(fields.promoter_name && !f.notes && { notes: `Promoter: ${fields.promoter_name}` }),
+              }))
+            }}
+          />
+        </div>
 
         {/* SHOW DETAILS */}
         <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '32px', marginBottom: '16px' }}>

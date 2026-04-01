@@ -50,6 +50,16 @@ export async function POST(req: NextRequest) {
         gig_id: gig.id,
       })
 
+      // Fire gig-to-content bridge for confirmed gigs (fire and forget — don't block)
+      if (gig.status === 'confirmed') {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        fetch(`${appUrl}/api/agents/gig-content`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gigId: gig.id }),
+        }).catch(() => { /* silent — content drafts are a bonus, not blocking */ })
+      }
+
       // Auto-create invoice if fee is set
       if (gig.fee && gig.fee > 0) {
         const gigDate = new Date(gig.date)

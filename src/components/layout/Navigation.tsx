@@ -1,10 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState, useRef } from 'react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 import { LogoIcon } from '@/components/layout/Logo'
+
+interface AliasInfo {
+  id: string
+  name: string
+  genre: string
+}
 
 type NavItem = { label: string; href: string; sub: { label: string; href: string }[] }
 type NavGroup = { label: string; items: NavItem[] }
@@ -32,7 +38,23 @@ const HIDDEN_ROUTES = ['/', '/pricing', '/login', '/onboarding', '/mobile', '/jo
 
 export function Navigation() {
   const pathname = usePathname()
+  const router = useRouter()
   const [apiUsage, setApiUsage] = useState<{ percentUsed: number; totalCostUsd: number; warning: boolean; critical: boolean } | null>(null)
+  const [aliases, setAliases] = useState<AliasInfo[]>([])
+  const [activeAliasId, setActiveAliasId] = useState<string | null>(null)
+  const [artistName, setArtistName] = useState('Signal Lab')
+  const [showAliasSwitcher, setShowAliasSwitcher] = useState(false)
+  const aliasSwitcherRef = useRef<HTMLDivElement>(null)
+
+  async function handleLogout() {
+    const { createBrowserClient } = await import('@supabase/auth-helpers-nextjs')
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   useEffect(() => {
     fetch('/api/usage').then(r => r.json()).then(d => {
@@ -42,6 +64,32 @@ export function Navigation() {
       fetch('/api/usage').then(r => r.json()).then(d => { if (!d.error) setApiUsage(d) }).catch(() => {})
     }, 5 * 60 * 1000)
     return () => clearInterval(t)
+  }, [])
+
+  // Load aliases for the switcher
+  useEffect(() => {
+    const stored = localStorage.getItem('activeAliasId')
+    if (stored) setActiveAliasId(stored)
+
+    fetch('/api/settings').then(r => r.json()).then(d => {
+      if (d.settings?.aliases && d.settings.aliases.length > 0) {
+        setAliases(d.settings.aliases)
+      }
+      if (d.settings?.profile?.name) {
+        setArtistName(d.settings.profile.name)
+      }
+    }).catch(() => {})
+  }, [])
+
+  // Close alias switcher on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (aliasSwitcherRef.current && !aliasSwitcherRef.current.contains(e.target as Node)) {
+        setShowAliasSwitcher(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
   if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith('/join/')) {
@@ -108,6 +156,105 @@ export function Navigation() {
             </div>
           </Link>
         </div>
+
+        {/* Alias switcher — only shown if aliases exist */}
+        {aliases.length > 0 && (
+          <div ref={aliasSwitcherRef} style={{ padding: '10px 24px', borderBottom: '1px solid var(--border-dim)', position: 'relative' }}>
+            <button
+              onClick={() => setShowAliasSwitcher(!showAliasSwitcher)}
+              style={{
+                width: '100%',
+                background: 'rgba(176,141,87,0.06)',
+                border: '1px solid rgba(176,141,87,0.2)',
+                padding: '8px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--gold)', textTransform: 'uppercase' }}>
+                {activeAliasId ? (aliases.find(a => a.id === activeAliasId)?.name || artistName) : artistName}
+              </span>
+              <span style={{ fontSize: 9, color: 'var(--text-dimmer)', transform: showAliasSwitcher ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                v
+              </span>
+            </button>
+
+            {showAliasSwitcher && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 24,
+                right: 24,
+                background: 'var(--bg)',
+                border: '1px solid var(--border-dim)',
+                zIndex: 50,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+              }}>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('activeAliasId')
+                    setActiveAliasId(null)
+                    setShowAliasSwitcher(false)
+                    window.location.reload()
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: !activeAliasId ? 'rgba(176,141,87,0.08)' : 'transparent',
+                    border: 'none',
+                    borderBottom: '1px solid var(--border-dim)',
+                    color: !activeAliasId ? 'var(--gold)' : 'var(--text-dimmer)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 10,
+                    letterSpacing: '0.08em',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(176,141,87,0.06)'}
+                  onMouseLeave={e => e.currentTarget.style.background = !activeAliasId ? 'rgba(176,141,87,0.08)' : 'transparent'}
+                >
+                  {artistName} <span style={{ color: 'var(--text-dimmest)', fontSize: 9 }}>(primary)</span>
+                </button>
+                {aliases.map(alias => {
+                  const isActive = activeAliasId === alias.id
+                  return (
+                    <button
+                      key={alias.id}
+                      onClick={() => {
+                        localStorage.setItem('activeAliasId', alias.id)
+                        setActiveAliasId(alias.id)
+                        setShowAliasSwitcher(false)
+                        window.location.reload()
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        background: isActive ? 'rgba(176,141,87,0.08)' : 'transparent',
+                        border: 'none',
+                        borderBottom: '1px solid var(--border-dim)',
+                        color: isActive ? 'var(--gold)' : 'var(--text-dimmer)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 10,
+                        letterSpacing: '0.08em',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        transition: 'background 0.12s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(176,141,87,0.06)'}
+                      onMouseLeave={e => e.currentTarget.style.background = isActive ? 'rgba(176,141,87,0.08)' : 'transparent'}
+                    >
+                      {alias.name} {alias.genre && <span style={{ color: 'var(--text-dimmest)', fontSize: 9 }}>({alias.genre})</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Nav body */}
         <div style={{ flex: 1, padding: '16px 0' }}>
@@ -225,6 +372,30 @@ export function Navigation() {
           >
             Settings
           </Link>
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'block',
+              width: '100%',
+              textAlign: 'left',
+              background: 'transparent',
+              border: 'none',
+              borderLeft: '2px solid transparent',
+              padding: '8px 28px',
+              textDecoration: 'none',
+              fontSize: 12.5,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 400,
+              color: 'var(--text-dimmer)',
+              cursor: 'pointer',
+              transition: 'color 0.12s',
+              letterSpacing: 'inherit',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)' }}
+          >
+            Logout
+          </button>
           <div style={{ padding: '2px 28px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{
               fontSize: 9,

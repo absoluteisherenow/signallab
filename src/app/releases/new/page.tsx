@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
 
 export default function NewRelease() {
   const router = useRouter()
@@ -72,6 +73,23 @@ export default function NewRelease() {
       </div>
 
       <div style={{ maxWidth: '720px' }}>
+
+        {/* SCREENSHOT UPLOAD */}
+        <div style={{ marginBottom: '20px' }}>
+          <ScreenshotUpload
+            extractionPrompt="Extract music release details from this image. Return JSON with: title, type (single/ep/album), release_date (YYYY-MM-DD), label, streaming_url. Only include fields you can confidently extract."
+            onExtracted={fields => {
+              setForm(f => ({
+                ...f,
+                ...(fields.title && { title: fields.title }),
+                ...(fields.type && { type: fields.type }),
+                ...(fields.release_date && { release_date: fields.release_date }),
+                ...(fields.label && { label: fields.label }),
+                ...(fields.streaming_url && { streaming_url: fields.streaming_url }),
+              }))
+            }}
+          />
+        </div>
 
         {/* RELEASE DETAILS */}
         <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '32px', marginBottom: '16px' }}>

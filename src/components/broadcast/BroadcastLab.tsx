@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { aiCache } from '@/lib/aiCache'
 import { SignalLabHeader } from './SignalLabHeader'
+import { SocialsMastermind } from './SocialsMastermind'
 
 interface ArtistProfile {
   name: string
@@ -1143,6 +1144,7 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
       )}
 
       </div>{/* end inner p-8 */}
+      <SocialsMastermind />
     </div>
   )
 }

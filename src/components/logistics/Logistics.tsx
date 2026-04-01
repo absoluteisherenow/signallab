@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
 
 interface TravelBooking {
   id: string
@@ -469,8 +470,34 @@ export default function Logistics() {
                           {/* Add travel booking */}
                           {addingTravel?.gigId === gig.id ? (
                             <div style={{ border: '1px solid var(--border-dim)', padding: '14px', marginTop: '8px' }}>
-                              <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '12px' }}>
-                                Add {addingTravel.type}
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--gold)', textTransform: 'uppercase' }}>
+                                  Add {addingTravel.type}
+                                </div>
+                                <ScreenshotUpload
+                                  extractionPrompt={
+                                    addingTravel.type === 'flight'
+                                      ? 'Extract flight booking details from this image. Return JSON with: name (airline), flight_number, from_location, to_location, departure_at (YYYY-MM-DDTHH:MM), arrival_at (YYYY-MM-DDTHH:MM), reference, cost (number), currency (3-letter code). Only include fields you can confidently extract.'
+                                      : addingTravel.type === 'train'
+                                      ? 'Extract train booking details from this image. Return JSON with: name (operator), from_location, to_location, departure_at (YYYY-MM-DDTHH:MM), arrival_at (YYYY-MM-DDTHH:MM), reference, cost (number), currency (3-letter code). Only include fields you can confidently extract.'
+                                      : 'Extract hotel booking details from this image. Return JSON with: name (hotel name), check_in (YYYY-MM-DD), check_out (YYYY-MM-DD), reference, cost (number), currency (3-letter code). Only include fields you can confidently extract.'
+                                  }
+                                  onExtracted={fields => {
+                                    setTravelForm(p => ({
+                                      ...p,
+                                      ...(fields.name && { name: fields.name }),
+                                      ...(fields.flight_number && { flight_number: fields.flight_number }),
+                                      ...(fields.from_location && { from_location: fields.from_location }),
+                                      ...(fields.to_location && { to_location: fields.to_location }),
+                                      ...(fields.departure_at && { departure_at: fields.departure_at }),
+                                      ...(fields.arrival_at && { arrival_at: fields.arrival_at }),
+                                      ...(fields.check_in && { check_in: fields.check_in }),
+                                      ...(fields.check_out && { check_out: fields.check_out }),
+                                      ...(fields.reference && { reference: fields.reference }),
+                                      ...(fields.cost && { cost: String(fields.cost) }),
+                                    }))
+                                  }}
+                                />
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                                 {addingTravel.type !== 'hotel' ? (

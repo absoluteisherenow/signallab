@@ -7,6 +7,7 @@ const supabase = createClient(
 )
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const printMode = req.nextUrl.searchParams.get('print') === '1'
   try {
     const [{ data: invoice, error: invErr }, { data: settings }] = await Promise.all([
       supabase.from('invoices').select('*').eq('id', params.id).single(),
@@ -221,6 +222,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       btn.style.display = '';
     });
   }
+  ${printMode ? 'window.onload = function() { window.print(); }' : ''}
 </script>
 </body>
 </html>`

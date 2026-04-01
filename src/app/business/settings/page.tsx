@@ -36,6 +36,18 @@ interface PaymentSettings {
   bank_accounts: BankAccount[]
 }
 
+interface Alias {
+  id: string
+  name: string
+  genre: string
+  social_accounts: string[]
+  payment: {
+    bank_accounts: BankAccount[]
+    vat_number: string
+  }
+  voice_profile: Record<string, unknown>
+}
+
 export default function Settings() {
   const [profile, setProfile] = useState({ name: '', genre: '', country: '', bio: '' })
   const [team, setTeam] = useState([
@@ -49,9 +61,11 @@ export default function Settings() {
     legal_name: '', address: '', vat_number: '', payment_terms: '30',
     bank_accounts: [],
   })
+  const [aliases, setAliases] = useState<Alias[]>([])
+  const [newAlias, setNewAlias] = useState({ name: '', genre: '' })
   const [tier, setTier] = useState<'free' | 'pro'>('free')
   const [saved, setSaved] = useState(false)
-  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance' | 'payment'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance' | 'payment' | 'aliases'>('profile')
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
@@ -109,6 +123,7 @@ export default function Settings() {
         if (data.settings.team) setTeam(data.settings.team)
         if (data.settings.advance) setAdvance(data.settings.advance)
         if (data.settings.payment) setPayment(data.settings.payment)
+        if (data.settings.aliases) setAliases(data.settings.aliases)
         if (data.settings.tier) setTier(data.settings.tier)
       }
     } catch {
@@ -124,7 +139,7 @@ export default function Settings() {
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile, team, advance, payment }),
+        body: JSON.stringify({ profile, team, advance, payment, aliases }),
       })
       const data = await res.json()
       if (data.success) {
@@ -156,8 +171,8 @@ export default function Settings() {
       <PageHeader
         section="Settings"
         title="Settings"
-        tabs={(['profile', 'team', 'integrations', 'advance', 'payment'] as const).map(tab => ({
-          label: tab === 'advance' ? 'Advance form' : tab === 'payment' ? 'Payment details' : tab,
+        tabs={([...(['profile', 'team', 'integrations', 'advance', 'payment'] as const), ...(tier === 'pro' ? ['aliases' as const] : [])]).map(tab => ({
+          label: tab === 'advance' ? 'Advance form' : tab === 'payment' ? 'Payment details' : tab === 'aliases' ? 'Aliases' : tab,
           active: activeTab === tab,
           onClick: () => setActiveTab(tab),
         }))}
@@ -559,6 +574,226 @@ export default function Settings() {
 
           <button onClick={save} disabled={isSaving} className="btn-primary" style={{ alignSelf: 'flex-start', opacity: isSaving ? 0.6 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
             {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save payment details'}
+          </button>
+        </div>
+      )}
+
+      {/* ALIASES TAB (Pro only) */}
+      {activeTab === 'aliases' && tier === 'pro' && (
+        <div style={{ maxWidth: '680px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Active alias selector */}
+          {aliases.length > 0 && (
+            <div className="card">
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Active alias</div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => { localStorage.removeItem('activeAliasId'); window.location.reload() }}
+                  style={{
+                    background: !localStorage.getItem('activeAliasId') ? 'rgba(176,141,87,0.15)' : 'transparent',
+                    border: `1px solid ${!localStorage.getItem('activeAliasId') ? 'rgba(176,141,87,0.5)' : 'var(--border-dim)'}`,
+                    color: !localStorage.getItem('activeAliasId') ? 'var(--gold)' : 'var(--text-dimmer)',
+                    fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.08em',
+                    padding: '8px 16px', cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                >
+                  {profile.name || 'Primary'}
+                </button>
+                {aliases.map(alias => {
+                  const isActive = typeof window !== 'undefined' && localStorage.getItem('activeAliasId') === alias.id
+                  return (
+                    <button
+                      key={alias.id}
+                      onClick={() => { localStorage.setItem('activeAliasId', alias.id); window.location.reload() }}
+                      style={{
+                        background: isActive ? 'rgba(176,141,87,0.15)' : 'transparent',
+                        border: `1px solid ${isActive ? 'rgba(176,141,87,0.5)' : 'var(--border-dim)'}`,
+                        color: isActive ? 'var(--gold)' : 'var(--text-dimmer)',
+                        fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.08em',
+                        padding: '8px 16px', cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {alias.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Existing aliases */}
+          {aliases.map((alias, i) => (
+            <div key={alias.id} className="card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>{alias.name}</div>
+                <button
+                  onClick={() => {
+                    setAliases(prev => prev.filter(a => a.id !== alias.id))
+                    if (localStorage.getItem('activeAliasId') === alias.id) {
+                      localStorage.removeItem('activeAliasId')
+                    }
+                  }}
+                  style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}
+                >
+                  Delete
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={labelStyle}>Alias name</label>
+                  <input
+                    value={alias.name}
+                    onChange={e => setAliases(prev => prev.map((a, j) => j === i ? { ...a, name: e.target.value } : a))}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Genre</label>
+                  <input
+                    value={alias.genre}
+                    onChange={e => setAliases(prev => prev.map((a, j) => j === i ? { ...a, genre: e.target.value } : a))}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Social accounts (comma-separated)</label>
+                <input
+                  value={alias.social_accounts.join(', ')}
+                  onChange={e => setAliases(prev => prev.map((a, j) => j === i ? { ...a, social_accounts: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : a))}
+                  placeholder="@alias_instagram, @alias_twitter"
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>VAT / Tax number</label>
+                  <input
+                    value={alias.payment.vat_number}
+                    onChange={e => setAliases(prev => prev.map((a, j) => j === i ? { ...a, payment: { ...a.payment, vat_number: e.target.value } } : a))}
+                    placeholder="Optional"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* Alias bank accounts */}
+              <div style={{ marginTop: '16px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>Bank accounts</div>
+                {alias.payment.bank_accounts.map((acct, bi) => (
+                  <div key={acct.id} style={{ border: '1px solid var(--border-dim)', padding: '12px', marginBottom: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr auto', gap: '8px', alignItems: 'end' }}>
+                      <div>
+                        <label style={{ ...labelStyle, marginBottom: '4px' }}>Currency</label>
+                        <input
+                          value={acct.currency}
+                          onChange={e => {
+                            const newBanks = [...alias.payment.bank_accounts]
+                            newBanks[bi] = { ...newBanks[bi], currency: e.target.value.toUpperCase() }
+                            setAliases(prev => prev.map((a, j) => j === i ? { ...a, payment: { ...a.payment, bank_accounts: newBanks } } : a))
+                          }}
+                          placeholder="GBP"
+                          style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ ...labelStyle, marginBottom: '4px' }}>Account name</label>
+                        <input
+                          value={acct.account_name}
+                          onChange={e => {
+                            const newBanks = [...alias.payment.bank_accounts]
+                            newBanks[bi] = { ...newBanks[bi], account_name: e.target.value }
+                            setAliases(prev => prev.map((a, j) => j === i ? { ...a, payment: { ...a.payment, bank_accounts: newBanks } } : a))
+                          }}
+                          placeholder="Name on account"
+                          style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ ...labelStyle, marginBottom: '4px' }}>IBAN / Account no.</label>
+                        <input
+                          value={acct.iban || acct.account_number || ''}
+                          onChange={e => {
+                            const newBanks = [...alias.payment.bank_accounts]
+                            newBanks[bi] = { ...newBanks[bi], iban: e.target.value }
+                            setAliases(prev => prev.map((a, j) => j === i ? { ...a, payment: { ...a.payment, bank_accounts: newBanks } } : a))
+                          }}
+                          style={{ ...inputStyle, padding: '8px 10px', fontSize: '12px' }}
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          const newBanks = alias.payment.bank_accounts.filter((_, bj) => bj !== bi)
+                          setAliases(prev => prev.map((a, j) => j === i ? { ...a, payment: { ...a.payment, bank_accounts: newBanks } } : a))
+                        }}
+                        style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', padding: '8px 10px', cursor: 'pointer' }}
+                      >
+                        x
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    const newBank: BankAccount = { id: crypto.randomUUID(), currency: '', account_name: '', bank_name: '', is_default: alias.payment.bank_accounts.length === 0 }
+                    setAliases(prev => prev.map((a, j) => j === i ? { ...a, payment: { ...a.payment, bank_accounts: [...a.payment.bank_accounts, newBank] } } : a))
+                  }}
+                  style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 14px', cursor: 'pointer' }}
+                >
+                  + Add bank account
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Add new alias form */}
+          <div className="card" style={{ border: '1px solid rgba(176,141,87,0.2)' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>Add alias</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <label style={labelStyle}>Alias name</label>
+                <input
+                  value={newAlias.name}
+                  onChange={e => setNewAlias(p => ({ ...p, name: e.target.value }))}
+                  placeholder="ABSOLUTE."
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Genre</label>
+                <input
+                  value={newAlias.genre}
+                  onChange={e => setNewAlias(p => ({ ...p, genre: e.target.value }))}
+                  placeholder="Electronic"
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (!newAlias.name.trim()) return
+                const alias: Alias = {
+                  id: crypto.randomUUID(),
+                  name: newAlias.name.trim(),
+                  genre: newAlias.genre.trim(),
+                  social_accounts: [],
+                  payment: { bank_accounts: [], vat_number: '' },
+                  voice_profile: {},
+                }
+                setAliases(prev => [...prev, alias])
+                setNewAlias({ name: '', genre: '' })
+              }}
+              className="btn-primary"
+              style={{ padding: '10px 20px', fontSize: '10px' }}
+            >
+              + Add alias
+            </button>
+          </div>
+
+          <button onClick={save} disabled={isSaving} className="btn-primary" style={{ alignSelf: 'flex-start', opacity: isSaving ? 0.6 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
+            {saved ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save aliases'}
           </button>
         </div>
       )}

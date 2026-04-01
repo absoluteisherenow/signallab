@@ -289,7 +289,7 @@ function encodeWAVSnippet(mono: Float32Array, sampleRate: number, startSample: n
 }
 
 export function SetLab() {
-  const [activeTab, setActiveTab] = useState<'library' | 'builder' | 'history' | 'discover' | 'scanner'>('library')
+  const [activeTab, setActiveTab] = useState<'library' | 'builder' | 'history' | 'discover' | 'scanner' | 'intelligence'>('library')
   const [library, setLibrary] = useState<Track[]>([])
   const [libraryLoading, setLibraryLoading] = useState(true)
   const [editingTrack, setEditingTrack] = useState<Track | null>(null)
@@ -1436,7 +1436,7 @@ Return corrected JSON:
 
         {/* Tabs — underline style */}
         <div style={{ display: 'flex', gap: '0' }}>
-          {(['library', 'builder', 'history', 'discover', 'scanner'] as const).map(tab => (
+          {(['library', 'builder', 'history', 'discover', 'scanner', 'intelligence'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               background: 'none',
               border: 'none',
@@ -2689,6 +2689,168 @@ Return corrected JSON:
 
           </div>
         )}
+
+        {/* ═══ INTELLIGENCE TAB ═══ */}
+        {activeTab === 'intelligence' && (() => {
+          const openers = library
+            .filter(t => t.moment_type === 'opener')
+            .sort((a, b) => (b.crowd_hits || 0) - (a.crowd_hits || 0))
+
+          const crowdFavourites = [...library]
+            .sort((a, b) => (b.crowd_hits || 0) - (a.crowd_hits || 0))
+            .filter(t => (t.crowd_hits || 0) > 0)
+            .slice(0, 10)
+
+          const keyCounts: Record<string, number> = {}
+          library.forEach(t => { if (t.camelot) keyCounts[t.camelot] = (keyCounts[t.camelot] || 0) + 1 })
+          const keyDist = Object.entries(keyCounts).sort((a, b) => b[1] - a[1]).slice(0, 8)
+
+          const bpms = library.filter(t => t.bpm > 0).map(t => t.bpm)
+          const bpmMin = bpms.length ? Math.min(...bpms) : 0
+          const bpmMax = bpms.length ? Math.max(...bpms) : 0
+          const bpmAvg = bpms.length ? Math.round(bpms.reduce((a, b) => a + b, 0) / bpms.length) : 0
+
+          const underplayed = library.filter(t => t.energy >= 7 && (!t.crowd_hits || t.crowd_hits === 0))
+
+          const cardStyle: React.CSSProperties = {
+            background: s.panel, border: `1px solid ${s.border}`,
+            padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '8px',
+          }
+          const labelStyle: React.CSSProperties = {
+            fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase',
+            color: s.gold, fontFamily: s.font,
+          }
+          const bigNumStyle: React.CSSProperties = {
+            fontFamily: "'Unbounded', sans-serif", fontSize: '40px',
+            fontWeight: 300, letterSpacing: '-0.02em', color: s.text, lineHeight: 1,
+          }
+          const descStyle: React.CSSProperties = {
+            fontSize: '11px', color: s.textDimmer, lineHeight: 1.5, fontFamily: s.font,
+          }
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.textDimmer, fontFamily: s.font }}>
+                Computed from {library.length} track{library.length !== 1 ? 's' : ''} in your library
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+
+                {/* Your Openers */}
+                <div style={cardStyle}>
+                  <div style={labelStyle}>Your Openers</div>
+                  <div style={bigNumStyle}>{openers.length}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '48px' }}>
+                    {openers.slice(0, 4).map(t => (
+                      <div key={t.id} style={{ fontSize: '11px', color: s.textDim, fontFamily: s.font, display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{t.artist} — {t.title}</span>
+                        {(t.crowd_hits || 0) > 0 && <span style={{ color: s.gold, marginLeft: '8px', flexShrink: 0 }}>{t.crowd_hits}×</span>}
+                      </div>
+                    ))}
+                    {openers.length === 0 && <div style={descStyle}>No opener-tagged tracks yet</div>}
+                  </div>
+                  <div style={descStyle}>Tracks tagged as openers, ranked by crowd hits</div>
+                </div>
+
+                {/* Crowd Favourites */}
+                <div style={cardStyle}>
+                  <div style={labelStyle}>Crowd Favourites</div>
+                  <div style={bigNumStyle}>{crowdFavourites.length}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '48px' }}>
+                    {crowdFavourites.slice(0, 4).map(t => (
+                      <div key={t.id} style={{ fontSize: '11px', color: s.textDim, fontFamily: s.font, display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{t.artist} — {t.title}</span>
+                        <span style={{ color: s.gold, marginLeft: '8px', flexShrink: 0 }}>{t.crowd_hits}×</span>
+                      </div>
+                    ))}
+                    {crowdFavourites.length === 0 && <div style={descStyle}>No gig debriefs logged yet</div>}
+                  </div>
+                  <div style={descStyle}>Top 10 tracks by crowd hit count across all gigs</div>
+                </div>
+
+                {/* BPM Range */}
+                <div style={cardStyle}>
+                  <div style={labelStyle}>BPM Range</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <div style={bigNumStyle}>{bpmMin || '—'}</div>
+                    {bpmMin > 0 && <div style={{ fontSize: '20px', color: s.textDimmer, fontFamily: "'Unbounded', sans-serif", fontWeight: 300 }}>– {bpmMax}</div>}
+                  </div>
+                  {bpmAvg > 0 && <div style={{ fontSize: '12px', color: s.gold, fontFamily: s.font }}>avg {bpmAvg} BPM</div>}
+                  <div style={descStyle}>Min / max / average BPM across your library</div>
+                </div>
+
+                {/* Keys You Gravitate Toward — spans 2 cols */}
+                <div style={{ ...cardStyle, gridColumn: 'span 2' }}>
+                  <div style={labelStyle}>Keys You Gravitate Toward</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', minHeight: '48px', alignItems: 'flex-start', paddingTop: '4px' }}>
+                    {keyDist.map(([key, count]) => {
+                      const maxCount = keyDist[0]?.[1] || 1
+                      const intensity = Math.min(0.05 + (count / maxCount) * 0.25, 0.3)
+                      return (
+                        <div key={key} style={{
+                          background: `rgba(176,141,87,${intensity})`,
+                          border: `1px solid rgba(176,141,87,${Math.min(intensity * 2.5, 0.7)})`,
+                          padding: '6px 14px', display: 'flex', alignItems: 'baseline', gap: '6px',
+                        }}>
+                          <span style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, color: s.gold }}>{key}</span>
+                          <span style={{ fontSize: '11px', color: s.textDim, fontFamily: s.font }}>{count}</span>
+                        </div>
+                      )
+                    })}
+                    {keyDist.length === 0 && <div style={descStyle}>Analyse your tracks to see key distribution</div>}
+                  </div>
+                  <div style={descStyle}>Camelot key distribution — size reflects track count</div>
+                </div>
+
+                {/* Underplayed Gems */}
+                <div style={cardStyle}>
+                  <div style={labelStyle}>Underplayed Gems</div>
+                  <div style={bigNumStyle}>{underplayed.length}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '48px' }}>
+                    {underplayed.slice(0, 3).map(t => (
+                      <div key={t.id} style={{ fontSize: '11px', color: s.textDim, fontFamily: s.font, display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{t.artist} — {t.title}</span>
+                        <span style={{ color: s.textDimmer, marginLeft: '8px', flexShrink: 0 }}>e{t.energy}</span>
+                      </div>
+                    ))}
+                    {underplayed.length === 0 && <div style={descStyle}>Everything's been tested — nice</div>}
+                  </div>
+                  <div style={descStyle}>High energy (7+) tracks never tested on a crowd</div>
+                </div>
+
+              </div>
+
+              {/* Energy Arc bar chart */}
+              {library.length >= 3 && (() => {
+                const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : null
+                const arc = [
+                  { label: 'Opener', value: avg(library.filter(t => t.moment_type === 'opener' || t.position_score === 'warm-up').map(t => t.energy)) },
+                  { label: 'Build',  value: avg(library.filter(t => t.moment_type === 'builder' || t.position_score === 'build').map(t => t.energy)) },
+                  { label: 'Peak',   value: avg(library.filter(t => t.moment_type === 'peak' || t.position_score === 'peak').map(t => t.energy)) },
+                  { label: 'Close',  value: avg(library.filter(t => t.moment_type === 'closer' || t.position_score === 'cool-down').map(t => t.energy)) },
+                ].filter(a => a.value !== null) as { label: string; value: number }[]
+
+                if (arc.length < 2) return null
+                return (
+                  <div style={cardStyle}>
+                    <div style={labelStyle}>Your Energy Arc</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '80px', marginTop: '8px' }}>
+                      {arc.map(({ label, value }) => (
+                        <div key={label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
+                          <div style={{ fontSize: '10px', color: s.gold, fontFamily: s.font }}>{value}</div>
+                          <div style={{ width: '100%', background: 'rgba(176,141,87,0.75)', height: `${(value / 10) * 60}px`, minHeight: '4px' }} />
+                          <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: s.font }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={descStyle}>Average energy by moment type across your library</div>
+                  </div>
+                )
+              })()}
+
+            </div>
+          )
+        })()}
 
       </div>
 

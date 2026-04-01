@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { Celebration } from '@/components/ui/Celebration'
 
 interface Track {
   id: string
@@ -19,6 +20,7 @@ export default function GigDebriefPage({ params }: { params: { id: string } }) {
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [celebrate, setCelebrate] = useState(false)
   const [caption, setCaption] = useState('')
   const [linkedSetId, setLinkedSetId] = useState<string | null>(null)
 
@@ -69,6 +71,7 @@ export default function GigDebriefPage({ params }: { params: { id: string } }) {
       if (data.caption) setCaption(data.caption)
       if (data.set_id) setLinkedSetId(data.set_id)
       setDone(true)
+      setCelebrate(true)
     } catch {
       // fail silently
     } finally {
@@ -79,6 +82,7 @@ export default function GigDebriefPage({ params }: { params: { id: string } }) {
   if (done) {
     return (
       <div style={{ background: '#070706', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Mono, monospace' }}>
+        <Celebration trigger={celebrate} />
         <div style={{ maxWidth: 480, width: '100%', padding: '40px 24px' }}>
           <div style={{ color: '#c9a96e', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 24 }}>Debrief saved</div>
           <div style={{ fontSize: 22, color: '#f0ebe2', marginBottom: 8 }}>{'◆'.repeat(rating)}{'◇'.repeat(5 - rating)}</div>
