@@ -187,10 +187,10 @@ Four Tet | Teenage Birdsong | 130 | - | 5:12`,
   }
 
   const s = {
-    bg: '#070706', panel: '#0e0d0b', border: '#1a1917', borderBright: '#2e2c29',
-    gold: '#b08d57', goldDim: '#6a4e28', text: '#f0ebe2', dim: '#8a8780',
-    dimmer: '#52504c', black: '#070706', setlab: '#9a6a5a',
-    font: "'DM Mono', monospace",
+    bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)', borderBright: 'var(--border)',
+    gold: 'var(--gold)', goldDim: 'var(--gold-dim)', text: 'var(--text)', dim: 'var(--text-dim)',
+    dimmer: 'var(--text-dimmer)', black: 'var(--bg)', setlab: 'var(--red-brown)',
+    font: 'var(--font-mono)',
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {

@@ -23,10 +23,10 @@ export function SignalLabHeader({ right }: SignalLabHeaderProps) {
   }
 
   const s = {
-    gold: '#b08d57',
-    text: '#f0ebe2',
-    border: '#1a1917',
-    font: "'DM Mono', monospace",
+    gold: 'var(--gold)',
+    text: 'var(--text)',
+    border: 'var(--border-dim)',
+    font: 'var(--font-mono)',
   }
 
   return (

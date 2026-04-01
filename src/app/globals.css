@@ -11,11 +11,11 @@
 }
 
 :root {
-  --bg: #020202;
-  --panel: #0d0d0d;
-  --border-dim: #181818;
-  --border: #262626;
-  --border-bright: #333333;
+  --bg: #070706;
+  --panel: #0e0d0b;
+  --border-dim: #1a1917;
+  --border: #2e2c29;
+  --border-bright: #3a3835;
   --gold: #b08d57;
   --gold-bright: #c9a46e;
   --gold-dim: #6a4e28;
@@ -28,12 +28,11 @@
   --blue: #6a7a9a;
   --red-brown: #9a6a5a;
   --purple: #7a5a8a;
-  /* ADDITIONAL ACCENT COLORS */
   --accent-green: #3d6b4a;
   --accent-red: #8a4a3a;
   --accent-yellow: #8a6a3a;
   --text-warm: #a89878;
-  --bg-input: #0d0d0d;
+  --bg-input: #0e0d0b;
   --font-mono: 'DM Mono', monospace;
   --font-display: 'Unbounded', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
@@ -166,7 +165,7 @@ a { color: inherit; }
 
 /* PAGE HEADER */
 .page-header {
-  padding: 48px 56px 40px;
+  padding: 48px 48px 40px;
   border-bottom: 1px solid var(--border-dim);
 }
 
@@ -236,7 +235,7 @@ a { color: inherit; }
 .tab-bar {
   display: flex;
   border-bottom: 1px solid var(--border-dim);
-  padding: 0 56px;
+  padding: 0 48px;
   gap: 0;
 }
 
@@ -268,7 +267,7 @@ a { color: inherit; }
 .list-row {
   display: flex;
   align-items: center;
-  padding: 16px 56px;
+  padding: 16px 48px;
   border-bottom: 1px solid var(--border-dim);
   transition: background 0.1s;
   cursor: pointer;
@@ -319,7 +318,9 @@ a { color: inherit; }
 
 .card-hover:hover {
   border-color: var(--border);
-  background: #111111;
+  background: #111110;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
 }
 
 /* STAT BLOCK */
@@ -439,8 +440,17 @@ a { color: inherit; }
   50% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .fade-in {
   animation: fadeIn 0.3s ease forwards;
+}
+
+.page-enter {
+  animation: fadeIn 0.2s ease forwards;
 }
 
 /* GOLD ACCENT LINE */
@@ -514,6 +524,10 @@ a { color: inherit; }
   border-color: var(--border-bright);
 }
 
+/* BUTTON SIZE VARIANTS */
+.btn-sm { height: 32px; padding: 0 16px; font-size: 9px; }
+.btn-lg { height: 48px; padding: 0 28px; font-size: 11px; }
+
 /* GOLD OUTLINE BUTTON */
 .btn-gold {
   background: transparent;
@@ -554,4 +568,12 @@ button:focus-visible {
 a:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
+}
+
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width: 768px) {
+  .sidebar-nav { display: none !important; }
+  .mobile-tab-bar { display: flex !important; }
+  .app-shell { flex-direction: column; }
+  .app-main { padding-bottom: 56px; }
 }

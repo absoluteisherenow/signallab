@@ -21,9 +21,9 @@ interface Gig {
 
 
 const f = {
-  bg: '#070706', panel: '#0e0d0b', border: '#1a1917', mid: '#2e2c29',
-  gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c', dimmest: '#2e2c29',
-  green: '#3d6b4a', font: "'DM Mono', monospace",
+  bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)', mid: 'var(--border)',
+  gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)', dimmest: 'var(--text-dimmest)',
+  green: 'var(--green)', font: 'var(--font-mono)',
 }
 
 export function GigsList() {

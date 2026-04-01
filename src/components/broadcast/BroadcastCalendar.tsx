@@ -42,10 +42,10 @@ const PLATFORM_COLOR: Record<string, string> = {
 }
 
 const s = {
-  bg: '#070706', panel: '#0e0d0b', border: '#2e2c29',
-  gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c',
-  teal: '#3d6b4a', purple: '#6a4a8a',
-  font: "'DM Mono', monospace",
+  bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border)',
+  gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)',
+  teal: 'var(--green)', purple: 'var(--purple)',
+  font: 'var(--font-mono)',
 }
 
 export function BroadcastCalendar() {

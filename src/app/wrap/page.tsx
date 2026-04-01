@@ -176,9 +176,9 @@ function WrapContent() {
   }
 
   const s = {
-    bg: '#070706', gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780',
-    dimmer: '#52504c', border: '#1a1917', panel: '#0e0d0b',
-    font: "'DM Mono', monospace",
+    bg: 'var(--bg)', gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)',
+    dimmer: 'var(--text-dimmer)', border: 'var(--border-dim)', panel: 'var(--panel)',
+    font: 'var(--font-mono)',
   }
 
   if (loading) {

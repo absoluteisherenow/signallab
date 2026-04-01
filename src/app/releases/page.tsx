@@ -24,9 +24,9 @@ export default function ReleasesPage() {
   const [loading, setLoading] = useState(true)
 
   const s = {
-    bg: '#070706', panel: '#0e0d0b', border: '#1a1917', borderMid: '#2e2c29',
-    gold: '#b08d57', goldBright: '#c9a46e', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c',
-    font: "'DM Mono', monospace",
+    bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)', borderMid: 'var(--border)',
+    gold: 'var(--gold)', goldBright: 'var(--gold-bright)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)',
+    font: 'var(--font-mono)',
   }
 
   useEffect(() => {

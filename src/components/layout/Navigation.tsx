@@ -28,6 +28,8 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
+const HIDDEN_ROUTES = ['/', '/pricing', '/login', '/onboarding', '/mobile', '/join']
+
 export function Navigation() {
   const pathname = usePathname()
   const [apiUsage, setApiUsage] = useState<{ percentUsed: number; totalCostUsd: number; warning: boolean; critical: boolean } | null>(null)
@@ -42,7 +44,7 @@ export function Navigation() {
     return () => clearInterval(t)
   }, [])
 
-  if (pathname === '/' || pathname === '/pricing' || pathname === '/login' || pathname === '/onboarding' || pathname === '/mobile' || pathname === '/join' || pathname.startsWith('/join/')) {
+  if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith('/join/')) {
     return null
   }
 
@@ -52,191 +54,244 @@ export function Navigation() {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
-  function isParentActive(item: typeof NAV_GROUPS[0]['items'][0]) {
+  function isParentActive(item: NavItem) {
     return isActive(item.href) || item.sub.some(s => isActive(s.href))
   }
 
+  const showApiBar = apiUsage && (apiUsage.warning || apiUsage.critical)
+
   return (
-    <nav style={{
-      width: 200,
-      minWidth: 200,
-      background: '#080808',
-      borderRight: '1px solid rgba(255,255,255,0.06)',
-      display: 'flex',
-      flexDirection: 'column',
-      fontFamily: "'DM Mono', monospace",
-      flexShrink: 0,
-      position: 'sticky',
-      top: 0,
-      height: '100vh',
-      overflowY: 'auto',
-      scrollbarWidth: 'none',
-    }}>
+    <>
+      {/* Desktop sidebar */}
+      <nav className="sidebar-nav" style={{
+        width: 200,
+        minWidth: 200,
+        background: 'var(--bg)',
+        borderRight: '1px solid var(--border-dim)',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: 'var(--font-mono)',
+        flexShrink: 0,
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        overflowY: 'auto',
+        scrollbarWidth: 'none',
+      }}>
 
-      {/* Brand */}
-      <div style={{ padding: '20px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <LogoIcon size={28} />
-          <div>
-            <div style={{
-              fontFamily: "'Unbounded', sans-serif",
-              fontSize: 11,
-              fontWeight: 200,
-              letterSpacing: '0.04em',
-              color: '#f0ebe2',
-              lineHeight: 1.3,
-              whiteSpace: 'nowrap',
-            }}>
-              Signal Lab <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 300, letterSpacing: '0.08em', color: '#52504c' }}>OS</span>
-            </div>
-            <div style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 8,
-              fontWeight: 300,
-              letterSpacing: '0.12em',
-              color: '#3a3835',
-              marginTop: 2,
-            }}>
-              Tailored Artist OS
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* Nav body */}
-      <div style={{ flex: 1, padding: '12px 0' }}>
-        {NAV_GROUPS.map((group, gi) => (
-          <div key={group.label || gi}>
-            {group.label ? (
-              <div style={{
-                fontSize: 9,
-                fontWeight: 500,
-                letterSpacing: '0.2em',
-                color: 'rgba(234,229,220,0.2)',
-                textTransform: 'uppercase',
-                padding: '20px 28px 8px',
-              }}>
-                {group.label}
-              </div>
-            ) : gi > 0 ? (
-              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '8px 28px' }} />
-            ) : null}
-
+        {/* Brand */}
+        <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid var(--border-dim)' }}>
+          <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <LogoIcon size={28} />
             <div>
-              {group.items.map(item => {
-                const parentActive = isParentActive(item)
-                const hasSub = item.sub.length > 0
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 11,
+                fontWeight: 200,
+                letterSpacing: '0.04em',
+                color: 'var(--text)',
+                lineHeight: 1.3,
+                whiteSpace: 'nowrap',
+              }}>
+                Signal Lab <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 300, letterSpacing: '0.08em', color: 'var(--text-dimmer)' }}>OS</span>
+              </div>
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 8,
+                fontWeight: 300,
+                letterSpacing: '0.12em',
+                color: 'var(--text-dimmest)',
+                marginTop: 2,
+              }}>
+                Tailored Artist OS
+              </div>
+            </div>
+          </Link>
+        </div>
 
-                return (
-                  <div key={item.href}>
-                    <Link
-                      href={item.href}
-                      style={{
-                        display: 'block',
-                        padding: '10px 28px',
-                        textDecoration: 'none',
-                        fontSize: 12.5,
-                        fontWeight: parentActive ? 500 : 400,
-                        color: parentActive ? '#c9a96e' : 'rgba(234,229,220,0.45)',
-                        borderLeft: parentActive ? '2px solid #c9a96e' : '2px solid transparent',
-                        background: parentActive ? 'rgba(201,169,110,0.08)' : 'transparent',
-                        transition: 'color 0.12s',
-                      }}
-                      onMouseEnter={e => { if (!parentActive) e.currentTarget.style.color = '#eae5dc' }}
-                      onMouseLeave={e => { if (!parentActive) e.currentTarget.style.color = 'rgba(234,229,220,0.45)' }}
-                    >
-                      {item.label}
-                    </Link>
+        {/* Nav body */}
+        <div style={{ flex: 1, padding: '16px 0' }}>
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={group.label || gi}>
+              {group.label ? (
+                <div style={{
+                  fontSize: 9,
+                  fontWeight: 500,
+                  letterSpacing: '0.2em',
+                  color: 'var(--text-dimmest)',
+                  textTransform: 'uppercase',
+                  padding: '20px 28px 8px',
+                }}>
+                  {group.label}
+                </div>
+              ) : gi > 0 ? (
+                <div style={{ height: 1, background: 'var(--border-dim)', margin: '10px 28px' }} />
+              ) : null}
 
-                    {hasSub && parentActive && (
-                      <div>
-                        {item.sub.map(s => {
-                          const subActive = pathname === s.href
-                          return (
-                            <Link
-                              key={s.href}
-                              href={s.href}
-                              style={{
-                                display: 'block',
-                                padding: '8px 28px 8px 44px',
-                                fontSize: 12,
-                                textDecoration: 'none',
-                                color: subActive ? '#c9a96e' : 'rgba(234,229,220,0.2)',
-                                transition: 'color 0.12s',
-                              }}
-                              onMouseEnter={e => { if (!subActive) e.currentTarget.style.color = 'rgba(234,229,220,0.45)' }}
-                              onMouseLeave={e => { if (!subActive) e.currentTarget.style.color = 'rgba(234,229,220,0.2)' }}
-                            >
-                              {s.label}
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+              <div>
+                {group.items.map(item => {
+                  const parentActive = isParentActive(item)
+
+                  return (
+                    <div key={item.href}>
+                      <Link
+                        href={item.href}
+                        style={{
+                          display: 'block',
+                          padding: '10px 28px',
+                          textDecoration: 'none',
+                          fontSize: 12.5,
+                          fontWeight: parentActive ? 500 : 400,
+                          color: parentActive ? 'var(--gold-bright)' : 'var(--text-dimmer)',
+                          borderLeft: parentActive ? '2px solid var(--gold-bright)' : '2px solid transparent',
+                          background: parentActive ? 'rgba(201,169,110,0.06)' : 'transparent',
+                          transition: 'color 0.12s, background 0.12s',
+                        }}
+                        onMouseEnter={e => { if (!parentActive) { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)' } }}
+                        onMouseLeave={e => { if (!parentActive) { e.currentTarget.style.color = 'var(--text-dimmer)'; e.currentTarget.style.background = 'transparent' } }}
+                      >
+                        {item.label}
+                      </Link>
+
+                      {item.sub.length > 0 && parentActive && (
+                        <div>
+                          {item.sub.map(s => {
+                            const subActive = pathname === s.href
+                            return (
+                              <Link
+                                key={s.href}
+                                href={s.href}
+                                style={{
+                                  display: 'block',
+                                  padding: '8px 28px 8px 44px',
+                                  fontSize: 12,
+                                  textDecoration: 'none',
+                                  color: subActive ? 'var(--gold-bright)' : 'var(--text-dimmest)',
+                                  transition: 'color 0.12s',
+                                }}
+                                onMouseEnter={e => { if (!subActive) e.currentTarget.style.color = 'var(--text-dimmer)' }}
+                                onMouseLeave={e => { if (!subActive) e.currentTarget.style.color = 'var(--text-dimmest)' }}
+                              >
+                                {s.label}
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* API usage — only show when warning/critical */}
+        {showApiBar && (
+          <div style={{ padding: '10px 28px 12px', borderTop: '1px solid var(--border-dim)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontSize: 8, letterSpacing: '0.18em', color: apiUsage.critical ? 'var(--red-brown)' : 'var(--gold)', textTransform: 'uppercase' }}>
+                {apiUsage.critical ? 'Critical' : 'Warning'}
+              </span>
+              <span style={{ fontSize: 8, color: apiUsage.critical ? 'var(--red-brown)' : 'var(--gold)' }}>
+                {apiUsage.percentUsed}%
+              </span>
+            </div>
+            <div style={{ height: 2, background: 'var(--border-dim)', borderRadius: 2 }}>
+              <div style={{
+                height: 2, borderRadius: 2,
+                width: `${Math.min(apiUsage.percentUsed, 100)}%`,
+                background: apiUsage.critical ? 'var(--red-brown)' : 'var(--gold)',
+                transition: 'width 0.5s ease',
+              }} />
             </div>
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* API usage */}
-      {apiUsage && (
-        <div style={{ padding: '10px 28px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 8, letterSpacing: '0.18em', color: apiUsage.critical ? '#b05555' : apiUsage.warning ? '#c9a96e' : 'rgba(234,229,220,0.14)', textTransform: 'uppercase' }}>
-              {apiUsage.critical ? '⚠ Critical' : apiUsage.warning ? '⚠ Warning' : 'API'}
-            </span>
-            <span style={{ fontSize: 8, color: apiUsage.critical ? '#b05555' : apiUsage.warning ? '#c9a96e' : 'rgba(234,229,220,0.14)' }}>
-              {apiUsage.percentUsed}%
-            </span>
-          </div>
-          <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
-            <div style={{
-              height: 2, borderRadius: 2,
-              width: `${Math.min(apiUsage.percentUsed, 100)}%`,
-              background: apiUsage.critical ? '#b05555' : apiUsage.warning ? '#c9a96e' : '#4d9970',
-              transition: 'width 0.5s ease',
-            }} />
-          </div>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '8px 0', marginTop: 'auto' }}>
-        <Link href="/business/settings" style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 28px',
-          textDecoration: 'none',
-          fontSize: 12.5,
-          color: pathname === '/business/settings' ? '#c9a96e' : 'rgba(234,229,220,0.45)',
-          borderLeft: pathname === '/business/settings' ? '2px solid #c9a96e' : '2px solid transparent',
-          background: pathname === '/business/settings' ? 'rgba(201,169,110,0.08)' : 'transparent',
-          transition: 'color 0.12s',
-        }}
-        onMouseEnter={e => { if (pathname !== '/business/settings') e.currentTarget.style.color = '#eae5dc' }}
-        onMouseLeave={e => { if (pathname !== '/business/settings') e.currentTarget.style.color = 'rgba(234,229,220,0.45)' }}
-        >
-          Settings
-        </Link>
-        <div style={{ padding: '2px 28px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/mobile" style={{
-            fontSize: 9,
-            color: 'rgba(234,229,220,0.14)',
-            letterSpacing: '0.1em',
+        {/* Footer */}
+        <div style={{ borderTop: '1px solid var(--border-dim)', padding: '8px 0', marginTop: 'auto' }}>
+          <Link href="/business/settings" style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 28px',
             textDecoration: 'none',
+            fontSize: 12.5,
+            color: pathname === '/business/settings' ? 'var(--gold-bright)' : 'var(--text-dimmer)',
+            borderLeft: pathname === '/business/settings' ? '2px solid var(--gold-bright)' : '2px solid transparent',
+            background: pathname === '/business/settings' ? 'rgba(201,169,110,0.06)' : 'transparent',
             transition: 'color 0.12s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'rgba(234,229,220,0.35)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(234,229,220,0.14)' }}
-          title="Mobile quick-actions"
+          onMouseEnter={e => { if (pathname !== '/business/settings') e.currentTarget.style.color = 'var(--text)' }}
+          onMouseLeave={e => { if (pathname !== '/business/settings') e.currentTarget.style.color = 'var(--text-dimmer)' }}
           >
-            signallabos.com
+            Settings
           </Link>
-          <NotificationBell />
+          <div style={{ padding: '2px 28px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{
+              fontSize: 9,
+              color: 'var(--text-dimmest)',
+              letterSpacing: '0.1em',
+            }}>
+              signallabos.com
+            </span>
+            <NotificationBell />
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="mobile-tab-bar" style={{
+        display: 'none',
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 56,
+        background: 'var(--bg)',
+        borderTop: '1px solid var(--border-dim)',
+        zIndex: 1000,
+        fontFamily: 'var(--font-mono)',
+        backdropFilter: 'blur(16px)',
+      }}>
+        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'space-around' }}>
+          {[
+            { label: 'Home', href: '/dashboard' },
+            { label: 'Broadcast', href: '/broadcast' },
+            { label: 'Sets', href: '/setlab' },
+            { label: 'Tour', href: '/gigs' },
+            { label: 'Drops', href: '/releases' },
+          ].map(item => {
+            const active = isActive(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 3,
+                  textDecoration: 'none',
+                  fontSize: 9,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: active ? 'var(--gold)' : 'var(--text-dimmer)',
+                  transition: 'color 0.12s',
+                  padding: '8px 12px',
+                }}
+              >
+                <div style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: '50%',
+                  background: active ? 'var(--gold)' : 'transparent',
+                  marginBottom: 2,
+                }} />
+                {item.label}
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
+    </>
   )
 }

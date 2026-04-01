@@ -26,11 +26,11 @@ const s = {
   label: { fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase' as const, marginBottom: '6px' },
   value: { fontSize: '14px', color: 'var(--text)', lineHeight: 1.4 },
   input: {
-    width: '100%', background: '#0c0b09', border: '1px solid var(--border-dim)', color: 'var(--text)',
+    width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)',
     fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' as const,
   },
   select: {
-    width: '100%', background: '#0c0b09', border: '1px solid var(--border-dim)', color: 'var(--text)',
+    width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)',
     fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none',
   },
 }

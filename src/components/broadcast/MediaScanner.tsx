@@ -163,15 +163,15 @@ export function MediaScanner() {
   }, [])
 
   const s = {
-    bg: '#070706',
-    panel: '#0e0d0b',
-    border: '#2e2c29',
-    gold: '#b08d57',
-    text: '#f0ebe2',
-    textDim: '#8a8780',
-    textDimmer: '#52504c',
-    font: "'DM Mono', monospace",
-    green: '#3d6b4a',
+    bg: 'var(--bg)',
+    panel: 'var(--panel)',
+    border: 'var(--border)',
+    gold: 'var(--gold)',
+    text: 'var(--text)',
+    textDim: 'var(--text-dim)',
+    textDimmer: 'var(--text-dimmer)',
+    font: 'var(--font-mono)',
+    green: 'var(--green)',
   }
 
   function addFiles(incoming: FileList | null) {

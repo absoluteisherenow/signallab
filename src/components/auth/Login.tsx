@@ -17,8 +17,8 @@ export default function Login() {
     setLoading(true)
     setError('')
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
+      const { createBrowserClient } = await import('@supabase/auth-helpers-nextjs')
+      const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
@@ -30,6 +30,7 @@ export default function Login() {
         if (error) throw error
       }
       router.push('/dashboard')
+      router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication failed')
     } finally {

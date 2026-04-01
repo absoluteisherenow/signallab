@@ -26,9 +26,9 @@ export function MediaLibrary() {
   }, [])
 
   const s = {
-    bg: '#070706', panel: '#0e0d0b', border: '#1a1917',
-    gold: '#b08d57', text: '#f0ebe2', dim: '#8a8780', dimmer: '#52504c',
-    font: "'DM Mono', monospace",
+    bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
+    gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)',
+    font: 'var(--font-mono)',
   }
 
   function toggle(url: string) {

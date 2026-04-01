@@ -197,10 +197,10 @@ export default function JoinPage() {
           {status === 'done' ? (
             <div style={{ border: `1px solid #3d6b4a`, padding: '40px 40px', textAlign: 'center' }}>
               <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#3d6b4a', textTransform: 'uppercase', marginBottom: '14px' }}>
-                You're on the list
+                Access Requested
               </div>
               <div style={{ fontSize: '13px', color: C.text, lineHeight: '1.8' }}>
-                You are on the list. We will be in touch to get you set up.
+                You're on the list. We'll be in touch when we open more spaces.
               </div>
             </div>
           ) : (

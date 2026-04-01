@@ -28,10 +28,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check for a Supabase session cookie
+  // Check for a Supabase session cookie (auth-helpers sets sb-<ref>-auth-token)
+  const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0] || ''
   const token =
     req.cookies.get('sb-access-token')?.value ||
-    req.cookies.get(`sb-${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]}-auth-token`)?.value
+    req.cookies.get(`sb-${projectRef}-auth-token`)?.value ||
+    req.cookies.get(`sb-${projectRef}-auth-token.0`)?.value
 
   if (!token) {
     const loginUrl = new URL('/login', req.url)
