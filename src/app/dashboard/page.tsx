@@ -922,7 +922,7 @@ export default function Dashboard() {
     <div style={{ background: 'var(--bg)', color: 'var(--text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ── TOP BAR ── */}
-      <div style={{ padding: '24px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+      <div style={{ padding: '16px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ fontSize: '11px', letterSpacing: '0.35em', color: 'var(--gold)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }} suppressHydrationWarning>
           {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
         </div>
@@ -934,19 +934,19 @@ export default function Dashboard() {
       </div>
 
       {/* ── GREETING + BRIEF ── */}
-      <div style={{ padding: '0 48px', flexShrink: 0, marginBottom: '20px' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(40px, 4.5vw, 56px)', fontWeight: 300, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--text)', marginBottom: brief ? '14px' : '0' }} suppressHydrationWarning>
+      <div style={{ padding: '0 48px', flexShrink: 0, marginBottom: '12px' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(36px, 4vw, 48px)', fontWeight: 300, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--text)', marginBottom: brief ? '10px' : '0' }} suppressHydrationWarning>
           {greeting}.
         </div>
         {!loading && brief && (
-          <div style={{ maxWidth: '640px', fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', lineHeight: 1.6 }}>
+          <div style={{ maxWidth: '640px', fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', lineHeight: 1.5 }}>
             {brief}
           </div>
         )}
       </div>
 
       {/* ── SIGNAL BAR ── */}
-      <div style={{ padding: '0 48px', flexShrink: 0, marginBottom: '20px' }}>
+      <div style={{ padding: '0 48px', flexShrink: 0, marginBottom: '12px' }}>
         <SignalBar onAction={() => router.refresh()} />
       </div>
 
@@ -955,7 +955,7 @@ export default function Dashboard() {
         <div style={{
           padding: '0 48px',
           flexShrink: 0,
-          marginBottom: '20px',
+          marginBottom: '12px',
         }}>
           <div style={{
             background: 'var(--panel)',
@@ -1040,7 +1040,7 @@ export default function Dashboard() {
       )}
 
       {/* ── LAUNCHPAD — always visible, fills viewport ── */}
-      <div style={{ flex: 1, padding: '0 48px 28px', minHeight: 0 }}>
+      <div style={{ flex: 1, padding: '0 48px 16px', minHeight: 0 }}>
         {loading ? (
           <SkeletonRows count={3} />
         ) : (
@@ -1048,7 +1048,7 @@ export default function Dashboard() {
             {launchCards.map(card => (
               <Link key={card.href} href={card.href} style={{
                 background: 'var(--panel)', border: '1px solid var(--border-dim)',
-                padding: '24px 24px 20px', textDecoration: 'none',
+                padding: '20px 24px 16px', textDecoration: 'none',
                 transition: 'border-color 0.2s, background 0.2s',
                 display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
               }}
@@ -1056,7 +1056,7 @@ export default function Dashboard() {
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLElement).style.background = 'var(--panel)' }}
               >
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: card.accent, fontFamily: 'var(--font-mono)' }}>
                       {card.label}
                     </div>

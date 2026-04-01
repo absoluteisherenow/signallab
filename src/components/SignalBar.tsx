@@ -41,7 +41,7 @@ export default function SignalBar({ onAction }: { onAction?: () => void }) {
   }
 
   return (
-    <div style={{ marginBottom: '32px' }}>
+    <div style={{ marginBottom: '0' }}>
       <div style={{
         display: 'flex',
         alignItems: 'center',

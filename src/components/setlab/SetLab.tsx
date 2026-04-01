@@ -252,32 +252,46 @@ function estimateBPM(mono: Float32Array, sampleRate: number): number | null {
 }
 
 // ── WAV snippet encoder — for dual fingerprinting (AudD + ACRCloud) ──────────
-// ACRCloud works best at 16000 Hz mono 16-bit PCM (8000 Hz causes poor recognition)
-const ACR_SAMPLE_RATE = 16000
+// CRITICAL: Send at original sample rate (44100 Hz) — downsampling to 16 kHz
+// strips all spectral content above 8 kHz (hi-hats, synths, vocals) which
+// destroys the audio fingerprint. ACRCloud/AudD handle any sample rate.
+// For mixes longer than needed, we downsample to 22050 Hz to keep file size
+// manageable while preserving enough spectrum for reliable recognition.
+const TARGET_SAMPLE_RATE = 22050
 
 function encodeWAVSnippet(mono: Float32Array, sampleRate: number, startSample: number, numSamples: number): Blob {
   const srcCount = Math.min(numSamples, Math.max(0, mono.length - startSample))
   if (srcCount === 0) return new Blob([], { type: 'audio/wav' })
 
-  // Downsample to ACR_SAMPLE_RATE using simple linear interpolation
-  const ratio      = sampleRate / ACR_SAMPLE_RATE
-  const outCount   = Math.floor(srcCount / ratio)
-  const resampled  = new Float32Array(outCount)
-  for (let i = 0; i < outCount; i++) {
-    const srcIdx = i * ratio
-    const lo     = Math.floor(srcIdx)
-    const hi     = Math.min(lo + 1, srcCount - 1)
-    const frac   = srcIdx - lo
-    resampled[i] = mono[startSample + lo] * (1 - frac) + mono[startSample + hi] * frac
+  // Downsample to TARGET_SAMPLE_RATE if source is higher, otherwise keep original
+  const outRate = sampleRate > TARGET_SAMPLE_RATE ? TARGET_SAMPLE_RATE : sampleRate
+  const ratio = sampleRate / outRate
+  const outCount = Math.floor(srcCount / ratio)
+  const resampled = new Float32Array(outCount)
+
+  if (ratio === 1) {
+    // No resampling needed — direct copy
+    for (let i = 0; i < outCount; i++) {
+      resampled[i] = mono[startSample + i]
+    }
+  } else {
+    // Downsample using linear interpolation
+    for (let i = 0; i < outCount; i++) {
+      const srcIdx = i * ratio
+      const lo = Math.floor(srcIdx)
+      const hi = Math.min(lo + 1, srcCount - 1)
+      const frac = srcIdx - lo
+      resampled[i] = mono[startSample + lo] * (1 - frac) + mono[startSample + hi] * frac
+    }
   }
 
   const count = outCount
-  const buf   = new ArrayBuffer(44 + count * 2)
-  const v     = new DataView(buf)
-  const ws    = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)) }
+  const buf = new ArrayBuffer(44 + count * 2)
+  const v = new DataView(buf)
+  const ws = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)) }
   ws(0, 'RIFF'); v.setUint32(4, 36 + count * 2, true); ws(8, 'WAVE')
   ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
-  v.setUint32(24, ACR_SAMPLE_RATE, true); v.setUint32(28, ACR_SAMPLE_RATE * 2, true)
+  v.setUint32(24, outRate, true); v.setUint32(28, outRate * 2, true)
   v.setUint16(32, 2, true); v.setUint16(34, 16, true)
   ws(36, 'data'); v.setUint32(40, count * 2, true)
   let off = 44
@@ -1052,22 +1066,23 @@ Return corrected JSON:
         let attempts: SampleAttempt[]
 
         if (segLen >= 40) {
-          // Long segment — three attempts across middle zone, growing sample size
+          // Long segment — three attempts across middle zone with generous samples
+          // ACRCloud needs 10-20s of clean audio; longer = more reliable
           attempts = [
-            { startRatio: 0.50, durSec: Math.min(25, segLen * 0.20), label: 'centre' },
-            { startRatio: 0.65, durSec: Math.min(28, segLen * 0.22), label: 'late'   },
-            { startRatio: 0.35, durSec: Math.min(28, segLen * 0.22), label: 'early'  },
+            { startRatio: 0.45, durSec: Math.min(30, segLen * 0.25), label: 'centre' },
+            { startRatio: 0.65, durSec: Math.min(30, segLen * 0.25), label: 'late'   },
+            { startRatio: 0.25, durSec: Math.min(30, segLen * 0.25), label: 'early'  },
           ]
         } else if (segLen >= 20) {
-          // Medium segment — two attempts
+          // Medium segment — two attempts with longer samples
           attempts = [
-            { startRatio: 0.50, durSec: Math.min(15, segLen * 0.40), label: 'centre' },
-            { startRatio: 0.70, durSec: Math.min(15, segLen * 0.35), label: 'late'   },
+            { startRatio: 0.45, durSec: Math.min(18, segLen * 0.45), label: 'centre' },
+            { startRatio: 0.70, durSec: Math.min(18, segLen * 0.40), label: 'late'   },
           ]
         } else if (segLen >= 10) {
-          // Short segment — one attempt from centre
+          // Short segment — one attempt from centre, use most of it
           attempts = [
-            { startRatio: 0.40, durSec: Math.min(8, segLen * 0.50), label: 'centre' },
+            { startRatio: 0.30, durSec: Math.min(10, segLen * 0.60), label: 'centre' },
           ]
         } else {
           // Too short — skip

@@ -95,28 +95,39 @@ async function queryACRCloud(audioBlob: Blob): Promise<{
 
 async function queryAudD(audioBlob: Blob): Promise<{
   found: boolean; title?: string; artist?: string; album?: string;
-  label?: string; release_date?: string; confidence: number; source: 'audd'
+  label?: string; release_date?: string; confidence: number; source: 'audd';
+  _debug?: string
 }> {
   const apiToken = process.env.AUDD_API_TOKEN?.trim()
-  if (!apiToken) return { found: false, confidence: 0, source: 'audd' }
+  if (!apiToken) return { found: false, confidence: 0, source: 'audd', _debug: 'AUDD_API_TOKEN not set' }
 
   const form = new FormData()
   form.append('api_token', apiToken)
   form.append('file',      audioBlob, 'snippet.wav')
   form.append('return',    'spotify,apple_music')
 
-  const resp = await fetch('https://api.audd.io/', {
-    method: 'POST',
-    body: form,
-    signal: AbortSignal.timeout(12000),
-  })
-  const data = await resp.json()
-
-  if (data.status !== 'success' || !data.result) {
-    return { found: false, confidence: 0, source: 'audd' }
+  let data: Record<string, unknown>
+  try {
+    const resp = await fetch('https://api.audd.io/', {
+      method: 'POST',
+      body: form,
+      signal: AbortSignal.timeout(15000),
+    })
+    data = await resp.json()
+  } catch (err) {
+    return { found: false, confidence: 0, source: 'audd', _debug: `network error: ${err instanceof Error ? err.message : String(err)}` }
   }
 
-  const track = data.result
+  if (data.status === 'error') {
+    const errMsg = (data.error as { error_message?: string })?.error_message || JSON.stringify(data.error)
+    return { found: false, confidence: 0, source: 'audd', _debug: `AudD error: ${errMsg}` }
+  }
+
+  if (data.status !== 'success' || !data.result) {
+    return { found: false, confidence: 0, source: 'audd', _debug: `status=${data.status}, result=${data.result ? 'present' : 'null'}` }
+  }
+
+  const track = data.result as { title?: string; artist?: string; album?: string; label?: string; release_date?: string }
   return {
     found:        true,
     title:        track.title        || '',
@@ -171,7 +182,7 @@ export async function POST(req: NextRequest) {
       tried:   ['acrcloud', 'audd'].filter((s, i) => [!!process.env.ACRCLOUD_ACCESS_KEY, !!process.env.AUDD_API_TOKEN][i]),
       debug: {
         acrcloud: acr._debug ?? 'no match',
-        audd: audd.found ? 'found' : 'no match',
+        audd: (audd as { _debug?: string })._debug ?? (audd.found ? 'found' : 'no match'),
       },
     }, { headers: CORS })
   }
@@ -189,9 +200,9 @@ export async function POST(req: NextRequest) {
       acrcloud: acr.found  ? { title: acr.title,  artist: acr.artist,  confidence: acr.confidence }  : null,
       audd:     audd.found ? { title: audd.title, artist: audd.artist, confidence: audd.confidence } : null,
     },
-    // Debug: why did the losing provider not fire?
     debug: {
       acrcloud: acr.found ? 'found' : (acr._debug ?? 'no match'),
+      audd: (audd as { _debug?: string })._debug ?? (audd.found ? 'found' : 'no match'),
     },
   }, { headers: CORS })
 }
