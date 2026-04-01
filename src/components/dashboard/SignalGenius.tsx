@@ -12,6 +12,7 @@ interface ArtistContext {
   gigs: any[]
   invoices: any[]
   posts: any[]
+  mixScans: any[]
   profile: any
   quarterStats: { gigs: number; posts: number; revenue: number }
 }
@@ -150,11 +151,13 @@ export function SignalGenius() {
       fetch('/api/invoices').then(r => r.json()),
       fetch('/api/schedule').then(r => r.json()),
       fetch('/api/settings').then(r => r.json()),
+      fetch('/api/mix-scans?limit=3').then(r => r.json()).catch(() => ({ scans: [] })),
     ]).then(results => {
       const gigs = results[0].status === 'fulfilled' ? results[0].value.gigs || [] : []
       const invoices = results[1].status === 'fulfilled' ? results[1].value.invoices || [] : []
       const posts = results[2].status === 'fulfilled' ? results[2].value.posts || [] : []
       const settings = results[3].status === 'fulfilled' ? results[3].value.settings || {} : {}
+      const mixScans = results[4].status === 'fulfilled' ? results[4].value.scans || [] : []
 
       const today = new Date()
       const yr = today.getFullYear()
@@ -167,6 +170,7 @@ export function SignalGenius() {
         gigs,
         invoices,
         posts,
+        mixScans,
         profile: settings.profile || {},
         quarterStats: {
           gigs: qGigs.length,
@@ -215,6 +219,32 @@ export function SignalGenius() {
 
       if (weekPosts.length > 0) {
         contextBlock += `\n\nScheduled posts this week: ${weekPosts.length}`
+      }
+
+      // Mix scan data — so Signal can discuss scanned mixes
+      if (c.mixScans?.length > 0) {
+        const latestScan = c.mixScans[0]
+        if (latestScan.result) {
+          const r = latestScan.result
+          contextBlock += `\n\nLatest mix scan (${latestScan.filename || 'Mix'}, scanned ${new Date(latestScan.created_at).toLocaleDateString('en-GB')}):`
+          contextBlock += `\nScore: ${r.overall_score}/10 · Grade: ${r.grade}`
+          if (r.headline) contextBlock += `\nHeadline: ${r.headline}`
+          if (r.summary) contextBlock += `\nSummary: ${r.summary}`
+          if (r.structure_analysis) contextBlock += `\nStructure: ${r.structure_analysis}`
+          if (r.technical_assessment) contextBlock += `\nTechnical: ${r.technical_assessment}`
+          if (r.strengths?.length) contextBlock += `\nStrengths: ${r.strengths.join('; ')}`
+          if (r.improvements?.length) contextBlock += `\nImprovements: ${r.improvements.join('; ')}`
+          if (r.tracks?.length) {
+            contextBlock += `\nTracks with issues:`
+            r.tracks.filter((t: any) => t.issue).forEach((t: any) => {
+              contextBlock += `\n- #${t.position} ${t.artist} — ${t.title}: ${t.issue}${t.fix ? ` (Fix: ${t.fix})` : ''}`
+            })
+          }
+          if (r.overall_verdict) contextBlock += `\nVerdict: ${r.overall_verdict}`
+        }
+        if (latestScan.tracklist) {
+          contextBlock += `\nFull tracklist:\n${latestScan.tracklist}`
+        }
       }
     }
 

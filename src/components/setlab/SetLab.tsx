@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { analyseAudioFile, type AudioAnalysisResult } from '@/lib/audioAnalysis'
+import { ScanPulse } from '@/components/ui/ScanPulse'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800): Promise<string> {
   const res = await fetch('/api/claude', {
@@ -1675,7 +1676,7 @@ Return corrected JSON:
 
               {audioUploading ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '12px', height: '12px', border: `2px solid ${s.setlab}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <ScanPulse size="sm" color={s.setlab} />
                   <div style={{ fontSize: '12px', color: s.setlab }}>{audioProgress}</div>
                 </div>
               ) : (
@@ -1993,7 +1994,7 @@ Return corrected JSON:
               {set.length > 0 && (
                 <div>
                   <button onClick={suggestNextTrack} disabled={suggestingNext} style={{ ...btn(s.setlab), width: '100%', justifyContent: 'center' }}>
-                    {suggestingNext && <div style={{ width: '10px', height: '10px', border: `1px solid ${s.setlab}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+                    {suggestingNext && <ScanPulse size="sm" color={s.setlab} />}
                     {suggestingNext ? 'Finding best next track...' : 'Suggest next track →'}
                   </button>
 
@@ -2031,7 +2032,7 @@ Return corrected JSON:
               <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>Set intelligence</div>
                 <button onClick={generateSetNarrative} disabled={generatingNarrative || set.length < 3} style={{ ...btn(s.gold), width: '100%', justifyContent: 'center', opacity: set.length < 3 ? 0.4 : 1 }}>
-                  {generatingNarrative && <div style={{ width: '10px', height: '10px', border: `1px solid ${s.gold}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+                  {generatingNarrative && <ScanPulse size="sm" />}
                   {generatingNarrative ? 'Analysing set...' : 'Analyse my set'}
                 </button>
                 {set.length < 3 && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '8px', textAlign: 'center' }}>Add {3 - set.length} more track{3 - set.length > 1 ? 's' : ''}</div>}
@@ -2181,7 +2182,7 @@ Return corrected JSON:
                 disabled={discoverLoading}
                 style={{ ...btn(s.setlab), justifyContent: 'center', width: '100%', fontSize: '11px', padding: '13px' }}>
                 {discoverLoading
-                  ? <><div style={{ width: '10px', height: '10px', border: `1px solid ${s.setlab}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> Finding rare gems...</>
+                  ? <><ScanPulse size="sm" color={s.setlab} /> Finding rare gems...</>
                   : 'Find rare gems →'}
               </button>
 
@@ -2439,37 +2440,7 @@ Return corrected JSON:
 
                 {/* Animated pulse emblem */}
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-                  <div style={{ position: 'relative', width: '80px', height: '80px' }}>
-                    {/* Outer ring — slow pulse */}
-                    <div style={{
-                      position: 'absolute', inset: 0, borderRadius: '16px',
-                      border: '1px solid rgba(176,141,87,0.15)',
-                      animation: 'scan-pulse 2s ease-in-out infinite',
-                    }} />
-                    {/* Inner ring — counter-rotate */}
-                    <div style={{
-                      position: 'absolute', inset: '8px', borderRadius: '12px',
-                      border: '1px solid rgba(176,141,87,0.1)',
-                      animation: 'scan-pulse 2s ease-in-out infinite 0.5s',
-                    }} />
-                    {/* Signal line SVG — animated draw */}
-                    <svg viewBox="0 0 64 64" fill="none" style={{ position: 'absolute', inset: '8px', width: '64px', height: '64px' }}>
-                      <polyline
-                        points="8,32 16,32 20,20 24,44 28,16 32,40 36,22 40,38 44,28 48,32 56,32"
-                        stroke="var(--gold)"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                        style={{
-                          strokeDasharray: '120',
-                          strokeDashoffset: '0',
-                          animation: 'scan-draw 1.8s ease-in-out infinite',
-                          filter: 'drop-shadow(0 0 4px rgba(176,141,87,0.4))',
-                        }}
-                      />
-                    </svg>
-                  </div>
+                  <ScanPulse size="lg" />
                 </div>
 
                 <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>
@@ -2489,18 +2460,6 @@ Return corrected JSON:
                   </div>
                 )}
 
-                <style>{`
-                  @keyframes scan-pulse {
-                    0%, 100% { opacity: 0.3; transform: scale(1); }
-                    50% { opacity: 1; transform: scale(1.04); }
-                  }
-                  @keyframes scan-draw {
-                    0% { stroke-dashoffset: 120; opacity: 0.3; }
-                    40% { stroke-dashoffset: 0; opacity: 1; }
-                    60% { stroke-dashoffset: 0; opacity: 1; }
-                    100% { stroke-dashoffset: -120; opacity: 0.3; }
-                  }
-                `}</style>
               </div>
             )}
 
@@ -2527,8 +2486,8 @@ Return corrected JSON:
 
                 {/* Tracklist note */}
                 <div style={{ background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '12px 16px', fontSize: '11px', color: s.textDim, lineHeight: '1.6' }}>
-                  <span style={{ color: s.gold }}>For accurate analysis, add your tracklist below.</span>{' '}
-                  Without it, the scanner can only read loudness and timing — it cannot assess track selection, key mixing, or set narrative.
+                  <span style={{ color: s.gold }}>Add your tracklist for the full breakdown.</span>{' '}
+                  Track-by-track feedback, key mixing, curation scoring — paste it below or upload a screenshot.
                 </div>
 
                 {/* Optional context */}

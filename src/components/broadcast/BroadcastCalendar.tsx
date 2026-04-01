@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { SignalLabHeader } from './SignalLabHeader'
+import { ScanPulse } from '@/components/ui/ScanPulse'
 
 interface ScheduledPost {
   id: string
@@ -635,7 +636,7 @@ export function BroadcastCalendar() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
             opacity: planning ? 0.7 : 1,
           }}>
-            {planning && <div style={{ width: '10px', height: '10px', border: '1.5px solid #070706', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
+            {planning && <ScanPulse size="sm" color="#070706" />}
             {planning ? 'Analysing your lane...' : `Suggest ${planCount} strongest posts`}
           </button>
           {!planning && planResult.length === 0 && (

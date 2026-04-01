@@ -2,6 +2,7 @@
 import { TrackUploader } from './TrackUploader'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { ScanPulse } from '@/components/ui/ScanPulse'
 import { aiCache } from '@/lib/aiCache'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800): Promise<string> {
@@ -650,7 +651,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
     return { background: busy ? 'transparent' : v.bg, border: `1px solid ${v.border}`, color: v.color, fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, padding: '12px 24px', cursor: busy || disabled ? 'default' : 'pointer', opacity: busy || disabled ? 0.45 : 1, display: 'flex', alignItems: 'center', gap: '10px', transition: 'opacity 0.15s' }
   }
 
-  const spinner = <div style={{ width: '10px', height: '10px', border: '1px solid var(--gold)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+  const spinner = <ScanPulse size="sm" />
 
   const fieldLabel: React.CSSProperties = { fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }
   const inputStyle: React.CSSProperties = { width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none' }

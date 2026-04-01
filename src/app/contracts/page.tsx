@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { ScanPulse } from '@/components/ui/ScanPulse'
 
 interface Extracted {
   title:string;venue:string;location:string;date:string;time:string
@@ -158,7 +159,7 @@ export default function Contracts() {
               style={{...iStyle,resize:'vertical',lineHeight:'1.7',fontSize:'12px'}}/>
             <div style={{marginTop:'20px',display:'flex',alignItems:'center',gap:'16px'}}>
               <button onClick={()=>extract(rawText)} disabled={extracting||!rawText.trim()} style={{background:extracting||!rawText.trim()?'var(--panel)':'var(--gold)',color:extracting||!rawText.trim()?'var(--text-dimmer)':'var(--bg)',border:`1px solid ${extracting||!rawText.trim()?'var(--border-dim)':'var(--gold)'}`,fontFamily:'var(--font-mono)',fontSize:'10px',letterSpacing:'0.2em',textTransform:'uppercase',padding:'14px 32px',cursor:'pointer',display:'flex',alignItems:'center',gap:'10px'}}>
-                {extracting&&<div style={{width:'10px',height:'10px',border:'1px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>}
+                {extracting&&<ScanPulse size="sm" />}
                 {extracting?'Reading...':'Create gig →'}
               </button>
               {extracting&&<div style={{fontSize:'11px',color:'var(--text-dimmer)'}}>Reading contract...</div>}
@@ -247,7 +248,7 @@ export default function Contracts() {
           {error&&<div style={{fontSize:'12px',color:'#8a4a3a',padding:'14px 18px',border:'1px solid rgba(138, 74, 58, 0.3)',background:'rgba(138, 74, 58, 0.1)',marginBottom:'20px'}}>{error}</div>}
           <div style={{display:'flex',gap:'12px'}}>
             <button onClick={save} disabled={saving} className="btn-primary" style={{fontSize:'11px',padding:'16px 36px',opacity:saving?0.6:1,cursor:saving?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:'10px'}}>
-              {saving&&<div style={{width:'10px',height:'10px',border:'1px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>}
+              {saving&&<ScanPulse size="sm" />}
               {saving?'Saving...':'Save gig + logistics →'}
             </button>
             <button onClick={()=>router.push('/logistics')} className="btn-secondary" style={{fontSize:'11px',padding:'16px 28px'}}>Cancel</button>

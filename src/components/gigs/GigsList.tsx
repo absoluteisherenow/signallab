@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { ScanPulse } from '@/components/ui/ScanPulse'
 
 interface Gig {
   id: string
@@ -245,7 +246,7 @@ export function GigsList() {
                                 style={{ background: f.bg, border: `1px solid ${f.mid}`, color: f.text, fontFamily: f.font, fontSize: '13px', padding: '10px 14px', outline: 'none' }} />
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} style={{ background: promoterEmail ? f.gold : 'transparent', color: promoterEmail ? '#070706' : f.dimmer, border: `1px solid ${promoterEmail ? f.gold : f.border}`, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {sending === gig.id && <div style={{ width: '8px', height: '8px', border: '1px solid #070706', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+                                  {sending === gig.id && <ScanPulse size="sm" color="#070706" />}
                                   {sending === gig.id ? 'Sending...' : 'Send →'}
                                 </button>
                                 <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} style={{ background: 'transparent', color: f.dimmer, border: `1px solid ${f.border}`, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 16px', cursor: 'pointer' }}>Cancel</button>

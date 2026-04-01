@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { ScanPulse } from './ScanPulse'
 
 interface ScreenshotUploadProps {
   onExtracted: (fields: Record<string, string>) => void
@@ -123,16 +124,7 @@ export function ScreenshotUpload({ onExtracted, extractionPrompt }: ScreenshotUp
       >
         {loading ? (
           <>
-            <span style={{
-              display: 'inline-block',
-              width: '10px',
-              height: '10px',
-              border: '1px solid var(--text-dimmer)',
-              borderTopColor: 'var(--gold)',
-              borderRadius: '50%',
-              animation: 'screenshot-spin 0.7s linear infinite',
-              flexShrink: 0,
-            }} />
+            <ScanPulse size="sm" />
             Scanning...
           </>
         ) : (

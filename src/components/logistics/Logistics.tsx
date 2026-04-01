@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { ScanPulse } from '@/components/ui/ScanPulse'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
 
@@ -366,7 +367,7 @@ export default function Logistics() {
                                   fontSize: '10px', padding: '10px 20px', opacity: !promoterEmail ? 0.4 : 1, cursor: !promoterEmail ? 'not-allowed' : 'pointer',
                                   display: 'flex', alignItems: 'center', gap: '8px',
                                 }}>
-                                  {sending === gig.id && <div style={{ width: '8px', height: '8px', border: '1px solid var(--bg)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+                                  {sending === gig.id && <ScanPulse size="sm" color="var(--bg)" />}
                                   {sending === gig.id ? 'Sending...' : 'Send →'}
                                 </button>
                                 <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} className="btn-secondary" style={{ fontSize: '10px', padding: '10px 16px' }}>
