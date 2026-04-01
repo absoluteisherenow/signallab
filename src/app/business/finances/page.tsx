@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { BlurredAmount } from '@/components/ui/BlurredAmount'
 
 interface Invoice {
   id: string
@@ -662,12 +663,12 @@ export default function Finances() {
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</div>
                     <div style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{inv.type || '—'}</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text)' }}>{fmtCurrency(inv.currency, inv.amount)}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text)' }}><BlurredAmount>{fmtCurrency(inv.currency, inv.amount)}</BlurredAmount></div>
                     <div style={{ fontSize: '12px', color: inv.wht_rate ? 'var(--gold-bright)' : 'var(--text-dimmer)' }}>
                       {inv.wht_rate ? `${inv.wht_rate}%` : '—'}
                     </div>
                     <div style={{ fontSize: '13px', color: inv.wht_rate ? 'var(--text)' : 'var(--text-dimmer)' }}>
-                      {inv.wht_rate ? fmtCurrency(inv.currency, netAmount) : '—'}
+                      {inv.wht_rate ? <BlurredAmount>{fmtCurrency(inv.currency, netAmount)}</BlurredAmount> : '—'}
                     </div>
                     <div>
                       <a href={`/api/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer"

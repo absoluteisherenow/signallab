@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { BlurredAmount } from '@/components/ui/BlurredAmount'
 
 interface Gig {
   id: string
@@ -246,12 +247,12 @@ export function GigDetail({ gigId }: GigDetailProps) {
           {[
             { label: 'Date', value: gigDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }) },
             { label: 'Days away', value: daysTo >= 0 ? `${daysTo}d` : 'Past' },
-            { label: 'Fee', value: `${currencySymbol(gig.currency)}${(gig.fee || 0).toLocaleString()}` },
+            { label: 'Fee', value: `${currencySymbol(gig.currency)}${(gig.fee || 0).toLocaleString()}`, blur: true },
             { label: 'Capacity', value: (gig.audience || 0).toLocaleString() },
-          ].map(stat => (
+          ].map((stat: any) => (
             <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
               <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
-              <div className="display" style={{ fontSize: '26px', lineHeight: 1, color: 'var(--text)' }}>{stat.value}</div>
+              <div className="display" style={{ fontSize: '26px', lineHeight: 1, color: 'var(--text)' }}>{stat.blur ? <BlurredAmount>{stat.value}</BlurredAmount> : stat.value}</div>
             </div>
           ))}
         </div>
