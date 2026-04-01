@@ -82,8 +82,10 @@ export function SignalGenius() {
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const [speaking, setSpeaking] = useState(false)
   const [recording, setRecording] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -153,6 +155,35 @@ export function SignalGenius() {
       recorder.start()
       setRecording(true)
     } catch { /* mic permission denied */ }
+  }
+
+  // File upload — PDFs, images, statements
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: `📎 Analysing ${file.name}...` }
+    const assistantId = crypto.randomUUID()
+    setMessages(prev => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '' }])
+    setLoading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('context', 'Analyse this document thoroughly. Extract all financial data: amounts, currencies, dates, line items, totals, parties involved. If it\'s a royalty statement, list each release/track with its earnings. If it\'s an invoice or contract, extract key terms. Present clearly.')
+
+      const res = await fetch('/api/analyse-document', { method: 'POST', body: formData })
+      if (!res.ok) throw new Error('Failed')
+      const data = await res.json()
+      const text = data.text || 'Could not read document'
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: text } : m))
+    } catch {
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: 'Failed to analyse document — try again.' } : m))
+    } finally {
+      setLoading(false)
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   // Load full artist context when chat opens
@@ -521,7 +552,19 @@ Rules:
       )}
 
       {/* Input */}
+      <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.csv" onChange={handleFileUpload} style={{ display: 'none' }} />
       <div style={{ padding: '14px 22px 18px', borderTop: '1px solid var(--border-dim)', display: 'flex', gap: '8px' }}>
+        <button onClick={() => fileInputRef.current?.click()} disabled={loading || uploading} title="Upload document"
+          style={{
+            background: 'transparent', border: '1px solid var(--border-dim)',
+            color: 'var(--text-dimmer)', width: 40, height: 40, borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0, fontSize: '16px',
+            opacity: uploading ? 0.4 : 1, alignSelf: 'center',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--gold)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.4)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}
+        >📎</button>
         <button onClick={toggleRecording} disabled={loading} title={recording ? 'Stop recording' : 'Voice input'} style={{
           background: recording ? 'rgba(200,60,60,0.15)' : 'transparent',
           border: `1px solid ${recording ? 'rgba(200,60,60,0.5)' : 'rgba(176,141,87,0.3)'}`,
