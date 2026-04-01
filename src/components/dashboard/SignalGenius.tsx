@@ -16,21 +16,56 @@ interface ArtistContext {
   quarterStats: { gigs: number; posts: number; revenue: number }
 }
 
-async function callClaude(system: string, messages: { role: string; content: string }[]): Promise<string> {
-  const res = await fetch('/api/claude', {
+/** Stream Claude response — yields text chunks as they arrive */
+async function streamClaude(
+  system: string,
+  messages: { role: string; content: string }[],
+  onChunk: (text: string) => void,
+): Promise<string> {
+  const res = await fetch('/api/claude/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       system,
       max_tokens: 1200,
-      nocache: true,
       messages,
     }),
   })
-  if (!res.ok) throw new Error('Failed')
-  const data = await res.json()
-  return data.content?.[0]?.text || 'Sorry, I couldn\'t process that.'
+  if (!res.ok || !res.body) throw new Error('Failed')
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let fullText = ''
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    // Parse SSE events
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const data = line.slice(6).trim()
+      if (data === '[DONE]') continue
+
+      try {
+        const event = JSON.parse(data)
+        if (event.type === 'content_block_delta' && event.delta?.text) {
+          fullText += event.delta.text
+          onChunk(fullText)
+        }
+      } catch {
+        // Skip malformed JSON
+      }
+    }
+  }
+
+  return fullText || 'Sorry, I couldn\'t process that.'
 }
 
 export function SignalGenius() {
@@ -97,9 +132,7 @@ export function SignalGenius() {
           const res = await fetch('/api/transcribe', { method: 'POST', body: formData })
           const data = await res.json()
           if (data.text) {
-            setInput(data.text)
-            // Auto-send after a short delay so user can see what was transcribed
-            setTimeout(() => handleSend(data.text), 300)
+            handleSend(data.text)
           }
         } catch { /* silent */ }
       }
@@ -208,18 +241,30 @@ Rules:
     if (!msg || loading) return
 
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: msg }
+    const assistantId = crypto.randomUUID()
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
     setLoading(true)
 
+    // Add empty assistant message that will be filled by streaming
+    setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }])
+
     try {
       const conversationHistory = newMessages.map(m => ({ role: m.role, content: m.content }))
-      const response = await callClaude(buildSystemPrompt(), conversationHistory)
-      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: response }])
-      speakResponse(response)
+      const fullResponse = await streamClaude(
+        buildSystemPrompt(),
+        conversationHistory,
+        (partialText) => {
+          // Update the assistant message in-place as text streams in
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: partialText } : m))
+        },
+      )
+      // Final update with complete text
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullResponse } : m))
+      speakResponse(fullResponse)
     } catch {
-      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: 'Something went wrong. Try again.' }])
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: 'Something went wrong. Try again.' } : m))
     } finally {
       setLoading(false)
     }
@@ -320,7 +365,7 @@ Rules:
           </div>
         )}
 
-        {messages.map(msg => (
+        {messages.filter(m => m.content !== '').map(msg => (
           <div key={msg.id} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
             <div style={{
               padding: '11px 15px',
@@ -334,7 +379,7 @@ Rules:
           </div>
         ))}
 
-        {loading && (
+        {loading && messages.length > 0 && messages[messages.length - 1].content === '' && (
           <div style={{
             alignSelf: 'flex-start', padding: '11px 15px',
             background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim)',
