@@ -88,27 +88,31 @@ export function NotificationBell() {
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          padding: '8px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: open ? '#b08d57' : '#52504c', transition: 'color 0.15s',
+          background: open ? 'rgba(176,141,87,0.08)' : 'none',
+          border: `1px solid ${open ? 'rgba(176,141,87,0.25)' : 'transparent'}`,
+          cursor: 'pointer',
+          padding: '10px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: open ? '#b08d57' : '#8a8780', transition: 'all 0.15s',
+          borderRadius: '6px',
         }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#8a8780' }}
-        onMouseLeave={e => { e.currentTarget.style.color = open ? '#b08d57' : '#52504c' }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#b08d57'; e.currentTarget.style.background = 'rgba(176,141,87,0.06)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = open ? '#b08d57' : '#8a8780'; e.currentTarget.style.background = open ? 'rgba(176,141,87,0.08)' : 'none' }}
         title="Notifications"
       >
         {/* Bell SVG */}
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {unread > 0 && (
           <span style={{
-            position: 'absolute', top: '4px', right: '4px',
-            width: '14px', height: '14px', borderRadius: '50%',
+            position: 'absolute', top: '2px', right: '2px',
+            minWidth: '16px', height: '16px', borderRadius: '8px',
             background: '#b08d57', color: '#070706',
             fontSize: '8px', fontWeight: 700, fontFamily: "'DM Mono', monospace",
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            lineHeight: 1,
+            lineHeight: 1, padding: '0 4px',
+            boxShadow: '0 0 8px rgba(176,141,87,0.4)',
           }}>
             {unread > 9 ? '9+' : unread}
           </span>
