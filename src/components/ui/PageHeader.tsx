@@ -34,7 +34,7 @@ export function PageHeader({
   tabs,
 }: PageHeaderProps) {
   return (
-    <div style={{ padding: '48px 48px 0', borderBottom: '1px solid var(--border-dim)' }}>
+    <div style={{ padding: '40px 48px 0', borderBottom: '1px solid var(--border-dim)' }}>
 
       {/* Breadcrumb */}
       {breadcrumb && breadcrumb.length > 0 && (
@@ -71,7 +71,7 @@ export function PageHeader({
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: tabs && tabs.length > 0 ? '32px' : '0' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: tabs && tabs.length > 0 ? '20px' : '0' }}>
         <div>
           <div style={{
             fontSize: '10px',
@@ -161,7 +161,7 @@ export function PageHeader({
       )}
 
       {/* Bottom padding when no tabs */}
-      {(!tabs || tabs.length === 0) && <div style={{ height: '32px' }} />}
+      {(!tabs || tabs.length === 0) && <div style={{ height: '24px' }} />}
     </div>
   )
 }

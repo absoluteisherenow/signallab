@@ -60,7 +60,8 @@ async function testACRCloud(wavBuf: Uint8Array): Promise<{ ok: boolean; detail: 
 
   const timestamp = Math.floor(Date.now() / 1000)
   const stringToSign = `POST\n/v1/identify\n${key}\naudio\n1\n${timestamp}`
-  const signature = crypto.createHmac('sha256', secret).update(stringToSign).digest('base64')
+  // ACRCloud EU requires HMAC-SHA1 (not SHA256)
+  const signature = crypto.createHmac('sha1', secret).update(stringToSign).digest('base64')
 
   const wavBlob = new Blob([wavBuf.buffer as ArrayBuffer], { type: 'audio/wav' })
   const form = new FormData()

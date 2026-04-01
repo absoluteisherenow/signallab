@@ -139,10 +139,10 @@ export default function Contracts() {
         }
       />
 
-      <div style={{padding:'40px 48px'}}>
+      <div style={{padding:'32px 48px'}}>
 
       {/* EMAIL WORKFLOW BANNER */}
-      <div style={{background:'rgba(176, 141, 87, 0.06)',border:'1px solid rgba(176, 141, 87, 0.25)',padding:'20px 24px',marginBottom:'32px',borderRadius:'4px'}}>
+      <div style={{background:'rgba(176, 141, 87, 0.06)',border:'1px solid rgba(176, 141, 87, 0.25)',padding:'16px 24px',marginBottom:'20px',borderRadius:'4px'}}>
         <div style={{fontSize:'10px',letterSpacing:'0.15em',color:'var(--gold)',textTransform:'uppercase',marginBottom:'8px'}}>💌 Faster way</div>
         <div style={{fontSize:'12px',color:'var(--text)',lineHeight:'1.6'}}>
           Forward booking emails to your Signal Lab inbox — gigs and invoices are created automatically in Tour Lab. No copy/paste needed.
@@ -153,7 +153,7 @@ export default function Contracts() {
         <div style={{maxWidth:'800px'}}>
           <div className="card" style={{marginBottom:'16px'}}>
             <div style={{fontSize:'10px',letterSpacing:'0.2em',color:'var(--text-dimmer)',textTransform:'uppercase',marginBottom:'14px'}}>Paste a booking email or contract — gig and invoices created automatically</div>
-            <textarea value={rawText} onChange={e=>setRawText(e.target.value)} rows={14}
+            <textarea value={rawText} onChange={e=>setRawText(e.target.value)} rows={10}
               placeholder={'Paste booking confirmation here...\n\nExample:\nDear Artist, We confirm your booking at Tresor Club, Berlin.\nDate: 15 April 2026, Set time: 23:00-01:00\nFee: EUR 5000 (50% deposit due 1 April)\nLoad-in: 20:00, Soundcheck: 21:30\nHotel: Hotel Adlon, Unter den Linden 77\nBackline: Pioneer CDJ-3000 x2, DJM-V10'}
               style={{...iStyle,resize:'vertical',lineHeight:'1.7',fontSize:'12px'}}/>
             <div style={{marginTop:'20px',display:'flex',alignItems:'center',gap:'16px'}}>

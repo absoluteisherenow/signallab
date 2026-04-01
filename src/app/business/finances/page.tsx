@@ -429,7 +429,7 @@ export default function Finances() {
         }
       />
 
-      <div style={{ padding: '40px 48px' }}>
+      <div style={{ padding: '32px 48px' }}>
 
         {/* Secondary tab — Invoices / Expenses */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '32px' }}>
@@ -644,7 +644,7 @@ export default function Finances() {
             {loading ? (
               <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>Loading invoices...</div>
             ) : invoices.length === 0 ? (
-              <div style={{ padding: '64px 40px', textAlign: 'center' }}>
+              <div style={{ padding: '48px 40px', textAlign: 'center' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '16px' }}>No invoices yet</div>
                 <div style={{ fontSize: '14px', color: 'var(--text-dim)', marginBottom: '8px' }}>Invoices are created automatically when you add a gig.</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', marginBottom: '28px' }}>Or create one manually using the button above.</div>
@@ -870,7 +870,7 @@ export default function Finances() {
             {expensesLoading ? (
               <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: '13px' }}>Loading expenses...</div>
             ) : expenses.length === 0 ? (
-              <div style={{ padding: '64px 40px', textAlign: 'center' }}>
+              <div style={{ padding: '48px 40px', textAlign: 'center' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '16px' }}>No expenses yet</div>
                 <div style={{ fontSize: '14px', color: 'var(--text-dim)', marginBottom: '24px' }}>Track studio time, equipment, travel, and other costs.</div>
                 <button onClick={() => setShowAddExpense(true)} style={{ background: 'transparent', border: '1px solid rgba(176,141,87,0.4)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '12px 24px', cursor: 'pointer' }}>

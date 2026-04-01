@@ -178,7 +178,7 @@ export default function Settings() {
         }))}
       />
 
-      <div style={{ padding: '40px 48px' }}>
+      <div style={{ padding: '32px 48px' }}>
 
       {/* PROFILE TAB */}
       {activeTab === 'profile' && (

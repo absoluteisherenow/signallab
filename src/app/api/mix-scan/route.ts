@@ -111,18 +111,19 @@ Return JSON:
   "transition_notes": <what the dip data actually shows — be honest about limitations if no tracklist>,
   "energy_arc": <describe the amplitude curve honestly — flat RMS in a well-mastered mix is NORMAL, not a flaw>,
   "tracks": ${hasTracklist
-    ? `<array of objects from the tracklist: {"position": number, "title": string, "artist": string, "estimated_time": string, "mix_quality": "smooth"|"rough"|"unknown", "issue": string or null, "fix": string or null}>`
+    ? `<array of objects from tracklist — ONLY include tracks with issues or notable moments, skip tracks that are fine. Format: {"position": number, "title": string, "artist": string, "mix_quality": "smooth"|"rough"|"unknown", "issue": string or null, "fix": string or null}. Keep issue/fix under 15 words each.>`
     : '[]'
   },
-  "strengths": <array of 3-4 strengths — only claim strengths you can actually see in the data>,
+  "strengths": <array of 3 short strengths — one sentence each max>,
   "improvements": ${hasTracklist
-    ? '<array of 4-5 specific improvements based on the tracklist analysis>'
-    : '<array of 2-3 improvements — limited to what amplitude data suggests. Recommend adding tracklist for deeper feedback>'
+    ? '<array of 3 specific improvements — one sentence each max>'
+    : '<array of 2 improvements — one sentence each>'
   },
-  "key_moments": <array of 2-3 notable moments with timestamps — only from real dip data, not invented>,
-  "overall_verdict": <honest final paragraph — if no tracklist, be upfront that a full assessment needs the tracklist. Don't score harshly for things you cannot measure.>
+  "key_moments": <array of 2-3 notable moments — keep each under 20 words>,
+  "overall_verdict": <2-3 sentences max — concise final assessment>
 }
 
+CRITICAL: Keep your TOTAL response under 3000 tokens. Be concise. For tracks array, ONLY list tracks that have issues or are standouts — do NOT list every track if they're fine.
 IMPORTANT: Flat RMS amplitude is NOT evidence of bad mixing. Do not penalise a mix for consistent loudness — that's professional mastering. Only flag amplitude issues if there are genuine clipping events or jarring 40%+ drops.
 `
 
@@ -136,7 +137,7 @@ IMPORTANT: Flat RMS amplitude is NOT evidence of bad mixing. Do not penalise a m
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
+        max_tokens: 8192,
         system: 'You are an expert DJ, electronic music producer, and booker with 20+ years of experience. You analyse DJ mixes with precision and honesty. Return ONLY valid JSON, no markdown, no code fences.',
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -149,7 +150,86 @@ IMPORTANT: Flat RMS amplitude is NOT evidence of bad mixing. Do not penalise a m
     }
 
     const raw = data.content?.[0]?.text || '{}'
-    const result = JSON.parse(raw.replace(/```json|```/g, '').trim())
+    let cleaned = raw.replace(/```json|```/g, '').trim()
+
+    // Robust JSON repair for truncated responses
+    function repairJSON(str: string): Record<string, unknown> {
+      // Try as-is first
+      try { return JSON.parse(str) } catch {}
+
+      // Walk backwards to find a safe truncation point
+      // Remove any trailing incomplete value (string, number, etc)
+      let s = str
+
+      // If we're inside a string, close it
+      let inString = false
+      let escaped = false
+      for (let i = 0; i < s.length; i++) {
+        if (escaped) { escaped = false; continue }
+        if (s[i] === '\\') { escaped = true; continue }
+        if (s[i] === '"') inString = !inString
+      }
+      if (inString) {
+        // Truncate back to last complete string or value
+        const lastQuote = s.lastIndexOf('"')
+        if (lastQuote > 0) {
+          // Check if this quote opens or closes — find the matching context
+          s = s.substring(0, lastQuote) + '"'
+        }
+      }
+
+      // Remove trailing comma or colon with incomplete value
+      s = s.replace(/,\s*$/, '')
+      s = s.replace(/:\s*$/, ': null')
+      // Remove trailing key without value
+      s = s.replace(/,\s*"[^"]*"\s*$/, '')
+
+      // Count unclosed brackets and braces (outside strings)
+      let brackets = 0, braces = 0
+      inString = false; escaped = false
+      for (let i = 0; i < s.length; i++) {
+        if (escaped) { escaped = false; continue }
+        if (s[i] === '\\') { escaped = true; continue }
+        if (s[i] === '"') { inString = !inString; continue }
+        if (inString) continue
+        if (s[i] === '[') brackets++
+        else if (s[i] === ']') brackets--
+        else if (s[i] === '{') braces++
+        else if (s[i] === '}') braces--
+      }
+
+      // Close them
+      for (let i = 0; i < brackets; i++) s += ']'
+      for (let i = 0; i < braces; i++) s += '}'
+
+      try { return JSON.parse(s) } catch {}
+
+      // Last resort: regex extraction
+      const scoreMatch = str.match(/"overall_score"\s*:\s*([\d.]+)/)
+      const gradeMatch = str.match(/"grade"\s*:\s*"([^"]+)"/)
+      const headlineMatch = str.match(/"headline"\s*:\s*"([^"]+)"/)
+      const summaryMatch = str.match(/"summary"\s*:\s*"([^"]+)"/)
+      const structureMatch = str.match(/"structure_analysis"\s*:\s*"([^"]+)"/)
+      const techMatch = str.match(/"technical_assessment"\s*:\s*"([^"]+)"/)
+      const energyMatch = str.match(/"energy_arc"\s*:\s*"([^"]+)"/)
+      const verdictMatch = str.match(/"overall_verdict"\s*:\s*"([^"]+)"/)
+      return {
+        overall_score: scoreMatch ? parseFloat(scoreMatch[1]) : 5.0,
+        grade: gradeMatch ? gradeMatch[1] : 'N/A',
+        headline: headlineMatch ? headlineMatch[1] : 'Analysis completed',
+        summary: summaryMatch ? summaryMatch[1] : 'Analysis was partially truncated but key scores were extracted.',
+        structure_analysis: structureMatch ? structureMatch[1] : undefined,
+        technical_assessment: techMatch ? techMatch[1] : undefined,
+        energy_arc: energyMatch ? energyMatch[1] : undefined,
+        overall_verdict: verdictMatch ? verdictMatch[1] : undefined,
+        strengths: [],
+        improvements: [],
+        tracks: [],
+        _truncated: true,
+      }
+    }
+
+    const result = repairJSON(cleaned)
     return NextResponse.json({ result })
 
   } catch (err: any) {

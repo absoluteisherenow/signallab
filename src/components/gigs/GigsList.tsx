@@ -135,10 +135,10 @@ export function GigsList() {
       )}
 
       {gigs !== null && gigList.length === 0 && (
-        <div style={{ background: f.panel, border: `1px solid ${f.border}`, padding: '64px 40px', textAlign: 'center' }}>
-          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: f.dimmer, textTransform: 'uppercase', marginBottom: '20px' }}>No gigs yet</div>
-          <div style={{ fontSize: '15px', color: f.dim, marginBottom: '8px' }}>Your upcoming shows will appear here.</div>
-          <div style={{ fontSize: '12px', color: f.dimmer, marginBottom: '32px' }}>Paste a booking email to create your first gig automatically, or add one manually.</div>
+        <div style={{ background: f.panel, border: `1px solid ${f.border}`, padding: '48px 40px', textAlign: 'center' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: f.dimmer, textTransform: 'uppercase', marginBottom: '12px' }}>No gigs yet</div>
+          <div style={{ fontSize: '15px', color: f.dim, marginBottom: '6px' }}>Your upcoming shows will appear here.</div>
+          <div style={{ fontSize: '12px', color: f.dimmer, marginBottom: '20px' }}>Paste a booking email to create your first gig automatically, or add one manually.</div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
             <Link href="/contracts" style={{ textDecoration: 'none', background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: `1px solid ${f.gold}`, color: f.gold, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', display: 'inline-block' }}>Add from booking email →</Link>
             <button onClick={() => router.push('/gigs/new')} style={{ background: 'transparent', border: `1px solid ${f.border}`, color: f.dimmer, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 24px', cursor: 'pointer' }}>Add manually</button>
@@ -187,8 +187,8 @@ export function GigsList() {
               </div>
 
               {isOpen && (
-                <div style={{ background: '#0a0906', border: `1px solid ${f.gold}20`, borderTop: 'none', padding: '28px 24px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '18px' }}>
+                <div style={{ background: '#0a0906', border: `1px solid ${f.gold}20`, borderTop: 'none', padding: '18px 24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
                     <button
                       onClick={() => router.push(`/gigs/${gig.id}?edit=true`)}
                       style={{
@@ -201,7 +201,7 @@ export function GigsList() {
                       onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)'; e.currentTarget.style.color = f.gold }}
                     >Edit gig →</button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '28px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
 
                     {/* DETAILS */}
                     <div>

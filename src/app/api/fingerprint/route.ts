@@ -19,7 +19,8 @@ export async function OPTIONS() {
 
 function buildACRSignature(accessKey: string, secretKey: string, timestamp: number): string {
   const stringToSign = `POST\n/v1/identify\n${accessKey}\naudio\n1\n${timestamp}`
-  return crypto.createHmac('sha256', secretKey).update(stringToSign).digest('base64')
+  // ACRCloud EU requires HMAC-SHA1 (not SHA256)
+  return crypto.createHmac('sha1', secretKey).update(stringToSign).digest('base64')
 }
 
 async function queryACRCloud(audioBlob: Blob): Promise<{

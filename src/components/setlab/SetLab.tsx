@@ -348,6 +348,10 @@ export function SetLab() {
   const [currentScanId, setCurrentScanId] = useState<string | null>(null)
   const [recentScans, setRecentScans] = useState<any[]>([])
   const [loadingScans, setLoadingScans] = useState(false)
+  // RA cross-reference for scanner
+  const [scannerRaMap, setScannerRaMap] = useState<Map<string, { charted_by: string; chart_title: string }>>(new Map())
+  const [scannerRaLoading, setScannerRaLoading] = useState(false)
+  const scannerRaFetched = useRef(false)
   // ── Gig context ──────────────────────────────────────────────────────────
   const [gigs, setGigs] = useState<any[]>([])
   const [upcomingGig, setUpcomingGig] = useState<{ id: string; title: string; venue: string; date: string; slot_time?: string; status: string } | null>(null)
@@ -1150,6 +1154,9 @@ Return corrected JSON:
       setScanning(false)
       setScanProgress('')
 
+      // Cross-reference with RA charts in background
+      fetchRaForScanner(deduped)
+
       // Persist scan to Supabase
       try {
         const saveResp = await fetch('/api/mix-scans', {
@@ -1265,6 +1272,8 @@ Return corrected JSON:
       setDetectedTracks(formatted)
       setScanPhase('review')
       showToast(`${tracks.length} tracks imported from screenshot`, 'Done')
+      // Cross-reference with RA charts in background
+      fetchRaForScanner(formatted)
 
       // Persist screenshot-imported scan to Supabase
       const autoTracklist = formatted.map((t, i) =>
@@ -1293,6 +1302,64 @@ Return corrected JSON:
     } finally {
       setParsing(false)
     }
+  }
+
+  // ── Mix Scanner — RA Cross-Reference ────────────────────────────────────
+  async function fetchRaForScanner(tracks: Array<{title: string, artist: string, found: boolean}>) {
+    if (scannerRaFetched.current) return // already fetched this session
+    setScannerRaLoading(true)
+    try {
+      const resp = await fetch('/api/ra-charts')
+      const raData = await resp.json()
+      if (!raData?.tracks) return
+
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
+      const raTrackSet: Set<string> = new Set(
+        Array.isArray(raData.tracks) ? raData.tracks as string[] : []
+      )
+      const newMap = new Map<string, { charted_by: string; chart_title: string }>()
+      if (Array.isArray(raData.rich)) {
+        for (const entry of raData.rich as Array<{ key: string; charted_by: string; chart_title: string }>) {
+          newMap.set(entry.key, { charted_by: entry.charted_by, chart_title: entry.chart_title })
+        }
+      }
+
+      // Match detected tracks against RA charts
+      const matchMap = new Map<string, { charted_by: string; chart_title: string }>()
+      for (const t of tracks) {
+        if (!t.found || !t.artist || !t.title) continue
+        const key = `${normalize(t.artist)}::${normalize(t.title)}`
+        // Exact match
+        if (newMap.has(key)) {
+          matchMap.set(key, newMap.get(key)!)
+          continue
+        }
+        // Partial match (remixes etc)
+        const normArtist = normalize(t.artist)
+        const normTitle = normalize(t.title)
+        for (const entry of raTrackSet) {
+          if (entry.includes(normArtist) && entry.includes(normTitle)) {
+            const attr = newMap.get(entry)
+            if (attr) matchMap.set(key, attr)
+            break
+          }
+        }
+      }
+
+      setScannerRaMap(matchMap)
+      scannerRaFetched.current = true
+    } catch {
+      // Non-blocking — RA data is a bonus
+    } finally {
+      setScannerRaLoading(false)
+    }
+  }
+
+  // Helper to look up RA charting for a track
+  function getTrackRaInfo(artist: string, title: string): { charted_by: string; chart_title: string } | null {
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
+    const key = `${normalize(artist)}::${normalize(title)}`
+    return scannerRaMap.get(key) || null
   }
 
   // ── Mix Scanner — Phase 2: Claude Analysis ──────────────────────────────
@@ -1442,10 +1509,12 @@ Return corrected JSON:
           // Auto-restore the most recent scan
           const latest = data.scans[0]
           if (latest.detected_tracks?.length > 0) {
-            setDetectedTracks(latest.detected_tracks)
+            const tracks = latest.detected_tracks
+            setDetectedTracks(tracks)
             setScannerTracklist(latest.tracklist || '')
             setScannerContext(latest.context || '')
             setCurrentScanId(latest.id)
+            fetchRaForScanner(tracks) // RA cross-ref in background
             if (latest.result) {
               setScanResult(latest.result)
               setScanPhase('upload') // show result
@@ -1497,6 +1566,8 @@ Return corrected JSON:
   function clearScannerState() {
     try { localStorage.removeItem(SCANNER_KEY) } catch {}
     setCurrentScanId(null)
+    setScannerRaMap(new Map())
+    scannerRaFetched.current = false
   }
 
   // ── Styles ─────────────────────────────────────────────────────────────
@@ -1516,8 +1587,8 @@ Return corrected JSON:
     <div style={{ minHeight: '100vh', background: s.bg, color: s.text, fontFamily: s.font }}>
 
       {/* HEADER */}
-      <div style={{ padding: '48px 48px 0', borderBottom: `1px solid ${s.border}` }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
+      <div style={{ padding: '40px 48px 0', borderBottom: `1px solid ${s.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '20px' }}>
           <div>
             <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Set Lab</div>
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, color: s.text }}>
@@ -1547,7 +1618,7 @@ Return corrected JSON:
               fontSize: '11px',
               letterSpacing: '0.14em',
               textTransform: 'uppercase',
-              padding: '0 20px 14px',
+              padding: '0 20px 10px',
               cursor: 'pointer',
               transition: 'color 0.15s',
               marginBottom: '-1px',
@@ -1556,7 +1627,7 @@ Return corrected JSON:
         </div>
       </div>
 
-      <div style={{ padding: '32px 48px' }}>
+      <div style={{ padding: '24px 48px' }}>
 
         {/* ═══ LIBRARY TAB ═══ */}
         {activeTab === 'library' && (
@@ -2362,16 +2433,27 @@ Return corrected JSON:
               </div>
             )}
 
-            {/* Scanning progress — shown during detect + fingerprint phases */}
-            {(scanPhase === 'detecting' || scanPhase === 'fingerprinting') && (
+            {/* Scanning progress — shown during detect, fingerprint, and analysing phases */}
+            {(scanPhase === 'detecting' || scanPhase === 'fingerprinting' || scanPhase === 'analysing') && (
               <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '40px 32px', textAlign: 'center' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>
-                  {scanPhase === 'detecting' ? 'Analysing mix' : 'Identifying tracks'}
+                  {scanPhase === 'detecting' ? 'Analysing mix' : scanPhase === 'fingerprinting' ? 'Identifying tracks' : 'Generating analysis'}
                 </div>
-                <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '8px' }}>{scanProgress}</div>
+                <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '8px' }}>
+                  {scanPhase === 'analysing' ? 'Reading your tracklist and building feedback — this takes 15–30 seconds…' : scanProgress}
+                </div>
                 {scanPhase === 'fingerprinting' && detectedTracks.length > 0 && (
                   <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '8px' }}>
                     {detectedTracks.filter(t => t.found).length} of {detectedTracks.length} tracks identified so far
+                  </div>
+                )}
+                {scanPhase === 'analysing' && (
+                  <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+                    <div style={{
+                      width: '24px', height: '24px', borderRadius: '50%',
+                      border: `2px solid ${s.border}`, borderTopColor: s.setlab,
+                      animation: 'screenshot-spin 0.8s linear infinite',
+                    }} />
                   </div>
                 )}
               </div>
@@ -2541,27 +2623,58 @@ Return corrected JSON:
                     </button>
                   </div>
 
+                  {/* RA summary banner */}
+                  {scannerRaMap.size > 0 && (
+                    <div style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '9px', letterSpacing: '0.12em', padding: '2px 6px', background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)', color: '#dc2626', textTransform: 'uppercase', fontWeight: 600, flexShrink: 0 }}>RA</div>
+                      <div style={{ fontSize: '11px', color: s.text }}>
+                        {scannerRaMap.size} track{scannerRaMap.size !== 1 ? 's' : ''} charted on Resident Advisor
+                        <span style={{ color: s.textDimmer }}> — {[...new Set([...scannerRaMap.values()].map(v => v.charted_by))].slice(0, 3).join(', ')}{[...new Set([...scannerRaMap.values()].map(v => v.charted_by))].length > 3 ? ' + more' : ''}</span>
+                      </div>
+                    </div>
+                  )}
+                  {scannerRaLoading && (
+                    <div style={{ fontSize: '10px', color: s.textDimmer, marginBottom: '8px', letterSpacing: '0.1em' }}>Checking RA charts…</div>
+                  )}
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px', overflowY: 'auto' }}>
-                    {detectedTracks.map((t, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 10px', background: s.black, border: `1px solid ${t.found ? 'rgba(78,203,113,0.15)' : s.border}` }}>
+                    {detectedTracks.map((t, i) => {
+                      const raInfo = t.found ? getTrackRaInfo(t.artist, t.title) : null
+                      return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 10px', background: s.black, border: `1px solid ${raInfo ? 'rgba(220,38,38,0.2)' : t.found ? 'rgba(78,203,113,0.15)' : s.border}` }}>
                         <div style={{ fontSize: '10px', color: s.textDimmer, width: '24px', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
                         <div style={{ fontSize: '10px', color: s.textDimmer, width: '36px', flexShrink: 0, fontFamily: 'monospace' }}>{t.time_in}</div>
-                        <div style={{ flex: 1, fontSize: '11px', color: t.found ? s.text : s.textDimmer }}>
-                          {t.found ? `${t.artist} — ${t.title}` : 'Unknown / White label'}
-                        </div>
-                        {t.found && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                            <div style={{ fontSize: '8px', letterSpacing: '0.1em', padding: '2px 5px', background: t.source === 'acrcloud' ? 'rgba(59,130,246,0.12)' : 'rgba(176,141,87,0.1)', border: `1px solid ${t.source === 'acrcloud' ? 'rgba(59,130,246,0.3)' : 'rgba(176,141,87,0.25)'}`, color: t.source === 'acrcloud' ? '#60a5fa' : '#b08d57', textTransform: 'uppercase' }}>
-                              {t.source === 'acrcloud' ? 'ACR' : 'AudD'}
+                        <div style={{ flex: 1, fontSize: '11px', color: t.found ? s.text : s.textDimmer, minWidth: 0 }}>
+                          <div>{t.found ? `${t.artist} — ${t.title}` : 'Unknown / White label'}</div>
+                          {raInfo && (
+                            <div style={{ fontSize: '9px', color: '#dc2626', marginTop: '2px', opacity: 0.8 }}>
+                              Charted by {raInfo.charted_by}
                             </div>
-                            <div style={{ fontSize: '9px', color: '#4ecb71', letterSpacing: '0.08em' }}>{t.confidence}%</div>
-                          </div>
-                        )}
-                        {!t.found && (
-                          <div style={{ fontSize: '9px', color: s.textDimmer, flexShrink: 0 }}>?</div>
-                        )}
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          {raInfo && (
+                            <div style={{ fontSize: '8px', letterSpacing: '0.1em', padding: '2px 5px', background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)', color: '#dc2626', textTransform: 'uppercase', fontWeight: 600 }}>RA</div>
+                          )}
+                          {t.found && t.source !== 'screenshot' && (
+                            <>
+                              <div style={{ fontSize: '8px', letterSpacing: '0.1em', padding: '2px 5px', background: t.source === 'acrcloud' ? 'rgba(59,130,246,0.12)' : 'rgba(176,141,87,0.1)', border: `1px solid ${t.source === 'acrcloud' ? 'rgba(59,130,246,0.3)' : 'rgba(176,141,87,0.25)'}`, color: t.source === 'acrcloud' ? '#60a5fa' : '#b08d57', textTransform: 'uppercase' }}>
+                                {t.source === 'acrcloud' ? 'ACR' : 'AudD'}
+                              </div>
+                              <div style={{ fontSize: '9px', color: '#4ecb71', letterSpacing: '0.08em' }}>{t.confidence}%</div>
+                            </>
+                          )}
+                          {!t.found && (
+                            <div style={{ fontSize: '9px', color: s.textDimmer }}>?</div>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDetectedTracks(prev => prev.filter((_, idx) => idx !== i)) }}
+                            style={{ background: 'none', border: 'none', color: s.textDimmer, cursor: 'pointer', fontSize: '11px', padding: '2px 4px', opacity: 0.4 }}
+                            title="Remove track"
+                          >×</button>
+                        </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 </div>
 
@@ -2737,14 +2850,28 @@ Return corrected JSON:
                 {/* Track-by-track (if tracklist was provided) */}
                 {scanResult.tracks?.length > 0 && (
                   <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>Track-by-track</div>
-                    {scanResult.tracks.map((t: any, i: number) => (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>Track-by-track</div>
+                      {scannerRaMap.size > 0 && (
+                        <div style={{ fontSize: '9px', color: '#dc2626', letterSpacing: '0.1em' }}>
+                          {scannerRaMap.size} RA-charted
+                        </div>
+                      )}
+                    </div>
+                    {scanResult.tracks.map((t: any, i: number) => {
+                      const raInfo = t.artist && t.title ? getTrackRaInfo(t.artist, t.title) : null
+                      return (
                       <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', paddingBottom: '12px', marginBottom: '12px', borderBottom: i < scanResult.tracks.length - 1 ? `1px solid ${s.border}` : 'none' }}>
                         <div style={{ fontSize: '10px', color: s.textDimmer, flexShrink: 0, paddingTop: '2px', width: '20px', textAlign: 'right' }}>{t.position}</div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: t.issue ? '6px' : 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: t.issue || raInfo ? '6px' : 0 }}>
                             <div style={{ fontSize: '12px', color: s.text }}>{t.artist} — {t.title}</div>
                             {t.estimated_time && <div style={{ fontSize: '10px', color: s.textDimmer }}>{t.estimated_time}</div>}
+                            {raInfo && (
+                              <div style={{ fontSize: '8px', letterSpacing: '0.1em', padding: '2px 6px', background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)', color: '#dc2626', textTransform: 'uppercase', fontWeight: 600 }}>
+                                RA — {raInfo.charted_by}
+                              </div>
+                            )}
                             {t.mix_quality && (
                               <div style={{
                                 fontSize: '9px', letterSpacing: '0.1em', padding: '2px 8px',
@@ -2758,7 +2885,7 @@ Return corrected JSON:
                           {t.fix && <div style={{ fontSize: '10px', color: s.setlab, marginTop: '3px', lineHeight: '1.5' }}>→ {t.fix}</div>}
                         </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 )}
 
@@ -2791,18 +2918,37 @@ Return corrected JSON:
             {/* ── Recent Scans ──────────────────────────────────────────── */}
             {recentScans.length > 0 && scanPhase === 'upload' && !scanResult && (
               <div style={{ marginTop: '32px' }}>
-                <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.gold, fontFamily: s.font, marginBottom: '12px' }}>
-                  Recent scans
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.gold, fontFamily: s.font }}>
+                    Recent scans
+                  </div>
+                  <button
+                    onClick={async () => {
+                      for (const scan of recentScans) {
+                        try { await fetch(`/api/mix-scans/${scan.id}`, { method: 'DELETE' }) } catch {}
+                      }
+                      setRecentScans([])
+                      clearScannerState()
+                    }}
+                    style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: s.textDimmer, background: 'none', border: `1px solid ${s.border}`, padding: '4px 10px', cursor: 'pointer', fontFamily: s.font }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(192,64,64,0.4)'; e.currentTarget.style.color = '#c04040' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = s.border; e.currentTarget.style.color = s.textDimmer }}
+                  >
+                    Clear all
+                  </button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {recentScans.slice(0, 8).map((scan: any) => (
                     <div
                       key={scan.id}
                       onClick={() => {
-                        setDetectedTracks(scan.detected_tracks || [])
+                        const tracks = scan.detected_tracks || []
+                        setDetectedTracks(tracks)
                         setScannerTracklist(scan.tracklist || '')
                         setScannerContext(scan.context || '')
                         setCurrentScanId(scan.id)
+                        scannerRaFetched.current = false
+                        fetchRaForScanner(tracks) // Cross-ref with RA
                         if (scan.result) {
                           setScanResult(scan.result)
                           setScanPhase('upload')

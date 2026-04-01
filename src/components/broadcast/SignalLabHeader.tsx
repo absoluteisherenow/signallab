@@ -30,8 +30,8 @@ export function SignalLabHeader({ right }: SignalLabHeaderProps) {
   }
 
   return (
-    <div style={{ padding: '48px 48px 0', borderBottom: `1px solid ${s.border}` }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
+    <div style={{ padding: '40px 48px 0', borderBottom: `1px solid ${s.border}` }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '20px' }}>
         <div>
           <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px', fontFamily: s.font }}>
             Broadcast Lab

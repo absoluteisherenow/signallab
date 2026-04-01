@@ -675,7 +675,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
         ]}
       />
 
-      <div style={{ padding: '44px 56px' }}>
+      <div style={{ padding: '32px 48px' }}>
 
         {/* ── HOME — 2 tiles ── */}
         {!mode && (
@@ -686,7 +686,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
               { id: 'devices' as const,   sub: 'Max for Live + tools', title: 'Your\ndevices', desc: 'Signal Lab devices for Ableton. Chord engine, mix chains, plugin scanner — all connected to your account.' },
             ]).map(tile => (
               <button key={tile.id} onClick={() => setMode(tile.id)}
-                style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '40px 32px', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'var(--font-mono)' }}
+                style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '28px 24px', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'var(--font-mono)' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(176,141,87,0.4)'; (e.currentTarget as HTMLButtonElement).style.background = '#111009' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--panel)' }}
               >
@@ -825,7 +825,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
 
             {/* Measuring spinner */}
             {measuringAudio && (
-              <div style={{ padding: '56px', textAlign: 'center' }}>
+              <div style={{ padding: '40px', textAlign: 'center' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '20px' }}>
                   {[0,1,2].map(i => <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gold)', animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }} />)}
                 </div>
@@ -928,7 +928,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
             )}
 
             {generatingNextSteps && (
-              <div style={{ padding: '56px', textAlign: 'center' }}>
+              <div style={{ padding: '40px', textAlign: 'center' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '20px' }}>
                   {[0,1,2].map(i => <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gold)', animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }} />)}
                 </div>

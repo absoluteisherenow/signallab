@@ -94,7 +94,7 @@ export default function ReleasesPage() {
     <div style={{ background: s.bg, color: s.text, fontFamily: s.font, minHeight: '100vh' }}>
 
       {/* Header */}
-      <div style={{ padding: '48px 52px 40px', borderBottom: `1px solid ${s.border}`, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+      <div style={{ padding: '40px 48px 32px', borderBottom: `1px solid ${s.border}`, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
             <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
@@ -116,15 +116,15 @@ export default function ReleasesPage() {
         </Link>
       </div>
 
-      <div style={{ padding: '40px 52px' }}>
+      <div style={{ padding: '32px 48px' }}>
 
         {loading && (
           <div style={{ color: s.dimmer, fontSize: '12px', padding: '40px 0' }}>Loading…</div>
         )}
 
         {!loading && releases.length === 0 && (
-          <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '64px 40px', textAlign: 'center' }}>
-            <div style={{ fontSize: '14px', color: s.dim, marginBottom: '24px' }}>No releases yet</div>
+          <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '48px 40px', textAlign: 'center' }}>
+            <div style={{ fontSize: '14px', color: s.dim, marginBottom: '16px' }}>No releases yet</div>
             <Link href="/releases/new" style={{
               background: s.gold, color: '#070706', textDecoration: 'none',
               padding: '0 28px', height: '40px', display: 'inline-flex', alignItems: 'center',
@@ -136,7 +136,7 @@ export default function ReleasesPage() {
         )}
 
         {!loading && upcoming.length > 0 && (
-          <div style={{ marginBottom: '48px' }}>
+          <div style={{ marginBottom: '32px' }}>
             <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
               Upcoming
             </div>
