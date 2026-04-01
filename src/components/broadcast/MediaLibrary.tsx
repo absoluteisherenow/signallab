@@ -39,6 +39,8 @@ export function MediaLibrary() {
     })
   }
 
+  const [deleting, setDeleting] = useState<Set<string>>(new Set())
+
   async function uploadFiles(files: FileList) {
     setUploading(true)
     for (const file of Array.from(files)) {
@@ -53,6 +55,22 @@ export function MediaLibrary() {
       } catch { /* skip failed uploads */ }
     }
     setUploading(false)
+  }
+
+  async function deleteItem(url: string) {
+    setDeleting(prev => new Set(prev).add(url))
+    try {
+      const res = await fetch('/api/media', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      if (res.ok) {
+        setItems(prev => prev.filter(i => i.url !== url))
+        setSelected(prev => { const next = new Set(prev); next.delete(url); return next })
+      }
+    } catch { /* ignore */ }
+    setDeleting(prev => { const next = new Set(prev); next.delete(url); return next })
   }
 
   return (
@@ -110,6 +128,22 @@ export function MediaLibrary() {
               {selected.has(item.url) && (
                 <div style={{ position: 'absolute', top: '8px', right: '8px', width: '22px', height: '22px', background: s.gold, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#070706', fontWeight: 600 }}>✓</div>
               )}
+              {/* Delete button */}
+              <button
+                onClick={e => { e.stopPropagation(); deleteItem(item.url) }}
+                disabled={deleting.has(item.url)}
+                style={{
+                  position: 'absolute', top: '8px', left: '8px',
+                  width: '24px', height: '24px',
+                  background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(192,64,64,0.4)',
+                  color: deleting.has(item.url) ? '#666' : '#c04040',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '12px', cursor: deleting.has(item.url) ? 'wait' : 'pointer',
+                  opacity: 0, transition: 'opacity 0.15s',
+                }}
+                className="media-delete-btn"
+                title="Delete"
+              >×</button>
               <div style={{ padding: '10px 12px' }}>
                 <div style={{ fontSize: '10px', color: s.dimmer, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.pathname.split('/').pop()}
@@ -124,6 +158,9 @@ export function MediaLibrary() {
       )}
 
       </div>{/* end inner padding */}
+      <style>{`
+        div:hover > .media-delete-btn { opacity: 1 !important; }
+      `}</style>
     </div>
   )
 }
