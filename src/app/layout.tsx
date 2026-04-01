@@ -4,6 +4,7 @@ import { Navigation } from '@/components/layout/Navigation'
 import { VoiceCommandBar } from '@/components/ui/VoiceCommandBarWrapper'
 import { CommandPalette } from '@/components/ui/CommandPalette'
 import { KeyboardShortcuts } from '@/components/ui/KeyboardShortcuts'
+import { SignalGenius } from '@/components/dashboard/SignalGenius'
 
 export const metadata: Metadata = {
   title: 'Signal Lab OS',
@@ -42,6 +43,7 @@ export default function RootLayout({
               {children}
             </div>
           </main>
+          <SignalGenius />
           <VoiceCommandBar />
           <CommandPalette />
           <KeyboardShortcuts />
