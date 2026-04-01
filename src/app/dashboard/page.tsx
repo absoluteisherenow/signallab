@@ -816,89 +816,96 @@ export default function Dashboard() {
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* ── ZONE 1: GREETING + ACTIONS ── */}
-      <div style={{ padding: '40px 48px 0', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '24px' }}>
-          <div>
-            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '14px', fontFamily: 'var(--font-mono)' }} suppressHydrationWarning>
-              {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(40px, 5vw, 72px)', fontWeight: 300, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--text)' }} suppressHydrationWarning>
-                {greeting}.
-              </div>
-              {!loading && typeof window !== 'undefined' && 'speechSynthesis' in window && (
-                <button
-                  onClick={toggleAudioBrief}
-                  title={speaking ? 'Stop brief' : 'Listen to brief'}
-                  style={{
-                    background: 'none',
-                    border: `1px solid ${speaking ? 'var(--gold)' : 'var(--border)'}`,
-                    color: speaking ? 'var(--gold)' : 'var(--text-dimmer)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '11px',
-                    letterSpacing: '0.12em',
-                    padding: '6px 12px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'color 0.15s, border-color 0.15s',
-                    flexShrink: 0,
-                    marginBottom: '4px',
-                  }}
-                  onMouseEnter={e => { if (!speaking) { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-bright)' } }}
-                  onMouseLeave={e => { if (!speaking) { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' } }}
-                >
-                  {speaking ? '⏹' : '▶'} {speaking ? 'Stop' : 'Listen to brief'}
-                </button>
-              )}
-            </div>
+      {/* ── HERO ZONE ── */}
+      <div style={{ padding: '56px 56px 0', flexShrink: 0 }}>
+
+        {/* Date + actions row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+          <div style={{ fontSize: '11px', letterSpacing: '0.35em', color: 'var(--gold)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }} suppressHydrationWarning>
+            {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
           </div>
-          <div style={{ display: 'flex', gap: '8px', paddingBottom: '6px' }}>
-            <Link href="/broadcast" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
-              + New post
-            </Link>
-            <Link href="/gigs/new" className="btn-primary btn-sm" style={{ textDecoration: 'none' }}>
-              + New gig
-            </Link>
-            <Link href="/releases/new" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
-              + New release
-            </Link>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Link href="/gigs/new" className="btn-primary btn-sm" style={{ textDecoration: 'none' }}>+ New gig</Link>
+            <Link href="/broadcast" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ New post</Link>
+            <Link href="/releases/new" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ New release</Link>
           </div>
         </div>
 
-        {/* ── SIGNAL BAR ── */}
+        {/* Greeting */}
+        <div style={{ marginBottom: '48px' }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 6vw, 80px)', fontWeight: 300, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--text)' }} suppressHydrationWarning>
+            {greeting}.
+          </div>
+          {!loading && brief && (
+            <div style={{ maxWidth: '640px', marginTop: '20px', fontSize: '14px', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', lineHeight: 1.7, letterSpacing: '0.02em' }}>
+              {brief}
+            </div>
+          )}
+          {!loading && typeof window !== 'undefined' && 'speechSynthesis' in window && (
+            <button
+              onClick={toggleAudioBrief}
+              style={{
+                background: 'none', border: 'none', padding: 0, marginTop: '14px',
+                color: speaking ? 'var(--gold)' : 'var(--text-dim)',
+                fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' as const,
+                cursor: 'pointer', transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--gold)')}
+              onMouseLeave={e => { if (!speaking) e.currentTarget.style.color = 'var(--text-dim)' }}
+            >
+              {speaking ? '⏹ Stop' : '▶ Listen to brief'}
+            </button>
+          )}
+        </div>
+
+        {/* Signal Bar */}
         <SignalBar onAction={() => router.refresh()} />
       </div>
 
       {/* ── MAIN CONTENT ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0 48px', gap: '24px', minHeight: 0, overflow: 'auto', paddingBottom: '32px' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0 56px', gap: '0', minHeight: 0, overflow: 'auto', paddingBottom: '56px' }}>
 
-        {/* ── ZONE 2: YOUR WEEK BRIEFING ── */}
-        <div>
-          <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '10px', fontFamily: 'var(--font-mono)' }}>Your week</div>
-          {brief && (
-            <div style={{
-              fontSize: '12px',
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--text-dimmer)',
-              lineHeight: 1.5,
-              marginBottom: '10px',
-              fontStyle: 'italic',
+        {/* ── STATS ROW ── */}
+        <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid var(--border-dim)', marginBottom: '0' }}>
+          {[
+            { label: 'Gigs', value: loading ? '—' : String(quarterStats.gigs), sub: quarterStats.gigs === 0 ? 'None booked' : quarterLabel },
+            { label: 'Posts', value: loading ? '—' : String(quarterStats.posts), sub: quarterStats.posts === 0 ? 'Nothing posted' : 'published' },
+            { label: 'Revenue', value: loading ? '—' : quarterStats.revenue > 0 ? `£${quarterStats.revenue.toLocaleString()}` : '—', sub: quarterStats.revenue === 0 ? 'No fees logged' : 'from gigs' },
+          ].map((stat, i) => (
+            <div key={stat.label} style={{
+              flex: 1, padding: '28px 0',
+              borderRight: i < 2 ? '1px solid var(--border-dim)' : 'none',
+              paddingRight: i < 2 ? '32px' : '0',
+              paddingLeft: i > 0 ? '32px' : '0',
             }}>
-              {brief}
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '10px' }}>{stat.label}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '36px', fontWeight: 300, color: 'var(--text)', lineHeight: 1, marginBottom: '8px' }}>{stat.value}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>{stat.sub}</div>
             </div>
-          )}
+          ))}
+          <div style={{ flex: 0, display: 'flex', alignItems: 'center', paddingLeft: '32px' }}>
+            <Link href="/wrap" style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', transition: 'color 0.12s' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmer)'}
+            >Full wrap →</Link>
+          </div>
+        </div>
+
+        {/* ── BRIEFING ── */}
+        <div style={{ paddingTop: '32px' }}>
           {loading ? (
             <SkeletonRows count={3} />
           ) : (
-            <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', overflow: 'hidden' }}>
-              {briefingItems.map((item, i) => (
-                <div key={item.key} style={{ display: 'grid', gridTemplateColumns: '14px 1fr auto', alignItems: 'center', gap: '14px', padding: '12px 20px', borderBottom: i < briefingItems.length - 1 ? '1px solid var(--border-dim)' : 'none' }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor[item.dot] || 'var(--border)', flexShrink: 0 }} />
-                  <div style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', lineHeight: 1.4 }}>{item.text}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+              {briefingItems.map((item) => (
+                <div key={item.key} style={{
+                  display: 'grid', gridTemplateColumns: '8px 1fr auto', alignItems: 'center', gap: '20px',
+                  padding: '18px 0',
+                  borderBottom: '1px solid var(--border-dim)',
+                }}>
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor[item.dot] || 'var(--border)', flexShrink: 0 }} />
+                  <div style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', lineHeight: 1.5, letterSpacing: '0.01em', color: 'var(--text)' }}>{item.text}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     {item.chaseGig && (
                       <button
                         onClick={() => sendAdvanceChase(item.chaseGig!)}
@@ -907,14 +914,10 @@ export default function Dashboard() {
                           background: 'none',
                           border: '1px solid var(--border)',
                           color: chasingGigId === item.chaseGig.id ? 'var(--text-dimmer)' : 'var(--gold)',
-                          fontSize: '9px',
-                          letterSpacing: '0.14em',
-                          textTransform: 'uppercase' as const,
-                          fontFamily: 'var(--font-mono)',
-                          padding: '3px 8px',
+                          fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase' as const,
+                          fontFamily: 'var(--font-mono)', padding: '4px 10px',
                           cursor: chasingGigId === item.chaseGig.id ? 'wait' : 'pointer',
-                          whiteSpace: 'nowrap' as const,
-                          transition: 'border-color 0.12s, color 0.12s',
+                          whiteSpace: 'nowrap' as const, transition: 'border-color 0.12s, color 0.12s',
                         }}
                         onMouseEnter={e => { if (!chasingGigId) (e.currentTarget as HTMLElement).style.borderColor = 'var(--gold)' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
@@ -922,67 +925,91 @@ export default function Dashboard() {
                         {chasingGigId === item.chaseGig.id ? 'Sending...' : 'Chase'}
                       </button>
                     )}
-                    <Link href={item.href} style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none', whiteSpace: 'nowrap', transition: 'color 0.12s' }}
+                    <Link href={item.href} style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dim)', textDecoration: 'none', whiteSpace: 'nowrap', transition: 'color 0.12s' }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--gold)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'}>
-                      {item.action}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dim)'}>
+                      {item.action} →
                     </Link>
                   </div>
                 </div>
               ))}
             </div>
           )}
-          {/* Chase toast */}
-          {chaseToast && (
-            <div style={{
-              position: 'fixed',
-              bottom: '32px',
-              right: '32px',
-              background: 'var(--panel)',
-              border: '1px solid var(--gold)',
-              color: 'var(--gold)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '11px',
-              letterSpacing: '0.08em',
-              padding: '12px 20px',
-              zIndex: 9999,
-              pointerEvents: 'none',
-            }}>
-              {chaseToast}
+        </div>
+
+        {/* ── FEATURE DISCOVERY — shown when dashboard is light on data ── */}
+        {!loading && upcomingGigs.length === 0 && (
+          <div style={{ paddingTop: '40px' }}>
+            <div style={{ fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--gold)', fontFamily: 'var(--font-mono)', marginBottom: '24px' }}>
+              Your system
             </div>
-          )}
-        </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px' }}>
+              {([
+                { href: '/gigs/new', label: 'Tour Lab', title: 'Add your first gig', desc: 'From offer to settlement. Contracts, advance forms, travel, invoicing — the full cycle, closed.', accent: 'var(--gold)' },
+                { href: '/broadcast', label: 'Broadcast Lab', title: 'Plan your content', desc: 'Your voice, your schedule. Captions written in your tone, scheduled across every channel.', accent: 'var(--green)' },
+                { href: '/setlab', label: 'Set Lab', title: 'Build a set', desc: 'Every set built with intent. Key analysis, energy arc, crowd favourites, track intelligence.', accent: '#6b8aad' },
+                { href: '/sonix', label: 'SONIX Lab', title: 'Analyse a reference', desc: 'Enter any track — get BPM, key, production techniques, mix character. Specific and actionable.', accent: '#ad6b8a' },
+                { href: '/releases', label: 'Drop Lab', title: 'Plan a release', desc: 'Phase-by-phase rollout. Pre-save, press, promo, launch — every release lands where you aimed it.', accent: '#8aad6b' },
+                { href: '/business/finances', label: 'Finances', title: 'Track your money', desc: 'Invoices, expenses, revenue forecasting. See where every pound comes from and where it goes.', accent: '#ad8a6b' },
+              ]).map(card => (
+                <Link key={card.href} href={card.href} style={{
+                  background: 'var(--panel)', border: '1px solid var(--border-dim)',
+                  padding: '32px 28px', textDecoration: 'none',
+                  transition: 'border-color 0.2s, background 0.2s',
+                  display: 'flex', flexDirection: 'column',
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.3)'; (e.currentTarget as HTMLElement).style.background = '#0f0e0c' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLElement).style.background = 'var(--panel)' }}
+                >
+                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: card.accent, fontFamily: 'var(--font-mono)', marginBottom: '16px', opacity: 0.8 }}>
+                    {card.label}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 300, color: 'var(--text)', marginBottom: '10px', lineHeight: 1.2 }}>
+                    {card.title}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: 1.7, flex: 1 }}>
+                    {card.desc}
+                  </div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.16em', color: 'var(--text-dim)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginTop: '20px' }}>
+                    Open →
+                  </div>
+                </Link>
+              ))}
+            </div>
 
-        {/* ── ZONE 3: STATS + WEEK STRIP ── */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <div style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)' }}>{quarterLabel || '—'}</div>
-            <Link href="/wrap" style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none', fontFamily: 'var(--font-mono)', transition: 'color 0.12s' }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
-              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmer)'}
-            >Full wrap</Link>
+            {/* Capabilities strip */}
+            <div style={{ display: 'flex', gap: '0', marginTop: '2px' }}>
+              {[
+                'Tonight Mode — gig day transforms into a backstage pass',
+                'Wallet Pass — your set time on your lock screen',
+                'Mix Scanner — upload a DJ mix, get scored A+ to F',
+                'Smart invoice chasing — context-aware follow-ups',
+              ].map((cap, i) => (
+                <div key={i} style={{
+                  flex: 1, padding: '16px 20px',
+                  background: 'var(--panel)', border: '1px solid var(--border-dim)',
+                  fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)',
+                  lineHeight: 1.6, letterSpacing: '0.02em',
+                }}>
+                  {cap}
+                </div>
+              ))}
+            </div>
           </div>
+        )}
 
-          {/* Stats bar — matches reference design */}
-          <div className="stats-bar" style={{ border: '1px solid var(--border-dim)', background: 'var(--panel)' }}>
-            {[
-              { label: 'Gigs', value: loading ? '—' : String(quarterStats.gigs), sub: quarterStats.gigs === 0 ? 'None booked' : 'this quarter' },
-              { label: 'Posts live', value: loading ? '—' : String(quarterStats.posts), sub: quarterStats.posts === 0 ? 'Nothing posted' : 'published' },
-              { label: 'Revenue', value: loading ? '—' : quarterStats.revenue > 0 ? `£${quarterStats.revenue.toLocaleString()}` : '—', sub: quarterStats.revenue === 0 ? 'No fees logged' : 'from gigs' },
-            ].map((stat, i) => (
-              <div key={stat.label} className="stat-block" style={i === 0 ? { paddingLeft: '28px' } : undefined}>
-                <div className="stat-label">{stat.label}</div>
-                <div className="stat-num">{stat.value}</div>
-                <div className="stat-sub">{stat.sub}</div>
-              </div>
-            ))}
+        {/* Chase toast */}
+        {chaseToast && (
+          <div style={{
+            position: 'fixed', bottom: '32px', right: '32px',
+            background: 'var(--panel)', border: '1px solid var(--gold)',
+            color: 'var(--gold)', fontFamily: 'var(--font-mono)',
+            fontSize: '11px', letterSpacing: '0.08em', padding: '12px 20px',
+            zIndex: 9999, pointerEvents: 'none',
+          }}>
+            {chaseToast}
           </div>
-        </div>
-
-        {/* ── WEEK STRIP ── */}
-        <div style={{ border: '1px solid var(--border-dim)', overflow: 'hidden', background: 'var(--panel)' }}>
-          <WeekStrip gigs={allGigs} scheduledPosts={allPosts} />
-        </div>
+        )}
 
       </div>
     </div>
