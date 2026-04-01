@@ -125,6 +125,11 @@ export async function GET() {
                 ${gig.venue_address ? `<tr><td style="color:#8a8780;font-size:11px;padding:6px 0;border-bottom:1px solid #1a1a18">Address</td><td style="font-size:13px;padding:6px 0;border-bottom:1px solid #1a1a18">${gig.venue_address}</td></tr>` : ''}
               </table>
               ${storyCaption ? `<div style="border:1px solid #2a2a28;padding:16px;margin-bottom:24px"><div style="color:#b08d57;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px">Story caption</div><div style="font-size:16px">${storyCaption}</div></div>` : ''}
+              <div style="border:1px solid #2a2a28;padding:16px;margin-bottom:24px">
+                <div style="color:#b08d57;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px">Your gig pass</div>
+                <div style="font-size:13px;color:#8a8780;margin-bottom:12px">Save to your phone — all contacts, times &amp; travel in one place</div>
+                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://signal-lab-rebuild.vercel.app'}/api/gigs/${gig.id}/wallet" style="display:inline-block;border:1px solid #b08d57;color:#b08d57;padding:10px 20px;text-decoration:none;font-size:10px;letter-spacing:0.15em;text-transform:uppercase">Open gig pass &rarr;</a>
+              </div>
               <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://signal-lab-rebuild.vercel.app'}/gigs/${gig.id}" style="display:inline-block;background:#b08d57;color:#070706;padding:12px 24px;text-decoration:none;font-size:11px;letter-spacing:0.15em;text-transform:uppercase">View gig →</a>
             </div>`,
         }).catch(() => {})

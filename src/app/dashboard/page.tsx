@@ -786,6 +786,24 @@ export default function Dashboard() {
             >
               View gig details
             </Link>
+            <a
+              href={`/api/gigs/${tonightGig.id}/wallet`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-block',
+                border: '1px solid rgba(176,141,87,0.3)',
+                color: 'var(--gold)',
+                padding: '14px 28px',
+                fontSize: '11px',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase' as const,
+                textDecoration: 'none',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              Wallet pass
+            </a>
           </div>
         </div>
 

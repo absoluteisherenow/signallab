@@ -389,11 +389,15 @@ export function GigDetail({ gigId }: GigDetailProps) {
         </div>
 
         {/* Quick actions */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <Link href={`/broadcast?gig=${gig.id}&title=${encodeURIComponent(gig.title)}&date=${gig.date}`}
             style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--green)', border: '1px solid rgba(61,107,74,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
             Create post
           </Link>
+          <a href={`/api/gigs/${gig.id}/wallet`} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
+            Wallet pass
+          </a>
           <Link href="/business/finances"
             style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '12px 20px', textDecoration: 'none' }}>
             Finances

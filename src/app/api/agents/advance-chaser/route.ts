@@ -69,10 +69,11 @@ export async function GET() {
       )
 
       // In-app notification for the artist
+      const walletUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://signal-lab-rebuild.vercel.app'}/api/gigs/${gig.id}/wallet`
       await createNotification({
         type: 'advance_sent',
         title: `Advance auto-sent — ${gig.title}`,
-        message: `${daysTo} days to show · sent to ${gig.promoter_email}`,
+        message: `${daysTo} days to show · sent to ${gig.promoter_email} · Gig pass: ${walletUrl}`,
         href: `/gigs/${gig.id}`,
         gig_id: gig.id,
       })
