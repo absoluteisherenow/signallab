@@ -2542,20 +2542,6 @@ Return corrected JSON:
                   </div>
                 </div>
 
-                {/* Dual fingerprint provider status */}
-                {acrStatus && (
-                  <div style={{
-                    background: acrStatus.ok ? 'rgba(61,107,74,0.1)' : 'rgba(192,64,64,0.1)',
-                    border: `1px solid ${acrStatus.ok ? 'rgba(61,107,74,0.3)' : 'rgba(192,64,64,0.3)'}`,
-                    padding: '10px 16px', fontSize: '11px',
-                    color: acrStatus.ok ? '#6aaa7a' : '#c06060',
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                  }}>
-                    <span>{acrStatus.ok ? '✓' : '✗'}</span>
-                    {acrStatus.detail}
-                  </div>
-                )}
-
                 {/* Analyse button */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <button
@@ -2567,23 +2553,6 @@ Return corrected JSON:
                       opacity: scanning ? 0.5 : 1, cursor: scanning ? 'wait' : 'pointer',
                     }}>
                     {scanning ? scanProgress || 'Analysing...' : 'Analyse mix →'}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      setTestingAcr(true)
-                      setAcrStatus(null)
-                      try {
-                        const r = await fetch('/api/fingerprint/test')
-                        const d = await r.json()
-                        setAcrStatus({ ok: d.ok, detail: d.detail || d.msg })
-                      } catch {
-                        setAcrStatus({ ok: false, detail: 'Could not reach test endpoint' })
-                      }
-                      setTestingAcr(false)
-                    }}
-                    disabled={testingAcr || scanning}
-                    style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '8px 16px', border: `1px solid ${s.border}` }}>
-                    {testingAcr ? 'Testing...' : 'Test connection'}
                   </button>
                   {scanning && (
                     <div style={{ fontSize: '10px', color: s.textDimmer, letterSpacing: '0.1em' }}>
@@ -2612,29 +2581,10 @@ Return corrected JSON:
                         Detected tracklist — {detectedTracks.filter(t => t.found).length} of {detectedTracks.length} identified
                       </div>
                       <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                        {(() => {
-                          const acrCount  = detectedTracks.filter(t => t.found && t.source === 'acrcloud').length
-                          const auddCount = detectedTracks.filter(t => t.found && t.source === 'audd').length
-                          const parts = []
-                          if (acrCount > 0)  parts.push(`${acrCount} via ACRCloud`)
-                          if (auddCount > 0) parts.push(`${auddCount} via AudD`)
-                          return parts.length > 0
-                            ? `${parts.join(', ')} — unknowns are white labels or unreleased`
-                            : 'Unknown tracks are likely white labels or unreleased — edit any corrections below'
-                        })()}
+                        {detectedTracks.filter(t => !t.found).length > 0
+                          ? 'Unknown tracks are likely white labels or unreleased — edit any corrections below'
+                          : 'Review and correct any track IDs before analysis'}
                       </div>
-                      {detectedTracks.length > 0 && detectedTracks.filter(t => !t.found && t.acrCode !== undefined && t.acrCode !== 1001).length > 0 && (
-                        <div style={{ marginTop: '6px', fontSize: '10px', color: '#c04040' }}>
-                          {(() => {
-                            const errTracks = detectedTracks.filter(t => !t.found && t.acrCode !== undefined && t.acrCode !== 1001)
-                            const code = errTracks[0]?.acrCode
-                            const msg = errTracks[0]?.acrMsg
-                            if (code === 3000 || code === 3001) return `AudD auth error (${code}) — check AUDD_API_TOKEN`
-                            if (code === 3003) return `AudD rate limit hit (${code}) — wait and retry`
-                            return `AudD error ${code}: ${msg || 'unknown'} — check connection`
-                          })()}
-                        </div>
-                      )}
                     </div>
                     <button onClick={() => { setScanPhase('upload'); setScannerFile(null); setDetectedTracks([]); clearScannerState() }}
                       style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '6px 12px' }}>
@@ -2675,13 +2625,8 @@ Return corrected JSON:
                           {raInfo && (
                             <div style={{ fontSize: '8px', letterSpacing: '0.1em', padding: '2px 5px', background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)', color: '#dc2626', textTransform: 'uppercase', fontWeight: 600 }}>RA</div>
                           )}
-                          {t.found && t.source !== 'screenshot' && (
-                            <>
-                              <div style={{ fontSize: '8px', letterSpacing: '0.1em', padding: '2px 5px', background: t.source === 'acrcloud' ? 'rgba(59,130,246,0.12)' : 'rgba(176,141,87,0.1)', border: `1px solid ${t.source === 'acrcloud' ? 'rgba(59,130,246,0.3)' : 'rgba(176,141,87,0.25)'}`, color: t.source === 'acrcloud' ? '#60a5fa' : '#b08d57', textTransform: 'uppercase' }}>
-                                {t.source === 'acrcloud' ? 'ACR' : 'AudD'}
-                              </div>
-                              <div style={{ fontSize: '9px', color: '#4ecb71', letterSpacing: '0.08em' }}>{t.confidence}%</div>
-                            </>
+                          {t.found && (
+                            <div style={{ fontSize: '9px', color: '#4ecb71', letterSpacing: '0.08em' }}>✓</div>
                           )}
                           {!t.found && (
                             <div style={{ fontSize: '9px', color: s.textDimmer }}>?</div>
