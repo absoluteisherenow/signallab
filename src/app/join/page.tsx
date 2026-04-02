@@ -14,7 +14,7 @@ const C = {
 }
 
 const MODULES = [
-  { num: '01', name: 'TOUR LAB', desc: 'Every show from offer to settlement. Gig management, logistics, invoicing — the full cycle, closed.' },
+  { num: '01', name: 'TOUR LAB', desc: 'Every show from offer to settlement. Gig planning, logistics, invoicing — the full cycle, closed.' },
   { num: '02', name: 'BROADCAST LAB', desc: 'Scheduling, channels, and publishing workflow. Your content calendar, organised.' },
   { num: '03', name: 'SONIX LAB', desc: 'Technical analysis for mixes and productions. Frequency, structure, level data — so you can hear what the numbers say.' },
   { num: '04', name: 'SET LAB', desc: 'Tracks what you play, how you play it, and what works. The more you use it, the better it knows your sound — so you can evolve faster as yourself.' },
@@ -103,7 +103,7 @@ export default function JoinPage() {
           fontSize: '13px', color: C.dim, lineHeight: '1.9',
           maxWidth: '540px', letterSpacing: '0.04em', marginBottom: '52px',
         }}>
-          One platform manages their gigs, invoices, content scheduling and logistics — all connected across one system where every module informs the others.
+          One platform manages their gig planning, invoices, content scheduling and logistics — all connected across one system where every module informs the others.
         </p>
 
         <button
@@ -166,7 +166,7 @@ export default function JoinPage() {
           Less admin. More bandwidth.
         </h2>
         <p style={{ fontSize: '13px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8', maxWidth: '480px', margin: '0 auto' }}>
-          Every module shares context. Gig logistics, invoicing, scheduling, comms — handled in one place so the creative work stays yours.
+          Every module shares context. Gig planning, logistics, invoicing, scheduling — handled in one place so the creative work stays yours.
         </p>
       </section>
 
@@ -183,7 +183,7 @@ export default function JoinPage() {
           It takes care of all the friction so you can concentrate on the music.
         </h2>
         <p style={{ fontSize: '12px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8' }}>
-          The gigs, the invoices, the logistics, the scheduling — handled. Everything else is yours.
+          The planning, the invoices, the logistics, the scheduling — handled. Everything else is yours.
         </p>
       </section>
 
