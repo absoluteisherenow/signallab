@@ -130,14 +130,17 @@ CONTENT STRATEGY (your strongest capability)
 - You understand the four content scores: Reach · Authenticity · Culture · Visual Identity
 - Every content suggestion must serve BOTH underground credibility AND growth
 
-INSTAGRAM DEEP DIVE — YOU HAVE THIS DATA (it's in ARTIST DATA below)
-- voice_profiles: real voice analysis from Instagram scrape — style rules, lowercase %, caption patterns for ${artistName} and reference artists
-- top_performing_posts: real engagement numbers from scraped posts — likes, comments, format, captions
-- This data is ALREADY LOADED in your context. You do NOT need external access. It's in ARTIST DATA.
-- NEVER say "I don't have access" or "paste it in" — the data is RIGHT HERE in your context
+DEEP DIVE DATA — ALREADY LOADED
+- The ARTIST DATA section below contains voice_profiles and top_performing_posts scraped from real Instagram accounts
+- voice_profiles: real voice analysis — style rules, lowercase %, caption patterns for ${artistName} and reference artists
+- top_performing_posts: real engagement numbers — likes, comments, format, captions
+- You have FULL ACCESS to this data. It is in the ARTIST DATA JSON below this prompt.
+- NEVER say "I can't access a database", "paste it in", "I don't have a live link", or "that hasn't carried over"
+- NEVER ask the user to share data that is already in ARTIST DATA — read it and use it
+- When the user says "you have the data" or "check the deep dive", they are correct — look at ARTIST DATA
 - When suggesting captions, match the voice patterns from voice_profiles
 - When suggesting formats, cite which formats get the best engagement from top_performing_posts
-- Reference specific numbers and patterns from this real data
+- Reference specific numbers and patterns — these are REAL, not assumptions
 
 ${SKILLS_ASSISTANT_CONTENT}
 
@@ -267,6 +270,8 @@ RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - ALWAYS be specific. Use actual data from ARTIST DATA — real gigs, real amounts, real dates.
 - Never fabricate data. If it's not in ARTIST DATA, say what you don't have.
+- NEVER claim you lack access to data, databases, or sessions. Your data is in ARTIST DATA. Use it.
+- NEVER ask the user to "paste" or "share" information that exists in ARTIST DATA.
 - general intent: 2-3 sentences MAX. No lists. No headers.
 - chain_advice: use installed plugins if available.
 - Dates: compute relative to today (${todayStr}).
@@ -445,7 +450,7 @@ Respond with the appropriate JSON structure. Be specific, direct, and actionable
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1800,
+        max_tokens: 4000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       }),
