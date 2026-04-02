@@ -11,41 +11,19 @@ const ALIGNMENT_ARTISTS = [
   'Recondite', 'Jon Hopkins', 'Headless Horseman', 'Phase Fatale',
 ]
 
-
-type BankAccount = {
-  currency: string
-  label: string
-  accountName: string
-  recipientAddress: string
-  bankName: string
-  bankAddress: string
-  accountNumber: string
-  iban: string
-  sortCode: string
-  bic: string
-  intermediaryBic: string
-}
-
-type AddingAccount = {
-  currency: string
-  label: string
-  accountName: string
-  recipientAddress: string
-  bankName: string
-  bankAddress: string
-  accountNumber: string
-  iban: string
-  sortCode: string
-  bic: string
-  intermediaryBic: string
-  uploading: boolean
-  uploadError: string
-  extracted: boolean
-  showManual: boolean
-}
-
-function emptyAdding(): AddingAccount {
-  return { currency: '', label: '', accountName: '', recipientAddress: '', bankName: '', bankAddress: '', accountNumber: '', iban: '', sortCode: '', bic: '', intermediaryBic: '', uploading: false, uploadError: '', extracted: false, showManual: false }
+type Discovery = {
+  found: boolean
+  artistName?: string
+  genre?: string
+  genres?: string[]
+  country?: string
+  bio?: string
+  imageUrl?: string
+  raUrl?: string
+  links?: { platform: string; url: string }[]
+  tracks?: { title: string; bpm: number }[]
+  instagram?: string | null
+  upcomingGigs?: { title: string; venue: string; location: string; date: string; status: string }[]
 }
 
 async function saveProfile(profile: Record<string, unknown>) {
@@ -62,43 +40,42 @@ async function saveProfile(profile: Record<string, unknown>) {
   })
 }
 
+async function saveGigs(gigs: { title: string; venue: string; location: string; date: string; status: string }[]) {
+  if (!gigs.length) return 0
+  const results = await Promise.allSettled(
+    gigs.map(gig =>
+      fetch('/api/gigs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gig),
+      })
+    )
+  )
+  return results.filter(r => r.status === 'fulfilled').length
+}
+
 export default function Onboarding() {
   const router = useRouter()
 
-  // Steps: 0=name, 1=confirm RA profile, 2=alignment, 3=business, 4=saving
+  // Steps: 0=name, 1=confirm, 2=alignment, 3=saving
   const [step, setStep] = useState(0)
-
-  // Step 1 — editable confirmed profile from RA
-  const [confirmedBio, setConfirmedBio] = useState('')
-  const [confirmedGenres, setConfirmedGenres] = useState<string[]>([])
-  const [confirmedCountry, setConfirmedCountry] = useState('')
-  const [confirmedImageUrl, setConfirmedImageUrl] = useState<string | null>(null)
 
   // Step 0
   const [artistName, setArtistName] = useState('')
-  const [discovery, setDiscovery] = useState<{ found: boolean; sources?: string[]; artistName?: string; genre?: string; genres?: string[]; bpmRange?: string; country?: string; bio?: string; imageUrl?: string; raUrl?: string; links?: { platform: string; url: string }[]; tracks?: { title: string; bpm: number }[] } | null>(null)
+  const [discovery, setDiscovery] = useState<Discovery | null>(null)
   const [discovering, setDiscovering] = useState(false)
   const discoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Step 1 — alignment
+  // Step 1 — instagram fix
+  const [fixingInsta, setFixingInsta] = useState(false)
+  const [customHandle, setCustomHandle] = useState('')
+
+  // Step 2 — alignment
   const [aligned, setAligned] = useState<string[]>([])
   const [customArtist, setCustomArtist] = useState('')
 
-  // Step 2 — business
-  const [mgmtName, setMgmtName] = useState('')
-  const [mgmtEmail, setMgmtEmail] = useState('')
-  const [bookingName, setBookingName] = useState('')
-  const [bookingEmail, setBookingEmail] = useState('')
-  const [label, setLabel] = useState('')
-
-  // Step 2 — bank accounts (multi-currency)
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
-  const [adding, setAdding] = useState<AddingAccount | null>(null)
-  const bankFileRef = useRef<HTMLInputElement>(null)
-
-  // Step 2 — VAT
-  const [vatRegistered, setVatRegistered] = useState(false)
-  const [vatNumber, setVatNumber] = useState('')
+  // Step 3 — result
+  const [savedGigCount, setSavedGigCount] = useState(0)
 
   const s = {
     bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
@@ -112,10 +89,9 @@ export default function Onboarding() {
     padding: '11px 14px', outline: 'none', boxSizing: 'border-box',
   }
 
-  const panelInput: React.CSSProperties = {
-    ...input, background: s.panel,
-  }
+  const panelInput: React.CSSProperties = { ...input, background: s.panel }
 
+  // Auto-discover as they type
   useEffect(() => {
     if (discoverTimer.current) clearTimeout(discoverTimer.current)
     if (artistName.trim().length < 3) { setDiscovery(null); return }
@@ -130,22 +106,9 @@ export default function Onboarding() {
     return () => { if (discoverTimer.current) clearTimeout(discoverTimer.current) }
   }, [artistName])
 
-  function goToConfirm() {
-    // Pre-populate confirmed fields from discovery
-    if (discovery?.found) {
-      setConfirmedBio(discovery.bio || '')
-      setConfirmedGenres(discovery.genres || (discovery.genre ? [discovery.genre] : []))
-      setConfirmedCountry(discovery.country || '')
-      setConfirmedImageUrl(discovery.imageUrl || null)
-    }
-    setStep(1)
-  }
-
   function toggleArtist(name: string) {
     setAligned(prev =>
-      prev.includes(name)
-        ? prev.filter(a => a !== name)
-        : prev.length < 5 ? [...prev, name] : prev
+      prev.includes(name) ? prev.filter(a => a !== name) : prev.length < 5 ? [...prev, name] : prev
     )
   }
 
@@ -157,95 +120,46 @@ export default function Onboarding() {
     }
   }
 
-  function updateAdding(patch: Partial<AddingAccount>) {
-    setAdding(prev => prev ? { ...prev, ...patch } : null)
-  }
-
-  async function uploadBankFile(file: File) {
-    updateAdding({ uploading: true, uploadError: '', extracted: false })
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch('/api/onboarding/extract-bank', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        updateAdding({ uploading: false, uploadError: data.error || 'Could not extract — enter manually.', showManual: true })
-      } else {
-        const d = data.details
-        const hasLocal = d.local && (d.local.sortCode || d.local.accountNumber)
-        const hasIntl = d.international && (d.international.iban || d.international.bic)
-
-        updateAdding({
-          uploading: false,
-          extracted: true,
-          showManual: true,
-          currency: d.currency || '',
-          accountName: d.accountName || '',
-          recipientAddress: d.recipientAddress || '',
-          bankName: d.bankName || '',
-          bankAddress: d.bankAddress || '',
-          accountNumber: d.accountNumber || '',
-          iban: d.iban || '',
-          sortCode: d.sortCode || '',
-          bic: d.bic || '',
-          intermediaryBic: d.intermediaryBic || '',
-        })
-      }
-    } catch {
-      updateAdding({ uploading: false, uploadError: 'Upload failed — enter manually.', showManual: true })
-    }
-  }
-
-  function saveAccount() {
-    if (!adding) return
-    const acct: BankAccount = {
-      currency: adding.currency,
-      label: adding.label,
-      accountName: adding.accountName,
-      recipientAddress: adding.recipientAddress,
-      bankName: adding.bankName,
-      bankAddress: adding.bankAddress,
-      accountNumber: adding.accountNumber,
-      iban: adding.iban,
-      sortCode: adding.sortCode,
-      bic: adding.bic,
-      intermediaryBic: adding.intermediaryBic,
-    }
-    setBankAccounts(prev => [...prev, acct])
-    setAdding(null)
-  }
-
   async function finish() {
-    setStep(4)
-    await saveProfile({
-      name: artistName,
-      soundsLike: aligned,
-      genre: confirmedGenres.length > 0 ? confirmedGenres.join(', ') : (discovery?.genre || 'Electronic'),
-      genres: confirmedGenres,
-      bpmRange: discovery?.bpmRange || '',
-      country: confirmedCountry || discovery?.country || null,
-      bio: confirmedBio || discovery?.bio || null,
-      imageUrl: confirmedImageUrl || null,
-      raUrl: discovery?.raUrl || null,
-      links: discovery?.links || null,
-      tracks: discovery?.tracks || null,
-      management: mgmtName ? { name: mgmtName, email: mgmtEmail } : null,
-      booking: bookingName ? { name: bookingName, email: bookingEmail } : null,
-      label: label || null,
-      bankAccounts: bankAccounts.length > 0 ? bankAccounts : null,
-      vatRegistered,
-      vatNumber: vatRegistered && vatNumber ? vatNumber : null,
-    })
+    setStep(3)
+
+    const instaHandle = fixingInsta
+      ? customHandle.replace('@', '').trim() || null
+      : (discovery?.instagram || null)
+
+    const [count] = await Promise.all([
+      saveGigs(discovery?.upcomingGigs || []),
+      saveProfile({
+        name: artistName,
+        soundsLike: aligned,
+        genre: discovery?.genres?.length ? discovery.genres.join(', ') : (discovery?.genre || 'Electronic'),
+        genres: discovery?.genres || [],
+        country: discovery?.country || null,
+        bio: discovery?.bio || null,
+        imageUrl: discovery?.imageUrl || null,
+        raUrl: discovery?.raUrl || null,
+        links: discovery?.links || null,
+        tracks: discovery?.tracks || null,
+        instagram: instaHandle,
+      }),
+    ])
+
+    setSavedGigCount(count)
     router.push('/dashboard')
   }
 
-  const progressDots = (current: number) => (
+  const progressDots = (current: number, total = 3) => (
     <div style={{ display: 'flex', gap: '6px', marginTop: '32px', justifyContent: 'center' }}>
-      {[0, 1, 2, 3].map(i => (
+      {Array.from({ length: total }).map((_, i) => (
         <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: i <= current ? s.gold : s.border, transition: 'background 0.2s' }} />
       ))}
     </div>
   )
+
+  const gigCount = discovery?.upcomingGigs?.length || 0
+  const instagram = fixingInsta
+    ? (customHandle.replace('@', '') || null)
+    : (discovery?.instagram || null)
 
   return (
     <div style={{ minHeight: '100vh', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: s.font, padding: '40px' }}>
@@ -261,63 +175,54 @@ export default function Onboarding() {
             </div>
 
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: '16px' }}>
-              Let&apos;s set up<br />
-              <span style={{ color: s.gold }}>your OS.</span>
+              What are you<br />
+              <span style={{ color: s.gold }}>known as?</span>
             </div>
             <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.9', marginBottom: '40px' }}>
-              Three quick steps. Everything in the system — content, advances, invoices — runs from what you tell us here.
+              Your artist name. That&apos;s all we need to get started.
             </p>
 
             <div style={{ marginBottom: '32px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Artist or act name</div>
               <input
                 value={artistName}
                 onChange={e => setArtistName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && artistName.trim()) goToConfirm() }}
+                onKeyDown={e => { if (e.key === 'Enter' && artistName.trim()) setStep(1) }}
                 placeholder="Night Manoeuvres"
                 style={panelInput}
                 autoFocus
               />
 
               {discovering && (
-                <div style={{ fontSize: 10, color: s.dimmer, letterSpacing: '0.12em', marginTop: 8 }}>Searching Resident Advisor...</div>
+                <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.12em', marginTop: '8px' }}>
+                  Finding your profile...
+                </div>
               )}
 
               {discovery?.found && !discovering && (
-                <div style={{ background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.18)', padding: '12px 16px', marginTop: 10 }}>
-                  <div style={{ fontSize: '9px', color: s.gold, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>
-                    Found on Resident Advisor
-                  </div>
-                  {discovery.tracks && discovery.tracks.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: 8 }}>
-                      {discovery.tracks.map((t, i) => (
-                        <div key={i} style={{ fontSize: '10px', color: s.dim, background: 'rgba(255,255,255,0.03)', border: `1px solid ${s.border}`, padding: '4px 10px' }}>
-                          {t.title}{t.bpm ? ` · ${t.bpm}` : ''}
-                        </div>
-                      ))}
-                    </div>
+                <div style={{ background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.18)', padding: '12px 16px', marginTop: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {discovery.imageUrl && (
+                    <div style={{ width: '36px', height: '36px', flexShrink: 0, backgroundImage: `url(${discovery.imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '2px' }} />
                   )}
-                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                    {discovery.genre && <div style={{ fontSize: '10px', color: s.dimmer }}>Genre: {discovery.genre}</div>}
-                    {discovery.country && <div style={{ fontSize: '10px', color: s.dimmer }}>Based in: {discovery.country}</div>}
-                  </div>
-                  {discovery.bio && (
-                    <div style={{ fontSize: '11px', color: s.dimmer, marginTop: 8, lineHeight: 1.6, borderTop: `1px solid ${s.border}`, paddingTop: 8 }}>
-                      {discovery.bio}…
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '9px', color: s.gold, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '4px' }}>Found</div>
+                    <div style={{ fontSize: '12px', color: s.text }}>
+                      {discovery.artistName || artistName}
+                      {discovery.country && <span style={{ color: s.dimmer }}> · {discovery.country}</span>}
+                      {gigCount > 0 && <span style={{ color: s.dimmer }}> · {gigCount} upcoming show{gigCount !== 1 ? 's' : ''}</span>}
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
               {discovery && !discovery.found && !discovering && artistName.trim().length >= 3 && (
-                <div style={{ fontSize: '10px', color: s.dimmer, marginTop: 8, letterSpacing: '0.08em' }}>
-                  Not on Resident Advisor yet — no problem, continue.
+                <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '8px', letterSpacing: '0.08em' }}>
+                  Not found automatically — continue and we&apos;ll set you up manually.
                 </div>
               )}
             </div>
 
             <button
-              onClick={goToConfirm}
+              onClick={() => setStep(1)}
               disabled={!artistName.trim()}
               style={{
                 background: artistName.trim() ? s.gold : 'transparent',
@@ -329,103 +234,112 @@ export default function Onboarding() {
                 width: '100%', transition: 'all 0.2s',
               }}
             >
-              Next →
+              {discovery?.found ? 'That looks right →' : artistName.trim() ? 'Continue →' : 'Enter your name'}
             </button>
 
             {progressDots(0)}
           </div>
         )}
 
-        {/* ── STEP 1 — CONFIRM RA PROFILE ── */}
+        {/* ── STEP 1 — IS THIS YOU ── */}
         {step === 1 && (
           <div>
             <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
-              {discovery?.found ? 'We found you' : 'Your profile'}
+              {discovery?.found ? 'Is this you?' : 'Your profile'}
             </div>
 
             {discovery?.found ? (
               <>
-                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '12px' }}>
-                  {discovery.artistName || artistName}
+                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '28px' }}>
+                  We found you.
                 </div>
-                <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.7', marginBottom: '32px' }}>
-                  Pulled from Resident Advisor. Check everything looks right — you can edit anything below.
-                </p>
 
-                {/* RA profile card */}
-                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px', marginBottom: '16px' }}>
-                  {/* Image + basic info */}
-                  <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                    {confirmedImageUrl && (
+                {/* RA Profile card */}
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                    {discovery.imageUrl && (
                       <div style={{
-                        width: '100px', height: '100px', flexShrink: 0,
-                        backgroundImage: `url(${confirmedImageUrl})`,
+                        width: '80px', height: '80px', flexShrink: 0,
+                        backgroundImage: `url(${discovery.imageUrl})`,
                         backgroundSize: 'cover', backgroundPosition: 'center',
                         border: `1px solid ${s.border}`,
                       }} />
                     )}
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '16px', color: s.text, fontWeight: 500, marginBottom: '6px' }}>
+                      <div style={{ fontSize: '18px', color: s.text, fontWeight: 300, marginBottom: '6px', fontFamily: "'Unbounded', sans-serif" }}>
                         {discovery.artistName || artistName}
                       </div>
-                      {confirmedGenres.length > 0 && (
+                      {(discovery.genres?.length ?? 0) > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                          {confirmedGenres.map(g => (
-                            <span key={g} style={{ fontSize: '10px', color: s.gold, background: 'rgba(176,141,87,0.1)', border: `1px solid rgba(176,141,87,0.25)`, padding: '3px 10px', letterSpacing: '0.08em' }}>
+                          {discovery.genres!.slice(0, 3).map(g => (
+                            <span key={g} style={{ fontSize: '10px', color: s.gold, background: 'rgba(176,141,87,0.1)', border: '1px solid rgba(176,141,87,0.25)', padding: '3px 10px', letterSpacing: '0.08em' }}>
                               {g}
                             </span>
                           ))}
                         </div>
                       )}
-                      {confirmedCountry && (
-                        <div style={{ fontSize: '11px', color: s.dimmer, letterSpacing: '0.06em' }}>
-                          {confirmedCountry}
-                        </div>
-                      )}
-                      {discovery.raUrl && (
-                        <a href={discovery.raUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.06em', textDecoration: 'none', display: 'inline-block', marginTop: '4px', opacity: 0.6 }}>
-                          ra.co ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Editable bio */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Bio</div>
-                    <textarea
-                      value={confirmedBio}
-                      onChange={e => setConfirmedBio(e.target.value)}
-                      rows={4}
-                      style={{ ...input, resize: 'vertical', lineHeight: '1.6' }}
-                      placeholder="Your bio..."
-                    />
-                  </div>
-
-                  {/* Editable country */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Country</div>
-                    <input
-                      value={confirmedCountry}
-                      onChange={e => setConfirmedCountry(e.target.value)}
-                      style={input}
-                      placeholder="Australia"
-                    />
-                  </div>
-
-                  {/* Social links from RA */}
-                  {discovery.links && discovery.links.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Links</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {discovery.links.map((l, i) => (
-                          <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: s.dim, background: s.bg, border: `1px solid ${s.border}`, padding: '6px 14px', textDecoration: 'none', letterSpacing: '0.06em' }}>
-                            {l.platform}
+                      <div style={{ fontSize: '11px', color: s.dimmer }}>
+                        {discovery.country && <span>{discovery.country}</span>}
+                        {discovery.raUrl && (
+                          <a href={discovery.raUrl} target="_blank" rel="noopener noreferrer" style={{ color: s.dimmer, textDecoration: 'none', marginLeft: discovery.country ? ' · ' : '', opacity: 0.7 }}>
+                            ra.co ↗
                           </a>
-                        ))}
+                        )}
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Upcoming shows card */}
+                {gigCount > 0 && (
+                  <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px' }}>
+                      {gigCount} upcoming show{gigCount !== 1 ? 's' : ''} — adding to your calendar
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                      {discovery.upcomingGigs!.slice(0, 4).map((g, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                          <span style={{ color: s.dim }}>{g.venue}{g.location ? `, ${g.location.split(',')[0]}` : ''}</span>
+                          <span style={{ color: s.dimmer }}>
+                            {g.date ? new Date(g.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}
+                          </span>
+                        </div>
+                      ))}
+                      {gigCount > 4 && (
+                        <div style={{ fontSize: '11px', color: s.dimmer }}>+{gigCount - 4} more</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Instagram card */}
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px', marginBottom: '24px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px' }}>Instagram</div>
+                  {!fixingInsta ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      {instagram ? (
+                        <div style={{ fontSize: '14px', color: s.text }}>@{instagram}</div>
+                      ) : (
+                        <div style={{ fontSize: '12px', color: s.dimmer }}>Not found — add your handle</div>
+                      )}
+                      <button
+                        onClick={() => { setFixingInsta(true); setCustomHandle(instagram || '') }}
+                        style={{ background: 'transparent', border: 'none', color: s.dimmer, fontSize: '10px', letterSpacing: '0.12em', cursor: 'pointer', fontFamily: s.font, textDecoration: 'underline', paddingRight: 0 }}
+                      >
+                        {instagram ? 'not me' : 'add'}
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      value={customHandle}
+                      onChange={e => setCustomHandle(e.target.value.replace('@', ''))}
+                      onKeyDown={e => { if (e.key === 'Enter') setFixingInsta(false) }}
+                      onBlur={() => setFixingInsta(false)}
+                      placeholder="yourhandle"
+                      autoFocus
+                      style={{ ...input, fontSize: '14px' }}
+                    />
                   )}
                 </div>
               </>
@@ -435,37 +349,21 @@ export default function Onboarding() {
                   Tell us about<br />
                   <span style={{ color: s.gold }}>{artistName}</span>
                 </div>
-                <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.7', marginBottom: '32px' }}>
-                  We couldn&apos;t find you on Resident Advisor — no worries. Fill in what you can.
+                <p style={{ fontSize: '13px', color: s.dim, lineHeight: '1.7', marginBottom: '28px' }}>
+                  Couldn&apos;t find you automatically. Fill in what you can — update the rest in Settings anytime.
                 </p>
-
-                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px', marginBottom: '16px' }}>
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Bio</div>
-                    <textarea
-                      value={confirmedBio}
-                      onChange={e => setConfirmedBio(e.target.value)}
-                      rows={4}
-                      style={{ ...input, resize: 'vertical', lineHeight: '1.6' }}
-                      placeholder="Your bio..."
-                    />
-                  </div>
-                  <div style={{ marginBottom: '16px' }}>
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px', marginBottom: '24px' }}>
+                  <div style={{ marginBottom: '14px' }}>
                     <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Genre</div>
-                    <input
-                      value={confirmedGenres.join(', ')}
-                      onChange={e => setConfirmedGenres(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                      style={input}
-                      placeholder="Electronic, Deep House, Techno..."
-                    />
+                    <input placeholder="Electronic, Techno, Deep House..." style={input} />
                   </div>
                   <div>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Country</div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer, textTransform: 'uppercase', marginBottom: '8px' }}>Instagram handle</div>
                     <input
-                      value={confirmedCountry}
-                      onChange={e => setConfirmedCountry(e.target.value)}
+                      value={customHandle}
+                      onChange={e => setCustomHandle(e.target.value.replace('@', ''))}
+                      placeholder="yourhandle"
                       style={input}
-                      placeholder="Australia"
                     />
                   </div>
                 </div>
@@ -479,10 +377,10 @@ export default function Onboarding() {
                 border: `1px solid ${s.gold}`,
                 fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
                 textTransform: 'uppercase', padding: '18px',
-                cursor: 'pointer', width: '100%', transition: 'all 0.2s',
+                cursor: 'pointer', width: '100%',
               }}
             >
-              {discovery?.found ? 'Looks good →' : 'Next →'}
+              {discovery?.found ? 'That\'s me →' : 'Continue →'}
             </button>
             <button
               onClick={() => setStep(0)}
@@ -495,19 +393,19 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── STEP 2 — ALIGNMENT PICKER ── */}
+        {/* ── STEP 2 — ALIGNMENT ── */}
         {step === 2 && (
           <div>
             <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
-              Step 3 of 4 — Your sound
+              Your sound
             </div>
 
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '12px' }}>
               Who are you<br />most aligned with?
             </div>
             <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
-              Pick up to 5. Shapes how the OS understands your sound across everything.
+              Pick up to 5. Shapes how the OS writes for you — captions, campaign copy, everything.
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
@@ -580,7 +478,7 @@ export default function Onboarding() {
             )}
 
             <button
-              onClick={() => setStep(3)}
+              onClick={finish}
               disabled={aligned.length === 0}
               style={{
                 background: aligned.length > 0 ? s.gold : 'transparent',
@@ -592,10 +490,10 @@ export default function Onboarding() {
                 width: '100%', transition: 'all 0.2s',
               }}
             >
-              Next →
+              Finish setup →
             </button>
             <button
-              onClick={() => setStep(3)}
+              onClick={finish}
               style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.1em', padding: '14px', cursor: 'pointer', width: '100%', marginTop: '4px' }}
             >
               Skip
@@ -605,274 +503,23 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── STEP 3 — BUSINESS DETAILS ── */}
+        {/* ── STEP 3 — SAVING ── */}
         {step === 3 && (
-          <div>
-            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ display: 'block', width: '24px', height: '1px', background: s.gold }} />
-              Step 4 of 4 — Your team
-            </div>
-
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '12px' }}>
-              Management,<br />booking, label.
-            </div>
-            <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
-              Optional — used for advance emails and contract comms. Add now or fill in Settings later.
-            </div>
-
-            {/* Management */}
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '10px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Management</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <input value={mgmtName} onChange={e => setMgmtName(e.target.value)} placeholder="Name" style={input} />
-                <input value={mgmtEmail} onChange={e => setMgmtEmail(e.target.value)} placeholder="Email" style={input} type="email" />
-              </div>
-            </div>
-
-            {/* Booking */}
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '10px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Booking agent</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <input value={bookingName} onChange={e => setBookingName(e.target.value)} placeholder="Name" style={input} />
-                <input value={bookingEmail} onChange={e => setBookingEmail(e.target.value)} placeholder="Email" style={input} type="email" />
-              </div>
-            </div>
-
-            {/* Label */}
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '10px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Label</div>
-              <input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. Ostgut Ton, Self-released" style={input} />
-            </div>
-
-            {/* Bank accounts — multi-currency */}
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '28px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase' }}>Payment details</div>
-                {bankAccounts.length > 0 && !adding && (
-                  <button
-                    onClick={() => setAdding(emptyAdding())}
-                    style={{ background: 'none', border: 'none', color: s.gold, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.12em', cursor: 'pointer', padding: 0 }}
-                  >
-                    + Add account
-                  </button>
-                )}
-              </div>
-              <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '14px' }}>Used to auto-fill invoices. Never shared.</div>
-
-              {/* Saved accounts */}
-              {bankAccounts.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: adding ? '16px' : '0' }}>
-                  {bankAccounts.map(acct => (
-                    <div key={`${acct.currency}-${acct.label}-${acct.iban}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '10px 14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: s.gold, border: `1px solid ${s.gold}40`, padding: '2px 7px' }}>{acct.currency}</div>
-                        <div style={{ fontSize: '12px', color: s.dim }}>{acct.label ? `${acct.label} · ` : ''}{acct.bankName || acct.accountName || acct.iban}</div>
-                      </div>
-                      <button
-                        onClick={() => setBankAccounts(prev => prev.filter(a => a.currency !== acct.currency))}
-                        style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '14px', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add account form */}
-              {adding && (
-                <div style={{ border: `1px solid ${s.border}`, padding: '16px', marginTop: bankAccounts.length > 0 ? '0' : '0' }}>
-                  {/* Optional label */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <input
-                      value={adding.label}
-                      onChange={e => updateAdding({ label: e.target.value })}
-                      placeholder="Label (optional) — e.g. Local, SWIFT, Revolut"
-                      style={{ ...input, fontSize: '12px' }}
-                    />
-                  </div>
-
-                  {/* Upload zone */}
-                  {!adding.extracted && !adding.showManual && (
-                    <div
-                      onClick={() => bankFileRef.current?.click()}
-                      style={{
-                        border: `1px dashed ${adding.uploading ? s.gold : '#2a2926'}`,
-                        padding: '24px 16px',
-                        textAlign: 'center',
-                        cursor: adding.uploading ? 'default' : 'pointer',
-                        marginBottom: '8px',
-                      }}
-                    >
-                      {adding.uploading ? (
-                        <div style={{ fontSize: '12px', color: s.gold, letterSpacing: '0.1em' }}>Extracting details...</div>
-                      ) : (
-                        <>
-                          <div style={{ fontSize: '12px', color: s.dim, marginBottom: '4px' }}>Upload a screenshot or bank statement</div>
-                          <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em' }}>JPG · PNG · WEBP · PDF</div>
-                        </>
-                      )}
-                      <input
-                        ref={bankFileRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,application/pdf"
-                        style={{ display: 'none' }}
-                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadBankFile(f) }}
-                      />
-                    </div>
-                  )}
-
-                  {adding.uploadError && (
-                    <div style={{ fontSize: '11px', color: '#c06060', marginBottom: '10px' }}>{adding.uploadError}</div>
-                  )}
-
-                  {/* Manual fields */}
-                  {adding.showManual && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '10px' }}>
-                      {adding.extracted && (
-                        <div style={{ fontSize: '10px', color: s.gold, letterSpacing: '0.1em', marginBottom: '4px' }}>Extracted — review and confirm</div>
-                      )}
-                      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '7px' }}>
-                        <input value={adding.currency} onChange={e => updateAdding({ currency: e.target.value.toUpperCase().slice(0, 3) })} placeholder="EUR" style={input} />
-                        <input value={adding.accountName} onChange={e => updateAdding({ accountName: e.target.value })} placeholder="Account name" style={input} />
-                      </div>
-                      <input value={adding.recipientAddress} onChange={e => updateAdding({ recipientAddress: e.target.value })} placeholder="Recipient address" style={input} />
-                      <input value={adding.bankName} onChange={e => updateAdding({ bankName: e.target.value })} placeholder="Bank name" style={input} />
-                      <input value={adding.bankAddress} onChange={e => updateAdding({ bankAddress: e.target.value })} placeholder="Bank address" style={input} />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
-                        <input value={adding.sortCode} onChange={e => updateAdding({ sortCode: e.target.value })} placeholder="Sort code / BSB" style={input} />
-                        <input value={adding.accountNumber} onChange={e => updateAdding({ accountNumber: e.target.value })} placeholder="Account number" style={input} />
-                      </div>
-                      <input value={adding.iban} onChange={e => updateAdding({ iban: e.target.value })} placeholder="IBAN" style={input} />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
-                        <input value={adding.bic} onChange={e => updateAdding({ bic: e.target.value })} placeholder="BIC / SWIFT" style={input} />
-                        <input value={adding.intermediaryBic} onChange={e => updateAdding({ intermediaryBic: e.target.value })} placeholder="Intermediary BIC (optional)" style={input} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Toggle manual / upload */}
-                  {!adding.showManual && !adding.uploading && (
-                    <button onClick={() => updateAdding({ showManual: true })} style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.08em', padding: '4px 0', cursor: 'pointer' }}>
-                      Enter manually instead →
-                    </button>
-                  )}
-                  {adding.showManual && !adding.extracted && (
-                    <button onClick={() => updateAdding({ showManual: false, uploadError: '' })} style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.08em', padding: '4px 0', cursor: 'pointer' }}>
-                      ← Upload instead
-                    </button>
-                  )}
-
-                  {/* Save / cancel */}
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-                    <button
-                      onClick={saveAccount}
-                      disabled={!adding.iban && !adding.accountName}
-                      style={{
-                        flex: 1, background: (adding.iban || adding.accountName) ? s.gold : 'transparent',
-                        color: (adding.iban || adding.accountName) ? '#070706' : s.dimmer,
-                        border: `1px solid ${(adding.iban || adding.accountName) ? s.gold : s.border}`,
-                        fontFamily: s.font, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase',
-                        padding: '10px', cursor: (adding.iban || adding.accountName) ? 'pointer' : 'default', transition: 'all 0.15s',
-                      }}
-                    >
-                      Save account
-                    </button>
-                    <button
-                      onClick={() => setAdding(null)}
-                      style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.12em', padding: '10px 16px', cursor: 'pointer' }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Prompt to add first account */}
-              {bankAccounts.length === 0 && !adding && (
-                <button
-                  onClick={() => setAdding(emptyAdding())}
-                  style={{
-                    width: '100%', background: 'transparent', border: `1px dashed ${s.border}`,
-                    color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.12em',
-                    padding: '16px', cursor: 'pointer', transition: 'border-color 0.15s',
-                  }}
-                >
-                  + Add payment account
-                </button>
-              )}
-            </div>
-
-            {/* VAT */}
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 22px', marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '4px' }}>VAT registered</div>
-                  <div style={{ fontSize: '11px', color: s.dimmer }}>Affects invoices and expense tracking</div>
-                </div>
-                <button
-                  onClick={() => setVatRegistered(v => !v)}
-                  style={{
-                    width: '44px', height: '24px', borderRadius: '12px', border: 'none',
-                    background: vatRegistered ? s.gold : '#2a2926',
-                    cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-                  }}
-                >
-                  <span style={{
-                    position: 'absolute', top: '3px',
-                    left: vatRegistered ? '23px' : '3px',
-                    width: '18px', height: '18px', borderRadius: '50%',
-                    background: vatRegistered ? '#070706' : s.dimmer,
-                    transition: 'left 0.2s',
-                  }} />
-                </button>
-              </div>
-              {vatRegistered && (
-                <div style={{ marginTop: '14px' }}>
-                  <input
-                    value={vatNumber}
-                    onChange={e => setVatNumber(e.target.value)}
-                    placeholder="VAT number"
-                    style={input}
-                  />
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={finish}
-              style={{
-                background: s.gold, color: '#070706', border: 'none',
-                fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
-                textTransform: 'uppercase', padding: '18px',
-                cursor: 'pointer', width: '100%',
-              }}
-            >
-              Finish setup →
-            </button>
-            <button
-              onClick={finish}
-              style={{ background: 'none', border: 'none', color: s.dimmer, fontFamily: s.font, fontSize: '11px', letterSpacing: '0.1em', padding: '14px', cursor: 'pointer', width: '100%', marginTop: '4px' }}
-            >
-              Skip — go to dashboard
-            </button>
-
-            {progressDots(3)}
-          </div>
-        )}
-
-        {/* ── SAVING ── */}
-        {step === 4 && (
           <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '40px' }}>
               {[0, 1, 2].map(i => (
-                <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.gold, animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+                <div key={i} style={{
+                  width: '8px', height: '8px', borderRadius: '50%', background: s.gold,
+                  animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+                }} />
               ))}
             </div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '20px', fontWeight: 300, color: s.gold, marginBottom: '12px' }}>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, color: s.text, marginBottom: '12px' }}>
               Setting everything up...
             </div>
-            <div style={{ fontSize: '13px', color: s.dim, lineHeight: '1.7' }}>Saving your profile</div>
+            <div style={{ fontSize: '12px', color: s.dim, letterSpacing: '0.06em' }}>
+              {gigCount > 0 ? `Adding ${gigCount} shows to your calendar` : 'Building your profile'}
+            </div>
             <style>{`@keyframes pulse { 0%,100%{opacity:0.3;transform:scale(0.8)} 50%{opacity:1;transform:scale(1)} }`}</style>
           </div>
         )}
