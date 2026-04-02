@@ -55,6 +55,9 @@ export function BroadcastCalendar() {
   const [releases, setReleases] = useState<Release[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editDraft, setEditDraft] = useState<Partial<ScheduledPost>>({})
+  const [saving, setSaving] = useState(false)
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
   const [weekOffset, setWeekOffset] = useState(0)
   const [monthOffset, setMonthOffset] = useState(0)
@@ -842,35 +845,118 @@ export function BroadcastCalendar() {
               </div>
               <div style={{ fontSize: '10px', color: s.dimmer }}>{new Date(selectedPost.scheduled_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · {formatPostTime(selectedPost)}</div>
             </div>
-            <button onClick={() => setSelectedPost(null)} style={{ background: 'none', border: 'none', color: s.dim, fontSize: '18px', cursor: 'pointer' }}>×</button>
+            <button onClick={() => { setSelectedPost(null); setEditMode(false) }} style={{ background: 'none', border: 'none', color: s.dim, fontSize: '18px', cursor: 'pointer' }}>×</button>
           </div>
-          <div style={{ fontSize: '14px', color: s.text, lineHeight: '1.7', letterSpacing: '0.04em', marginBottom: '20px' }}>{selectedPost.caption}</div>
-          {selectedPost.featured_track && (
-            <div style={{ fontSize: '11px', color: s.teal, marginBottom: '12px' }}>♪ {selectedPost.featured_track}</div>
+          {editMode ? (
+            <>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: s.dimmer, display: 'block', marginBottom: '4px' }}>Caption</label>
+                <textarea
+                  value={editDraft.caption || ''}
+                  onChange={e => setEditDraft(d => ({ ...d, caption: e.target.value }))}
+                  style={{ width: '100%', minHeight: '100px', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', lineHeight: '1.7', padding: '10px', resize: 'vertical', outline: 'none' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: s.dimmer, display: 'block', marginBottom: '4px' }}>Platform</label>
+                  <select
+                    value={editDraft.platform || 'instagram'}
+                    onChange={e => setEditDraft(d => ({ ...d, platform: e.target.value }))}
+                    style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px', outline: 'none' }}
+                  >
+                    <option value="instagram">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="threads">Threads</option>
+                    <option value="twitter">X / Twitter</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: s.dimmer, display: 'block', marginBottom: '4px' }}>Format</label>
+                  <select
+                    value={editDraft.format || 'post'}
+                    onChange={e => setEditDraft(d => ({ ...d, format: e.target.value }))}
+                    style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px', outline: 'none' }}
+                  >
+                    <option value="post">Post</option>
+                    <option value="reel">Reel</option>
+                    <option value="carousel">Carousel</option>
+                    <option value="story">Story</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: s.dimmer, display: 'block', marginBottom: '4px' }}>Scheduled</label>
+                <input
+                  type="datetime-local"
+                  value={(editDraft.scheduled_at || '').slice(0, 16)}
+                  onChange={e => setEditDraft(d => ({ ...d, scheduled_at: new Date(e.target.value).toISOString() }))}
+                  style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px', outline: 'none' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  disabled={saving}
+                  onClick={async () => {
+                    setSaving(true)
+                    try {
+                      const res = await fetch('/api/schedule', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: selectedPost.id, caption: editDraft.caption, platform: editDraft.platform, format: editDraft.format, scheduled_at: editDraft.scheduled_at }),
+                      })
+                      const result = await res.json()
+                      if (result.success && result.post) {
+                        setPosts(prev => prev.map(p => p.id === selectedPost.id ? { ...p, ...result.post } : p))
+                        setSelectedPost({ ...selectedPost, ...result.post })
+                        setEditMode(false)
+                      }
+                    } catch {} finally { setSaving(false) }
+                  }}
+                  style={{ flex: 1, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '10px', background: s.gold, border: 'none', color: s.bg, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.5 : 1 }}
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setEditMode(false)}
+                  style={{ fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '10px 14px', background: 'transparent', border: `1px solid ${s.border}`, color: s.dim, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: '14px', color: s.text, lineHeight: '1.7', letterSpacing: '0.04em', marginBottom: '20px' }}>{selectedPost.caption}</div>
+              {selectedPost.featured_track && (
+                <div style={{ fontSize: '11px', color: s.teal, marginBottom: '12px' }}>♪ {selectedPost.featured_track}</div>
+              )}
+              {selectedPost.notes && (
+                <div style={{ borderLeft: `2px solid ${s.border}`, paddingLeft: '12px', fontSize: '11px', color: s.dimmer, lineHeight: '1.6', fontStyle: 'italic', marginBottom: '20px' }}>
+                  {selectedPost.notes}
+                </div>
+              )}
+              {selectedPost.gig_title && (
+                <div style={{ fontSize: '10px', color: s.gold, marginBottom: '12px' }}>↳ {selectedPost.gig_title}</div>
+              )}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button onClick={() => { setEditDraft({ caption: selectedPost.caption, platform: selectedPost.platform, format: selectedPost.format, scheduled_at: selectedPost.scheduled_at }); setEditMode(true) }} style={{ flex: 1, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '10px', background: 'transparent', border: `1px solid ${s.gold}`, color: s.gold, cursor: 'pointer' }}>
+                  Edit
+                </button>
+                <button onClick={async () => {
+                  const id = selectedPost.id
+                  setSelectedPost(null)
+                  setEditMode(false)
+                  try {
+                    await fetch('/api/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+                    setPosts(prev => prev.filter(p => p.id !== id))
+                  } catch {}
+                }} style={{ fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '10px 14px', background: 'transparent', border: '1px solid rgba(180,60,60,0.4)', color: '#b43c3c', cursor: 'pointer' }}>
+                  Delete
+                </button>
+              </div>
+            </>
           )}
-          {selectedPost.notes && (
-            <div style={{ borderLeft: `2px solid ${s.border}`, paddingLeft: '12px', fontSize: '11px', color: s.dimmer, lineHeight: '1.6', fontStyle: 'italic', marginBottom: '20px' }}>
-              {selectedPost.notes}
-            </div>
-          )}
-          {selectedPost.gig_title && (
-            <div style={{ fontSize: '10px', color: s.gold, marginBottom: '12px' }}>↳ {selectedPost.gig_title}</div>
-          )}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-            <button onClick={() => window.location.href = '/broadcast'} style={{ flex: 1, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '10px', background: 'transparent', border: `1px solid ${s.gold}`, color: s.gold, cursor: 'pointer' }}>
-              Edit
-            </button>
-            <button onClick={async () => {
-              const id = selectedPost.id
-              setSelectedPost(null)
-              try {
-                await fetch('/api/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
-                setPosts(prev => prev.filter(p => p.id !== id))
-              } catch {}
-            }} style={{ fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '10px 14px', background: 'transparent', border: '1px solid rgba(180,60,60,0.4)', color: '#b43c3c', cursor: 'pointer' }}>
-              Delete
-            </button>
-          </div>
         </div>
       )}
 
