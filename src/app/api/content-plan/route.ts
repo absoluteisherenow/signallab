@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     const [gigs, releases, topPosts, artistProfiles, settings, tracks] = await Promise.all([
       q(async () => { const r = await supabase.from('gigs').select('title, venue, location, date, status').gte('date', startDate.toISOString().split('T')[0]).lte('date', endDate.toISOString().split('T')[0]).neq('status', 'cancelled').order('date'); return r.data || [] }),
       q(async () => { const r = await supabase.from('releases').select('title, type, release_date, label, notes').gte('release_date', new Date(startDate.getTime() - 14 * 86400000).toISOString().split('T')[0]).lte('release_date', endDate.toISOString().split('T')[0]).order('release_date'); return r.data || [] }),
-      q(async () => { const r = await supabase.from('post_performance').select('artist_name, caption, likes, comments, media_type, engagement_score').order('engagement_score', { ascending: false }).limit(20); return r.data || [] }),
+      q(async () => { const r = await supabase.from('post_performance').select('platform, caption, format, actual_likes, actual_comments, estimated_score, context').order('estimated_score', { ascending: false }).limit(20); return r.data || [] }),
       q(async () => { const r = await supabase.from('artist_profiles').select('name, genre, lowercase_pct, short_caption_pct, no_hashtags_pct, style_rules').not('style_rules', 'is', null).limit(4); return r.data || [] }),
       q(async () => { const r = await supabase.from('artist_settings').select('profile').limit(1).single(); return r.data || null }, null),
       q(async () => { const r = await supabase.from('dj_tracks').select('title, artist, bpm, key, moment_type').limit(10).order('created_at', { ascending: false }); return r.data || [] }),
@@ -59,14 +59,14 @@ export async function POST(req: NextRequest) {
     // Engagement evidence
     let engagementEvidence = 'No engagement data yet — plan based on lane voice patterns.'
     if (topPosts.length >= 3) {
-      const avgEng = Math.round(topPosts.reduce((s: number, p: any) => s + (p.engagement_score || 0), 0) / topPosts.length)
-      const videoCount = topPosts.filter((p: any) => p.media_type === 'video').length
+      const avgEng = Math.round(topPosts.reduce((s: number, p: any) => s + (p.estimated_score || 0), 0) / topPosts.length)
+      const reelCount = topPosts.filter((p: any) => p.format === 'reel').length
       const shortCount = topPosts.filter((p: any) => (p.caption || '').split(' ').length < 10).length
       engagementEvidence = `Real engagement data (${topPosts.length} top posts, avg score ${avgEng}):
-- ${videoCount > topPosts.length / 2 ? `Video dominates top ${topPosts.length} posts — recommend Reels for high-engagement posts` : 'Photo/carousel posts perform well'}
+- ${reelCount > topPosts.length / 2 ? `Reels dominate top ${topPosts.length} posts — recommend Reels for high-engagement posts` : 'Photo/carousel posts perform well'}
 - ${shortCount > topPosts.length / 2 ? 'Short captions (<10 words) dominate top performers' : 'Longer captions work in this lane'}
 Top examples:
-${topPosts.slice(0, 6).map((p: any) => `  [${p.artist_name}] ${p.media_type} — ${p.likes}L/${p.comments}C: "${(p.caption || '').slice(0, 80)}"`).join('\n')}`
+${topPosts.slice(0, 6).map((p: any) => `  ${p.platform} ${p.format} — ${p.actual_likes || 0}L/${p.actual_comments || 0}C: "${(p.caption || '').slice(0, 80)}"`).join('\n')}`
     }
 
     // Voice profiles

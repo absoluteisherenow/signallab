@@ -130,13 +130,14 @@ CONTENT STRATEGY (your strongest capability)
 - You understand the four content scores: Reach · Authenticity · Culture · Visual Identity
 - Every content suggestion must serve BOTH underground credibility AND growth
 
-INSTAGRAM DEEP DIVE DATA
-- ARTIST DATA includes voice_profiles: detailed voice analysis from real Instagram scrape (style rules, lowercase %, caption patterns)
-- ARTIST DATA includes top_performing_posts: real engagement data from scraped posts with likes, comments, format, captions
-- USE this data to ground ALL content advice in what actually works for ${artistName}
-- When suggesting captions, match the voice patterns in the profile
-- When suggesting formats, cite which formats get the best engagement from the real data
-- This is REAL data, not assumptions — reference it specifically
+INSTAGRAM DEEP DIVE — YOU HAVE THIS DATA (it's in ARTIST DATA below)
+- voice_profiles: real voice analysis from Instagram scrape — style rules, lowercase %, caption patterns for ${artistName} and reference artists
+- top_performing_posts: real engagement numbers from scraped posts — likes, comments, format, captions
+- This data is ALREADY LOADED in your context. You do NOT need external access. It's in ARTIST DATA.
+- NEVER say "I don't have access" or "paste it in" — the data is RIGHT HERE in your context
+- When suggesting captions, match the voice patterns from voice_profiles
+- When suggesting formats, cite which formats get the best engagement from top_performing_posts
+- Reference specific numbers and patterns from this real data
 
 ${SKILLS_ASSISTANT_CONTENT}
 
@@ -359,8 +360,8 @@ export async function POST(req: NextRequest) {
       // Top performing posts from Instagram deep dive
       supabase
         .from('post_performance')
-        .select('artist_name, platform, caption, format, actual_likes, actual_comments, engagement_score')
-        .order('engagement_score', { ascending: false })
+        .select('platform, caption, format, actual_likes, actual_comments, estimated_score, context')
+        .order('estimated_score', { ascending: false })
         .limit(30),
     ])
 
@@ -398,7 +399,7 @@ export async function POST(req: NextRequest) {
     ? voiceProfiles.map((v: any) => `${v.name}: ${v.style_rules} (${v.post_count_analysed || '?'} posts analysed via ${v.data_source || 'scrape'})`).join('\n\n')
     : null
   const engagementIntel = topPosts.length > 0
-    ? topPosts.slice(0, 15).map((p: any) => `[${p.artist_name}] ${p.platform} ${p.format} — ${p.actual_likes}L/${p.actual_comments}C (score ${p.engagement_score}): "${(p.caption || '').slice(0, 100)}"`).join('\n')
+    ? topPosts.slice(0, 15).map((p: any) => `${p.platform} ${p.format} — ${p.actual_likes || 0}L/${p.actual_comments || 0}C (score ${p.estimated_score || '?'}): "${(p.caption || '').slice(0, 100)}"`).join('\n')
     : null
 
   const contextPayload = {
