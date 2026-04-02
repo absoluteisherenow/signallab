@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 
+
 const s = {
   bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
   gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)',
@@ -80,7 +81,7 @@ function formatTime(totalSec: number): string {
 }
 
 export default function MeditatePage() {
-  // Pure state — no URL params, no useSearchParams, no Suspense needed
+  const [mounted, setMounted] = useState(false)
   const [activeMode, setActiveMode] = useState<ModeConfig | null>(null)
   const [screen, setScreen] = useState<'choose' | 'session' | 'complete'>('choose')
   const [paused, setPaused] = useState(false)
@@ -92,6 +93,8 @@ export default function MeditatePage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const breathRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeRef = useRef(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -251,6 +254,12 @@ export default function MeditatePage() {
   const cycleDuration = mode ? mode.breatheIn + mode.hold + mode.breatheOut : 12
   const breatheInPct = mode ? (mode.breatheIn / cycleDuration) * 100 : 33
   const holdEndPct = mode ? ((mode.breatheIn + mode.hold) / cycleDuration) * 100 : 66
+
+  if (!mounted) return (
+    <div style={{ minHeight: '100vh', background: '#070706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: '#52504c', textTransform: 'uppercase' }}>Mind</div>
+    </div>
+  )
 
   // ── CHOOSE ── mode picker
   if (screen === 'choose' || !mode) {

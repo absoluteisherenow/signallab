@@ -107,6 +107,7 @@ export default function Settings() {
   const [docsLoading, setDocsLoading] = useState(false)
   const [uploadType, setUploadType] = useState('other')
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -121,6 +122,7 @@ export default function Settings() {
 
   async function uploadDocument(file: File) {
     setUploading(true)
+    setUploadError(null)
     try {
       const form = new FormData()
       form.append('file', file)
@@ -129,8 +131,14 @@ export default function Settings() {
       const data = await res.json()
       if (data.success) {
         setDocuments(prev => [data.document, ...prev])
+      } else {
+        setUploadError(data.error || 'Upload failed — please try again')
       }
-    } catch { /* silent */ } finally { setUploading(false) }
+    } catch {
+      setUploadError('Upload failed — check your connection')
+    } finally {
+      setUploading(false)
+    }
   }
 
   async function deleteDocument(id: string) {
@@ -233,9 +241,20 @@ export default function Settings() {
       const data = await res.json()
       if (data.settings) {
         if (data.settings.profile) setProfile(data.settings.profile)
-        if (data.settings.team) setTeam(data.settings.team)
+        // Keep default team roles if none saved yet
+        if (data.settings.team && data.settings.team.length > 0) setTeam(data.settings.team)
         if (data.settings.advance) setAdvance(data.settings.advance)
-        if (data.settings.payment) setPayment(p => ({ ...p, ...data.settings.payment, bank_accounts: data.settings.payment.bank_accounts || p.bank_accounts || [] }))
+        if (data.settings.payment) {
+          // Bank accounts may be stored in profile.bankAccounts (camelCase, from onboarding)
+          // or payment.bank_accounts (snake_case, from settings). Check both.
+          const profileBanks = data.settings.profile?.bankAccounts || []
+          const paymentBanks = data.settings.payment.bank_accounts || []
+          const resolvedBanks = paymentBanks.length > 0 ? paymentBanks : profileBanks
+          setPayment(p => ({ ...p, ...data.settings.payment, bank_accounts: resolvedBanks.length > 0 ? resolvedBanks : p.bank_accounts || [] }))
+        } else if (data.settings.profile?.bankAccounts?.length > 0) {
+          // Payment object missing entirely but profile has bank accounts from onboarding
+          setPayment(p => ({ ...p, bank_accounts: data.settings.profile.bankAccounts }))
+        }
         if (data.settings.aliases) setAliases(data.settings.aliases)
         if (data.settings.tier) setTier(data.settings.tier)
       }
@@ -1043,6 +1062,12 @@ export default function Settings() {
               }}
             />
           </div>
+
+          {uploadError && (
+            <div style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(154,106,90,0.12)', border: '1px solid rgba(154,106,90,0.3)', fontSize: '12px', color: '#c97a7a' }}>
+              {uploadError}
+            </div>
+          )}
 
           {/* Document list grouped by type */}
           {docsLoading ? (
