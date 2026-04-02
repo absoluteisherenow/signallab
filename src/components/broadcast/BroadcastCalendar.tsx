@@ -58,6 +58,8 @@ export function BroadcastCalendar() {
   const [editMode, setEditMode] = useState(false)
   const [editDraft, setEditDraft] = useState<Partial<ScheduledPost>>({})
   const [saving, setSaving] = useState(false)
+  const [draggedPostId, setDraggedPostId] = useState<string | null>(null)
+  const [dropTargetDate, setDropTargetDate] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
   const [weekOffset, setWeekOffset] = useState(0)
   const [monthOffset, setMonthOffset] = useState(0)
@@ -391,13 +393,18 @@ export function BroadcastCalendar() {
   function PostChip({ post }: { post: ScheduledPost }) {
     const color = PLATFORM_COLOR[post.platform] || s.gold
     return (
-      <div onClick={(e) => { e.stopPropagation(); setSelectedPost(post) }}
+      <div
+        draggable
+        onDragStart={(e) => { e.dataTransfer.setData('text/plain', post.id); setDraggedPostId(post.id) }}
+        onDragEnd={() => { setDraggedPostId(null); setDropTargetDate(null) }}
+        onClick={(e) => { e.stopPropagation(); setSelectedPost(post) }}
         style={{
           background: '#1a1917', border: `1px solid ${color}30`,
           borderLeft: `2px solid ${color}`,
-          padding: '5px 7px', cursor: 'pointer',
-          opacity: post.status === 'posted' ? 0.45 : 1,
+          padding: '5px 7px', cursor: draggedPostId === post.id ? 'grabbing' : 'grab',
+          opacity: draggedPostId === post.id ? 0.4 : post.status === 'posted' ? 0.45 : 1,
           overflow: 'hidden', minWidth: 0,
+          transition: 'opacity 0.15s',
         }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
           <span style={{ fontSize: '9px', letterSpacing: '0.12em', color, textTransform: 'uppercase' }}>{post.platform.split(' ')[0].split('/')[0].trim()}</span>
@@ -432,6 +439,26 @@ export function BroadcastCalendar() {
     )
   }
 
+  async function handleDrop(day: Date, postId: string) {
+    const post = posts.find(p => p.id === postId)
+    if (!post) return
+    // Keep original time, just move the date
+    const orig = new Date(post.scheduled_at)
+    const newDate = new Date(day)
+    newDate.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), 0)
+    const newScheduledAt = newDate.toISOString()
+    // Optimistic update
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, scheduled_at: newScheduledAt } : p))
+    if (selectedPost?.id === postId) setSelectedPost({ ...selectedPost, scheduled_at: newScheduledAt })
+    try {
+      await fetch('/api/schedule', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: postId, scheduled_at: newScheduledAt }),
+      })
+    } catch {}
+  }
+
   function DayCell({ day, compact = false }: { day: Date; compact?: boolean }) {
     const isToday = isSameDay(day, today)
     const dayPosts = getPostsForDay(day)
@@ -439,15 +466,22 @@ export function BroadcastCalendar() {
     const release = getReleaseForDay(day)
     const teaseWindow = !release ? getTeaseWindowForDay(day) : null
     const minH = compact ? '130px' : '180px'
+    const dayKey = day.toISOString().split('T')[0]
+    const isDropTarget = dropTargetDate === dayKey && draggedPostId !== null
 
     return (
-      <div style={{
-        background: s.panel,
-        border: `1px solid ${isToday ? s.gold + '50' : release ? s.purple + '50' : teaseWindow ? s.purple + '25' : s.border}`,
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDropTargetDate(dayKey) }}
+        onDragLeave={() => setDropTargetDate(null)}
+        onDrop={(e) => { e.preventDefault(); setDropTargetDate(null); const id = e.dataTransfer.getData('text/plain'); if (id) handleDrop(day, id) }}
+        style={{
+        background: isDropTarget ? `${s.gold}12` : s.panel,
+        border: `1px solid ${isDropTarget ? s.gold + '80' : isToday ? s.gold + '50' : release ? s.purple + '50' : teaseWindow ? s.purple + '25' : s.border}`,
         minHeight: minH,
         minWidth: 0,
         overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
+        transition: 'background 0.15s, border-color 0.15s',
       }}>
         {/* Header */}
         <div style={{
