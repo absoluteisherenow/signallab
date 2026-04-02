@@ -55,6 +55,7 @@ interface PaymentSettings {
   vat_number: string
   payment_terms: string
   bank_accounts: BankAccount[]
+  hide_invoice_branding: boolean
 }
 
 interface Alias {
@@ -80,7 +81,7 @@ export default function Settings() {
   const [advance, setAdvance] = useState({ sender_name: '', reply_email: '' })
   const [payment, setPayment] = useState<PaymentSettings>({
     legal_name: '', address: '', vat_number: '', payment_terms: '30',
-    bank_accounts: [],
+    bank_accounts: [], hide_invoice_branding: false,
   })
   const [aliases, setAliases] = useState<Alias[]>([])
   const [newAlias, setNewAlias] = useState({ name: '', genre: '' })
@@ -576,6 +577,26 @@ export default function Settings() {
                     placeholder="30" style={inputStyle} />
                   <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '6px' }}>Default days for invoice due date</div>
                 </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', border: '1px solid var(--border-dim)', marginTop: '4px' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text)' }}>Remove Signal Lab OS from invoices</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '3px' }}>Hides the Signal Lab OS logo from invoice footers</div>
+                </div>
+                <button
+                  onClick={() => setPayment(p => ({ ...p, hide_invoice_branding: !p.hide_invoice_branding }))}
+                  style={{
+                    width: 40, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer',
+                    background: payment.hide_invoice_branding ? 'var(--gold)' : 'var(--border-dim)',
+                    position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 3, left: payment.hide_invoice_branding ? 21 : 3,
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                    transition: 'left 0.2s',
+                  }} />
+                </button>
               </div>
             </div>
           </div>

@@ -14,11 +14,11 @@ const C = {
 }
 
 const MODULES = [
-  { num: '01', name: 'TOUR LAB', desc: 'Every show from offer to settlement. The full cycle, closed.' },
-  { num: '02', name: 'BROADCAST LAB', desc: 'Your voice, your schedule, your channels. Content that sounds like you.' },
-  { num: '03', name: 'SONIX LAB', desc: 'Arrangement, analysis, chord engine, Max for Live. Production with architecture.' },
-  { num: '04', name: 'SET LAB', desc: 'From first listen to the booth. Every set built with intent.' },
-  { num: '05', name: 'DROP LAB', desc: 'Phase-by-phase rollout. Every release lands exactly where you aimed it.' },
+  { num: '01', name: 'TOUR LAB', desc: 'Every show from offer to settlement. Gig management, logistics, invoicing — the full cycle, closed.' },
+  { num: '02', name: 'BROADCAST LAB', desc: 'Scheduling, channels, and publishing workflow. Your content calendar, organised.' },
+  { num: '03', name: 'SONIX LAB', desc: 'Technical analysis for mixes and productions. Frequency, structure, level data — so you can hear what the numbers say.' },
+  { num: '04', name: 'SET LAB', desc: 'Tracks what you play, how you play it, and what works. The more you use it, the better it knows your sound — so you can evolve faster as yourself.' },
+  { num: '05', name: 'DROP LAB', desc: 'Phase-by-phase release planning and campaign management. Every release coordinated, nothing missed.' },
 ]
 
 const ROLES = ['Artist', 'Manager / Agent', 'Label', 'Promoter / Booker']
@@ -103,7 +103,7 @@ export default function JoinPage() {
           fontSize: '13px', color: C.dim, lineHeight: '1.9',
           maxWidth: '540px', letterSpacing: '0.04em', marginBottom: '52px',
         }}>
-          One platform runs their gigs, invoices, content, releases, and sets — all connected across one system where every module informs the others.
+          One platform manages their gigs, invoices, content scheduling and logistics — all connected across one system where every module informs the others.
         </p>
 
         <button
@@ -125,7 +125,7 @@ export default function JoinPage() {
           Five modules. One system. Career infrastructure.
         </h2>
         <p style={{ fontSize: '13px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8' }}>
-          Everything is connected. A gig informs your content. A track seeds your set. A release syncs your campaign. The system learns your practice and moves with it.
+          Everything is connected. A confirmed gig feeds your schedule. A release syncs your campaign. A tour updates your logistics. The system handles the infrastructure so you can focus on the work.
         </p>
       </section>
 
@@ -163,10 +163,10 @@ export default function JoinPage() {
           fontWeight: 300, letterSpacing: '0.04em',
           color: C.text, marginBottom: '16px',
         }}>
-          It remembers. It compounds.
+          Less admin. More bandwidth.
         </h2>
         <p style={{ fontSize: '13px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8', maxWidth: '480px', margin: '0 auto' }}>
-          Every input sharpens every output. The more you work, the less the system needs to be told.
+          Every module shares context. Gig logistics, invoicing, scheduling, comms — handled in one place so the creative work stays yours.
         </p>
       </section>
 
@@ -180,10 +180,10 @@ export default function JoinPage() {
           color: C.text, maxWidth: '680px', margin: '0 auto 20px',
           lineHeight: 1.3,
         }}>
-          Right now your career lives across six tabs, a dead spreadsheet, and a group chat you muted in November.
+          It takes care of all the friction so you can concentrate on the music.
         </h2>
         <p style={{ fontSize: '12px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8' }}>
-          Signal Lab OS replaces the patchwork with a single connected system — one that already knows what you need next.
+          The gigs, the invoices, the logistics, the scheduling — handled. Everything else is yours.
         </p>
       </section>
 

@@ -852,8 +852,8 @@ export default function Dashboard() {
     },
     {
       href: '/setlab', label: 'Set Lab', accent: '#6b8aad',
-      title: 'Build a set',
-      desc: 'Key analysis, energy arc, crowd favourites, track intelligence.',
+      title: 'Analyse your sets',
+      desc: 'Key analysis, energy arc, play history, track intelligence.',
     },
     {
       href: '/sonix', label: 'SONIX Lab', accent: '#ad6b8a',

@@ -40,6 +40,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const profile = settings?.profile || {}
     const payment = settings?.payment || {}
+    const hideBranding = profile.hide_invoice_branding === true || payment.hide_invoice_branding === true
     const artistName = invoice.artist_name || payment.legal_name || profile.name || 'Artist'
     const address = (payment.address || '160DL Studios, Dalston Lane\nLondon E8 1NG').replace(/\n/g, '<br>')
     const vatNumber = payment.vat_number || profile.vatNumber || ''
@@ -197,13 +198,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     <p style="margin-bottom:2px">${artistName} &nbsp;|&nbsp; ${address.replace(/<br>/g, ', ')}</p>
     <p style="margin-bottom:2px">${(payment.email || profile.email || 'advancingabsolute@gmail.com').replace('@', '&#64;')}</p>
     ${vatNumber ? `<p style="margin-bottom:12px">${isAUD ? 'ABN' : 'VAT'}: ${vatNumber}</p>` : '<p style="margin-bottom:12px"></p>'}
-    <a href="https://signallabos.com/join" style="display:inline-flex;align-items:center;gap:6px;color:#bbb;text-decoration:none;font-size:10px">
+    ${hideBranding ? '' : `<a href="https://signallabos.com/join" style="display:inline-flex;align-items:center;gap:6px;color:#bbb;text-decoration:none;font-size:10px">
       <svg width="14" height="14" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
         <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.5"/>
         <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
       Signal Lab OS
-    </a>
+    </a>`}
   </div>
 
 </div>

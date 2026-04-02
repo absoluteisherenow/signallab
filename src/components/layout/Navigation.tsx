@@ -30,6 +30,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'SONIX Lab', href: '/sonix', sub: [] },
       { label: 'Tour Lab', href: '/gigs', sub: [] },
       { label: 'Drop Lab', href: '/releases', sub: [] },
+      { label: 'Mind', href: '/meditate', sub: [] },
     ],
   },
 ]

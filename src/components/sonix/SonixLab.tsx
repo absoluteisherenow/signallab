@@ -392,25 +392,27 @@ Be specific. Real BPM and key. Real techniques with actual settings.`,
         ? `Reference track key sounds: ${referenceIntel.key_sounds.join(', ')}. Mix character: ${referenceIntel.mix_notes}.`
         : ''
       const raw = await callClaude(
-        `You are an expert electronic music composer. Return ONLY valid JSON, no markdown.`,
-        `Generate chord voicings for a producer making: "${sonicWorld.making || sonicWorld.genre || 'electronic music'}"
-Key: ${sonicWorld.key || 'A minor'}
+        `You are a music theory translator for electronic music producers. Your job is to take a producer's creative intent and give them the actual notes — no theory labels, no Roman numerals, just playable information. The creative decisions are already made by the producer. You are removing theory as a blocker, not making creative choices. Return ONLY valid JSON, no markdown.`,
+        `The producer has already decided what they are making: "${sonicWorld.making || sonicWorld.genre || 'electronic music'}"
+Key they are working in: ${sonicWorld.key || 'A minor'}
 Genre: ${sonicWorld.genre}
-${sonicWorld.soundsLike.length ? `Sounds like: ${sonicWorld.soundsLike.join(', ')}` : ''}
+${sonicWorld.soundsLike.length ? `Their reference artists: ${sonicWorld.soundsLike.join(', ')}` : ''}
 ${refCtx}
+
+Translate their key into actual chord voicings they can play directly — chords that work in this key and fit the genre and references they have already chosen. Also surface one interval pattern common in this style that they could use as a starting point to react against.
 
 Return JSON:
 {
   "voicings": [
-    { "name": "<chord name>", "notes": "<actual note names with octave, e.g. 'A2 · E3 · A3 · C4 · E4'>", "character": "<one sentence on feel/use>" },
-    { "name": "<chord name>", "notes": "<actual notes>", "character": "<feel>" },
-    { "name": "<chord name>", "notes": "<actual notes>", "character": "<feel>" },
-    { "name": "<chord name>", "notes": "<actual notes>", "character": "<feel>" }
+    { "name": "<chord name>", "notes": "<actual note names with octave, e.g. 'A2 · E3 · A3 · C4 · E4'>", "character": "<one sentence on where this sits in the genre — what context it appears in>" },
+    { "name": "<chord name>", "notes": "<actual notes>", "character": "<context>" },
+    { "name": "<chord name>", "notes": "<actual notes>", "character": "<context>" },
+    { "name": "<chord name>", "notes": "<actual notes>", "character": "<context>" }
   ],
-  "motif": "<Describe a melodic motif using interval directions — e.g. 'root, up minor 3rd to C, down a step to B, hold 2 beats, resolve up to D'>"
+  "motif": "<An interval pattern common in this style — describe with actual note names and directions, e.g. 'A3, up to C4, down to G3, hold 2 beats'. This is a reference pattern from the genre, not a prescription.>"
 }
 
-Real note names only. No Roman numerals. No theory labels. Notes a producer can play directly.`,
+Real note names only. No Roman numerals. No theory labels. Notes the producer can play directly.`,
         600
       )
       const cleaned = raw.replace(/```json|```/g, '').trim()
@@ -465,23 +467,24 @@ Give me:
         ? `Reference energy arc: [${referenceIntel.energy_arc.join(', ')}]. Reference techniques: ${referenceIntel.techniques.map(t => t.name).join(', ')}.`
         : ''
       const raw = await callClaude(
-        `You are an expert electronic music arranger. Return ONLY valid JSON, no markdown.`,
-        `Create a detailed arrangement for:
-Making: ${sonicWorld.making || sonicWorld.genre + ' track'}
+        `You are a structural analyst for electronic music. Your job is to show how tracks in a given genre and style are typically structured — derived from the producer's own reference artists and intent. You are providing a framework based on how their references work, not making creative decisions. The producer decides what to do with this information. Return ONLY valid JSON, no markdown.`,
+        `The producer is making: ${sonicWorld.making || sonicWorld.genre + ' track'}
 Key: ${sonicWorld.key}
 BPM: ${sonicWorld.bpm || '130'}
 Genre: ${sonicWorld.genre}
-${sonicWorld.soundsLike.length ? `Reference artists: ${sonicWorld.soundsLike.join(', ')}` : ''}
+${sonicWorld.soundsLike.length ? `Their reference artists: ${sonicWorld.soundsLike.join(', ')}` : ''}
 ${refIntelCtx}
+
+Based on how tracks in this genre and by these reference artists are typically structured, provide a structural framework. This is a reference map derived from the genre — the producer will adapt it to their own vision. Include what elements typically appear in each section, and what production techniques are common at each stage in this style.
 
 Return JSON:
 {
   "sections": [
-    { "name": "Intro", "bars": 8, "energy": 2, "elements": "<what's playing>", "notes": "<production tip>" },
+    { "name": "Intro", "bars": 8, "energy": 2, "elements": "<what typically plays in this section in this genre>", "notes": "<what the reference artists typically do here>" },
     ... continue through full track including Build, Drop, Breakdown, Build 2, Drop 2, Outro
   ],
-  "key_moments": ["<e.g. 'Drop hits bar 32 — remove all reverb on kick for impact'>", "<moment 2>"],
-  "production_tips": ["<specific tip 1>", "<specific tip 2>", "<specific tip 3>"]
+  "key_moments": ["<structural moment common in this style — e.g. 'Tension builds at bar 28 — reference artists often strip back to just percussion here'>", "<moment 2>"],
+  "production_tips": ["<technique common in this genre at this stage>", "<tip 2>", "<tip 3>"]
 }`,
         800
       )
@@ -987,7 +990,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
           const devices = [
             { name: 'Chord Engine', desc: 'Play one note, get a full chord. Pick a key, set how jazzy you want it, and play.', specs: '10 keys · Major, minor, diminished · Extensions up to 13ths', steps: ['Pick your key (A minor, C major, etc.)', 'Turn the Tension knob — low = simple triads, high = jazzy extensions', 'Play any MIDI note → out comes the full chord'], download: '/downloads/SL_Chord_Engine.amxd' },
             { name: 'Plugin Scanner', desc: 'Scans every plugin on your machine and syncs the list to Signal Lab. Powers smart mix suggestions.', specs: 'Mac + Windows · VST3 · Audio Units · Automatic sync', steps: ['Drop it on any track in Ableton', 'Hit Scan — finds all your VST3 and AU plugins', 'List syncs to your Signal Lab account automatically'], download: '/downloads/SL_Scanner.amxd' },
-            { name: 'Mix Chain', desc: 'One-click mixing presets. Pick a sound type, get a full effects chain loaded instantly.', specs: '12 presets · Vocal · Bass · Synth · Drums · Stock + VST', steps: ['Pick your sound type (Vocal, Bass, Synth, Drum, etc.)', 'Choose a flavour (Warmth, Presence, Punch, Dark…)', 'Chain loads automatically — Stock or VST versions available'], download: null },
+            { name: 'Mix Chain', desc: 'Preset starting points for common stem types. Loads a signal chain to work from — you take it from there.', specs: '12 presets · Vocal · Bass · Synth · Drums · Stock + VST', steps: ['Pick your sound type (Vocal, Bass, Synth, Drum, etc.)', 'Choose a flavour (Warmth, Presence, Punch, Dark…)', 'Chain loads as a starting point — adjust everything to your ear'], download: null },
             { name: 'Signal Genius', desc: 'Your production assistant inside Ableton. Ask anything about your session — mixing, arrangement, sound design.', specs: 'Context-aware · Knows your plugins', steps: ['Opens a chat panel inside Ableton', 'Ask anything — "How do I get this bass sound thicker?"', 'Gets answers tailored to your plugins and workflow'], download: null },
             { name: 'Chord Lab', desc: 'Visual chord theory right inside Ableton. See chord shapes, inversions, and voicings without leaving your session.', specs: 'Visual · Interactive chord browser · Theory reference', steps: ['Opens a visual panel inside Ableton', 'Browse chords by key and type', 'Click to hear — drag to your MIDI clip'], download: null },
             { name: 'Artist OS Bridge', desc: 'Connects Ableton directly to your Signal Lab dashboard. Your session data flows into your artist profile.', specs: 'Background sync · Feeds your dashboard · Zero friction', steps: ['Runs in the background on any track', 'Syncs session info to your Signal Lab profile', 'Powers smart suggestions across the whole platform'], download: null },

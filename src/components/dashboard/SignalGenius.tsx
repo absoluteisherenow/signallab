@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useMobile } from '@/hooks/useMobile'
 
+// Module-level guard — shared across all component instances
+let uploadInProgress = false
+
 interface Message {
   id: string
   role: 'user' | 'assistant'
@@ -88,6 +91,8 @@ export function SignalGenius() {
   const [creatingInvoice, setCreatingInvoice] = useState(false)
   const [pendingEmail, setPendingEmail] = useState<{ html: string; invoiceId: string } | null>(null)
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [pendingEmailFindings, setPendingEmailFindings] = useState<any[]>([])
+  const [importingEmails, setImportingEmails] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -166,9 +171,8 @@ export function SignalGenius() {
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    // Clear input immediately to prevent double-fire
-    e.target.value = ''
-    if (uploading || loading) return
+    if (uploadInProgress) return
+    uploadInProgress = true
     setUploading(true)
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: `📎 ${file.name}` }
     const assistantId = crypto.randomUUID()
@@ -181,32 +185,50 @@ export function SignalGenius() {
       formData.append('context', 'Extract all data from this document: amounts, currencies, dates, parties, line items, totals, reference numbers. Return raw extracted data only — no commentary.')
 
       const res = await fetch('/api/analyse-document', { method: 'POST', body: formData })
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) throw new Error('Failed to read document')
       const data = await res.json()
-      const extracted = data.text || 'Could not read document'
+      if (data.error) throw new Error(data.error)
+      const extracted = data.text || ''
+      if (!extracted) throw new Error('Empty response')
 
-      // Feed the extracted data through Signal so it can respond naturally
-      const fullResponse = await streamClaude(
-        buildSystemPrompt(),
-        [
-          ...messages,
-          userMsg,
-          {
-            role: 'user',
-            content: `I just uploaded "${file.name}". Here is the extracted content:\n\n${extracted}\n\nRespond in one sentence only — name what it is and the key amount. Then on a new line ask: "Shall I create your invoice for that?" No markdown, no headers, no bullet points. If you have enough data to create the invoice, end your message with the [INVOICE_READY:{...}] marker as instructed.`,
+      try {
+        // Filter out any empty-content messages — Anthropic API rejects them
+        const cleanHistory = messages.filter(m => m.content && m.content.trim() !== '').map(m => ({ role: m.role, content: m.content }))
+        const fullResponse = await streamClaude(
+          buildSystemPrompt(),
+          [
+            ...cleanHistory,
+            { role: userMsg.role, content: userMsg.content },
+            {
+              role: 'user',
+              content: `I just uploaded "${file.name}". Here is the extracted content:\n\n${extracted}\n\nRespond in one sentence only — name what it is and the key amount. Then on a new line ask: "Shall I create your invoice for that?" No markdown, no headers, no bullet points. If you have enough data to create the invoice, end your message with the [INVOICE_READY:{...}] marker as instructed.`,
+            },
+          ],
+          (partialText) => {
+            const display = partialText.replace(/\[INVOICE_READY:[^\]]*\]/g, '').trim()
+            setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: display } : m))
           },
-        ],
-        (partialText) => {
-          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: partialText } : m))
-        },
-      )
-      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullResponse } : m))
-      speakResponse(fullResponse)
+        )
+        const invoiceMatch = fullResponse.match(/\[INVOICE_READY:(\{.*?\})\]/)
+        const displayText = fullResponse.replace(/\[INVOICE_READY:[^\]]*\]/g, '').trim()
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: displayText } : m))
+        if (invoiceMatch) {
+          try {
+            setPendingInvoice(JSON.parse(invoiceMatch[1]))
+            setCreatedInvoice(null)
+            setPendingEmail(null)
+          } catch { /* malformed JSON */ }
+        }
+        speakResponse(displayText)
+      } catch {
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: 'Something went wrong — try again.' } : m))
+      }
     } catch {
       setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: 'Failed to read document — try again.' } : m))
     } finally {
       setLoading(false)
       setUploading(false)
+      uploadInProgress = false
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
@@ -260,6 +282,110 @@ export function SignalGenius() {
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 100)
   }, [open])
+
+  // Auto-scan inbox every 25 minutes — surfaces findings in Signal for confirmation
+  useEffect(() => {
+    function buildEmailSummary(findings: any[]): string {
+      const lines = findings.map((f: any) => {
+        const e = f.extracted || {}
+        switch (f.type) {
+          case 'new_gig':
+            return `a gig booking — ${e.title || 'new show'}${e.venue ? ` at ${e.venue}` : ''}${e.date ? ` on ${e.date}` : ''}${e.fee ? ` (${e.currency || ''}${e.fee})` : ''}`
+          case 'hotel':
+            return `a hotel booking — ${e.name || 'hotel'}${e.check_in ? `, ${e.check_in}` : ''}${e.cost ? ` (${e.currency || ''}${e.cost})` : ''}`
+          case 'flight':
+            return `a flight — ${e.name || ''} ${e.flight_number || ''} ${e.from || ''} → ${e.to || ''}${e.departure_at ? ` · ${e.departure_at.slice(0, 16).replace('T', ' ')}` : ''}`
+          case 'train':
+            return `a train — ${e.name || ''} ${e.from || ''} → ${e.to || ''}${e.departure_at ? ` · ${e.departure_at.slice(0, 16).replace('T', ' ')}` : ''}`
+          case 'invoice':
+            return `an invoice — ${e.description || e.gig_title || 'payment'}${e.amount ? ` (${e.currency || ''}${e.amount})` : ''}`
+          case 'release':
+            return `a release confirmation — ${e.title || 'release'}${e.type ? ` (${e.type})` : ''}`
+          case 'rider':
+            return `a rider confirmation${f.subject ? ` — "${f.subject}"` : ''}`
+          case 'tech_spec':
+            return `a tech spec${f.subject ? ` — "${f.subject}"` : ''}`
+          case 'gig_update':
+            return `a gig update${e.update ? ` — ${e.update}` : ''}`
+          default:
+            return `a ${f.type} email`
+        }
+      })
+      const intro = findings.length === 1
+        ? `Something came in for you —`
+        : `${findings.length} things came in for you —`
+      return `${intro} ${lines.join('; ')}.\n\nShall I add ${findings.length === 1 ? 'it' : 'these'} to your schedule?`
+    }
+
+    async function checkEmailInbox() {
+      const THROTTLE_MS = 25 * 60 * 1000
+      const last = localStorage.getItem('sg_email_scan_at')
+      if (last && Date.now() - parseInt(last) < THROTTLE_MS) return
+      localStorage.setItem('sg_email_scan_at', Date.now().toString())
+
+      try {
+        const res = await fetch('/api/gmail/scan')
+        if (!res.ok) return
+        const data = await res.json()
+        const findings: any[] = data.findings || []
+        if (findings.length === 0) return
+
+        // Filter out already-surfaced or dismissed findings
+        const surfaced: string[] = JSON.parse(localStorage.getItem('sg_surfaced_emails') || '[]')
+        const dismissed: string[] = JSON.parse(localStorage.getItem('sg_dismissed_emails') || '[]')
+        const newFindings = findings.filter((f: any) =>
+          !surfaced.includes(f.messageId) && !dismissed.includes(f.messageId)
+        )
+        if (newFindings.length === 0) return
+
+        // Mark as surfaced
+        const updated = [...surfaced, ...newFindings.map((f: any) => f.messageId)].slice(-200)
+        localStorage.setItem('sg_surfaced_emails', JSON.stringify(updated))
+
+        setPendingEmailFindings(newFindings)
+        const summary = buildEmailSummary(newFindings)
+        setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: summary }])
+      } catch {
+        // Silent — no Gmail connected or network error
+      }
+    }
+
+    checkEmailInbox()
+    const t = setInterval(checkEmailInbox, 25 * 60 * 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  async function handleImportEmailFindings() {
+    if (pendingEmailFindings.length === 0) return
+    setImportingEmails(true)
+    try {
+      const res = await fetch('/api/gmail/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ findings: pendingEmailFindings }),
+      })
+      const data = await res.json()
+      if (!data.ok) throw new Error('Import failed')
+      const count = (data.created || []).length
+      const msg = count > 0
+        ? `Done. ${count} item${count !== 1 ? 's' : ''} added to your schedule.`
+        : 'Done — everything checked.'
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: msg }])
+      setPendingEmailFindings([])
+    } catch {
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: 'Something went wrong importing those — try again.' }])
+    } finally {
+      setImportingEmails(false)
+    }
+  }
+
+  function handleDismissEmailFindings() {
+    // Store dismissed message IDs in localStorage so they're never re-surfaced
+    const dismissed: string[] = JSON.parse(localStorage.getItem('sg_dismissed_emails') || '[]')
+    const updated = [...dismissed, ...pendingEmailFindings.map((f: any) => f.messageId)].slice(-200)
+    localStorage.setItem('sg_dismissed_emails', JSON.stringify(updated))
+    setPendingEmailFindings([])
+  }
 
   function buildSystemPrompt(): string {
     const today = new Date().toISOString().slice(0, 10)
@@ -401,6 +527,14 @@ You speak like a knowledgeable friend who happens to be brilliant at all of thes
 
 Never say you're an AI or assistant. You're Signal. You have the artist's full business context below.
 
+CREATIVE SOVEREIGNTY — this is absolute:
+- The art of DJing — reading the room, selecting records, building energy, the decisions made in the moment — belongs entirely to the artist. Signal never replaces or overrides that.
+- When it comes to mix analysis or set feedback, Signal provides information and technical observations only. What the artist does with that information is always their call.
+- Signal never tells an artist what to play, what order to play it in, or how to DJ. It can surface data, patterns, or technical issues — the artistic response to that data is the artist's alone.
+- Never frame analysis as "you should play X" or "this is the right move creatively." Frame it as "here's what the data shows" or "here's what I'm hearing technically."
+- The same principle applies to production: Signal can analyse technical elements (frequency balance, arrangement structure, level issues) but never makes aesthetic judgements about whether something sounds good. Taste is not Signal's domain.
+- ONE EXCEPTION — surfacing from the artist's own history: If the artist asks for track suggestions or set ideas, Signal can work from data they have already inputted — play history, library scans, previous sets, key/BPM data, patterns in what they've chosen before. This is the artist's own taste and knowledge reflected back at them, not an external opinion. The point is to help them evolve faster as themselves — not toward some generic ideal. Always frame it as working from their own history and patterns. Present options, never a single prescription. Never introduce tracks or artists outside what they've already put into the system.
+
 CRITICAL DJ KNOWLEDGE — never get these wrong:
 - DJs do NOT soundcheck. They arrive, plug in USB/laptop, and play. There is no soundcheck for DJs. Only live bands soundcheck.
 - DJs do NOT use microphones on stage (unless MCing, which this artist does not do).
@@ -419,8 +553,11 @@ Rules:
 - Format with line breaks for readability, not markdown headers.
 - Currency: use the same currency as the artist's invoices/gigs.
 - BANK ACCOUNT CURRENCY MATCHING — CRITICAL: When building or referencing an invoice, always use the bank account whose currency matches the invoice currency. If the invoice is in EUR, use the EUR bank account. If GBP, use the GBP account. If a document is uploaded and its amounts are in a specific currency, automatically use the matching bank account for any invoice you build from it. Never mix currencies across bank accounts.
+- INTERMEDIARY BANK DETAILS: Only include intermediary bank details when the payment is coming from outside the EU to an EU account (e.g. a US or UK promoter paying in EUR). For EU-to-EU transfers, intermediary details are not needed and should not be included.
 - OUTGOING CORRESPONDENCE — CRITICAL: Never send any email, invoice, or message without first showing the exact copy to the artist and receiving explicit confirmation. This applies every single time, with no exceptions. Show the full text before any send action.
-- INVOICE CREATION: When you have enough data to create an invoice (from a document upload, a conversation, or a confirmed gig), append this marker at the very end of your message (after all your text): [INVOICE_READY:{"gig_title":"...","amount":0.00,"currency":"EUR","due_date":"YYYY-MM-DD","artist_name":"...","wht_rate":null,"notes":"..."}] — fill in every field you know, leave unknown fields null. Only include this marker when you are ready to create the invoice and have asked the artist to confirm.`
+- INVOICE CREATION: When you have enough data to create an invoice (from a document upload, a conversation, or a confirmed gig), append this marker at the very end of your message (after all your text): [INVOICE_READY:{"gig_title":"...","amount":0.00,"currency":"EUR","due_date":"YYYY-MM-DD","artist_name":"...","wht_rate":null,"notes":"..."}] — fill in every field you know, leave unknown fields null. Only include this marker when you are ready to create the invoice and have asked the artist to confirm.
+- PAYMENT TERMS — ROYALTIES & STATEMENTS: Default due_date is 7 days from today. Money has already been received by the label/distributor so payment should be prompt.
+- PAYMENT TERMS — GIG INVOICES: Always split into two invoices unless contract states otherwise. Deposit invoice: 50% of fee, due_date is today (invoice date). Balance invoice: 50% of fee, due_date is 7 days before the performance date. If you only have enough info for one invoice, raise the deposit first and flag that the balance invoice needs to be raised separately. Never use a single full-amount invoice for gigs unless the artist explicitly asks.`
   }
 
   async function handleSend(text?: string) {
@@ -438,7 +575,7 @@ Rules:
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }])
 
     try {
-      const conversationHistory = newMessages.map(m => ({ role: m.role, content: m.content }))
+      const conversationHistory = newMessages.filter(m => m.content && m.content.trim() !== '').map(m => ({ role: m.role, content: m.content }))
       const fullResponse = await streamClaude(
         buildSystemPrompt(),
         conversationHistory,
@@ -775,6 +912,60 @@ Rules:
                   opacity: sendingEmail ? 0.6 : 1,
                 }}>
                 {sendingEmail ? 'Sending...' : 'Confirm & send →'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Email inbox findings confirmation */}
+        {pendingEmailFindings.length > 0 && !loading && (
+          <div style={{
+            alignSelf: 'flex-start', padding: '14px 16px',
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(176,141,87,0.25)',
+            maxWidth: '100%', width: '100%',
+          }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '10px' }}>
+              {pendingEmailFindings.length} item{pendingEmailFindings.length !== 1 ? 's' : ''} from inbox
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '12px' }}>
+              {pendingEmailFindings.map((f: any, i: number) => {
+                const e = f.extracted || {}
+                let detail = ''
+                if (f.type === 'new_gig') detail = `${e.title || 'Gig'}${e.venue ? ` · ${e.venue}` : ''}${e.date ? ` · ${e.date}` : ''}`
+                else if (f.type === 'hotel') detail = `${e.name || 'Hotel'}${e.check_in ? ` · ${e.check_in}` : ''}`
+                else if (f.type === 'flight') detail = `${e.flight_number || 'Flight'} ${e.from || ''} → ${e.to || ''}`
+                else if (f.type === 'train') detail = `${e.name || 'Train'} ${e.from || ''} → ${e.to || ''}`
+                else if (f.type === 'invoice') detail = `${e.description || e.gig_title || 'Invoice'}${e.amount ? ` · ${e.currency || ''}${e.amount}` : ''}`
+                else if (f.type === 'release') detail = `${e.title || 'Release'}`
+                else detail = f.subject || f.type
+                return (
+                  <div key={i} style={{ fontSize: '11px', color: 'var(--text-dim)', lineHeight: 1.5 }}>
+                    <span style={{ color: 'var(--gold)', marginRight: '6px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      {f.type.replace('_', ' ')}
+                    </span>
+                    {detail}
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleDismissEmailFindings}
+                style={{
+                  background: 'transparent', border: '1px solid var(--border-dim)',
+                  color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px',
+                  letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 14px',
+                  cursor: 'pointer',
+                }}>
+                Dismiss
+              </button>
+              <button onClick={handleImportEmailFindings} disabled={importingEmails}
+                style={{
+                  background: 'var(--gold)', border: 'none', color: '#070706',
+                  fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
+                  textTransform: 'uppercase', padding: '7px 16px', cursor: 'pointer',
+                  opacity: importingEmails ? 0.6 : 1,
+                }}>
+                {importingEmails ? 'Adding...' : 'Add to schedule →'}
               </button>
             </div>
           </div>

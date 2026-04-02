@@ -102,7 +102,7 @@ export default function PricingPage() {
       <section style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 48px 80px', textAlign: 'center', borderBottom: `1px solid ${COLORS.border}` }}>
         <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: COLORS.gold, textTransform: 'uppercase', marginBottom: '32px' }}>Creator to Pro</div>
         <h1 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', fontWeight: 300, letterSpacing: '0.04em', lineHeight: 1.1, marginBottom: '20px', maxWidth: '900px' }}>One system for every stage of your career.</h1>
-        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>From first release to full touring. All tiers include music production, content, DJ tools, and tour management. No hidden fees. No feature gates.</p>
+        <p style={{ fontSize: '13px', color: COLORS.textDim, lineHeight: '1.8', maxWidth: '640px', letterSpacing: '0.04em', marginBottom: '40px' }}>From first release to full touring. All tiers include production analysis, content scheduling, DJ tools, and tour management. No hidden fees. No feature gates.</p>
       </section>
 
       {/* PRICING TIERS */}
@@ -178,7 +178,7 @@ export default function PricingPage() {
                   ['Invoicing', '✓', '✗', '✗'],
                   ['Content scheduling', '✓', '✗', '✗'],
                   ['Smart captions', '✓', '✗', '✗'],
-                  ['Music production (Sonix)', '✓', '✗', '✗'],
+                  ['Production analysis (Sonix)', '✓', '✗', '✗'],
                   ['DJ tools', '✓', '✗', '✗'],
                   ['Multi-artist mgmt', '✓ (Label+)', '✗', '✗'],
                   ['Cost per show*', '£2.95', '£150', '—'],
