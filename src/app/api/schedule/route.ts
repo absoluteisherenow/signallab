@@ -57,6 +57,23 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id } = await req.json()
+    if (!id) return NextResponse.json({ success: false, error: 'id required' }, { status: 400 })
+
+    const { error } = await supabase
+      .from('scheduled_posts')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+  }
+}
+
 export async function GET() {
   try {
     const { data, error } = await supabase

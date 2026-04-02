@@ -860,8 +860,15 @@ export function BroadcastCalendar() {
             <button onClick={() => window.location.href = '/broadcast'} style={{ flex: 1, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '10px', background: 'transparent', border: `1px solid ${s.gold}`, color: s.gold, cursor: 'pointer' }}>
               Edit
             </button>
-            <button onClick={() => setSelectedPost(null)} style={{ fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '10px 14px', background: 'transparent', border: `1px solid ${s.border}`, color: s.dim, cursor: 'pointer' }}>
-              Close
+            <button onClick={async () => {
+              const id = selectedPost.id
+              setSelectedPost(null)
+              try {
+                await fetch('/api/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+                setPosts(prev => prev.filter(p => p.id !== id))
+              } catch {}
+            }} style={{ fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '10px 14px', background: 'transparent', border: '1px solid rgba(180,60,60,0.4)', color: '#b43c3c', cursor: 'pointer' }}>
+              Delete
             </button>
           </div>
         </div>
