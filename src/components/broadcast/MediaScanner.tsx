@@ -6,7 +6,7 @@ import { SCAN_TIERS, DEFAULT_TIER } from '@/lib/scanTiers'
 import { supabase } from '@/lib/supabase'
 import { SKILLS_MEDIA_SCANNER } from '@/lib/skillPromptsClient'
 
-const USER_TIER = DEFAULT_TIER  // 'artist' — 10 per batch, 60/month
+const USER_TIER = 'pro' as const  // 25 per batch, 150/month
 
 interface MediaMoment {
   timestamp: number
@@ -132,6 +132,28 @@ async function extractFrames(file: File, count = 12): Promise<{ dataUrl: string;
   })
 }
 
+async function extractImageFrame(file: File): Promise<{ dataUrl: string; timestamp: number }[]> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')!
+    img.onload = () => {
+      // Scale down to max 720px wide
+      const scale = Math.min(1, 720 / img.width)
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve([{ dataUrl: canvas.toDataURL('image/jpeg', 0.8), timestamp: 0 }])
+      URL.revokeObjectURL(img.src)
+    }
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+function isImageFile(file: File) {
+  return file.type.startsWith('image/')
+}
+
 function compositeScore(r: ScanResult) {
   return Math.round((r.content_score.engagement + r.content_score.brand_alignment + r.content_score.virality) / 3)
 }
@@ -177,13 +199,13 @@ export function MediaScanner() {
 
   function addFiles(incoming: FileList | null) {
     if (!incoming) return
-    const videos = Array.from(incoming).filter(f => f.type.startsWith('video/'))
-    if (!videos.length) { setError('Please select video files'); return }
+    const media = Array.from(incoming).filter(f => f.type.startsWith('video/') || f.type.startsWith('image/'))
+    if (!media.length) { setError('Please select video or image files'); return }
     setFiles(prev => {
       const names = new Set(prev.map(f => f.name))
-      const merged = [...prev, ...videos.filter(f => !names.has(f.name))]
+      const merged = [...prev, ...media.filter(f => !names.has(f.name))]
       if (merged.length > tierLimits.batchLimit) {
-        setError(`Your plan allows ${tierLimits.batchLimit} clips per batch`)
+        setError(`Your plan allows ${tierLimits.batchLimit} files per batch`)
         return merged.slice(0, tierLimits.batchLimit)
       }
       setError('')
@@ -205,26 +227,80 @@ export function MediaScanner() {
 
   async function scanFile(file: File, index: number, total: number): Promise<FileScan> {
     setScanningIndex(index)
-    setProgressLabel(`Extracting frames from ${file.name}...`)
+    const isImage = isImageFile(file)
+    setProgressLabel(isImage ? `Analysing ${file.name}...` : `Extracting frames from ${file.name}...`)
     setProgress(Math.round((index / total) * 100 + 5))
 
-    const frames = await extractFrames(file, 8)
+    const frames = isImage ? await extractImageFrame(file) : await extractFrames(file, 8)
 
     setProgressLabel(`Analysing ${file.name} (${index + 1} of ${total})...`)
     setProgress(Math.round((index / total) * 100 + 30))
 
     const duration = frames[frames.length - 1]?.timestamp ?? 0
 
-    const raw = await callClaudeVision(
-      `You are an expert video editor and social media strategist for electronic music artists — Bicep, Floating Points, fred again.., Four Tet, Bonobo. You deeply understand what show footage performs in this world: raw, human, unpolished, in-the-room. You are looking at actual frames extracted from a show video.
+    const systemPrompt = isImage
+      ? `You are an expert visual content strategist for electronic music artists — Bicep, Floating Points, fred again.., Four Tet, Bonobo. You deeply understand what images and photos perform in this world: raw, atmospheric, authentic.
+
+${SKILLS_MEDIA_SCANNER}
+
+Analyse what you genuinely see in this image. Return ONLY valid JSON — no markdown, no explanation.`
+      : `You are an expert video editor and social media strategist for electronic music artists — Bicep, Floating Points, fred again.., Four Tet, Bonobo. You deeply understand what show footage performs in this world: raw, human, unpolished, in-the-room. You are looking at actual frames extracted from a show video.
 
 CRITICAL SOCIAL MEDIA RULE: The clip MUST start on the strongest, most attention-grabbing frame. The first 1-3 seconds decide everything on TikTok and Instagram Reels. Never bury the best moment in the middle — set best_clip_start AT or just before best_moment.timestamp so the hook is the opening frame. A strong hook = more loops = more reach.
 
 ${SKILLS_MEDIA_SCANNER}
 
-Analyse what you genuinely see in each frame. Return ONLY valid JSON — no markdown, no explanation.`,
-      frames,
-      `You are looking at ${frames.length} frames extracted from a show video called "${file.name}" (duration ~${duration.toFixed(0)}s).
+Analyse what you genuinely see in each frame. Return ONLY valid JSON — no markdown, no explanation.`
+
+    const textPrompt = isImage
+      ? `You are looking at a photo/image called "${file.name}".
+
+Analyse what you see:
+- SUBJECT: what's in the image — crowd, artist, studio, venue, record, equipment, landscape, abstract
+- LIGHTING: quality, colour, mood, drama
+- COMPOSITION: framing, depth, focus, visual interest
+- EMOTIONAL QUALITY: raw vs polished, authentic vs staged, atmospheric vs flat
+- PLATFORM FIT: would this stop a scroll on Instagram? Work as a grid post? A story?
+- AESTHETIC: does it fit the underground electronic music world
+
+Return JSON exactly:
+{
+  "best_moment": {
+    "timestamp": 0,
+    "frame_number": 1,
+    "score": <0-100>,
+    "reason": "<describe exactly what you see — subject, lighting, composition, why it works or doesn't>",
+    "type": "peak|crowd|lighting|transition|intimate"
+  },
+  "moments": [
+    { "timestamp": 0, "frame_number": 1, "score": <0-100>, "reason": "<what you see>", "type": "peak|crowd|lighting|transition|intimate" }
+  ],
+  "overall_energy": <1-10>,
+  "best_clip_start": 0,
+  "best_clip_end": 0,
+  "visual_quality": "<one sentence on image quality, lighting, sharpness, composition>",
+  "caption_context": "<one sentence describing what is in the image — use for caption generation>",
+  "post_recommendation": "<specific recommendation: grid post, story, carousel lead, skip>",
+  "content_score": {
+    "engagement": <0-100>,
+    "brand_alignment": <0-100>,
+    "virality": <0-100>,
+    "reasoning": "<based on what you see: subject, mood, composition, platform fit>"
+  },
+  "tags": ["<subject>", "<mood>", "<context if detectable>"],
+  "tone_match": "<which reference artist's aesthetic this feels closest to, and why>",
+  "platform_cuts": {
+    "instagram": "<grid post / carousel / skip — why>",
+    "tiktok": "<still image with audio / skip — why>",
+    "story": "<good for story / skip — why>"
+  },
+  "platform_ranking": [
+    { "platform": "Instagram Grid", "score": <0-100>, "reason": "<based on what you see>" },
+    { "platform": "Instagram Story", "score": <0-100>, "reason": "<based on what you see>" },
+    { "platform": "Carousel Lead", "score": <0-100>, "reason": "<would this work as the first image in a carousel>" }
+  ]
+}`
+      : `You are looking at ${frames.length} frames extracted from a show video called "${file.name}" (duration ~${duration.toFixed(0)}s).
 
 Each image is a real frame from the footage. Look carefully at:
 - CROWD: density, energy, movement, hands up, phones out, faces
@@ -274,9 +350,9 @@ Return JSON exactly:
     { "platform": "Instagram Reel", "score": <0-100>, "reason": "<based on what you see>" },
     { "platform": "Instagram Story", "score": <0-100>, "reason": "<based on what you see>" }
   ]
-}`,
-      2000
-    )
+}`
+
+    const raw = await callClaudeVision(systemPrompt, frames, textPrompt, 2000)
 
     const data = JSON.parse(raw.replace(/```json|```/g, '').trim())
     return { file, result: data, frames, composite: compositeScore(data) }
@@ -427,7 +503,7 @@ Return JSON exactly:
             <input
               ref={fileInputRef}
               type="file"
-              accept="video/*"
+              accept="video/*,image/*"
               multiple
               onChange={e => addFiles(e.target.files)}
               style={{ display: 'none' }}
@@ -435,8 +511,8 @@ Return JSON exactly:
             {files.length === 0 ? (
               <div>
                 <div style={{ fontSize: '32px', color: s.textDimmer, marginBottom: '12px' }}>⬆</div>
-                <div style={{ fontSize: '14px', color: s.textDim, marginBottom: '8px' }}>Drop show videos here</div>
-                <div style={{ fontSize: '11px', color: s.textDimmer }}>MP4, MOV, AVI · Multiple files supported</div>
+                <div style={{ fontSize: '14px', color: s.textDim, marginBottom: '8px' }}>Drop videos and photos here</div>
+                <div style={{ fontSize: '11px', color: s.textDimmer }}>MP4, MOV, JPG, PNG · Up to {tierLimits.batchLimit} files per batch</div>
               </div>
             ) : (
               <div>
@@ -479,7 +555,7 @@ Return JSON exactly:
               gap: '12px',
               boxShadow: '0 0 20px rgba(176,141,87,0.1)',
             }}>
-              {files.length > 1 ? `Scan all ${files.length} clips →` : 'Scan for best moments →'}
+              {files.length > 1 ? `Scan all ${files.length} files →` : 'Scan content →'}
             </button>
           )}
 
@@ -589,27 +665,33 @@ Return JSON exactly:
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase' }}>Best moment</div>
-                <button
-                  onClick={() => handleDownload(activeScan)}
-                  disabled={downloading}
-                  style={{
-                    background: downloading ? 'transparent' : 'rgba(176,141,87,0.08)',
-                    border: `1px solid ${downloading ? s.border : s.gold + '80'}`,
-                    color: downloading ? s.textDimmer : s.gold,
-                    fontFamily: s.font,
-                    fontSize: '9px',
-                    letterSpacing: '0.18em',
-                    textTransform: 'uppercase',
-                    padding: '6px 14px',
-                    cursor: downloading ? 'default' : 'pointer',
-                  }}
-                >
-                  {downloading ? 'Extracting...' : `↓ Download clip (${activeScan.result.best_clip_start?.toFixed(0) ?? '?'}s – ${activeScan.result.best_clip_end?.toFixed(0) ?? '?'}s)`}
-                </button>
+                {!isImageFile(activeScan.file) && (
+                  <button
+                    onClick={() => handleDownload(activeScan)}
+                    disabled={downloading}
+                    style={{
+                      background: downloading ? 'transparent' : 'rgba(176,141,87,0.08)',
+                      border: `1px solid ${downloading ? s.border : s.gold + '80'}`,
+                      color: downloading ? s.textDimmer : s.gold,
+                      fontFamily: s.font,
+                      fontSize: '9px',
+                      letterSpacing: '0.18em',
+                      textTransform: 'uppercase',
+                      padding: '6px 14px',
+                      cursor: downloading ? 'default' : 'pointer',
+                    }}
+                  >
+                    {downloading ? 'Extracting...' : `↓ Download clip (${activeScan.result.best_clip_start?.toFixed(0) ?? '?'}s – ${activeScan.result.best_clip_end?.toFixed(0) ?? '?'}s)`}
+                  </button>
+                )}
               </div>
-              <div style={{ fontSize: '36px', fontWeight: 300, color: s.gold, marginBottom: '6px', fontFamily: "'Unbounded', sans-serif", letterSpacing: '-0.02em' }}>
-                {activeScan.result.best_moment.timestamp.toFixed(1)}s
-              </div>
+              {!isImageFile(activeScan.file) ? (
+                <div style={{ fontSize: '36px', fontWeight: 300, color: s.gold, marginBottom: '6px', fontFamily: "'Unbounded', sans-serif", letterSpacing: '-0.02em' }}>
+                  {activeScan.result.best_moment.timestamp.toFixed(1)}s
+                </div>
+              ) : (
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Photo</div>
+              )}
               <div style={{ fontSize: '12px', color: s.textDim, marginBottom: '14px', lineHeight: '1.7' }}>
                 {activeScan.result.best_moment.reason}
               </div>
@@ -710,24 +792,26 @@ Return JSON exactly:
                 }}>
                   Write caption →
                 </button>
-                <button
-                  onClick={() => handleDownload(activeScan)}
-                  disabled={downloading}
-                  style={{
-                    background: 'transparent',
-                    border: `1px solid ${s.border}`,
-                    color: downloading ? s.textDimmer : s.textDim,
-                    fontFamily: s.font,
-                    fontSize: '10px',
-                    letterSpacing: '0.18em',
-                    textTransform: 'uppercase',
-                    padding: '14px 18px',
-                    cursor: downloading ? 'default' : 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {downloading ? 'Extracting...' : '↓ Best clip'}
-                </button>
+                {!isImageFile(activeScan.file) && (
+                  <button
+                    onClick={() => handleDownload(activeScan)}
+                    disabled={downloading}
+                    style={{
+                      background: 'transparent',
+                      border: `1px solid ${s.border}`,
+                      color: downloading ? s.textDimmer : s.textDim,
+                      fontFamily: s.font,
+                      fontSize: '10px',
+                      letterSpacing: '0.18em',
+                      textTransform: 'uppercase',
+                      padding: '14px 18px',
+                      cursor: downloading ? 'default' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {downloading ? 'Extracting...' : '↓ Best clip'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
