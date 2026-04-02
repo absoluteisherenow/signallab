@@ -22,8 +22,9 @@ export async function GET() {
       advance: { sender_name: 'NIGHT manoeuvres Management', reply_email: 'bookings@nightmanoeuvres.com' },
       aliases: [],
     }
-    // Ensure aliases array always exists
+    // Ensure arrays always exist
     if (!settings.aliases) settings.aliases = []
+    if (!settings.promo_list) settings.promo_list = []
     
     return NextResponse.json({ success: true, settings })
   } catch (err: any) {
@@ -34,7 +35,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { profile, team, advance, payment, tier, aliases } = body
+    const { profile, team, advance, payment, tier, aliases, promo_list } = body
 
     // Get existing settings to determine if we insert or update
     const { data: existing } = await supabase
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
     if (payment !== undefined) updates.payment = payment
     if (tier !== undefined) updates.tier = tier
     if (aliases !== undefined) updates.aliases = aliases
+    if (promo_list !== undefined) updates.promo_list = promo_list
 
     if (existing) {
       const { data, error } = await supabase

@@ -85,9 +85,26 @@ export default function Settings() {
   })
   const [aliases, setAliases] = useState<Alias[]>([])
   const [newAlias, setNewAlias] = useState({ name: '', genre: '' })
+
+  // Promo list state
+  const PROMO_TAGS = ['DJ', 'Label', 'Blog', 'Mate', 'PR', 'Other'] as const
+  interface PromoContact {
+    id: string
+    name: string
+    email?: string
+    whatsapp?: string
+    instagram?: string
+    tag?: string
+  }
+  const [promoList, setPromoList] = useState<PromoContact[]>([])
+  const [promoSaved, setPromoSaved] = useState(false)
+  const [promoSaving, setPromoSaving] = useState(false)
+  const [showAddPromo, setShowAddPromo] = useState(false)
+  const [editingPromoId, setEditingPromoId] = useState<string | null>(null)
+  const [promoForm, setPromoForm] = useState({ name: '', email: '', whatsapp: '', instagram: '', tag: '' })
   const [tier, setTier] = useState<'free' | 'pro'>('free')
   const [saved, setSaved] = useState(false)
-  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance' | 'payment' | 'aliases' | 'documents'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance' | 'payment' | 'aliases' | 'documents' | 'promo'>('profile')
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
@@ -257,6 +274,7 @@ export default function Settings() {
         }
         if (data.settings.aliases) setAliases(data.settings.aliases)
         if (data.settings.tier) setTier(data.settings.tier)
+        if (data.settings.promo_list) setPromoList(data.settings.promo_list)
       }
     } catch {
       // Settings load failed silently — empty state will show
@@ -303,8 +321,8 @@ export default function Settings() {
       <PageHeader
         section="Settings"
         title="Settings"
-        tabs={([...(['profile', 'team', 'integrations', 'advance', 'payment', 'documents'] as const), ...(tier === 'pro' ? ['aliases' as const] : [])]).map(tab => ({
-          label: tab === 'advance' ? 'Advance form' : tab === 'payment' ? 'Payment details' : tab === 'aliases' ? 'Aliases' : tab === 'documents' ? 'Vault' : tab,
+        tabs={([...(['profile', 'team', 'integrations', 'advance', 'payment', 'documents', 'promo'] as const), ...(tier === 'pro' ? ['aliases' as const] : [])]).map(tab => ({
+          label: tab === 'advance' ? 'Advance form' : tab === 'payment' ? 'Payment details' : tab === 'aliases' ? 'Aliases' : tab === 'documents' ? 'Vault' : tab === 'promo' ? 'Promo list' : tab,
           active: activeTab === tab,
           onClick: () => setActiveTab(tab),
         }))}
@@ -1114,6 +1132,191 @@ export default function Settings() {
               )
             })
           )}
+        </div>
+      )}
+
+      {/* PROMO LIST TAB */}
+      {activeTab === 'promo' && (
+        <div style={{ maxWidth: '640px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Promo list</div>
+              <button
+                onClick={() => { setShowAddPromo(true); setEditingPromoId(null); setPromoForm({ name: '', email: '', whatsapp: '', instagram: '', tag: '' }) }}
+                style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)', background: 'none', border: '1px solid var(--gold-dim)', padding: '5px 14px', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
+              >
+                + Add contact
+              </button>
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '24px' }}>
+              DJs, label contacts, blogs, press and mates — the people you send releases to.
+            </div>
+
+            {/* Add / Edit form */}
+            {(showAddPromo || editingPromoId) && (
+              <div style={{ background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '20px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>
+                  {editingPromoId ? 'Edit contact' : 'New contact'}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Name *</label>
+                    <input value={promoForm.name} onChange={e => setPromoForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Name or alias" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Tag</label>
+                    <select value={promoForm.tag} onChange={e => setPromoForm(f => ({ ...f, tag: e.target.value }))}
+                      style={{ ...inputStyle, cursor: 'pointer' }}>
+                      <option value="">No tag</option>
+                      {PROMO_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={labelStyle}>Email</label>
+                    <input type="email" value={promoForm.email} onChange={e => setPromoForm(f => ({ ...f, email: e.target.value }))}
+                      placeholder="email@example.com" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>WhatsApp</label>
+                    <input value={promoForm.whatsapp} onChange={e => setPromoForm(f => ({ ...f, whatsapp: e.target.value }))}
+                      placeholder="+447700900123" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Instagram</label>
+                    <input value={promoForm.instagram} onChange={e => setPromoForm(f => ({ ...f, instagram: e.target.value }))}
+                      placeholder="handle (no @)" style={inputStyle} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    disabled={!promoForm.name.trim()}
+                    onClick={async () => {
+                      if (!promoForm.name.trim()) return
+                      let updated: PromoContact[]
+                      if (editingPromoId) {
+                        updated = promoList.map(c => c.id === editingPromoId ? {
+                          ...c,
+                          name: promoForm.name,
+                          email: promoForm.email || undefined,
+                          whatsapp: promoForm.whatsapp || undefined,
+                          instagram: promoForm.instagram || undefined,
+                          tag: promoForm.tag || undefined,
+                        } : c)
+                      } else {
+                        updated = [...promoList, {
+                          id: crypto.randomUUID(),
+                          name: promoForm.name,
+                          email: promoForm.email || undefined,
+                          whatsapp: promoForm.whatsapp || undefined,
+                          instagram: promoForm.instagram || undefined,
+                          tag: promoForm.tag || undefined,
+                        }]
+                      }
+                      setPromoList(updated)
+                      setShowAddPromo(false)
+                      setEditingPromoId(null)
+                      setPromoSaving(true)
+                      try {
+                        await fetch('/api/settings', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ promo_list: updated }),
+                        })
+                        setPromoSaved(true)
+                        setTimeout(() => setPromoSaved(false), 2000)
+                      } finally { setPromoSaving(false) }
+                    }}
+                    style={{
+                      background: promoForm.name.trim() ? 'var(--gold)' : 'var(--border-dim)',
+                      color: '#070706', border: 'none', padding: '10px 20px',
+                      fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
+                      cursor: promoForm.name.trim() ? 'pointer' : 'not-allowed',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    {editingPromoId ? 'Update' : 'Add'}
+                  </button>
+                  <button
+                    onClick={() => { setShowAddPromo(false); setEditingPromoId(null) }}
+                    style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', padding: '10px 20px', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Contact list */}
+            {promoList.length === 0 ? (
+              <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', padding: '20px 0' }}>No contacts yet — add your first promo contact above.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {promoList.map(contact => (
+                  <div key={contact.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim)',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text)' }}>{contact.name}</span>
+                        {contact.tag && (
+                          <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.3)', padding: '2px 6px' }}>
+                            {contact.tag}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        {contact.email && <span style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>✉ {contact.email}</span>}
+                        {contact.whatsapp && <span style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>WhatsApp {contact.whatsapp}</span>}
+                        {contact.instagram && <span style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>@ {contact.instagram}</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                      <button
+                        onClick={() => {
+                          setEditingPromoId(contact.id)
+                          setShowAddPromo(false)
+                          setPromoForm({
+                            name: contact.name,
+                            email: contact.email || '',
+                            whatsapp: contact.whatsapp || '',
+                            instagram: contact.instagram || '',
+                            tag: contact.tag || '',
+                          })
+                        }}
+                        style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dimmer)', background: 'none', border: '1px solid var(--border-dim)', padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const updated = promoList.filter(c => c.id !== contact.id)
+                          setPromoList(updated)
+                          await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ promo_list: updated }),
+                          })
+                        }}
+                        style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dimmer)', background: 'none', border: '1px solid var(--border-dim)', padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {promoSaved && (
+              <div style={{ marginTop: '12px', fontSize: '10px', color: 'var(--green)', letterSpacing: '0.1em' }}>Promo list saved ✓</div>
+            )}
+          </div>
         </div>
       )}
 

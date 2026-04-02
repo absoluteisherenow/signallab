@@ -54,6 +54,15 @@ function dayLabel(offset: number) {
   return `${offset}d after`
 }
 
+interface PromoContact {
+  id: string
+  name: string
+  email?: string
+  whatsapp?: string
+  instagram?: string
+  tag?: string
+}
+
 export default function CampaignPage({ params }: { params: { id: string } }) {
   const [release, setRelease] = useState<Release | null>(null)
   const [posts, setPosts] = useState<CampaignPost[]>([])
@@ -67,6 +76,17 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
   const [editText, setEditText] = useState('')
   const [error, setError] = useState('')
+
+  // Promo service panel
+  const [promoList, setPromoList] = useState<PromoContact[]>([])
+  const [selectedPromo, setSelectedPromo] = useState<Set<string>>(new Set())
+  const [promoChannel, setPromoChannel] = useState<'email' | 'whatsapp' | 'instagram'>('email')
+  const [promoMessage, setPromoMessage] = useState('')
+  const [promoSending, setPromoSending] = useState(false)
+  const [promoSent, setPromoSent] = useState<string[]>([])
+  const [promoCopied, setPromoCopied] = useState<string | null>(null)
+  const [promoMessageGenerated, setPromoMessageGenerated] = useState(false)
+  const [generatingMessage, setGeneratingMessage] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -82,6 +102,13 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
       const res = await fetch(`/api/releases/${params.id}/campaign`)
       const json = await res.json()
       if (json.posts?.length) setSavedPosts(json.posts)
+
+      // Load promo list from settings
+      const settingsRes = await fetch('/api/settings')
+      const settingsJson = await settingsRes.json()
+      if (settingsJson.settings?.promo_list?.length) {
+        setPromoList(settingsJson.settings.promo_list)
+      }
     }
     load()
   }, [params.id])
@@ -199,6 +226,39 @@ Only include posts/actions you can actually see in the data — NEVER invent ext
     setPosts(updated)
     setEditingIdx(null)
     setSaved(false)
+  }
+
+  async function generatePromoMessage() {
+    if (!release) return
+    setGeneratingMessage(true)
+    try {
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 400,
+          system: `You write short, direct promo messages for electronic music artists sending releases to their network. No hype, no AI fluff — keep it personal and brief, like a real message between people in music. Never mention AI.`,
+          messages: [{
+            role: 'user',
+            content: `Write a short promo message for this release:
+Title: "${release.title}"
+Artist: ${release.artist || 'the artist'}
+Type: ${release.type}
+Label: ${release.label || 'self-released'}
+Release date: ${release.release_date}
+
+Write as if the artist is messaging their network directly. One paragraph, 2-4 sentences. Conversational. Include the release title and date. No subject line, no sign-off — just the message body.`,
+          }],
+        }),
+      })
+      const data = await res.json()
+      const text = data.content?.[0]?.text?.trim() || ''
+      if (text) {
+        setPromoMessage(text)
+        setPromoMessageGenerated(true)
+      }
+    } catch { /* silent */ } finally { setGeneratingMessage(false) }
   }
 
   const releaseDate = release ? new Date(release.release_date) : null
@@ -544,6 +604,247 @@ Only include posts/actions you can actually see in the data — NEVER invent ext
             </div>
           )}
         </div>
+      )}
+
+      {/* PROMO SERVICE PANEL */}
+      {release && (
+        <section style={{ borderTop: '1px solid var(--border-dim)', padding: '36px 52px 52px' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+            <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold)' }} />
+            Promo
+          </div>
+          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '16px', fontWeight: 300, letterSpacing: '0.03em', marginBottom: '6px' }}>
+            Service this release
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '28px' }}>
+            Send to your promo list via email, WhatsApp, or Instagram.
+            {promoList.length === 0 && (
+              <span> <Link href="/business/settings" style={{ color: 'var(--gold)' }}>Add contacts in Settings → Promo list</Link></span>
+            )}
+          </div>
+
+          {promoList.length > 0 && (
+            <>
+              {/* Channel selector */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+                {(['email', 'whatsapp', 'instagram'] as const).map(ch => (
+                  <button
+                    key={ch}
+                    onClick={() => setPromoChannel(ch)}
+                    style={{
+                      padding: '8px 20px', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
+                      fontFamily: 'var(--font-mono)', cursor: 'pointer',
+                      background: promoChannel === ch ? 'var(--gold)' : 'none',
+                      color: promoChannel === ch ? '#070706' : 'var(--text-dimmer)',
+                      border: promoChannel === ch ? 'none' : '1px solid var(--border-dim)',
+                    }}
+                  >
+                    {ch === 'email' ? 'Email' : ch === 'whatsapp' ? 'WhatsApp' : 'Instagram'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Contact list */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.16em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Select contacts</span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => setSelectedPromo(new Set(promoList.filter(c => promoChannel === 'email' ? c.email : promoChannel === 'whatsapp' ? c.whatsapp : c.instagram).map(c => c.id)))}
+                      style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dimmer)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-mono)' }}>
+                      Select all
+                    </button>
+                    <span style={{ color: 'var(--border-dim)' }}>·</span>
+                    <button onClick={() => setSelectedPromo(new Set())}
+                      style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dimmer)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-mono)' }}>
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {promoList.map(contact => {
+                    const hasChannel = promoChannel === 'email' ? !!contact.email : promoChannel === 'whatsapp' ? !!contact.whatsapp : !!contact.instagram
+                    const channelValue = promoChannel === 'email' ? contact.email : promoChannel === 'whatsapp' ? contact.whatsapp : contact.instagram
+                    const isSent = promoSent.includes(contact.id)
+                    const isSelected = selectedPromo.has(contact.id)
+                    return (
+                      <div
+                        key={contact.id}
+                        onClick={() => {
+                          if (!hasChannel) return
+                          const next = new Set(selectedPromo)
+                          if (next.has(contact.id)) next.delete(contact.id)
+                          else next.add(contact.id)
+                          setSelectedPromo(next)
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '12px',
+                          padding: '10px 14px', border: `1px solid ${isSelected ? 'rgba(176,141,87,0.4)' : 'var(--border-dim)'}`,
+                          background: isSelected ? 'rgba(176,141,87,0.05)' : 'var(--panel)',
+                          cursor: hasChannel ? 'pointer' : 'default',
+                          opacity: hasChannel ? 1 : 0.4,
+                        }}
+                      >
+                        <div style={{
+                          width: '14px', height: '14px', border: `1px solid ${isSelected ? 'var(--gold)' : 'var(--border-dim)'}`,
+                          background: isSelected ? 'var(--gold)' : 'transparent', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          {isSelected && <span style={{ fontSize: '8px', color: '#070706', fontWeight: 'bold' }}>✓</span>}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text)' }}>{contact.name}</span>
+                            {contact.tag && <span style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '1px 5px' }}>{contact.tag}</span>}
+                            {isSent && <span style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--green)' }}>Sent ✓</span>}
+                          </div>
+                          {channelValue && <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '2px' }}>{channelValue}</div>}
+                          {!hasChannel && <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '2px' }}>No {promoChannel} on file</div>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Message composer */}
+              {selectedPromo.size > 0 && (
+                <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '20px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.16em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>
+                      Message
+                    </div>
+                    <button
+                      onClick={generatePromoMessage}
+                      disabled={generatingMessage}
+                      style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', background: 'none', border: '1px solid var(--gold-dim)', padding: '4px 12px', cursor: generatingMessage ? 'wait' : 'pointer', fontFamily: 'var(--font-mono)', opacity: generatingMessage ? 0.5 : 1 }}
+                    >
+                      {generatingMessage ? 'Drafting…' : promoMessageGenerated ? 'Redraft' : 'Draft message'}
+                    </button>
+                  </div>
+                  <textarea
+                    value={promoMessage}
+                    onChange={e => setPromoMessage(e.target.value)}
+                    rows={5}
+                    placeholder={`Write your promo message for ${release.title}…`}
+                    style={{
+                      width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)',
+                      color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px',
+                      padding: '12px 14px', lineHeight: 1.6, resize: 'vertical',
+                      outline: 'none', boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Send actions */}
+              {selectedPromo.size > 0 && promoMessage.trim() && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {promoChannel === 'email' && (
+                    <button
+                      onClick={async () => {
+                        const contacts = promoList.filter(c => selectedPromo.has(c.id) && c.email)
+                        if (!contacts.length || !promoMessage.trim()) return
+                        setPromoSending(true)
+                        try {
+                          const res = await fetch('/api/promo/send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              contacts: contacts.map(c => ({ id: c.id, name: c.name, email: c.email })),
+                              message: promoMessage,
+                              subject: `${release.title} — out ${release.release_date}`,
+                              releaseId: params.id,
+                            }),
+                          })
+                          const data = await res.json()
+                          if (data.sent) setPromoSent(prev => [...prev, ...data.sent])
+                        } catch { /* silent */ } finally { setPromoSending(false) }
+                      }}
+                      disabled={promoSending}
+                      style={{
+                        background: 'var(--gold)', color: '#070706', border: 'none',
+                        padding: '0 28px', height: '40px', fontSize: '10px',
+                        letterSpacing: '0.16em', textTransform: 'uppercase',
+                        cursor: promoSending ? 'wait' : 'pointer', fontFamily: 'var(--font-mono)',
+                        width: 'fit-content',
+                      }}
+                    >
+                      {promoSending ? 'Sending…' : `Send to ${selectedPromo.size} contact${selectedPromo.size > 1 ? 's' : ''} →`}
+                    </button>
+                  )}
+
+                  {promoChannel === 'whatsapp' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {promoList.filter(c => selectedPromo.has(c.id) && c.whatsapp).map(contact => (
+                        <a
+                          key={contact.id}
+                          href={`https://wa.me/${contact.whatsapp?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(promoMessage)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setPromoSent(prev => prev.includes(contact.id) ? prev : [...prev, contact.id])}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '10px',
+                            background: 'none', border: '1px solid rgba(61,107,74,0.4)',
+                            color: 'var(--green)', padding: '0 20px', height: '36px',
+                            fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
+                            textDecoration: 'none', fontFamily: 'var(--font-mono)', width: 'fit-content',
+                          }}
+                        >
+                          Open WhatsApp → {contact.name}
+                        </a>
+                      ))}
+                      <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '4px' }}>
+                        Opens WhatsApp with your message pre-filled — tap send in the app.
+                      </div>
+                    </div>
+                  )}
+
+                  {promoChannel === 'instagram' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(promoMessage)
+                          setPromoCopied('message')
+                          setTimeout(() => setPromoCopied(null), 2000)
+                        }}
+                        style={{
+                          background: 'none', border: '1px solid var(--border-dim)',
+                          color: promoCopied === 'message' ? 'var(--green)' : 'var(--text-dimmer)',
+                          padding: '0 20px', height: '36px', fontSize: '10px',
+                          letterSpacing: '0.14em', textTransform: 'uppercase',
+                          cursor: 'pointer', fontFamily: 'var(--font-mono)', width: 'fit-content',
+                        }}
+                      >
+                        {promoCopied === 'message' ? 'Copied ✓' : 'Copy message'}
+                      </button>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                        {promoList.filter(c => selectedPromo.has(c.id) && c.instagram).map(contact => (
+                          <a
+                            key={contact.id}
+                            href={`https://instagram.com/${contact.instagram}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setPromoSent(prev => prev.includes(contact.id) ? prev : [...prev, contact.id])}
+                            style={{
+                              fontSize: '10px', letterSpacing: '0.1em', color: 'var(--gold)',
+                              border: '1px solid var(--gold-dim)', padding: '4px 12px',
+                              textDecoration: 'none', fontFamily: 'var(--font-mono)',
+                            }}
+                          >
+                            @{contact.instagram}
+                          </a>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>
+                        Copy message above, then open each profile to DM.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </section>
       )}
 
       {/* Existing saved posts (if no new generation) */}
