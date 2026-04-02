@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { SKILLS_WEEKLY_AGENT } from '@/lib/skillPrompts'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -146,7 +147,9 @@ Lane averages: ${Math.round(profiles.reduce((s, a) => s + a.lowercase_pct, 0) / 
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1400,
-        system: `You are a social media strategist for electronic music artists. Every post you plan must be grounded in the real engagement data provided. Reference actual numbers in your notes. Write captions in the lane's authentic voice — match the patterns that actually got the highest engagement. Never invent trends or formats not supported by the real data.`,
+        system: `You are a social media strategist for electronic music artists. Every post you plan must be grounded in the real engagement data provided. Reference actual numbers in your notes. Write captions in the lane's authentic voice — match the patterns that actually got the highest engagement. Never invent trends or formats not supported by the real data.
+
+${SKILLS_WEEKLY_AGENT}`,
         messages: [{
           role: 'user',
           content: `Generate a 5-post content plan for ${artistName} (${artistGenre}) for this week.

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { aiCache } from '@/lib/aiCache'
 import { SignalLabHeader } from './SignalLabHeader'
 import { SocialsMastermind } from './SocialsMastermind'
+import { SKILLS_CAPTION_GEN } from '@/lib/skillPromptsClient'
 
 interface ArtistProfile {
   name: string
@@ -136,6 +137,7 @@ export function BroadcastLab() {
 
   const [artistName, setArtistName] = useState('NIGHT manoeuvres')
   const [artistCountry, setArtistCountry] = useState('Australia')
+  const [memberContext, setMemberContext] = useState('')
   const [artists, setArtists] = useState<ArtistProfile[]>([])
   const [addingArtist, setAddingArtist] = useState(false)
   const [newArtistName, setNewArtistName] = useState('')
@@ -195,6 +197,7 @@ export function BroadcastLab() {
         const p = d.settings?.profile
         if (p?.name) setArtistName(p.name)
         if (p?.country) setArtistCountry(p.country)
+        if (p?.member_context) setMemberContext(p.member_context)
       })
       .catch(() => {})
   }, [])
@@ -412,7 +415,7 @@ export function BroadcastLab() {
         .join('\n\n')
       const raw = await callClaude(
         `You write social media captions for ${artistName}, an ${artistCountry} electronic music artist.
-
+${memberContext ? `\n${memberContext}\n` : ''}
 REFERENCE ARTISTS — studied voice profiles:
 ${profilesText || artists.map(a => a.name).join(', ')}
 
@@ -424,6 +427,8 @@ YOUR RULES:
 — Feels like a private thought shared, not a caption written for an audience
 — Safe = sounds natural, slightly complete sentence. Loose = fragment, unresolved — no closure, no CTA. Raw = shortest possible — minimum viable thought, often 3 words or fewer
 — Score each variant with estimated save rate 800–2500 based on electronic/dance lane behaviour and how strongly it triggers saves vs likes
+
+${SKILLS_CAPTION_GEN}
 
 Respond ONLY with valid JSON, no markdown.`,
         `Context: ${context}\nPlatform: ${platform}\nMedia: ${media}\nReturn: {"safe":{"text":"...","reasoning":"...","score":number},"loose":{"text":"...","reasoning":"...","score":number},"raw":{"text":"...","reasoning":"...","score":number}}`,
@@ -580,7 +585,7 @@ Respond ONLY with valid JSON, no markdown.`,
       const raw = await callClaude(
         'You are a social media strategist for electronic music artists. Respond ONLY with a valid JSON array, no markdown.',
         `Generate a 5-post week for ${artistName}, an ${artistCountry} electronic music artist.
-
+${memberContext ? `\n${memberContext}\n` : ''}
 Voice references:
 ${profilesText || artists.map(a => a.name).join(', ')}
 ${calendarContext ? `\nCalendar this week / next 30 days:\n${calendarContext}\n\nWeave these naturally into the week — don't announce them directly, treat them as context the captions can feel around (anticipation before a show, reflection after, quiet excitement before a release). Not every post needs to reference them.` : ''}
@@ -609,7 +614,7 @@ Return JSON array only: [{"day":"Mon","platform":"Instagram","caption":"..."},{"
       const raw = await callClaude(
         'You are a social media strategist for electronic music artists. Respond ONLY with the caption text, no JSON, no explanation.',
         `Write one ${post.platform} caption for ${post.day} for ${artistName}.
-
+${memberContext ? `\n${memberContext}\n` : ''}
 Voice references:
 ${profilesText || artists.map(a => a.name).join(', ')}
 

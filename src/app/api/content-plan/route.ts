@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { SKILLS_CONTENT_PLAN, SKILL_INSTAGRAM_GROWTH } from '@/lib/skillPrompts'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
 
     const artistName = settings?.profile?.name || 'Night Manoeuvres'
     const artistGenre = settings?.profile?.genre || 'electronic / techno'
+    const memberContext = settings?.profile?.member_context || ''
 
     // Build release timeline — including teaser dates
     const releaseTimeline = releases.flatMap((r: any) => {
@@ -96,7 +98,11 @@ ${topPosts.slice(0, 6).map((p: any) => `  [${p.artist_name}] ${p.media_type} —
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1800,
-        system: `You are a social media strategist for electronic music. You select and write the ${count} highest-impact posts for a given period based on real engagement evidence. Every format decision must be justified by actual data. Cite engagement numbers in your notes. Write captions in the lane's voice.`,
+        system: `You are a social media strategist for electronic music. You select and write the ${count} highest-impact posts for a given period based on real engagement evidence. Every format decision must be justified by actual data. Cite engagement numbers in your notes. Write captions in the lane's voice.
+${memberContext ? `\nIMPORTANT: ${memberContext}\n` : ''}
+${SKILLS_CONTENT_PLAN}
+
+${SKILL_INSTAGRAM_GROWTH}`,
         messages: [{
           role: 'user',
           content: `Plan the ${count} STRONGEST posts for ${artistName} (${artistGenre}) covering ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}.

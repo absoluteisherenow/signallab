@@ -394,6 +394,7 @@ export function BroadcastCalendar() {
           borderLeft: `2px solid ${color}`,
           padding: '5px 7px', cursor: 'pointer',
           opacity: post.status === 'posted' ? 0.45 : 1,
+          overflow: 'hidden', minWidth: 0,
         }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
           <span style={{ fontSize: '9px', letterSpacing: '0.12em', color, textTransform: 'uppercase' }}>{post.platform.split(' ')[0].split('/')[0].trim()}</span>
@@ -441,6 +442,8 @@ export function BroadcastCalendar() {
         background: s.panel,
         border: `1px solid ${isToday ? s.gold + '50' : release ? s.purple + '50' : teaseWindow ? s.purple + '25' : s.border}`,
         minHeight: minH,
+        minWidth: 0,
+        overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
@@ -725,23 +728,32 @@ export function BroadcastCalendar() {
 
       <div style={{ padding: '28px', paddingRight: (planOpen || importOpen) ? '448px' : '28px', transition: 'padding-right 0.2s' }}>
 
-        {/* Platform filter + nav label */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-          <div style={{ fontSize: '10px', letterSpacing: '0.14em', color: s.dim, marginRight: '8px' }}>{navLabel()}</div>
-          {['All', 'instagram', 'tiktok', 'threads'].map(p => (
-            <button key={p} onClick={() => setFilterPlatform(p)} style={{
-              fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
-              padding: '5px 13px',
-              background: filterPlatform === p ? s.panel : 'transparent',
-              border: filterPlatform === p ? `1px solid ${PLATFORM_COLOR[p] || s.gold}` : `1px solid ${s.border}`,
-              color: filterPlatform === p ? (PLATFORM_COLOR[p] || s.gold) : s.dimmer,
-              cursor: 'pointer',
-            }}>{p}</button>
-          ))}
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center', fontSize: '9px', color: s.dimmer }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.purple, display: 'inline-block' }} /> Release
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.gold, display: 'inline-block', marginLeft: '6px' }} /> Gig
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.teal, display: 'inline-block', marginLeft: '6px' }} /> Story
+        {/* Month/week nav + platform filter */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button onClick={navPrev} style={{ background: 'none', border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '16px', padding: '6px 12px', cursor: 'pointer', lineHeight: 1 }}>←</button>
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 300, color: s.text, minWidth: '200px', textAlign: 'center' }}>
+              {navLabel()}
+            </div>
+            <button onClick={navNext} style={{ background: 'none', border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '16px', padding: '6px 12px', cursor: 'pointer', lineHeight: 1 }}>→</button>
+            <button onClick={navToday} style={{ background: 'none', border: `1px solid ${s.border}`, color: s.dimmer, fontFamily: s.font, fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '7px 12px', cursor: 'pointer', marginLeft: '4px' }}>Today</button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {['All', 'instagram', 'tiktok', 'threads'].map(p => (
+              <button key={p} onClick={() => setFilterPlatform(p)} style={{
+                fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
+                padding: '5px 13px',
+                background: filterPlatform === p ? s.panel : 'transparent',
+                border: filterPlatform === p ? `1px solid ${PLATFORM_COLOR[p] || s.gold}` : `1px solid ${s.border}`,
+                color: filterPlatform === p ? (PLATFORM_COLOR[p] || s.gold) : s.dimmer,
+                cursor: 'pointer',
+              }}>{p}</button>
+            ))}
+            <div style={{ marginLeft: '12px', display: 'flex', gap: '6px', alignItems: 'center', fontSize: '9px', color: s.dimmer }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.purple, display: 'inline-block' }} /> Release
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.gold, display: 'inline-block', marginLeft: '6px' }} /> Gig
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.teal, display: 'inline-block', marginLeft: '6px' }} /> Story
+            </div>
           </div>
         </div>
 

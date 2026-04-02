@@ -379,6 +379,27 @@ export default function Settings() {
               Profile data imported from Resident Advisor
             </div>
           )}
+
+          {/* Re-run onboarding */}
+          <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid var(--border-dim)' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>
+              Onboarding
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: 1.7, marginBottom: '14px' }}>
+              Re-run the setup flow to re-scan your profiles, update genres, and refresh your gig calendar from RA.
+            </div>
+            <button
+              onClick={() => {
+                if (confirm('This will re-run the onboarding flow. Your existing data stays — anything found will update on top.')) {
+                  window.location.href = '/onboarding'
+                }
+              }}
+              className="btn-secondary"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              Re-run onboarding →
+            </button>
+          </div>
         </div>
       )}
 

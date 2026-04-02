@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { SKILLS_CAMPAIGN, SKILL_ADS_MANAGER } from '@/lib/skillPrompts'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -79,7 +80,18 @@ These create genuine interaction loops and signal to the algorithm that a post h
 - "DM for the original / stems / early access" — creates direct conversation, useful for EP/album releases
 - "comment [emoji] if you want a free download link" — drives comment velocity on drop day or post-release
 - "link in bio when you do this" — softer version that doesn't feel like a campaign
-- These should feel like genuine gestures to the audience, not Instagram tactics. The artist is inviting people in, not gaming an algorithm.`
+- These should feel like genuine gestures to the audience, not Instagram tactics. The artist is inviting people in, not gaming an algorithm.
+
+${SKILLS_CAMPAIGN}
+
+${SKILL_ADS_MANAGER}
+
+When generating the campaign, include a PAID AMPLIFICATION section at the end with:
+- Which posts to boost and why (based on organic potential)
+- Budget allocation across the campaign phases
+- Audience targeting recommendations
+- Platform-specific ad formats to use
+- KPI targets and kill/scale criteria`
 
     const userPrompt = `Generate a complete 10-post release campaign for:
 

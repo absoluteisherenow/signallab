@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { SKILLS_ASSISTANT_CONTENT, SKILL_ADS_MANAGER, SKILL_INSTAGRAM_GROWTH } from '@/lib/skillPrompts'
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,8 @@ function buildSystemPrompt(
   const instagram = (profile.instagram as string) || null
   const raUrl = (profile.raUrl as string) || null
   const label = (profile.label as string) || null
+  const members = (profile.members as string[]) || null
+  const memberContext = (profile.member_context as string) || null
 
   const sonicCtx = sonicWorld && (sonicWorld.sounds_like?.length || sonicWorld.key || sonicWorld.bpm)
     ? `\nSESSION CONTEXT (active production session):
@@ -85,6 +88,8 @@ Genre: ${genres}
 ${bio ? `Bio: ${bio}` : ''}
 ${soundsLike ? `Sounds like: ${soundsLike}` : ''}
 ${country ? `Country: ${country}` : ''}
+${members ? `Members: ${members.join(' & ')}` : ''}
+${memberContext ? `IMPORTANT: ${memberContext}` : ''}
 ${instagram ? `Instagram: @${instagram}` : ''}
 ${raUrl ? `RA: ${raUrl}` : ''}
 ${label ? `Label: ${label}` : ''}
@@ -124,6 +129,8 @@ CONTENT STRATEGY (your strongest capability)
 - You know what performs on Instagram Reels, Stories, grid, and TikTok for this genre
 - You understand the four content scores: Reach · Authenticity · Culture · Visual Identity
 - Every content suggestion must serve BOTH underground credibility AND growth
+
+${SKILLS_ASSISTANT_CONTENT}
 
 RELEASES
 - Upcoming drops, campaign timing, promo strategy
@@ -375,7 +382,17 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Call Claude ───────────────────────────────────────────────────────────
-  const systemPrompt = buildSystemPrompt(todayStr, profile, body.sonic_world, body.available_plugins)
+  const queryLower = body.query.trim().toLowerCase()
+  const isAdsQuery = /\b(ads?|advert|paid|boost|promot|spend|budget|campaign.*paid|meta ads|tiktok ads|spotify ad|target.*audience|retarget|lookalike|cpm|cpc|roas)\b/.test(queryLower)
+  const isInstagramQuery = /\b(instagram|insta|ig|reel|reels|stories|story|grid|follower|followers|growth|engage|engagement|hashtag|algorithm|collab post|bio|profile.*optim)\b/.test(queryLower)
+
+  let systemPrompt = buildSystemPrompt(todayStr, profile, body.sonic_world, body.available_plugins)
+  if (isAdsQuery) {
+    systemPrompt += '\n' + SKILL_ADS_MANAGER
+  }
+  if (isInstagramQuery) {
+    systemPrompt += '\n' + SKILL_INSTAGRAM_GROWTH
+  }
   const userPrompt = `ARTIST DATA:
 ${JSON.stringify(contextPayload, null, 2)}
 

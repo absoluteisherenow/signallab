@@ -145,6 +145,16 @@ export default function Onboarding() {
     ])
 
     setSavedGigCount(count)
+
+    // Fire Instagram voice scan in background — don't block onboarding
+    if (instaHandle) {
+      fetch('/api/artist-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: artistName, handle: instaHandle }),
+      }).catch(() => {}) // non-critical
+    }
+
     router.push('/dashboard')
   }
 

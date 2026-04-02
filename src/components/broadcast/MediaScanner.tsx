@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { SignalLabHeader } from './SignalLabHeader'
 import { SCAN_TIERS, DEFAULT_TIER } from '@/lib/scanTiers'
 import { supabase } from '@/lib/supabase'
+import { SKILLS_MEDIA_SCANNER } from '@/lib/skillPromptsClient'
 
 const USER_TIER = DEFAULT_TIER  // 'artist' — 10 per batch, 60/month
 
@@ -218,6 +219,8 @@ export function MediaScanner() {
       `You are an expert video editor and social media strategist for electronic music artists — Bicep, Floating Points, fred again.., Four Tet, Bonobo. You deeply understand what show footage performs in this world: raw, human, unpolished, in-the-room. You are looking at actual frames extracted from a show video.
 
 CRITICAL SOCIAL MEDIA RULE: The clip MUST start on the strongest, most attention-grabbing frame. The first 1-3 seconds decide everything on TikTok and Instagram Reels. Never bury the best moment in the middle — set best_clip_start AT or just before best_moment.timestamp so the hook is the opening frame. A strong hook = more loops = more reach.
+
+${SKILLS_MEDIA_SCANNER}
 
 Analyse what you genuinely see in each frame. Return ONLY valid JSON — no markdown, no explanation.`,
       frames,

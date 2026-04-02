@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Navigation } from '@/components/layout/Navigation'
-import { VoiceCommandBar } from '@/components/ui/VoiceCommandBarWrapper'
 import { CommandPalette } from '@/components/ui/CommandPalette'
 import { KeyboardShortcuts } from '@/components/ui/KeyboardShortcuts'
 import { SignalGenius } from '@/components/dashboard/SignalGenius'
@@ -45,7 +44,6 @@ export default function RootLayout({
             </div>
           </main>
           <SignalGenius />
-          <VoiceCommandBar />
           <CommandPalette />
           <KeyboardShortcuts />
         </div>

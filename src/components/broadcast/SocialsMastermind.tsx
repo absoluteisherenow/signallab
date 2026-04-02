@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { MastermindChat } from '@/components/ui/MastermindChat'
+import { SKILLS_MASTERMIND } from '@/lib/skillPromptsClient'
 
 export function SocialsMastermind() {
   const [artistName, setArtistName] = useState('NIGHT manoeuvres')
@@ -22,7 +23,9 @@ export function SocialsMastermind() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: `[SOCIALS MASTERMIND] ${message}. Focus on social media strategy, content planning, engagement, and posting schedule. Draw from upcoming gigs, releases, and studio work. Use the ${artistName} voice: lowercase, no hashtags, no exclamation marks, no emojis, no CTAs. Sparse, observational, dark electronic energy.`,
+          query: `[SOCIALS MASTERMIND] ${message}. Focus on social media strategy, content planning, engagement, and posting schedule. Draw from upcoming gigs, releases, and studio work. Use the ${artistName} voice: lowercase, no hashtags, no exclamation marks, no emojis, no CTAs. Sparse, observational, dark electronic energy.
+
+${SKILLS_MASTERMIND}`,
         }),
       })
       const data = await res.json()

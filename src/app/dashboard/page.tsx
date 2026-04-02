@@ -363,10 +363,6 @@ export default function Dashboard() {
       parts.push(`You have ${overdueInvoices.length} overdue ${overdueInvoices.length === 1 ? 'invoice' : 'invoices'}. Follow up needed.`)
     }
 
-    if (quarterStats.revenue > 0) {
-      parts.push(`Revenue this quarter: £${quarterStats.revenue.toLocaleString()}.`)
-    }
-
     parts.push("That's your briefing. Have a great session.")
     return parts.join(' ')
   }

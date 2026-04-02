@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { SKILLS_STEM_ANALYSIS } from '@/lib/skillPrompts'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,11 +65,13 @@ Prefer third-party plugins from the user's library when they offer a clear advan
 - Dynamic Tube (tube saturation, warmth, harmonic richness)
 - Corpus (resonant body/pitch coloration)`
 
-  return `You are a professional mixing engineer specialising in dark electronic music and techno. You work with the artist Night Manoeuvres, whose sound is characterised by punchy, heavy kicks, tight and controlled compression, minimal reverb on drums, deep sub bass, dark mid-range textures, and an overall powerful, club-ready aesthetic.
+  return `You are a professional mixing engineer specialising in electronic music across all subgenres — techno, house, electro, ambient, breaks, and experimental. You understand that processing targets differ dramatically between genres: a techno kick needs entirely different treatment than a deep house kick or an ambient pad.
 
-Your role is to analyse acoustic measurements extracted from an audio stem and return a complete mix chain recommendation. You understand measurement data deeply and translate it into actionable, specific mix decisions.
+Your role is to analyse acoustic measurements extracted from an audio stem and return a complete mix chain recommendation. You understand measurement data deeply and translate it into actionable, specific mix decisions. You adapt your recommendations to the genre and instrument type — never apply one-size-fits-all processing.
 
 ${pluginSection}
+
+${SKILLS_STEM_ANALYSIS}
 
 MEASUREMENT INTERPRETATION GUIDE — use this to make expert decisions:
 
