@@ -130,6 +130,14 @@ CONTENT STRATEGY (your strongest capability)
 - You understand the four content scores: Reach · Authenticity · Culture · Visual Identity
 - Every content suggestion must serve BOTH underground credibility AND growth
 
+INSTAGRAM DEEP DIVE DATA
+- ARTIST DATA includes voice_profiles: detailed voice analysis from real Instagram scrape (style rules, lowercase %, caption patterns)
+- ARTIST DATA includes top_performing_posts: real engagement data from scraped posts with likes, comments, format, captions
+- USE this data to ground ALL content advice in what actually works for ${artistName}
+- When suggesting captions, match the voice patterns in the profile
+- When suggesting formats, cite which formats get the best engagement from the real data
+- This is REAL data, not assumptions — reference it specifically
+
 ${SKILLS_ASSISTANT_CONTENT}
 
 RELEASES
@@ -298,7 +306,7 @@ export async function POST(req: NextRequest) {
   const todayStr = contextDate.toISOString().split('T')[0]
 
   // ── Fetch all artist data in parallel ─────────────────────────────────────
-  const [gigsRes, invoicesRes, setsRes, tracksRes, revenueRes, settingsRes, releasesRes] =
+  const [gigsRes, invoicesRes, setsRes, tracksRes, revenueRes, settingsRes, releasesRes, voiceProfilesRes, postPerfRes] =
     await Promise.allSettled([
       supabase
         .from('gigs')
@@ -340,6 +348,20 @@ export async function POST(req: NextRequest) {
         .select('id, title, type, release_date, status, label, notes')
         .order('release_date', { ascending: false })
         .limit(10),
+
+      // Deep dive voice profiles from Instagram scrape
+      supabase
+        .from('artist_profiles')
+        .select('name, genre, lowercase_pct, short_caption_pct, no_hashtags_pct, style_rules, data_source, post_count_analysed, last_scanned')
+        .not('style_rules', 'is', null)
+        .limit(10),
+
+      // Top performing posts from Instagram deep dive
+      supabase
+        .from('post_performance')
+        .select('artist_name, platform, caption, format, actual_likes, actual_comments, engagement_score')
+        .order('engagement_score', { ascending: false })
+        .limit(30),
     ])
 
   const gigs     = gigsRes.status     === 'fulfilled' ? (gigsRes.value.data     || []) : []
@@ -348,6 +370,8 @@ export async function POST(req: NextRequest) {
   const tracks   = tracksRes.status   === 'fulfilled' ? (tracksRes.value.data   || []) : []
   const revenue  = revenueRes.status  === 'fulfilled' ? (revenueRes.value.data  || []) : []
   const releases = releasesRes.status === 'fulfilled' ? (releasesRes.value.data || []) : []
+  const voiceProfiles = voiceProfilesRes.status === 'fulfilled' ? (voiceProfilesRes.value.data || []) : []
+  const topPosts = postPerfRes.status === 'fulfilled' ? (postPerfRes.value.data || []) : []
 
   // Pull artist profile from settings
   const settingsData = settingsRes.status === 'fulfilled' ? settingsRes.value.data : null
@@ -369,6 +393,14 @@ export async function POST(req: NextRequest) {
     .filter((g: Record<string, unknown>) => g.date && String(g.date) < todayStr)
     .slice(-10)
 
+  // Build voice intelligence section from deep dive
+  const voiceIntel = voiceProfiles.length > 0
+    ? voiceProfiles.map((v: any) => `${v.name}: ${v.style_rules} (${v.post_count_analysed || '?'} posts analysed via ${v.data_source || 'scrape'})`).join('\n\n')
+    : null
+  const engagementIntel = topPosts.length > 0
+    ? topPosts.slice(0, 15).map((p: any) => `[${p.artist_name}] ${p.platform} ${p.format} — ${p.actual_likes}L/${p.actual_comments}C (score ${p.engagement_score}): "${(p.caption || '').slice(0, 100)}"`).join('\n')
+    : null
+
   const contextPayload = {
     today: todayStr,
     upcoming_gigs: upcomingGigs,
@@ -379,6 +411,8 @@ export async function POST(req: NextRequest) {
     track_library_top100: tracks,
     releases,
     team: teamData,
+    ...(voiceIntel ? { voice_profiles: voiceIntel } : {}),
+    ...(engagementIntel ? { top_performing_posts: engagementIntel } : {}),
   }
 
   // ── Call Claude ───────────────────────────────────────────────────────────
