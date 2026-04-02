@@ -96,14 +96,14 @@ export default function JoinPage() {
           lineHeight: 1.1, marginBottom: '28px',
           maxWidth: '820px', margin: '0 auto 28px',
         }}>
-          Built for the artist who sent you that invoice.
+          You handle the music. This handles everything else.
         </h1>
 
         <p style={{
           fontSize: '13px', color: C.dim, lineHeight: '1.9',
           maxWidth: '540px', letterSpacing: '0.04em', marginBottom: '52px',
         }}>
-          One platform manages their gig planning, invoices, content scheduling and logistics — all connected across one system where every module informs the others.
+          One platform for gig planning, invoicing, tour logistics, and release management — built for how electronic music artists actually work.
         </p>
 
         <button
