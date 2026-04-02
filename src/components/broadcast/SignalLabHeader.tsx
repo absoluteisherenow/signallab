@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 const TABS = [
   { label: 'Artist Voice', href: '/broadcast' },
   { label: 'Calendar', href: '/broadcast/calendar' },
-  { label: 'The Edit', href: '/broadcast/scanner' },
+  { label: 'Content Intelligence', href: '/broadcast/scanner' },
   { label: 'Media Library', href: '/broadcast/media' },
 ]
 

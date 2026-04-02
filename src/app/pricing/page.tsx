@@ -59,7 +59,7 @@ const TIERS = [
       'Everything in Artist',
       'Multi-currency invoicing',
       'Sonix stems analysis',
-      'Advanced content scanning',
+      'Content Intelligence scans',
       'API access & webhooks',
       'Roster analytics dashboard',
       'Label-branded advance forms',
