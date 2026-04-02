@@ -10,9 +10,10 @@ const USER_TIER = 'pro' as const  // 25 per batch, 150/month
 
 interface MediaMoment {
   timestamp: number
+  frame_number?: number
   score: number
   reason: string
-  type: 'peak' | 'crowd' | 'lighting' | 'transition'
+  type: 'peak' | 'crowd' | 'lighting' | 'transition' | 'intimate'
   thumbnail?: string
 }
 
@@ -52,6 +53,8 @@ interface FileScan {
   result: ScanResult
   frames: { dataUrl: string; timestamp: number }[]
   composite: number
+  caption?: string
+  captionLoading?: boolean
 }
 
 // Vision-capable Claude call — sends actual frame images alongside the prompt
@@ -407,6 +410,38 @@ Return JSON exactly:
       setScans(results)
       setSelectedScan(0)
       setProgress(100)
+      setProgressLabel('Generating captions...')
+
+      // Auto-generate captions for all scans (parallel, 3 at a time)
+      const generateCaption = async (scan: FileScan, idx: number) => {
+        try {
+          const res = await fetch('/api/claude', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-6',
+              system: `You write Instagram captions for NIGHT manoeuvres, an electronic music duo. Voice: warm insider tone, "we" always, no hashtags, lowercase preferred, no exclamation marks, no emojis, no forced CTAs. Sparse, observational, confident. Underground electronic music world.`,
+              max_tokens: 200,
+              messages: [{ role: 'user', content: `Write a single Instagram caption for this content. Context: ${scan.result.caption_context}. Post recommendation: ${scan.result.post_recommendation}. Tone match: ${scan.result.tone_match || 'underground electronic'}. Return ONLY the caption text, nothing else.` }],
+            }),
+          })
+          const data = await res.json()
+          const caption = data.content?.[0]?.text?.trim() || ''
+          setScans(prev => prev.map((s, i) => i === idx ? { ...s, caption, captionLoading: false } : s))
+        } catch {
+          setScans(prev => prev.map((s, i) => i === idx ? { ...s, captionLoading: false } : s))
+        }
+      }
+
+      // Mark all as loading
+      setScans(prev => prev.map(s => ({ ...s, captionLoading: true })))
+
+      // Generate in batches of 3
+      for (let i = 0; i < results.length; i += 3) {
+        const batch = results.slice(i, i + 3).map((scan, bIdx) => generateCaption(scan, i + bIdx))
+        await Promise.all(batch)
+      }
+
       setProgressLabel('All scans complete')
     } catch (err: any) {
       setError('Scan failed: ' + err.message)
@@ -467,7 +502,7 @@ Return JSON exactly:
 
       <div style={{ padding: '32px' }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: scans.length > 0 ? '1fr 1fr' : '1fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: scans.length > 0 && activeScan && selectedScan >= 0 ? '1fr 1fr' : '1fr', gap: '24px' }}>
 
         {/* LEFT: UPLOAD + CONTROLS */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -558,44 +593,70 @@ Return JSON exactly:
 
           {error && <div style={{ fontSize: '11px', color: '#8a4a3a', padding: '12px 16px', border: '1px solid #4a2a1a', background: '#1a0a06' }}>{error}</div>}
 
-          {/* Rankings — shown once scans complete */}
-          {scans.length > 1 && (
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Content ranking</div>
+          {/* Post cards — strongest first */}
+          {scans.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase' }}>{scans.length} scanned · strongest first</div>
+                {scans.length > 1 && (
+                  <button onClick={() => {
+                    // Generate carousel caption for all content
+                    const contexts = scans.map(sc => sc.result.caption_context).join('; ')
+                    const params = new URLSearchParams({ context: `Carousel of ${scans.length} pieces: ${contexts}` })
+                    window.open('/broadcast?' + params.toString(), '_blank')
+                  }} style={{ background: 'transparent', border: `1px solid ${s.gold}40`, color: s.gold, fontFamily: s.font, fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 12px', cursor: 'pointer' }}>
+                    Carousel caption →
+                  </button>
+                )}
+              </div>
               {scans.map((scan, i) => {
                 const v = scoreVerdict(scan.composite)
-                const thumb = scan.frames[0]?.dataUrl
+                const bestFrame = scan.frames[scan.result.best_moment?.frame_number ? scan.result.best_moment.frame_number - 1 : 0] || scan.frames[0]
+                const isSelected = selectedScan === i
                 return (
                   <div
                     key={i}
                     onClick={() => setSelectedScan(i)}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '10px 0',
-                      borderBottom: i < scans.length - 1 ? `1px solid ${s.border}` : 'none',
+                      background: s.panel,
+                      border: `1px solid ${isSelected ? s.gold + '80' : s.border}`,
                       cursor: 'pointer',
-                      opacity: selectedScan === i ? 1 : 0.5,
-                      transition: 'opacity 0.15s',
+                      transition: 'border-color 0.15s',
                     }}>
-                    {thumb && (
-                      <img src={thumb} alt="" style={{ width: '48px', height: '28px', objectFit: 'cover', flexShrink: 0, border: `1px solid ${selectedScan === i ? s.gold + '60' : s.border}` }} />
+                    {/* Image */}
+                    {bestFrame && (
+                      <div style={{ position: 'relative' }}>
+                        <img src={bestFrame.dataUrl} alt="" style={{ width: '100%', display: 'block', maxHeight: '240px', objectFit: 'cover' }} />
+                        <div style={{ position: 'absolute', top: '8px', right: '8px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(10,9,7,0.85)', padding: '4px 10px' }}>
+                          <span style={{ fontSize: '16px', fontWeight: 300, color: v.color }}>{scan.composite}</span>
+                          <span style={{ fontSize: '8px', letterSpacing: '0.12em', color: v.color, textTransform: 'uppercase' }}>{v.label}</span>
+                        </div>
+                        {i === 0 && scans.length > 1 && (
+                          <div style={{ position: 'absolute', top: '8px', left: '8px', background: 'rgba(10,9,7,0.85)', padding: '3px 8px', fontSize: '8px', letterSpacing: '0.14em', color: s.green, textTransform: 'uppercase' }}>★ Top pick</div>
+                        )}
+                      </div>
                     )}
-                    <div style={{ fontSize: '20px', fontWeight: 300, color: v.color, width: '36px', flexShrink: 0, textAlign: 'center' }}>
-                      {scan.composite}
-                    </div>
-                    <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
-                      <div style={{ fontSize: '11px', color: s.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>
-                        {i === 0 && <span style={{ color: s.green, marginRight: '6px' }}>★</span>}
-                        {scan.result.caption_context || scan.file.name}
+                    {/* Caption + meta */}
+                    <div style={{ padding: '14px 16px' }}>
+                      <div style={{ fontSize: '13px', color: s.text, lineHeight: '1.7', marginBottom: '8px', minHeight: '20px' }}>
+                        {scan.captionLoading ? (
+                          <span style={{ fontSize: '10px', color: s.textDimmer, letterSpacing: '0.1em' }}>generating caption...</span>
+                        ) : scan.caption ? (
+                          scan.caption
+                        ) : (
+                          <span style={{ color: s.textDim, fontStyle: 'italic' }}>{scan.result.caption_context}</span>
+                        )}
                       </div>
-                      <div style={{ fontSize: '9px', color: s.textDimmer }}>
-                        R:{scan.result.content_score.reach} · A:{scan.result.content_score.authenticity} · C:{scan.result.content_score.culture} · V:{scan.result.content_score.visual_identity}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: '9px', color: s.textDimmer }}>
+                          R:{scan.result.content_score.reach} · A:{scan.result.content_score.authenticity} · C:{scan.result.content_score.culture} · V:{scan.result.content_score.visual_identity}
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          {scan.result.platform_ranking?.slice(0, 2).map((p, pi) => (
+                            <span key={pi} style={{ fontSize: '9px', color: s.textDimmer }}>{p.platform.split(' ')[0]}: {p.score}</span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ fontSize: '8px', letterSpacing: '0.12em', color: v.color, textTransform: 'uppercase', flexShrink: 0, fontFamily: s.font }}>
-                      {v.label}
                     </div>
                   </div>
                 )
@@ -730,18 +791,24 @@ Return JSON exactly:
             {activeScan.result.platform_ranking && (
               <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Platform ranking</div>
-                {activeScan.result.platform_ranking.map((p, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: i < activeScan.result.platform_ranking.length - 1 ? `1px solid ${s.border}` : 'none' }}>
-                    <div style={{ fontSize: '20px', fontWeight: 300, color: i === 0 ? s.green : i === 1 ? s.gold : s.textDimmer, width: '36px' }}>{p.score}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '12px', color: s.text, marginBottom: '2px' }}>{p.platform}</div>
-                      <div style={{ fontSize: '10px', color: s.textDimmer }}>{p.reason}</div>
+                {activeScan.result.platform_ranking.map((p, i) => {
+                  const pv = scoreVerdict(p.score)
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: i < activeScan.result.platform_ranking.length - 1 ? `1px solid ${s.border}` : 'none' }}>
+                      <div style={{ fontSize: '20px', fontWeight: 300, color: pv.color, width: '36px' }}>{p.score}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                          <span style={{ fontSize: '12px', color: s.text }}>{p.platform}</span>
+                          <span style={{ fontSize: '8px', letterSpacing: '0.1em', color: pv.color, textTransform: 'uppercase' }}>{pv.label}</span>
+                        </div>
+                        <div style={{ fontSize: '10px', color: s.textDimmer }}>{p.reason}</div>
+                      </div>
+                      <div style={{ height: '2px', width: '80px', background: '#1a1917' }}>
+                        <div style={{ height: '2px', background: pv.color, width: `${p.score}%`, transition: 'width 0.6s ease' }} />
+                      </div>
                     </div>
-                    <div style={{ height: '2px', width: '80px', background: '#1a1917' }}>
-                      <div style={{ height: '2px', background: i === 0 ? s.green : i === 1 ? s.gold : s.textDimmer, width: `${p.score}%`, transition: 'width 0.6s ease' }} />
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 
