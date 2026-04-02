@@ -19,6 +19,12 @@ interface AssistantBlueprint {
   mix_notes: string
 }
 
+interface ContentPhase {
+  name: string
+  timing: string
+  actions: string[]
+}
+
 interface AssistantResult {
   intent: string
   answer: string
@@ -29,6 +35,8 @@ interface AssistantResult {
   total?: number
   currency?: string
   breakdown?: { label: string; amount: number; status: string }[]
+  phases?: ContentPhase[]
+  always_on?: string[]
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -281,6 +289,8 @@ export function VoiceCommandBar() {
           <div style={{ padding: '16px 18px', maxHeight: '60vh', overflowY: 'auto' }}>
             {result.intent === 'production_blueprint' && result.blueprint
               ? <BlueprintResult result={result} />
+              : result.intent === 'content_strategy' && result.phases
+              ? <ContentStrategyResult result={result} />
               : <TextResult result={result} />
             }
           </div>
@@ -439,6 +449,50 @@ function BlueprintResult({ result }: { result: AssistantResult }) {
   )
 }
 
+function ContentStrategyResult({ result }: { result: AssistantResult }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div style={{ fontSize: '8px', color: '#5a4a38', letterSpacing: '0.15em' }}>CONTENT STRATEGY</div>
+      <div style={{ fontSize: '13px', color: '#e8dcc8', lineHeight: 1.7 }}>{result.answer}</div>
+
+      {result.phases && result.phases.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {result.phases.map((phase, i) => (
+            <div key={i} style={{ background: '#0a0806', border: '1px solid #2a2218', padding: '14px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+                <div style={{ fontSize: '10px', color: '#c9a46e', letterSpacing: '0.1em', fontWeight: 500 }}>
+                  {phase.name.toUpperCase()}
+                </div>
+                <div style={{ fontSize: '9px', color: '#4a3e2c', letterSpacing: '0.08em' }}>{phase.timing}</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {phase.actions.map((action, j) => (
+                  <div key={j} style={{ fontSize: '11px', color: '#8a7658', paddingLeft: '10px', borderLeft: '1px solid #2a2218', lineHeight: 1.5 }}>
+                    {action}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {result.always_on && result.always_on.length > 0 && (
+        <div>
+          <div style={{ fontSize: '8px', color: '#5a4a38', letterSpacing: '0.15em', marginBottom: '8px' }}>ALWAYS ON</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {result.always_on.map((item, i) => (
+              <div key={i} style={{ fontSize: '11px', color: '#6a5030', paddingLeft: '10px', borderLeft: '1px solid #1a1410' }}>
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TextResult({ result }: { result: AssistantResult }) {
   const intentLabel: Record<string, string> = {
     gig_info: 'GIGS',
@@ -446,6 +500,7 @@ function TextResult({ result }: { result: AssistantResult }) {
     general: 'SIGNAL LAB OS',
     chain_advice: 'SIGNAL CHAIN',
     content_advice: 'CONTENT',
+    content_strategy: 'CONTENT STRATEGY',
     off_topic: 'SIGNAL LAB OS',
   }
 
