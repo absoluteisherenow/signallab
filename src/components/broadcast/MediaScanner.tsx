@@ -17,9 +17,10 @@ interface MediaMoment {
 }
 
 interface ContentScore {
-  engagement: number
-  brand_alignment: number
-  virality: number
+  reach: number
+  authenticity: number
+  culture: number
+  visual_identity: number
   reasoning: string
 }
 
@@ -155,7 +156,16 @@ function isImageFile(file: File) {
 }
 
 function compositeScore(r: ScanResult) {
-  return Math.round((r.content_score.engagement + r.content_score.brand_alignment + r.content_score.virality) / 3)
+  const s = r.content_score
+  // Weighted: Reach 25%, Authenticity 30%, Culture 25%, Visual Identity 20%
+  return Math.round((s.reach * 0.25) + (s.authenticity * 0.30) + (s.culture * 0.25) + (s.visual_identity * 0.20))
+}
+
+function scoreVerdict(score: number): { label: string; color: string } {
+  if (score >= 75) return { label: 'POST IT', color: 'var(--green)' }
+  if (score >= 60) return { label: 'TWEAK', color: 'var(--gold)' }
+  if (score >= 45) return { label: 'RECONSIDER', color: '#9a6a5a' }
+  return { label: "DON'T POST", color: '#8a4a3a' }
 }
 
 export function MediaScanner() {
@@ -282,9 +292,10 @@ Return JSON exactly:
   "caption_context": "<one sentence describing what is in the image — use for caption generation>",
   "post_recommendation": "<specific recommendation: grid post, story, carousel lead, skip>",
   "content_score": {
-    "engagement": <0-100>,
-    "brand_alignment": <0-100>,
-    "virality": <0-100>,
+    "reach": <0-100 scroll-stop power, hook strength, share trigger>,
+    "authenticity": <0-100 voice consistency, genuine energy, personal signature>,
+    "culture": <0-100 scene credibility, underground codes, genre awareness>,
+    "visual_identity": <0-100 colour palette, tonal match, composition style>,
     "reasoning": "<based on what you see: subject, mood, composition, platform fit>"
   },
   "tags": ["<subject>", "<mood>", "<context if detectable>"],
@@ -333,9 +344,10 @@ Return JSON exactly:
   "caption_context": "<one sentence describing what is genuinely happening in the footage>",
   "post_recommendation": "<specific recommendation based on what you actually see>",
   "content_score": {
-    "engagement": <0-100>,
-    "brand_alignment": <0-100>,
-    "virality": <0-100>,
+    "reach": <0-100 scroll-stop power, hook strength, completion likelihood, share trigger>,
+    "authenticity": <0-100 voice consistency, genuine energy, raw vs manufactured>,
+    "culture": <0-100 scene credibility, underground codes, genre awareness, peer respect>,
+    "visual_identity": <0-100 colour palette, tonal match, composition style, grid cohesion>,
     "reasoning": "<based on what you see: crowd reaction, lighting, composition>"
   },
   "tags": ["<venue/event if detectable from context>", "<show footage>", "<live electronic>"],
@@ -407,47 +419,21 @@ Return JSON exactly:
     const scan = scans[selectedScan]
     if (!scan) return
     const params = new URLSearchParams({ context: scan.result.caption_context })
-    window.location.href = '/broadcast?' + params.toString()
+    window.open('/broadcast?' + params.toString(), '_blank')
   }
 
   async function downloadClip(scan: FileScan) {
-    const { best_clip_start, best_clip_end } = scan.result
-    const startSec = best_clip_start ?? 0
-    const endSec   = best_clip_end   ?? Math.min(startSec + 30, 999)
-
-    // Use MediaRecorder to extract the clip client-side
-    const video = document.createElement('video')
-    video.src = URL.createObjectURL(scan.file)
-    video.muted = false
-
-    await new Promise<void>(res => { video.onloadedmetadata = () => res() })
-
-    const stream  = (video as HTMLVideoElement & { captureStream(): MediaStream }).captureStream()
-    const chunks: BlobPart[] = []
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm'
-    const recorder = new MediaRecorder(stream, { mimeType })
-
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: mimeType })
-      const url  = URL.createObjectURL(blob)
-      const a    = document.createElement('a')
-      a.href     = url
-      a.download = `${scan.file.name.replace(/\.[^.]+$/, '')}_best_${startSec.toFixed(0)}s-${endSec.toFixed(0)}s.webm`
-      a.click()
-      URL.revokeObjectURL(url)
-      URL.revokeObjectURL(video.src)
-    }
-
-    video.currentTime = startSec
-    await new Promise<void>(res => { video.onseeked = () => res() })
-
-    recorder.start()
-    video.play()
-
-    await new Promise<void>(res => setTimeout(res, (endSec - startSec) * 1000 + 200))
-    recorder.stop()
-    video.pause()
+    // Download the original file — browser-based clip extraction is unreliable
+    // The best_clip timestamps are shown in the UI for manual trimming
+    const url = URL.createObjectURL(scan.file)
+    const a = document.createElement('a')
+    a.href = url
+    const ext = scan.file.name.split('.').pop() || 'mp4'
+    const start = scan.result.best_clip_start?.toFixed(0) ?? '0'
+    const end = scan.result.best_clip_end?.toFixed(0) ?? '30'
+    a.download = `${scan.file.name.replace(/\.[^.]+$/, '')}_trim_${start}s-${end}s.${ext}`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const [downloading, setDownloading] = useState(false)
@@ -575,38 +561,45 @@ Return JSON exactly:
           {/* Rankings — shown once scans complete */}
           {scans.length > 1 && (
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Clip ranking</div>
-              {scans.map((scan, i) => (
-                <div
-                  key={i}
-                  onClick={() => setSelectedScan(i)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '14px',
-                    padding: '12px 0',
-                    borderBottom: i < scans.length - 1 ? `1px solid ${s.border}` : 'none',
-                    cursor: 'pointer',
-                    opacity: selectedScan === i ? 1 : 0.55,
-                    transition: 'opacity 0.15s',
-                  }}>
-                  <div style={{ fontSize: '20px', fontWeight: 300, color: i === 0 ? s.green : i === 1 ? s.gold : s.textDimmer, width: '36px', flexShrink: 0 }}>
-                    {scan.composite}
-                  </div>
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontSize: '11px', color: s.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '3px' }}>
-                      {i === 0 && <span style={{ color: s.green, marginRight: '6px' }}>★</span>}
-                      {scan.file.name}
+              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '14px' }}>Content ranking</div>
+              {scans.map((scan, i) => {
+                const v = scoreVerdict(scan.composite)
+                const thumb = scan.frames[0]?.dataUrl
+                return (
+                  <div
+                    key={i}
+                    onClick={() => setSelectedScan(i)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 0',
+                      borderBottom: i < scans.length - 1 ? `1px solid ${s.border}` : 'none',
+                      cursor: 'pointer',
+                      opacity: selectedScan === i ? 1 : 0.5,
+                      transition: 'opacity 0.15s',
+                    }}>
+                    {thumb && (
+                      <img src={thumb} alt="" style={{ width: '48px', height: '28px', objectFit: 'cover', flexShrink: 0, border: `1px solid ${selectedScan === i ? s.gold + '60' : s.border}` }} />
+                    )}
+                    <div style={{ fontSize: '20px', fontWeight: 300, color: v.color, width: '36px', flexShrink: 0, textAlign: 'center' }}>
+                      {scan.composite}
                     </div>
-                    <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                      E:{scan.result.content_score.engagement} · B:{scan.result.content_score.brand_alignment} · V:{scan.result.content_score.virality}
+                    <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
+                      <div style={{ fontSize: '11px', color: s.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>
+                        {i === 0 && <span style={{ color: s.green, marginRight: '6px' }}>★</span>}
+                        {scan.result.caption_context || scan.file.name}
+                      </div>
+                      <div style={{ fontSize: '9px', color: s.textDimmer }}>
+                        R:{scan.result.content_score.reach} · A:{scan.result.content_score.authenticity} · C:{scan.result.content_score.culture} · V:{scan.result.content_score.visual_identity}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '8px', letterSpacing: '0.12em', color: v.color, textTransform: 'uppercase', flexShrink: 0, fontFamily: s.font }}>
+                      {v.label}
                     </div>
                   </div>
-                  <div style={{ height: '2px', width: '60px', background: '#1a1917', flexShrink: 0 }}>
-                    <div style={{ height: '2px', background: i === 0 ? s.green : i === 1 ? s.gold : s.textDimmer, width: `${scan.composite}%` }} />
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -639,12 +632,19 @@ Return JSON exactly:
 
             {/* Content Score */}
             <div style={{ background: s.panel, border: `1px solid ${s.gold}`, padding: '24px 28px', boxShadow: '0 0 20px rgba(176,141,87,0.08)' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px' }}>Content intelligence</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase' }}>Content intelligence</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '22px', fontWeight: 300, color: scoreVerdict(activeScan.composite).color }}>{activeScan.composite}</span>
+                  <span style={{ fontSize: '9px', letterSpacing: '0.14em', color: scoreVerdict(activeScan.composite).color, textTransform: 'uppercase' }}>{scoreVerdict(activeScan.composite).label}</span>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                 {[
-                  { label: 'Engagement', value: activeScan.result.content_score.engagement, desc: 'Save + share potential' },
-                  { label: 'Brand fit', value: activeScan.result.content_score.brand_alignment, desc: 'Tone lane alignment' },
-                  { label: 'Virality', value: activeScan.result.content_score.virality, desc: 'Organic reach' },
+                  { label: 'Reach', value: activeScan.result.content_score.reach, desc: 'Scroll-stop · share trigger' },
+                  { label: 'Authenticity', value: activeScan.result.content_score.authenticity, desc: 'Voice · genuine energy' },
+                  { label: 'Culture', value: activeScan.result.content_score.culture, desc: 'Scene cred · underground' },
+                  { label: 'Visual ID', value: activeScan.result.content_score.visual_identity, desc: 'Palette · composition' },
                 ].map(metric => (
                   <div key={metric.label}>
                     <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '8px' }}>{metric.label}</div>

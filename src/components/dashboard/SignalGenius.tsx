@@ -77,7 +77,13 @@ async function streamClaude(
 export function SignalGenius() {
   const mobile = useMobile()
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = sessionStorage.getItem('signal_chat_messages')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [context, setContext] = useState<ArtistContext | null>(null)
@@ -99,6 +105,11 @@ export function SignalGenius() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+
+  // Persist chat messages to sessionStorage
+  useEffect(() => {
+    try { sessionStorage.setItem('signal_chat_messages', JSON.stringify(messages)) } catch {}
+  }, [messages])
 
   // Voice output — speak response via OpenAI TTS
   async function speakResponse(text: string) {
