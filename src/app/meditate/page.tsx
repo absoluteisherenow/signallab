@@ -404,17 +404,7 @@ export default function MeditatePage() {
           {mode.subtitle}
         </div>
 
-        {/* Intro text */}
-        {introText && (
-          <div style={{
-            position: 'absolute', top: 72, left: 32, right: 32, textAlign: 'center',
-            fontSize: '13px', lineHeight: 1.7, color: introPlaying ? '#c8c0b4' : '#8a8780',
-            maxWidth: 480, margin: '0 auto',
-            transition: 'opacity 1s ease', opacity: introPlaying ? 1 : 0.5,
-          }}>
-            {introText}
-          </div>
-        )}
+        {/* Intro text — hidden, audio only */}
 
         {/* Breathing circle */}
         <div style={{
