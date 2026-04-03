@@ -13,11 +13,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Instagram requires an image or video.' }, { status: 400 })
   }
 
-  // Get stored credentials
+  // Get stored credentials — prefer most recently connected account
   const query = supabase
     .from('connected_social_accounts')
     .select('*')
     .eq('platform', 'instagram')
+    .order('created_at', { ascending: false })
   if (handle) query.eq('handle', handle)
 
   const { data: accounts } = await query.limit(1).single()
