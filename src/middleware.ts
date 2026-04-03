@@ -6,6 +6,7 @@ const PUBLIC_PATHS = [
   '/login',
   '/join',      // invoice landing / waitlist signup
   '/pricing',   // public pricing page
+  '/landing',   // public sales / landing page
   '/advance',   // external advance request forms (promoters/venues fill these in)
   '/upload',    // public media upload links (pre-show briefs)
 ]

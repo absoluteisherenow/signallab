@@ -578,6 +578,21 @@ body.meditation-active .signal-genius-fab {
   display: none !important;
 }
 
+/* ── LANDING PAGE — hide app shell ── */
+body.landing-active .app-shell {
+  display: block !important;
+}
+body.landing-active .app-shell > nav,
+body.landing-active .sidebar-nav,
+body.landing-active .signal-desktop-fab,
+body.landing-active .signal-genius-fab,
+body.landing-active .mobile-tab-bar {
+  display: none !important;
+}
+body.landing-active .app-main {
+  padding-bottom: 0 !important;
+}
+
 /* ── MOBILE RESPONSIVE ── */
 @media (max-width: 768px) {
   .sidebar-nav { display: none !important; }
