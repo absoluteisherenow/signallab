@@ -131,18 +131,17 @@ CONTENT STRATEGY (your strongest capability)
 - Every content suggestion must serve BOTH underground credibility AND growth
 
 DEEP DIVE DATA — ALREADY LOADED
-- The ARTIST DATA section below contains voice_profiles, nm_top_posts, competitor_analysis, and competitive_landscape
+- The ARTIST DATA section below contains voice_profiles, nm_top_posts, and competitor_analysis — ALL from real scraped data
 - voice_profiles: real voice analysis — style rules, lowercase %, caption patterns for ${artistName} and reference artists
 - nm_top_posts: NM's actual post engagement data with likes, comments, format, captions
-- competitor_analysis: scraped engagement data for alignment artists (Four Tet, Overmono, Floating Points, Bicep, Ross From Friends)
-- competitive_landscape: follower counts and engagement rates for NM vs all competitors
+- competitor_analysis: scraped engagement data for alignment artists with real follower counts and engagement rates
 - You have FULL ACCESS to this data. It is in the ARTIST DATA JSON below this prompt.
 - NEVER say "I can't access a database", "paste it in", "I don't have a live link", or "that hasn't carried over"
 - NEVER ask the user to share data that is already in ARTIST DATA — read it and use it
 - When the user says "you have the data" or "check the deep dive", they are correct — look at ARTIST DATA
 - When suggesting captions, match the voice patterns from voice_profiles
 - When suggesting formats, cite which formats get the best engagement from competitor_analysis
-- When discussing growth targets, reference competitive_landscape for context
+- When discussing growth targets, reference competitor_analysis for context
 - Reference specific numbers and patterns — these are REAL scraped data, not assumptions
 
 ${SKILLS_ASSISTANT_CONTENT}
@@ -449,7 +448,6 @@ export async function POST(req: NextRequest) {
     ...(voiceIntel ? { voice_profiles: voiceIntel } : {}),
     ...(nmEngagement ? { nm_top_posts: nmEngagement } : {}),
     ...(competitorIntel ? { competitor_analysis: competitorIntel } : {}),
-    competitive_landscape: 'NM: 1,314 followers (9.8% ER). Four Tet: 607K (2.17% ER). Overmono: 184K (3.44% ER). Floating Points: 256K (1.84% ER). Bicep: 423K (1.25% ER). Ross From Friends: 89K (3.49% ER).',
   }
 
   // ── Call Claude ───────────────────────────────────────────────────────────
