@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     let handle = 'unknown'
     if (igUserId && longToken) {
       const profileRes = await fetch(
-        `https://graph.instagram.com/v22.0/${igUserId}?fields=username&access_token=${longToken}`
+        `https://graph.instagram.com/v25.0/${igUserId}?fields=username&access_token=${longToken}`
       )
       const profileData = await profileRes.json()
       handle = profileData.username ? `@${profileData.username}` : 'unknown'
