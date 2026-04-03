@@ -8,7 +8,6 @@ const supabase = createClient(
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://signal-lab-rebuild.vercel.app'
 
-// HTML that closes the popup and notifies the parent window
 function popupResult(status: 'connected' | 'error', data: Record<string, string> = {}) {
   const payload = JSON.stringify({ platform: 'instagram', status, ...data })
   return new NextResponse(
@@ -33,44 +32,71 @@ export async function GET(req: NextRequest) {
   const redirectUri = `${APP_URL}/api/social/instagram/callback`
 
   try {
-    // 1. Exchange code for short-lived token (Instagram OAuth)
-    const tokenForm = new URLSearchParams({
+    // 1. Exchange code for short-lived Facebook User Access Token
+    const tokenParams = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
       grant_type: 'authorization_code',
       redirect_uri: redirectUri,
       code,
     })
-    const tokenRes = await fetch('https://api.instagram.com/oauth/access_token', {
-      method: 'POST',
-      body: tokenForm,
-    })
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/oauth/access_token?${tokenParams.toString()}`
+    )
     const tokenData = await tokenRes.json()
-    if (tokenData.error_type || tokenData.error) {
-      throw new Error(tokenData.error_message || tokenData.error?.message || 'Token exchange failed')
+    if (tokenData.error) {
+      throw new Error(tokenData.error.message || 'Token exchange failed')
     }
 
     const shortToken = tokenData.access_token
-    const igUserId = String(tokenData.user_id || '')
 
     // 2. Exchange for long-lived token (60 day expiry)
+    const longParams = new URLSearchParams({
+      grant_type: 'fb_exchange_token',
+      client_id: appId,
+      client_secret: appSecret,
+      fb_exchange_token: shortToken,
+    })
     const longRes = await fetch(
-      `https://graph.instagram.com/access_token?` +
-      `grant_type=ig_exchange_token&client_secret=${appSecret}&access_token=${shortToken}`
+      `https://graph.facebook.com/oauth/access_token?${longParams.toString()}`
     )
     const longData = await longRes.json()
+    if (longData.error) throw new Error(longData.error.message || 'Long-lived token exchange failed')
+
     const longToken = longData.access_token
     const expiresIn = longData.expires_in || 5184000
 
-    // 3. Get Instagram profile
+    // 3. Get Instagram Business Account via Facebook Pages
+    let igUserId = ''
     let handle = 'unknown'
-    if (igUserId && longToken) {
-      const profileRes = await fetch(
-        `https://graph.instagram.com/v25.0/${igUserId}?fields=username&access_token=${longToken}`
+
+    // Try direct link first
+    const meRes = await fetch(
+      `https://graph.facebook.com/me?fields=instagram_business_account{id,username}&access_token=${longToken}`
+    )
+    const meData = await meRes.json()
+
+    if (meData.instagram_business_account?.id) {
+      igUserId = meData.instagram_business_account.id
+      handle = meData.instagram_business_account.username
+        ? `@${meData.instagram_business_account.username}`
+        : 'unknown'
+    } else {
+      // Fall back to Pages → Instagram account
+      const pagesRes = await fetch(
+        `https://graph.facebook.com/me/accounts?fields=instagram_business_account{id,username},access_token&access_token=${longToken}`
       )
-      const profileData = await profileRes.json()
-      handle = profileData.username ? `@${profileData.username}` : 'unknown'
+      const pagesData = await pagesRes.json()
+      const page = (pagesData.data || []).find((p: any) => p.instagram_business_account)
+      if (page?.instagram_business_account) {
+        igUserId = page.instagram_business_account.id
+        handle = page.instagram_business_account.username
+          ? `@${page.instagram_business_account.username}`
+          : 'unknown'
+      }
     }
+
+    if (!igUserId) throw new Error('No Instagram Business account found — make sure your Instagram is a Business or Creator account linked to a Facebook Page')
 
     const tokenExpiry = Date.now() + (expiresIn * 1000)
 
