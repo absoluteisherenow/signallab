@@ -1,8 +1,18 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { SignalLabHeader } from './SignalLabHeader'
 import { ScanPulse } from '@/components/ui/ScanPulse'
+
+interface SavedStrategy {
+  id: string
+  source: string
+  query: string | null
+  answer: string | null
+  phases: { name: string; timing: string; actions: string[] }[] | null
+  always_on: string[] | null
+  created_at: string
+}
 
 interface StrategyPost {
   day: string
@@ -34,6 +44,33 @@ export function ContentStrategy() {
   const [addedSet, setAddedSet] = useState<Set<number>>(new Set())
   const [addingIndex, setAddingIndex] = useState<number | null>(null)
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null)
+
+  // ── Saved strategies from Signal Voice ────────────────────────────────
+  const [savedStrategies, setSavedStrategies] = useState<SavedStrategy[]>([])
+  const [loadingSaved, setLoadingSaved] = useState(true)
+
+  useEffect(() => { loadSaved() }, [])
+
+  async function loadSaved() {
+    setLoadingSaved(true)
+    try {
+      const res = await fetch('/api/content-strategy')
+      const data = await res.json()
+      if (data.strategies) setSavedStrategies(data.strategies)
+    } catch {}
+    setLoadingSaved(false)
+  }
+
+  async function deleteSaved(id: string) {
+    setSavedStrategies(prev => prev.filter(s => s.id !== id))
+    try {
+      await fetch('/api/content-strategy', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+    } catch {}
+  }
 
   async function generateStrategy(p?: 'week' | 'month') {
     const usePeriod = p || period
@@ -186,7 +223,7 @@ export function ContentStrategy() {
         )}
 
         {/* Empty state */}
-        {!loading && !hasStrategy && (
+        {!loading && !hasStrategy && savedStrategies.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: '100px', gap: '24px', maxWidth: '480px', margin: '0 auto', textAlign: 'center' }}>
             <div style={{ fontSize: '13px', color: s.dim, lineHeight: 1.6 }}>
               Generate a content plan built from your gigs, releases, and what&apos;s working
@@ -202,6 +239,89 @@ export function ContentStrategy() {
             >
               Create Content Strategy
             </button>
+          </div>
+        )}
+
+        {/* Saved strategies from Signal Voice */}
+        {!loading && savedStrategies.length > 0 && (
+          <div style={{ marginBottom: '40px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.gold, fontFamily: s.font, marginBottom: '16px' }}>
+              From Signal Voice
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {savedStrategies.map(strat => (
+                <div key={strat.id} style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderLeft: '2px solid rgba(212,168,67,0.4)',
+                  borderRadius: '10px',
+                  padding: '20px',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <div>
+                      {strat.query && (
+                        <div style={{ fontSize: '10px', color: s.dimmer, fontFamily: s.font, marginBottom: '6px' }}>
+                          &ldquo;{strat.query}&rdquo;
+                        </div>
+                      )}
+                      <div style={{ fontSize: '9px', color: 'rgba(240,235,226,0.2)', fontFamily: s.font }}>
+                        {new Date(strat.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteSaved(strat.id)}
+                      style={{
+                        background: 'none', border: 'none', color: 'rgba(240,235,226,0.2)',
+                        fontSize: '11px', cursor: 'pointer', padding: '2px 6px',
+                      }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+
+                  {strat.answer && (
+                    <div style={{ fontSize: '13px', color: s.text, lineHeight: 1.6, marginBottom: '14px' }}>
+                      {strat.answer}
+                    </div>
+                  )}
+
+                  {strat.phases && strat.phases.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                      {strat.phases.map((phase, i) => (
+                        <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                            <div style={{ fontSize: '10px', color: s.gold, letterSpacing: '0.1em', fontWeight: 500, fontFamily: s.font }}>
+                              {phase.name.toUpperCase()}
+                            </div>
+                            <div style={{ fontSize: '9px', color: s.dimmer, fontFamily: s.font }}>{phase.timing}</div>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {phase.actions.map((action, j) => (
+                              <div key={j} style={{ fontSize: '11px', color: s.dim, paddingLeft: '10px', borderLeft: '1px solid rgba(255,255,255,0.06)', lineHeight: 1.5 }}>
+                                {action}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {strat.always_on && strat.always_on.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '9px', color: s.dimmer, letterSpacing: '0.12em', fontFamily: s.font, marginBottom: '6px' }}>ALWAYS ON</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {strat.always_on.map((item, i) => (
+                          <div key={i} style={{ fontSize: '11px', color: 'rgba(240,235,226,0.3)', paddingLeft: '10px', borderLeft: '1px solid rgba(255,255,255,0.04)' }}>
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

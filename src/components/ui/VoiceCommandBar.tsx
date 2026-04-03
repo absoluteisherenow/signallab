@@ -452,7 +452,10 @@ function BlueprintResult({ result }: { result: AssistantResult }) {
 function ContentStrategyResult({ result }: { result: AssistantResult }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      <div style={{ fontSize: '8px', color: '#5a4a38', letterSpacing: '0.15em' }}>CONTENT STRATEGY</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: '8px', color: '#5a4a38', letterSpacing: '0.15em' }}>CONTENT STRATEGY</div>
+        <div style={{ fontSize: '8px', color: '#4a3e2c', letterSpacing: '0.1em' }}>SAVED TO CONTENT STRATEGY</div>
+      </div>
       <div style={{ fontSize: '13px', color: '#e8dcc8', lineHeight: 1.7 }}>{result.answer}</div>
 
       {result.phases && result.phases.length > 0 && (
@@ -506,8 +509,13 @@ function TextResult({ result }: { result: AssistantResult }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ fontSize: '8px', color: '#5a4a38', letterSpacing: '0.15em' }}>
-        {intentLabel[result.intent] ?? 'SIGNAL LAB OS'}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: '8px', color: '#5a4a38', letterSpacing: '0.15em' }}>
+          {intentLabel[result.intent] ?? 'SIGNAL LAB OS'}
+        </div>
+        {result.intent === 'content_advice' && (
+          <div style={{ fontSize: '8px', color: '#4a3e2c', letterSpacing: '0.1em' }}>SAVED TO CONTENT STRATEGY</div>
+        )}
       </div>
       <div style={{ fontSize: '14px', color: '#e8dcc8', lineHeight: 1.7 }}>
         {result.answer}

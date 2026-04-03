@@ -537,6 +537,18 @@ Respond with the appropriate JSON structure. Be specific, direct, and actionable
       )
     }
 
+    // Auto-save content strategy/advice to Content Strategy tab
+    const r = result as Record<string, unknown>
+    if (r.intent === 'content_strategy' || r.intent === 'content_advice') {
+      supabase.from('content_strategies').insert({
+        source: 'signal_voice',
+        query: body.query?.trim() || null,
+        answer: r.answer || null,
+        phases: r.phases || null,
+        always_on: r.always_on || null,
+      }).then(() => {})
+    }
+
     return NextResponse.json(result, { headers: corsHeaders })
 
   } catch (err: unknown) {
