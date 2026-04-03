@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     'pages_read_engagement',
   ].join(',')
 
-  const url = new URL('https://www.facebook.com/dialog/oauth')
+  const url = new URL('https://www.instagram.com/oauth/authorize')
   url.searchParams.set('client_id', appId)
   url.searchParams.set('redirect_uri', redirectUri)
   url.searchParams.set('scope', scope)

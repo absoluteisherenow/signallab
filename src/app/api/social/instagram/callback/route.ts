@@ -40,25 +40,25 @@ export async function GET(req: NextRequest) {
       redirect_uri: redirectUri,
       code,
     })
-    const tokenRes = await fetch(
-      `https://graph.facebook.com/oauth/access_token?${tokenParams.toString()}`
-    )
+    const tokenRes = await fetch('https://api.instagram.com/oauth/access_token', {
+      method: 'POST',
+      body: tokenParams,
+    })
     const tokenData = await tokenRes.json()
-    if (tokenData.error) {
-      throw new Error(tokenData.error.message || 'Token exchange failed')
+    if (tokenData.error_type || tokenData.error) {
+      throw new Error(tokenData.error_message || tokenData.error?.message || 'Token exchange failed')
     }
 
     const shortToken = tokenData.access_token
 
     // 2. Exchange for long-lived token (60 day expiry)
     const longParams = new URLSearchParams({
-      grant_type: 'fb_exchange_token',
-      client_id: appId,
+      grant_type: 'ig_exchange_token',
       client_secret: appSecret,
-      fb_exchange_token: shortToken,
+      access_token: shortToken,
     })
     const longRes = await fetch(
-      `https://graph.facebook.com/oauth/access_token?${longParams.toString()}`
+      `https://graph.instagram.com/access_token?${longParams.toString()}`
     )
     const longData = await longRes.json()
     if (longData.error) throw new Error(longData.error.message || 'Long-lived token exchange failed')
@@ -66,37 +66,18 @@ export async function GET(req: NextRequest) {
     const longToken = longData.access_token
     const expiresIn = longData.expires_in || 5184000
 
-    // 3. Get Instagram Business Account via Facebook Pages
-    let igUserId = ''
+    // 3. Get Instagram profile
+    const igUserId = String(tokenData.user_id || '')
     let handle = 'unknown'
-
-    // Try direct link first
-    const meRes = await fetch(
-      `https://graph.facebook.com/me?fields=instagram_business_account{id,username}&access_token=${longToken}`
-    )
-    const meData = await meRes.json()
-
-    if (meData.instagram_business_account?.id) {
-      igUserId = meData.instagram_business_account.id
-      handle = meData.instagram_business_account.username
-        ? `@${meData.instagram_business_account.username}`
-        : 'unknown'
-    } else {
-      // Fall back to Pages → Instagram account
-      const pagesRes = await fetch(
-        `https://graph.facebook.com/me/accounts?fields=instagram_business_account{id,username},access_token&access_token=${longToken}`
+    if (igUserId && longToken) {
+      const profileRes = await fetch(
+        `https://graph.instagram.com/v25.0/${igUserId}?fields=username&access_token=${longToken}`
       )
-      const pagesData = await pagesRes.json()
-      const page = (pagesData.data || []).find((p: any) => p.instagram_business_account)
-      if (page?.instagram_business_account) {
-        igUserId = page.instagram_business_account.id
-        handle = page.instagram_business_account.username
-          ? `@${page.instagram_business_account.username}`
-          : 'unknown'
-      }
+      const profileData = await profileRes.json()
+      handle = profileData.username ? `@${profileData.username}` : 'unknown'
     }
 
-    if (!igUserId) throw new Error('No Instagram Business account found — make sure your Instagram is a Business or Creator account linked to a Facebook Page')
+    if (!igUserId) throw new Error('Could not retrieve Instagram user ID')
 
     const tokenExpiry = Date.now() + (expiresIn * 1000)
 
