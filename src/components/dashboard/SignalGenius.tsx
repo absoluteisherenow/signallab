@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useMobile } from '@/hooks/useMobile'
+import { SKILL_SOCIAL_STRATEGY, SKILL_VOICE_ENGINE, SKILL_ADS_MANAGER, SKILL_INSTAGRAM_GROWTH } from '@/lib/skillPromptsClient'
 
 // Module-level guard — shared across all component instances
 let uploadInProgress = false
@@ -20,6 +21,10 @@ interface ArtistContext {
   revenueStreams: any[]
   profile: any
   quarterStats: { gigs: number; posts: number; revenue: number }
+  voiceProfiles: any[]
+  postPerformance: any[]
+  connectedSocialAccounts: any[]
+  releases: any[]
 }
 
 /** Stream Claude response — yields text chunks as they arrive */
@@ -27,6 +32,7 @@ async function streamClaude(
   system: string,
   messages: { role: string; content: string }[],
   onChunk: (text: string) => void,
+  maxTokens: number = 2400,
 ): Promise<string> {
   const res = await fetch('/api/claude/stream', {
     method: 'POST',
@@ -34,7 +40,7 @@ async function streamClaude(
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       system,
-      max_tokens: 1200,
+      max_tokens: maxTokens,
       messages,
     }),
   })
@@ -236,7 +242,7 @@ export function SignalGenius() {
         // Filter out any empty-content messages — Anthropic API rejects them
         const cleanHistory = messages.filter(m => m.content && m.content.trim() !== '').map(m => ({ role: m.role, content: m.content }))
         const fullResponse = await streamClaude(
-          buildSystemPrompt(),
+          buildSystemPrompt(`uploaded ${file.name} invoice payment`),
           [
             ...cleanHistory,
             { role: userMsg.role, content: userMsg.content },
@@ -284,6 +290,10 @@ export function SignalGenius() {
       fetch('/api/settings').then(r => r.json()),
       fetch('/api/mix-scans?limit=3').then(r => r.json()).catch(() => ({ scans: [] })),
       fetch('/api/revenue-streams').then(r => r.json()).catch(() => ({ revenue_streams: [] })),
+      fetch('/api/voice-profiles').then(r => r.json()).catch(() => ({ voiceProfiles: [] })),
+      fetch('/api/post-performance').then(r => r.json()).catch(() => ({ posts: [] })),
+      fetch('/api/social/connected').then(r => r.json()).catch(() => ({ accounts: [] })),
+      fetch('/api/releases').then(r => r.json()).catch(() => ({ releases: [] })),
     ]).then(results => {
       const gigs = results[0].status === 'fulfilled' ? results[0].value.gigs || [] : []
       const invoices = results[1].status === 'fulfilled' ? results[1].value.invoices || [] : []
@@ -291,6 +301,10 @@ export function SignalGenius() {
       const settings = results[3].status === 'fulfilled' ? results[3].value.settings || {} : {}
       const mixScans = results[4].status === 'fulfilled' ? results[4].value.scans || [] : []
       const revenueStreams = results[5].status === 'fulfilled' ? results[5].value.revenue_streams || [] : []
+      const voiceProfiles = results[6].status === 'fulfilled' ? results[6].value.voiceProfiles || [] : []
+      const postPerformance = results[7].status === 'fulfilled' ? results[7].value.posts || [] : []
+      const connectedSocialAccounts = results[8].status === 'fulfilled' ? results[8].value.accounts || [] : []
+      const releases = results[9].status === 'fulfilled' ? results[9].value.releases || [] : []
 
       const today = new Date()
       const yr = today.getFullYear()
@@ -311,6 +325,10 @@ export function SignalGenius() {
           posts: posts.filter((p: any) => p.status === 'posted').length,
           revenue: qGigs.reduce((s: number, g: any) => s + (g.fee || 0), 0),
         },
+        voiceProfiles,
+        postPerformance,
+        connectedSocialAccounts,
+        releases,
       })
       setContextLoaded(true)
     })
@@ -429,10 +447,19 @@ export function SignalGenius() {
     setPendingEmailFindings([])
   }
 
-  function buildSystemPrompt(): string {
+  function buildSystemPrompt(lastUserMessage?: string): string {
     const today = new Date().toISOString().slice(0, 10)
     const todayStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     const c = context
+
+    // Query-aware filtering — only include heavy data sections when relevant
+    const queryLower = (lastUserMessage || '').toLowerCase()
+    const isMoneyQuery = /\b(invoice|payment|fee|money|paid|owe|revenue|earn|income|outstanding|overdue|cash|royalt)\b/.test(queryLower)
+    const isContentQuery = /\b(post|content|caption|reel|story|social|voice|engage|strategy|plan|campaign|what should i|grow|follower|instagram|tiktok|audience|10k|sell out)\b/.test(queryLower)
+    const isDJQuery = /\b(set|track|mix|bpm|key|camelot|energy|transition|dj|library|rekordbox|playlist)\b/.test(queryLower)
+    const isMixScanQuery = /\b(mix scan|scan|mix.*feedback|how.*mix)\b/.test(queryLower)
+    const isAdsQuery = /\b(ads?|advert|paid|boost|promot|spend|budget|campaign.*paid|meta ads|tiktok ads|spotify ad|target.*audience|retarget|lookalike|cpm|cpc|roas)\b/.test(queryLower)
+    const isInstagramQuery = /\b(instagram|insta|ig|reel|reels|stories|story|grid|follower|followers|growth|engage|engagement|hashtag|algorithm|collab post|bio|profile.*optim)\b/.test(queryLower)
 
     let contextBlock = `Today is ${todayStr}.`
 
@@ -448,20 +475,156 @@ export function SignalGenius() {
       contextBlock += `\n\nArtist: ${c.profile.name || 'Unknown'} · ${c.profile.genre || 'Electronic'} · ${c.profile.country || ''}`
       contextBlock += `\nThis quarter: ${c.quarterStats.gigs} gigs, ${c.quarterStats.posts} posts published, ${c.quarterStats.revenue > 0 ? '£' + c.quarterStats.revenue.toLocaleString() + ' revenue' : 'no revenue logged'}.`
 
-      // Bank accounts — needed for invoice building
-      if (c.profile.bankAccounts?.length > 0) {
-        contextBlock += `\n\nBank accounts for invoicing:`
-        c.profile.bankAccounts.forEach((acc: any) => {
-          const parts = [`${acc.currency || ''} account`]
-          if (acc.accountName) parts.push(`Name: ${acc.accountName}`)
-          if (acc.bankName) parts.push(`Bank: ${acc.bankName}`)
-          if (acc.iban) parts.push(`IBAN: ${acc.iban}`)
-          if (acc.accountNumber) parts.push(`Account: ${acc.accountNumber}`)
-          if (acc.sortCode) parts.push(`Sort code: ${acc.sortCode}`)
-          if (acc.bic) parts.push(`BIC/SWIFT: ${acc.bic}`)
-          if (acc.bankAddress) parts.push(`Address: ${acc.bankAddress}`)
-          contextBlock += `\n- ${parts.join(' · ')}`
+      // ── ALWAYS INCLUDED: Connected social accounts ──────────────────────────
+      if (c.connectedSocialAccounts?.length > 0) {
+        contextBlock += `\n\nConnected social accounts:`
+        c.connectedSocialAccounts.forEach((a: any) => {
+          let line = `- ${a.platform}: ${a.handle || '?'}`
+          if (a.follower_count) line += ` · ${a.follower_count} followers`
+          if (a.following_count) line += ` · ${a.following_count} following`
+          if (a.post_count) line += ` · ${a.post_count} posts`
+          if (a.avg_likes) line += ` · avg ${a.avg_likes} likes`
+          if (a.avg_comments) line += ` · avg ${a.avg_comments} comments`
+          if (a.last_synced) line += ` · last synced: ${new Date(a.last_synced).toLocaleDateString('en-GB')}`
+          contextBlock += `\n${line}`
         })
+      } else {
+        contextBlock += `\n\nConnected social accounts: none connected yet`
+      }
+
+      // ── ALWAYS INCLUDED: Voice profiles ────────────────────────────────────
+      if (c.voiceProfiles?.length > 0) {
+        contextBlock += `\n\nVoice profiles (from Instagram analysis):`
+        c.voiceProfiles.forEach((v: any) => {
+          contextBlock += `\n- ${v.name}: ${v.style_rules} (${v.post_count_analysed || '?'} posts analysed via ${v.data_source || 'scrape'})`
+        })
+      }
+
+      // ── ALWAYS INCLUDED: Releases ──────────────────────────────────────────
+      if (c.releases?.length > 0) {
+        const upcomingReleases = c.releases.filter((r: any) => r.release_date >= today)
+        const recentReleases = c.releases.filter((r: any) => r.release_date < today).slice(0, 5)
+        if (upcomingReleases.length > 0) {
+          contextBlock += `\n\nUpcoming releases:`
+          upcomingReleases.forEach((r: any) => {
+            contextBlock += `\n- ${r.title} (${r.type || 'single'}) — ${r.release_date}${r.label ? ` on ${r.label}` : ''}${r.status ? ` [${r.status}]` : ''}`
+          })
+        }
+        if (recentReleases.length > 0) {
+          contextBlock += `\n\nRecent releases:`
+          recentReleases.forEach((r: any) => {
+            contextBlock += `\n- ${r.title} (${r.type || 'single'}) — ${r.release_date}${r.label ? ` on ${r.label}` : ''}`
+          })
+        }
+      }
+
+      // ── ALWAYS INCLUDED: Upcoming gigs ─────────────────────────────────────
+      if (upcoming.length > 0) {
+        contextBlock += `\n\nUpcoming gigs:\n${upcoming.map((g: any) => {
+          let line = `- ${g.title} at ${g.venue || '?'} · ${g.date} · ${g.time || 'TBC'} · Fee: ${g.currency || ''}${g.fee || '?'} · Status: ${g.status}`
+          if (g.notes) line += ` · Notes: ${g.notes}`
+          const venueLower = (g.venue || '').toLowerCase()
+          if (venueLower.includes('soho house') || venueLower.includes('members club') || venueLower.includes('private members')) {
+            line += ' [PHONE-FREE VENUE — no filming on premises]'
+          }
+          return line
+        }).join('\n')}`
+      }
+
+      // ── CONTENT QUERIES: Post performance + competitor analysis ─────────────
+      if (isContentQuery || isInstagramQuery || isAdsQuery) {
+        const artistName = c.profile.name || 'the artist'
+        const ownPosts = c.postPerformance?.filter((p: any) => p.artist_name === artistName || !p.artist_name) || []
+        const competitorPosts = c.postPerformance?.filter((p: any) => p.artist_name && p.artist_name !== artistName) || []
+
+        if (ownPosts.length > 0) {
+          contextBlock += `\n\nYour top performing posts:`
+          ownPosts.slice(0, 12).forEach((p: any) => {
+            contextBlock += `\n- ${p.format} — ${p.actual_likes || 0}L/${p.actual_comments || 0}C (score ${p.estimated_score || '?'}): "${(p.caption || '').slice(0, 80)}"`
+          })
+        }
+
+        if (competitorPosts.length > 0) {
+          const byArtist: Record<string, any[]> = {}
+          competitorPosts.forEach((p: any) => {
+            const artist = (p.context || '').split(' | ')[0] || p.artist_name
+            if (!byArtist[artist]) byArtist[artist] = []
+            byArtist[artist].push(p)
+          })
+          contextBlock += `\n\nCompetitor analysis:`
+          Object.entries(byArtist).forEach(([artist, posts]) => {
+            const meta = (posts[0].context || '').split(' | ')
+            const followers = meta[2] || '?'
+            const avgER = meta[3] || '?'
+            const avgScore = Math.round(posts.reduce((s: number, p: any) => s + (p.estimated_score || 0), 0) / posts.length)
+            const formats: Record<string, number> = {}
+            posts.forEach((p: any) => { formats[p.format] = (formats[p.format] || 0) + 1 })
+            const topFormat = Object.entries(formats).sort((a, b) => b[1] - a[1])[0]?.[0] || 'mixed'
+            const topPost = posts[0]
+            contextBlock += `\n- ${artist} (${followers}, ${avgER}): avg score ${avgScore}, favours ${topFormat}. Top post: ${topPost.estimated_score}pts ${topPost.format} "${(topPost.caption || '').slice(0, 60)}"`
+          })
+        }
+      }
+
+      // ── MONEY QUERIES: Full invoice + revenue detail ───────────────────────
+      if (isMoneyQuery) {
+        // Bank accounts — needed for invoice building
+        if (c.profile.bankAccounts?.length > 0) {
+          contextBlock += `\n\nBank accounts for invoicing:`
+          c.profile.bankAccounts.forEach((acc: any) => {
+            const parts = [`${acc.currency || ''} account`]
+            if (acc.accountName) parts.push(`Name: ${acc.accountName}`)
+            if (acc.bankName) parts.push(`Bank: ${acc.bankName}`)
+            if (acc.iban) parts.push(`IBAN: ${acc.iban}`)
+            if (acc.accountNumber) parts.push(`Account: ${acc.accountNumber}`)
+            if (acc.sortCode) parts.push(`Sort code: ${acc.sortCode}`)
+            if (acc.bic) parts.push(`BIC/SWIFT: ${acc.bic}`)
+            if (acc.bankAddress) parts.push(`Address: ${acc.bankAddress}`)
+            contextBlock += `\n- ${parts.join(' · ')}`
+          })
+        }
+
+        if (c.invoices.length > 0) {
+          const recentInvoices = c.invoices.slice(0, 30)
+          contextBlock += `\n\nInvoice history (${c.invoices.length} total, showing ${recentInvoices.length} most recent):`
+          recentInvoices.forEach((i: any) => {
+            let line = `- [${i.status?.toUpperCase() || 'PENDING'}] ${i.gig_title}`
+            if (i.artist_name) line += ` · Artist: ${i.artist_name}`
+            line += ` · ${i.currency || ''}${i.amount}`
+            if (i.type && i.type !== 'full') line += ` (${i.type})`
+            if (i.due_date) line += ` · Due: ${i.due_date}`
+            if (i.wht_rate) line += ` · WHT: ${i.wht_rate}%`
+            if (i.notes) line += ` · Notes: ${i.notes}`
+            if (i.created_at) line += ` · Created: ${i.created_at.slice(0, 10)}`
+            contextBlock += `\n${line}`
+          })
+          if (overdue.length > 0) {
+            contextBlock += `\n⚠ ${overdue.length} overdue`
+          }
+        }
+
+        // Streaming / royalty revenue data
+        if (c.revenueStreams?.length > 0) {
+          const totalBySource: Record<string, number> = {}
+          c.revenueStreams.forEach((r: any) => {
+            totalBySource[r.source] = (totalBySource[r.source] || 0) + (r.amount || 0)
+          })
+          const paidTotal = c.revenueStreams.filter((r: any) => r.status === 'paid').reduce((s: number, r: any) => s + (r.amount || 0), 0)
+          const pendingTotal = c.revenueStreams.filter((r: any) => r.status === 'pending').reduce((s: number, r: any) => s + (r.amount || 0), 0)
+
+          contextBlock += `\n\nStreaming & royalty revenue (${c.revenueStreams.length} entries):`
+          contextBlock += `\nPaid: ${paidTotal.toFixed(2)} · Pending: ${pendingTotal.toFixed(2)}`
+          contextBlock += `\nBy source: ${Object.entries(totalBySource).map(([src, amt]) => `${src}: ${(amt as number).toFixed(2)}`).join(' · ')}`
+
+          const recent = c.revenueStreams.slice(0, 5)
+          contextBlock += `\nRecent entries:\n${recent.map((r: any) => `- ${r.source}: ${r.currency}${r.amount} — ${r.description} (${r.status})`).join('\n')}`
+        }
+      } else {
+        // Non-money queries: just a brief summary
+        const totalInvoices = c.invoices.length
+        if (totalInvoices > 0) {
+          contextBlock += `\n\n${totalInvoices} invoices on file${overdue.length > 0 ? ` (${overdue.length} overdue)` : ''} — ask about invoices for details.`
+        }
       }
 
       // Management, booking & label contacts
@@ -478,86 +641,43 @@ export function SignalGenius() {
         contextBlock += `\nVAT number: ${c.profile.vatNumber}`
       }
 
-      if (upcoming.length > 0) {
-        contextBlock += `\n\nUpcoming gigs:\n${upcoming.map((g: any) => {
-          let line = `- ${g.title} at ${g.venue || '?'} · ${g.date} · ${g.time || 'TBC'} · Fee: ${g.currency || ''}${g.fee || '?'} · Status: ${g.status}`
-          if (g.notes) line += ` · Notes: ${g.notes}`
-          // Flag known venue types
-          const venueLower = (g.venue || '').toLowerCase()
-          if (venueLower.includes('soho house') || venueLower.includes('members club') || venueLower.includes('private members')) {
-            line += ' [PHONE-FREE VENUE — no filming on premises]'
-          }
-          return line
-        }).join('\n')}`
-      }
-
-      // Full invoice history — so Signal can match format and reference previous invoices
-      if (c.invoices.length > 0) {
-        const recentInvoices = c.invoices.slice(0, 30)
-        contextBlock += `\n\nInvoice history (${c.invoices.length} total, showing ${recentInvoices.length} most recent):`
-        recentInvoices.forEach((i: any) => {
-          let line = `- [${i.status?.toUpperCase() || 'PENDING'}] ${i.gig_title}`
-          if (i.artist_name) line += ` · Artist: ${i.artist_name}`
-          line += ` · ${i.currency || ''}${i.amount}`
-          if (i.type && i.type !== 'full') line += ` (${i.type})`
-          if (i.due_date) line += ` · Due: ${i.due_date}`
-          if (i.wht_rate) line += ` · WHT: ${i.wht_rate}%`
-          if (i.notes) line += ` · Notes: ${i.notes}`
-          if (i.created_at) line += ` · Created: ${i.created_at.slice(0, 10)}`
-          contextBlock += `\n${line}`
-        })
-        if (overdue.length > 0) {
-          contextBlock += `\n⚠ ${overdue.length} overdue`
-        }
-      }
-
       if (weekPosts.length > 0) {
         contextBlock += `\n\nScheduled posts this week: ${weekPosts.length}`
       }
 
-      // Mix scan data — so Signal can discuss scanned mixes
-      if (c.mixScans?.length > 0) {
-        const latestScan = c.mixScans[0]
-        if (latestScan.result) {
-          const r = latestScan.result
-          contextBlock += `\n\nLatest mix scan (${latestScan.filename || 'Mix'}, scanned ${new Date(latestScan.created_at).toLocaleDateString('en-GB')}):`
-          contextBlock += `\nScore: ${r.overall_score}/10 · Grade: ${r.grade}`
-          if (r.headline) contextBlock += `\nHeadline: ${r.headline}`
-          if (r.summary) contextBlock += `\nSummary: ${r.summary}`
-          if (r.structure_analysis) contextBlock += `\nStructure: ${r.structure_analysis}`
-          if (r.technical_assessment) contextBlock += `\nTechnical: ${r.technical_assessment}`
-          if (r.strengths?.length) contextBlock += `\nStrengths: ${r.strengths.join('; ')}`
-          if (r.improvements?.length) contextBlock += `\nImprovements: ${r.improvements.join('; ')}`
-          if (r.tracks?.length) {
-            contextBlock += `\nTracks with issues:`
-            r.tracks.filter((t: any) => t.issue).forEach((t: any) => {
-              contextBlock += `\n- #${t.position} ${t.artist} — ${t.title}: ${t.issue}${t.fix ? ` (Fix: ${t.fix})` : ''}`
-            })
+      // ── DJ/MIX QUERIES: Mix scan data ──────────────────────────────────────
+      if (isDJQuery || isMixScanQuery) {
+        if (c.mixScans?.length > 0) {
+          const latestScan = c.mixScans[0]
+          if (latestScan.result) {
+            const r = latestScan.result
+            contextBlock += `\n\nLatest mix scan (${latestScan.filename || 'Mix'}, scanned ${new Date(latestScan.created_at).toLocaleDateString('en-GB')}):`
+            contextBlock += `\nScore: ${r.overall_score}/10 · Grade: ${r.grade}`
+            if (r.headline) contextBlock += `\nHeadline: ${r.headline}`
+            if (r.summary) contextBlock += `\nSummary: ${r.summary}`
+            if (r.structure_analysis) contextBlock += `\nStructure: ${r.structure_analysis}`
+            if (r.technical_assessment) contextBlock += `\nTechnical: ${r.technical_assessment}`
+            if (r.strengths?.length) contextBlock += `\nStrengths: ${r.strengths.join('; ')}`
+            if (r.improvements?.length) contextBlock += `\nImprovements: ${r.improvements.join('; ')}`
+            if (r.tracks?.length) {
+              contextBlock += `\nTracks with issues:`
+              r.tracks.filter((t: any) => t.issue).forEach((t: any) => {
+                contextBlock += `\n- #${t.position} ${t.artist} — ${t.title}: ${t.issue}${t.fix ? ` (Fix: ${t.fix})` : ''}`
+              })
+            }
+            if (r.overall_verdict) contextBlock += `\nVerdict: ${r.overall_verdict}`
           }
-          if (r.overall_verdict) contextBlock += `\nVerdict: ${r.overall_verdict}`
+          if (latestScan.tracklist) {
+            contextBlock += `\nFull tracklist:\n${latestScan.tracklist}`
+          }
         }
-        if (latestScan.tracklist) {
-          contextBlock += `\nFull tracklist:\n${latestScan.tracklist}`
-        }
-      }
-
-      // Streaming / royalty revenue data
-      if (c.revenueStreams?.length > 0) {
-        const totalBySource: Record<string, number> = {}
-        c.revenueStreams.forEach((r: any) => {
-          totalBySource[r.source] = (totalBySource[r.source] || 0) + (r.amount || 0)
-        })
-        const paidTotal = c.revenueStreams.filter((r: any) => r.status === 'paid').reduce((s: number, r: any) => s + (r.amount || 0), 0)
-        const pendingTotal = c.revenueStreams.filter((r: any) => r.status === 'pending').reduce((s: number, r: any) => s + (r.amount || 0), 0)
-
-        contextBlock += `\n\nStreaming & royalty revenue (${c.revenueStreams.length} entries):`
-        contextBlock += `\nPaid: ${paidTotal.toFixed(2)} · Pending: ${pendingTotal.toFixed(2)}`
-        contextBlock += `\nBy source: ${Object.entries(totalBySource).map(([src, amt]) => `${src}: ${(amt as number).toFixed(2)}`).join(' · ')}`
-
-        const recent = c.revenueStreams.slice(0, 5)
-        contextBlock += `\nRecent entries:\n${recent.map((r: any) => `- ${r.source}: ${r.currency}${r.amount} — ${r.description} (${r.status})`).join('\n')}`
       }
     }
+
+    // ── Skill prompts — always include core social intelligence ────────────
+    let skillBlock = '\n\n' + SKILL_SOCIAL_STRATEGY + '\n\n' + SKILL_VOICE_ENGINE
+    if (isAdsQuery) skillBlock += '\n\n' + SKILL_ADS_MANAGER
+    if (isInstagramQuery) skillBlock += '\n\n' + SKILL_INSTAGRAM_GROWTH
 
     return `You are Signal — a genius embedded inside Signal Lab OS, a creative business platform for electronic music artists.
 
@@ -587,6 +707,20 @@ CRITICAL DJ KNOWLEDGE — never get these wrong:
 - Never use markdown formatting (no ** bold **, no ## headers, no bullet points with -). Write in plain flowing text with line breaks only.
 
 ${contextBlock}
+
+DEEP DIVE DATA — ALREADY LOADED:
+- The context above contains voice profiles, top posts, competitor analysis, connected social accounts, upcoming gigs, and releases — ALL from real data.
+- You have FULL ACCESS to this data. It is loaded above.
+- NEVER say "I can't access a database", "paste it in", "I don't have a live link", or "that hasn't carried over".
+- NEVER say social accounts are not connected or not populated — check the connected social accounts section above first.
+- NEVER ask the user to share data that is already in the context — read it and use it.
+- When the user says "you have the data" or "it's connected", they are correct — look at the context above.
+- When suggesting captions, match the voice patterns from voice profiles.
+- When suggesting formats, cite which formats get the best engagement from competitor analysis.
+- When discussing follower counts or growth, use connected social accounts numbers.
+- Reference specific numbers and patterns — these are REAL data, not assumptions.
+
+${skillBlock}
 
 Rules:
 - Be concise. Short paragraphs. No lists longer than 5 items.
@@ -639,7 +773,7 @@ Rules:
         conversationHistory.shift()
       }
       const fullResponse = await streamClaude(
-        buildSystemPrompt(),
+        buildSystemPrompt(msg),
         conversationHistory,
         (partialText) => {
           // Strip INVOICE_READY marker from display while streaming
@@ -829,7 +963,7 @@ Rules:
             }}>Stop</button>
           )}
           {messages.length > 0 && (
-            <button onClick={clearChat} title="Clear chat (keeps saved)" style={{
+            <button onClick={() => { if (window.confirm('Clear chat history?')) clearChat() }} title="Clear chat (keeps saved)" style={{
               background: 'none', border: 'none', color: 'var(--text-dimmer)',
               cursor: 'pointer', fontSize: '10px', fontFamily: 'var(--font-mono)',
               letterSpacing: '0.08em', padding: '2px 4px',

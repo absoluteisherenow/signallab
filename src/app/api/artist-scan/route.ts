@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         error: hasAnyKey
-          ? `No posts found for ${name} — their Instagram may be set to private, or try a different handle.`
+          ? `Can't find ${name} — their Instagram handle is probably different from their name (e.g. Bicep → feelmybicep, HAAi → haaihaaihaai). Add the correct handle and try again.`
           : `No scraper configured. Add HIKER_API_KEY (hikerapi.com) to enable automatic scanning.`,
         canPaste: true,
       }, { status: 404 })

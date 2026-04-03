@@ -131,18 +131,20 @@ CONTENT STRATEGY (your strongest capability)
 - Every content suggestion must serve BOTH underground credibility AND growth
 
 DEEP DIVE DATA — ALREADY LOADED
-- The ARTIST DATA section below contains voice_profiles, nm_top_posts, and competitor_analysis — ALL from real scraped data
+- The ARTIST DATA section below contains voice_profiles, nm_top_posts, competitor_analysis, AND connected_social_accounts — ALL from real data
 - voice_profiles: real voice analysis — style rules, lowercase %, caption patterns for ${artistName} and reference artists
 - nm_top_posts: NM's actual post engagement data with likes, comments, format, captions
 - competitor_analysis: scraped engagement data for alignment artists with real follower counts and engagement rates
+- connected_social_accounts: ${artistName}'s own live social account data — follower counts, post counts, avg engagement — USE THIS for current follower numbers
 - You have FULL ACCESS to this data. It is in the ARTIST DATA JSON below this prompt.
 - NEVER say "I can't access a database", "paste it in", "I don't have a live link", or "that hasn't carried over"
+- NEVER say social accounts are not connected or not populated — check connected_social_accounts in ARTIST DATA first
 - NEVER ask the user to share data that is already in ARTIST DATA — read it and use it
-- When the user says "you have the data" or "check the deep dive", they are correct — look at ARTIST DATA
+- When the user says "you have the data" or "it's connected", they are correct — look at ARTIST DATA
 - When suggesting captions, match the voice patterns from voice_profiles
 - When suggesting formats, cite which formats get the best engagement from competitor_analysis
-- When discussing growth targets, reference competitor_analysis for context
-- Reference specific numbers and patterns — these are REAL scraped data, not assumptions
+- When discussing follower counts or growth, use connected_social_accounts numbers
+- Reference specific numbers and patterns — these are REAL data, not assumptions
 
 ${SKILLS_ASSISTANT_CONTENT}
 
@@ -314,7 +316,7 @@ export async function POST(req: NextRequest) {
   const todayStr = contextDate.toISOString().split('T')[0]
 
   // ── Fetch all artist data in parallel ─────────────────────────────────────
-  const [gigsRes, invoicesRes, setsRes, tracksRes, revenueRes, settingsRes, releasesRes, voiceProfilesRes, postPerfRes] =
+  const [gigsRes, invoicesRes, setsRes, tracksRes, revenueRes, settingsRes, releasesRes, voiceProfilesRes, postPerfRes, socialAccountsRes] =
     await Promise.allSettled([
       supabase
         .from('gigs')
@@ -367,9 +369,15 @@ export async function POST(req: NextRequest) {
       // Top performing posts from Instagram deep dive + competitor analysis
       supabase
         .from('post_performance')
-        .select('platform, caption, format, actual_likes, actual_comments, estimated_score, context')
+        .select('artist_name, platform, caption, format, actual_likes, actual_comments, estimated_score, context')
         .order('estimated_score', { ascending: false })
         .limit(70),
+
+      // Connected social accounts
+      supabase
+        .from('connected_social_accounts')
+        .select('platform, username, follower_count, following_count, post_count, avg_likes, avg_comments, last_synced')
+        .limit(10),
     ])
 
   const gigs     = gigsRes.status     === 'fulfilled' ? (gigsRes.value.data     || []) : []
@@ -380,6 +388,7 @@ export async function POST(req: NextRequest) {
   const releases = releasesRes.status === 'fulfilled' ? (releasesRes.value.data || []) : []
   const voiceProfiles = voiceProfilesRes.status === 'fulfilled' ? (voiceProfilesRes.value.data || []) : []
   const topPosts = postPerfRes.status === 'fulfilled' ? (postPerfRes.value.data || []) : []
+  const socialAccounts = socialAccountsRes.status === 'fulfilled' ? (socialAccountsRes.value.data || []) : []
 
   // Pull artist profile from settings
   const settingsData = settingsRes.status === 'fulfilled' ? settingsRes.value.data : null
@@ -406,9 +415,10 @@ export async function POST(req: NextRequest) {
     ? voiceProfiles.map((v: any) => `${v.name}: ${v.style_rules} (${v.post_count_analysed || '?'} posts analysed via ${v.data_source || 'scrape'})`).join('\n\n')
     : null
 
-  // Separate NM posts from competitor posts
-  const nmPosts = topPosts.filter((p: any) => !p.context || p.context === null)
-  const competitorPosts = topPosts.filter((p: any) => p.context && p.context !== null)
+  // Separate own posts from reference artist posts using artist_name
+  const ownArtistName = (profile.name as string) || 'Night Manoeuvres'
+  const nmPosts = topPosts.filter((p: any) => p.artist_name === ownArtistName || (!p.artist_name && (!p.context || p.context === null)))
+  const competitorPosts = topPosts.filter((p: any) => p.artist_name && p.artist_name !== ownArtistName)
 
   const nmEngagement = nmPosts.length > 0
     ? nmPosts.slice(0, 12).map((p: any) => `${p.format} — ${p.actual_likes || 0}L/${p.actual_comments || 0}C (score ${p.estimated_score || '?'}): "${(p.caption || '').slice(0, 80)}"`).join('\n')
@@ -449,35 +459,33 @@ export async function POST(req: NextRequest) {
   const isReleaseQuery = /\b(release|drop|single|ep|album|label|distrib|promo|press)\b/.test(queryLower)
   const isProductionQuery = /\b(produc|synth|plugin|ableton|mix|master|sound design|signal chain|eq|compress|reverb|delay)\b/.test(queryLower)
 
-  // Always include basics; conditionally include heavy sections
+  // Core context — always included
   const contextPayload: Record<string, unknown> = {
     today: todayStr,
     upcoming_gigs: upcomingGigs,
     releases,
     team: teamData,
+    connected_social_accounts: socialAccounts.length > 0 ? socialAccounts : 'none connected yet',
   }
 
-  // Only include heavy sections when relevant
+  // Voice + reference artist data — always included (core to Signal's identity)
+  if (voiceIntel) contextPayload.voice_profiles = voiceIntel
+  if (nmEngagement) contextPayload.nm_top_posts = nmEngagement
+  if (competitorIntel) contextPayload.competitor_analysis = competitorIntel
+
+  // Heavy sections — only when relevant to reduce tokens
   if (isGigQuery || isMoneyQuery) contextPayload.recent_past_gigs = recentPastGigs
   if (isMoneyQuery) { contextPayload.invoices = invoices; contextPayload.revenue_streams = revenue }
   if (isDJQuery || isProductionQuery) { contextPayload.recent_sets = enrichedSets; contextPayload.track_library_top100 = tracks }
-  if (isContentQuery || isInstagramQuery) {
-    if (voiceIntel) contextPayload.voice_profiles = voiceIntel
-    if (nmEngagement) contextPayload.nm_top_posts = nmEngagement
-    if (competitorIntel) contextPayload.competitor_analysis = competitorIntel
-  }
   if (isReleaseQuery) contextPayload.releases = releases
 
-  // Fallback: if no category matched, include everything (general query)
+  // Fallback: general query — include everything
   if (!isGigQuery && !isMoneyQuery && !isContentQuery && !isDJQuery && !isReleaseQuery && !isProductionQuery && !isInstagramQuery && !isAdsQuery) {
     contextPayload.recent_past_gigs = recentPastGigs
     contextPayload.invoices = invoices
     contextPayload.revenue_streams = revenue
     contextPayload.recent_sets = enrichedSets
     contextPayload.track_library_top100 = tracks
-    if (voiceIntel) contextPayload.voice_profiles = voiceIntel
-    if (nmEngagement) contextPayload.nm_top_posts = nmEngagement
-    if (competitorIntel) contextPayload.competitor_analysis = competitorIntel
   }
 
   let systemPrompt = buildSystemPrompt(todayStr, profile, body.sonic_world, body.available_plugins)

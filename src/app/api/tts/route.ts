@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: 'tts-1',
-        voice: 'shimmer',   // warm, bright, clear — calm energy for guided sessions
+        voice: 'fable',     // warm, British-ish, character-ful — suits the NM aesthetic
         input: clipped,
         speed: 0.95,
       }),

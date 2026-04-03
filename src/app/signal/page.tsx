@@ -16,11 +16,8 @@ function SignalInner() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [transcript, setTranscript] = useState('')
   const [response, setResponse] = useState('')
-  const [input, setInput] = useState('')
-  const [uploading, setUploading] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const statusText: Record<Phase, string> = {
     idle: 'Tap to speak',
@@ -177,39 +174,6 @@ function SignalInner() {
     }
   }
 
-  // File upload — PDFs, images, documents
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
-    setTranscript(`Analysing ${file.name}...`)
-    setResponse('')
-    setPhase('processing')
-
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('context', 'Please analyse this document thoroughly. Extract all financial data, amounts, currencies, dates, line items, totals, and any key details. Present the information clearly.')
-
-      const res = await fetch('/api/analyse-document', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!res.ok) throw new Error('Failed to analyse')
-      const data = await res.json()
-      setResponse(data.text || 'Could not read document')
-      setTranscript(file.name)
-      setPhase('idle')
-    } catch {
-      setResponse('Failed to analyse document — try again.')
-      setPhase('idle')
-    } finally {
-      setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
   const micColor = phase === 'listening' ? '#c83c3c' : phase === 'speaking' ? s.gold : s.dimmer
   const ringColor = phase === 'listening' ? 'rgba(200,60,60,0.4)' : phase === 'speaking' ? 'rgba(176,141,87,0.4)' : 'rgba(176,141,87,0.2)'
   const pulseRing = phase === 'listening' || phase === 'speaking'
@@ -291,54 +255,6 @@ function SignalInner() {
         textTransform: 'uppercase', marginBottom: '20px',
       }}>
         {statusText[phase]}
-      </div>
-
-      {/* Text input + upload */}
-      <div style={{ width: '100%', maxWidth: '320px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && ask(input)}
-            placeholder="Or type here..."
-            style={{
-              flex: 1, background: 'transparent', border: `1px solid ${s.border}`,
-              color: s.text, fontFamily: s.font, fontSize: '14px',
-              padding: '14px 16px', outline: 'none',
-            }}
-          />
-          {/* Upload button */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.webp"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            title="Upload document"
-            style={{
-              background: 'transparent', border: `1px solid ${s.border}`,
-              color: s.dimmer, fontFamily: s.font, fontSize: '16px',
-              padding: '14px 14px', cursor: 'pointer',
-              opacity: uploading ? 0.4 : 1,
-            }}
-          >
-            📎
-          </button>
-          {input.trim() && (
-            <button onClick={() => ask(input)}
-              style={{
-                background: s.gold, border: 'none', color: '#070706',
-                fontFamily: s.font, fontSize: '14px', padding: '14px 18px',
-                cursor: 'pointer',
-              }}>
-              →
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Quick prompts */}

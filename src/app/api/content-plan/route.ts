@@ -31,15 +31,18 @@ export async function POST(req: NextRequest) {
 
     // Pull all data in parallel — wrapped to fail gracefully
     const q = async (fn: () => PromiseLike<any>, fallback: any = []) => { try { return await fn() } catch { return fallback } }
-    const [gigs, releases, topPosts, artistProfiles, settings, tracks] = await Promise.all([
+    const settingsFirst = await q(async () => { const r = await supabase.from('artist_settings').select('profile').limit(1).single(); return r.data || null }, null)
+    const ownArtistName = settingsFirst?.profile?.name || 'Night Manoeuvres'
+
+    const [gigs, releases, topPosts, artistProfiles, tracks] = await Promise.all([
       q(async () => { const r = await supabase.from('gigs').select('title, venue, location, date, status').gte('date', startDate.toISOString().split('T')[0]).lte('date', endDate.toISOString().split('T')[0]).neq('status', 'cancelled').order('date'); return r.data || [] }),
       q(async () => { const r = await supabase.from('releases').select('title, type, release_date, label, notes').gte('release_date', new Date(startDate.getTime() - 14 * 86400000).toISOString().split('T')[0]).lte('release_date', endDate.toISOString().split('T')[0]).order('release_date'); return r.data || [] }),
-      q(async () => { const r = await supabase.from('post_performance').select('platform, caption, format, actual_likes, actual_comments, estimated_score, context').order('estimated_score', { ascending: false }).limit(20); return r.data || [] }),
+      q(async () => { const r = await supabase.from('post_performance').select('artist_name, platform, caption, format, actual_likes, actual_comments, estimated_score, context').order('estimated_score', { ascending: false }).limit(20); return r.data || [] }),
       q(async () => { const r = await supabase.from('artist_profiles').select('name, genre, lowercase_pct, short_caption_pct, no_hashtags_pct, style_rules').not('style_rules', 'is', null).limit(4); return r.data || [] }),
-      q(async () => { const r = await supabase.from('artist_settings').select('profile').limit(1).single(); return r.data || null }, null),
       q(async () => { const r = await supabase.from('dj_tracks').select('title, artist, bpm, key, moment_type').limit(10).order('created_at', { ascending: false }); return r.data || [] }),
     ])
 
+    const settings = settingsFirst
     const artistName = settings?.profile?.name || 'Night Manoeuvres'
     const artistGenre = settings?.profile?.genre || 'electronic / techno'
     const memberContext = settings?.profile?.member_context || ''
@@ -56,20 +59,34 @@ export async function POST(req: NextRequest) {
       return lines
     }).join('\n')
 
-    // Engagement evidence
+    // Engagement evidence — separate own posts from reference artists
+    const ownPosts = topPosts.filter((p: any) => p.artist_name === ownArtistName)
+    const refPosts = topPosts.filter((p: any) => p.artist_name !== ownArtistName)
+
     let engagementEvidence = 'No engagement data yet — plan based on lane voice patterns.'
-    if (topPosts.length >= 3) {
-      const avgEng = Math.round(topPosts.reduce((s: number, p: any) => s + (p.estimated_score || 0), 0) / topPosts.length)
-      const reelCount = topPosts.filter((p: any) => p.format === 'reel').length
-      const shortCount = topPosts.filter((p: any) => (p.caption || '').split(' ').length < 10).length
-      engagementEvidence = `Real engagement data (${topPosts.length} top posts, avg score ${avgEng}):
-- ${reelCount > topPosts.length / 2 ? `Reels dominate top ${topPosts.length} posts — recommend Reels for high-engagement posts` : 'Photo/carousel posts perform well'}
-- ${shortCount > topPosts.length / 2 ? 'Short captions (<10 words) dominate top performers' : 'Longer captions work in this lane'}
-Top examples:
-${topPosts.slice(0, 6).map((p: any) => `  ${p.platform} ${p.format} — ${p.actual_likes || 0}L/${p.actual_comments || 0}C: "${(p.caption || '').slice(0, 80)}"`).join('\n')}`
+    const parts: string[] = []
+
+    if (ownPosts.length >= 2) {
+      const reelCount = ownPosts.filter((p: any) => p.format === 'reel').length
+      const shortCount = ownPosts.filter((p: any) => (p.caption || '').split(' ').length < 10).length
+      parts.push(`${artistName}'s own top posts (${ownPosts.length}):
+- ${reelCount > ownPosts.length / 2 ? 'Reels dominate own top posts' : 'Photo/carousel posts perform well'}
+- ${shortCount > ownPosts.length / 2 ? 'Short captions dominate own top performers' : 'Longer captions work'}
+${ownPosts.slice(0, 4).map((p: any) => `  ${p.platform} ${p.format} — ${p.actual_likes || 0}L/${p.actual_comments || 0}C: "${(p.caption || '').slice(0, 80)}"`).join('\n')}`)
     }
 
-    // Voice profiles
+    if (refPosts.length >= 2) {
+      const reelCount = refPosts.filter((p: any) => p.format === 'reel').length
+      const shortCount = refPosts.filter((p: any) => (p.caption || '').split(' ').length < 10).length
+      parts.push(`Genre benchmarks from reference artists (${refPosts.length} top posts — NOT ${artistName}'s numbers):
+- ${reelCount > refPosts.length / 2 ? 'Reels dominate reference artist top posts' : 'Photo/carousel posts perform well in this lane'}
+- ${shortCount > refPosts.length / 2 ? 'Short captions dominate in this lane' : 'Longer captions work in this lane'}
+${refPosts.slice(0, 4).map((p: any) => `  ${p.artist_name} ${p.platform} ${p.format} — ${p.actual_likes || 0}L/${p.actual_comments || 0}C: "${(p.caption || '').slice(0, 80)}"`).join('\n')}`)
+    }
+
+    if (parts.length > 0) engagementEvidence = parts.join('\n\n')
+
+    // Voice profiles — use reference artists' voice patterns to write captions in lane
     const voiceBrief = artistProfiles.length > 0
       ? artistProfiles.map((a: any) => `${a.name}: ${a.style_rules}`).join('\n\n')
       : 'No reference artists scanned yet — write in minimal electronic music tone: lowercase, no hashtags, short captions.'
@@ -98,7 +115,7 @@ ${topPosts.slice(0, 6).map((p: any) => `  ${p.platform} ${p.format} — ${p.actu
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1800,
-        system: `You are a social media strategist for electronic music. You select and write the ${count} highest-impact posts for a given period based on real engagement evidence. Every format decision must be justified by actual data. Cite engagement numbers in your notes. Write captions in the lane's voice.
+        system: `You are a social media strategist for electronic music. You select and write the ${count} highest-impact posts for a given period based on real engagement evidence. Every format decision must be justified by actual data. Write captions strictly as ${artistName} — lowercase, no emoji, no exclamation marks, short and evocative (1-15 words). The caption must sound like it came from the artist, not a social media manager. NEVER quote engagement numbers from reference artists in your notes — only cite numbers from the artist's own posts. If there is no own-post data, say "format chosen based on genre norms" rather than inventing figures.
 ${memberContext ? `\nIMPORTANT: ${memberContext}\n` : ''}
 ${SKILLS_CONTENT_PLAN}
 
