@@ -26,18 +26,14 @@ interface UploadFile {
   error?: string
 }
 
-export default function UploadPortal({ params }: { params: Promise<{ gigId: string }> }) {
-  const [gigId, setGigId] = useState<string>('')
+export default function UploadPortal({ params }: { params: { gigId: string } }) {
+  const gigId = params.gigId
   const [gig, setGig] = useState<GigInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [files, setFiles] = useState<UploadFile[]>([])
   const [dragOver, setDragOver] = useState(false)
   const [allDone, setAllDone] = useState(false)
-
-  useEffect(() => {
-    params.then(p => setGigId(p.gigId))
-  }, [params])
 
   useEffect(() => {
     if (!gigId) return
