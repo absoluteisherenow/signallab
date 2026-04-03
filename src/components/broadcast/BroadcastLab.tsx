@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { aiCache } from '@/lib/aiCache'
 import { SignalLabHeader } from './SignalLabHeader'
@@ -127,8 +127,6 @@ function Bar({ value, teal = false }: { value: number; teal?: boolean }) {
 }
 
 export function BroadcastLab() {
-  const router = useRouter()
-
   // ── aiCache — shared cache shared across modules, 12-hour TTL ──────────────
   // Prevents re-running Claude on every page visit (trends + captions are expensive)
   const NS = 'signallab'
@@ -699,17 +697,28 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
     <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono flex flex-col">
 
       <SignalLabHeader right={
-        <button
-          onClick={() => router.push('/broadcast/strategy')}
+        <Link
+          href="/broadcast/strategy"
           style={{
-            background: '#d4a843', color: '#0a0a0f', border: 'none',
-            padding: '8px 18px', borderRadius: '8px',
-            fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase',
-            fontFamily: 'var(--font-mono)', cursor: 'pointer', fontWeight: 700,
+            display: 'inline-block',
+            background: 'transparent',
+            color: '#d4a843',
+            border: '1px solid rgba(212,168,67,0.4)',
+            padding: '7px 16px',
+            borderRadius: '6px',
+            fontSize: '10px',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 500,
+            textDecoration: 'none',
+            transition: 'border-color 0.15s, color 0.15s',
           }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(212,168,67,0.8)'; e.currentTarget.style.color = '#e8c97a' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,168,67,0.4)'; e.currentTarget.style.color = '#d4a843' }}
         >
           Create Content Strategy
-        </button>
+        </Link>
       } />
 
       <div className="flex flex-col gap-7 p-8">
