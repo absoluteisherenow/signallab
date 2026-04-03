@@ -1,6 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// ── Last.fm ───────────────────────────────────────────────────────────────────
+// ── Spotify ──────────────────────────────────────────────────────────────────
+
+async function getSpotifyToken() {
+  const id = process.env.SPOTIFY_CLIENT_ID
+  const secret = process.env.SPOTIFY_CLIENT_SECRET
+  if (!id || !secret) return null
+  try {
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=client_credentials&client_id=${id}&client_secret=${secret}`,
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.access_token as string
+  } catch { return null }
+}
+
+async function discoverSpotify(name: string) {
+  const token = await getSpotifyToken()
+  if (!token) return null
+  try {
+    const res = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(name)}&type=artist&limit=5`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    const items = data?.artists?.items || []
+    // Find exact or close match
+    const exact = items.find((a: { name: string }) => a.name.toLowerCase() === name.toLowerCase())
+    const match = exact || items[0]
+    if (!match) return null
+    // Only accept if name is a reasonable match
+    if (!exact && !match.name.toLowerCase().includes(name.toLowerCase().split(' ')[0])) return null
+
+    return {
+      found: true,
+      name: match.name,
+      spotifyUrl: match.external_urls?.spotify || null,
+      spotifyId: match.id,
+      imageUrl: match.images?.[0]?.url || null,
+      genres: match.genres || [],
+      followers: match.followers?.total || 0,
+      popularity: match.popularity || 0,
+    }
+  } catch { return null }
+}
+
+// ── Last.fm ──────────────────────────────────────────────────────────────────
 
 async function discoverLastfm(name: string) {
   const key = process.env.LASTFM_API_KEY
@@ -32,7 +81,7 @@ async function discoverLastfm(name: string) {
       artistName: artist.name,
       genre: tags[0] || null,
       tags: tags.slice(0, 4),
-      bio: cleanBio ? cleanBio.slice(0, 200) : null,
+      bio: cleanBio ? cleanBio.slice(0, 300) : null,
       tracks: tracks.slice(0, 4),
     }
   } catch {
@@ -40,7 +89,7 @@ async function discoverLastfm(name: string) {
   }
 }
 
-// ── Resident Advisor ──────────────────────────────────────────────────────────
+// ── Resident Advisor ─────────────────────────────────────────────────────────
 
 const RA_GQL = 'https://ra.co/graphql'
 const RA_HEADERS = {
@@ -49,176 +98,175 @@ const RA_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 }
 
-function extractInstagram(links: { platform: string; url: string }[]): string | null {
-  const link = links.find(l =>
-    l.platform?.toLowerCase().includes('instagram') ||
-    l.url?.toLowerCase().includes('instagram.com')
-  )
-  if (!link) return null
-  const match = link.url.replace(/\/$/, '').match(/instagram\.com\/([^/?#]+)/)
+const RA_ARTIST_QUERY = `query GetArtist($slug: String!) {
+  artist(slug: $slug) {
+    id name image
+    country { name }
+    instagram soundcloud bandcamp website
+    contentUrl upcomingEventsCount
+    events(type: FROMDATE) {
+      id title date
+      venue { name area { name country { name } } }
+    }
+    biography { blurb }
+  }
+}`
+
+function extractInstagramHandle(url: string | null): string | null {
+  if (!url) return null
+  const match = url.replace(/\/$/, '').match(/instagram\.com\/([^/?#]+)/)
   return match?.[1] || null
 }
 
 async function discoverRA(name: string) {
   try {
-    const base = name.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    const dashed = base.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    const nospaces = base.replace(/[^a-z0-9]/g, '')
-    const slugs = Array.from(new Set([dashed, nospaces]))
-
-    const fullQuery = {
-      query: `query GetArtist($slug: String!) {
-        artist(slug: $slug) {
-          id
-          name
-          country { name }
-          bio
-          imageUrl
-          genres { name }
-          links { platform url }
-          upcomingEvents(limit: 8) {
-            data {
-              id
-              title
-              date
-              venue {
-                name
-                area {
-                  name
-                  country { name }
-                }
-              }
-            }
-          }
-        }
-      }`,
-    }
-
-    const buildResult = (artist: any, slug: string) => {
-      const links = (artist.links || []).map((l: { platform: string; url: string }) => ({
-        platform: l.platform,
-        url: l.url,
-      }))
-
-      const upcomingGigs = (artist.upcomingEvents?.data || []).map((e: any) => ({
-        title: e.title || name,
-        venue: e.venue?.name || '',
-        location: [e.venue?.area?.name, e.venue?.area?.country?.name]
-          .filter(Boolean).join(', '),
-        date: (e.date || '').split('T')[0],
-        status: 'confirmed' as const,
-      })).filter((g: { date: string }) => g.date)
-
-      return {
-        found: true,
-        raSlug: slug,
-        raUrl: `https://ra.co/dj/${slug}`,
-        name: artist.name || name,
-        country: artist.country?.name || null,
-        bio: artist.bio || null,
-        imageUrl: artist.imageUrl || null,
-        genres: (artist.genres || []).map((g: { name: string }) => g.name),
-        links,
-        instagram: extractInstagram(links),
-        upcomingGigs,
-      }
-    }
-
-    for (const slug of slugs) {
-      const res = await fetch(RA_GQL, {
-        method: 'POST',
-        headers: RA_HEADERS,
-        body: JSON.stringify({ ...fullQuery, variables: { slug } }),
-      })
-      if (!res.ok) continue
-      const data = await res.json()
-      const artist = data?.data?.artist
-      if (artist?.id) return buildResult(artist, slug)
-    }
-
-    // Fallback: search by name
+    // Step 1: Search for the artist (most reliable — handles all slug formats)
     const searchRes = await fetch(RA_GQL, {
       method: 'POST',
       headers: RA_HEADERS,
       body: JSON.stringify({
-        query: `query Search($query: String!) {
-          search(query: $query) {
-            artists { id name slug country { name } }
-          }
-        }`,
-        variables: { query: name },
+        query: `{ search(searchTerm: ${JSON.stringify(name)}, indices: [ARTIST], limit: 5) { id value contentUrl imageUrl countryName } }`,
       }),
     })
 
     if (!searchRes.ok) return null
     const searchData = await searchRes.json()
-    const results = searchData?.data?.search?.artists || []
+    const results = searchData?.data?.search || []
     if (!results.length) return null
 
-    const exact = results.find((a: { name?: string }) => a.name?.toLowerCase() === name.toLowerCase())
+    // Find best match
+    const exact = results.find((a: { value: string }) =>
+      a.value.toLowerCase() === name.toLowerCase()
+    )
     const match = exact || results[0]
+    if (!match) return null
 
-    if (match?.slug) {
-      const fullRes = await fetch(RA_GQL, {
-        method: 'POST',
-        headers: RA_HEADERS,
-        body: JSON.stringify({ ...fullQuery, variables: { slug: match.slug } }),
-      })
-      if (fullRes.ok) {
-        const fullData = await fullRes.json()
-        const artist = fullData?.data?.artist
-        if (artist) return buildResult(artist, match.slug)
+    // Extract slug from contentUrl (e.g. "/dj/nightmanoeuvres" → "nightmanoeuvres")
+    const slug = match.contentUrl?.replace(/^\/dj\//, '') || null
+    if (!slug) return null
+
+    // Step 2: Get full profile
+    const fullRes = await fetch(RA_GQL, {
+      method: 'POST',
+      headers: RA_HEADERS,
+      body: JSON.stringify({ query: RA_ARTIST_QUERY, variables: { slug } }),
+    })
+
+    if (!fullRes.ok) {
+      // Return search-level data as fallback
+      return {
+        found: true,
+        raSlug: slug,
+        raUrl: `https://ra.co/dj/${slug}`,
+        name: match.value || name,
+        country: match.countryName || null,
+        bio: null,
+        imageUrl: match.imageUrl || null,
+        instagram: null,
+        soundcloud: null,
+        bandcamp: null,
+        upcomingGigs: [],
       }
     }
 
+    const fullData = await fullRes.json()
+    const artist = fullData?.data?.artist
+
+    if (!artist) {
+      return {
+        found: true,
+        raSlug: slug,
+        raUrl: `https://ra.co/dj/${slug}`,
+        name: match.value || name,
+        country: match.countryName || null,
+        bio: null,
+        imageUrl: match.imageUrl || null,
+        instagram: null,
+        soundcloud: null,
+        bandcamp: null,
+        upcomingGigs: [],
+      }
+    }
+
+    // Filter events to only future dates
+    const now = new Date()
+    const upcomingGigs = (artist.events || [])
+      .filter((e: { date: string }) => {
+        const d = new Date(e.date)
+        return d >= now
+      })
+      .map((e: { title: string; date: string; venue: { name: string; area: { name: string; country: { name: string } } } }) => ({
+        title: e.title || name,
+        venue: e.venue?.name || '',
+        location: [e.venue?.area?.name, e.venue?.area?.country?.name].filter(Boolean).join(', '),
+        date: (e.date || '').split('T')[0],
+        status: 'confirmed' as const,
+      }))
+
     return {
       found: true,
-      raSlug: match.slug,
-      raUrl: `https://ra.co/dj/${match.slug}`,
-      name: match.name || name,
-      country: match.country?.name || null,
-      bio: null,
-      imageUrl: null,
-      genres: [],
-      links: [],
-      instagram: null,
-      upcomingGigs: [],
+      raSlug: slug,
+      raUrl: `https://ra.co/dj/${slug}`,
+      name: artist.name || name,
+      country: artist.country?.name || null,
+      bio: artist.biography?.blurb || null,
+      imageUrl: artist.image || match.imageUrl || null,
+      instagram: extractInstagramHandle(artist.instagram),
+      soundcloud: artist.soundcloud || null,
+      bandcamp: artist.bandcamp || null,
+      upcomingGigs,
     }
   } catch {
     return null
   }
 }
 
-// ── Route handler ─────────────────────────────────────────────────────────────
+// ── Route handler ────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   const name = req.nextUrl.searchParams.get('name')?.trim()
   if (!name || name.length < 2) return NextResponse.json({ found: false })
 
-  const [lastfm, ra] = await Promise.all([
+  // Run all sources in parallel
+  const [lastfm, ra, spotify] = await Promise.all([
     discoverLastfm(name),
     discoverRA(name),
+    discoverSpotify(name),
   ])
 
-  if (!ra?.found) return NextResponse.json({ found: false })
+  // Need at least one source to have found something
+  if (!ra?.found && !spotify?.found && !lastfm?.found) {
+    return NextResponse.json({ found: false })
+  }
+
+  // Merge — RA is primary for gigs/links, Spotify for image/genres, Last.fm for bio/tags
+  // Filter out country names and overly generic tags from genres
+  const EXCLUDED_TAGS = new Set(['united kingdom', 'uk', 'usa', 'germany', 'france', 'netherlands', 'spain', 'italy', 'seen live', 'all', 'favorites'])
+  const genres = [
+    ...(spotify?.genres || []),
+    ...(lastfm?.tags || []),
+  ].filter((g, i, arr) =>
+    arr.indexOf(g) === i && !EXCLUDED_TAGS.has(g.toLowerCase())
+  ).slice(0, 5)
 
   return NextResponse.json({
     found: true,
-    sources: ['ra'],
-    artistName: ra?.name || lastfm?.artistName || name,
+    sources: [ra?.found && 'ra', spotify?.found && 'spotify', lastfm?.found && 'lastfm'].filter(Boolean),
+    artistName: ra?.name || spotify?.name || lastfm?.artistName || name,
     raSlug: ra?.raSlug || null,
     raUrl: ra?.raUrl || null,
-    genre: (ra?.genres && ra.genres.length > 0 ? ra.genres[0] : null) || lastfm?.genre || null,
-    genres: ra?.genres || [],
-    tags: lastfm?.tags || [],
+    spotifyUrl: spotify?.spotifyUrl || null,
+    genre: genres[0] || null,
+    genres,
     bpmRange: null,
     country: ra?.country || null,
     bio: ra?.bio || lastfm?.bio || null,
-    imageUrl: ra?.imageUrl || null,
-    links: ra?.links || [],
+    imageUrl: ra?.imageUrl || spotify?.imageUrl || null,
     instagram: ra?.instagram || null,
+    soundcloud: ra?.soundcloud || null,
+    bandcamp: ra?.bandcamp || null,
     upcomingGigs: ra?.upcomingGigs || [],
     tracks: lastfm?.tracks || [],
+    followers: spotify?.followers || null,
   })
 }
