@@ -700,24 +700,17 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
         <Link
           href="/broadcast/strategy"
           style={{
-            display: 'inline-block',
-            background: 'transparent',
-            color: '#d4a843',
-            border: '1px solid rgba(212,168,67,0.4)',
-            padding: '7px 16px',
-            borderRadius: '6px',
-            fontSize: '10px',
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            fontFamily: 'var(--font-mono)',
-            fontWeight: 500,
-            textDecoration: 'none',
-            transition: 'border-color 0.15s, color 0.15s',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: '32px', padding: '0 16px',
+            background: 'transparent', color: 'rgba(240,235,226,0.35)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: '2px',
+            fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
+            fontFamily: "'DM Mono', monospace", fontWeight: 400,
+            textDecoration: 'none', whiteSpace: 'nowrap',
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(212,168,67,0.8)'; e.currentTarget.style.color = '#e8c97a' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,168,67,0.4)'; e.currentTarget.style.color = '#d4a843' }}
         >
-          Create Content Strategy
+          Content Strategy
         </Link>
       } />
 
