@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
 
     const containerRes = await fetch(
-      `https://graph.instagram.com/v25.0/${platform_user_id}/media`,
+      `https://graph.facebook.com/v25.0/${platform_user_id}/media`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       while (status === 'IN_PROGRESS' && attempts < 30) {
         await new Promise(r => setTimeout(r, 2000))
         const checkRes = await fetch(
-          `https://graph.instagram.com/v25.0/${mediaId}?fields=status_code&access_token=${token}`
+          `https://graph.facebook.com/v25.0/${mediaId}?fields=status_code&access_token=${token}`
         )
         const checkData = await checkRes.json()
         status = checkData.status_code || 'FINISHED'
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Publish the container
     const publishRes = await fetch(
-      `https://graph.instagram.com/v25.0/${platform_user_id}/media_publish`,
+      `https://graph.facebook.com/v25.0/${platform_user_id}/media_publish`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
