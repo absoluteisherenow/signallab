@@ -612,7 +612,23 @@ Rules:
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }])
 
     try {
-      const conversationHistory = newMessages.filter(m => m.content && m.content.trim() !== '').map(m => ({ role: m.role, content: m.content }))
+      // Limit conversation history to last 20 messages to avoid context overflow
+      // Also ensure alternating user/assistant roles (API requirement)
+      const filtered = newMessages.filter(m => m.content && m.content.trim() !== '').slice(-20)
+      const conversationHistory: { role: string; content: string }[] = []
+      for (const m of filtered) {
+        const last = conversationHistory[conversationHistory.length - 1]
+        if (last && last.role === m.role) {
+          // Merge consecutive same-role messages
+          last.content += '\n\n' + m.content
+        } else {
+          conversationHistory.push({ role: m.role, content: m.content })
+        }
+      }
+      // Ensure first message is from user
+      if (conversationHistory.length > 0 && conversationHistory[0].role !== 'user') {
+        conversationHistory.shift()
+      }
       const fullResponse = await streamClaude(
         buildSystemPrompt(),
         conversationHistory,
