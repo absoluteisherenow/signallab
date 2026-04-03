@@ -1,18 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 export function NotificationBell() {
   const router = useRouter()
   const [unread, setUnread] = useState(0)
+  const [ringing, setRinging] = useState(false)
+  const prevUnread = useRef(0)
 
   useEffect(() => {
     async function load() {
       try {
         const r = await fetch('/api/notifications?limit=20')
         const d = await r.json()
-        setUnread(d.unread || 0)
+        const count = d.unread || 0
+        // Trigger ring animation when new notifications arrive
+        if (count > prevUnread.current && prevUnread.current >= 0) {
+          setRinging(true)
+          setTimeout(() => setRinging(false), 1200)
+        }
+        prevUnread.current = count
+        setUnread(count)
       } catch {}
     }
     load()
@@ -22,6 +31,25 @@ export function NotificationBell() {
 
   return (
     <div style={{ position: 'relative' }}>
+      <style>{`
+        @keyframes bell-ring {
+          0% { transform: rotate(0deg); }
+          10% { transform: rotate(14deg); }
+          20% { transform: rotate(-12deg); }
+          30% { transform: rotate(10deg); }
+          40% { transform: rotate(-8deg); }
+          50% { transform: rotate(6deg); }
+          60% { transform: rotate(-4deg); }
+          70% { transform: rotate(2deg); }
+          80% { transform: rotate(-1deg); }
+          100% { transform: rotate(0deg); }
+        }
+        @keyframes badge-pop {
+          0% { transform: scale(0.3); opacity: 0; }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
       <button
         onClick={() => router.push('/notifications')}
         style={{
@@ -29,14 +57,20 @@ export function NotificationBell() {
           border: '1px solid transparent',
           cursor: 'pointer',
           padding: '10px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#8a8780', transition: 'all 0.15s',
+          color: ringing ? '#b08d57' : '#8a8780', transition: 'color 0.3s',
           borderRadius: '6px',
         }}
         onMouseEnter={e => { e.currentTarget.style.color = '#b08d57'; e.currentTarget.style.background = 'rgba(176,141,87,0.06)' }}
-        onMouseLeave={e => { e.currentTarget.style.color = '#8a8780'; e.currentTarget.style.background = 'none' }}
+        onMouseLeave={e => { e.currentTarget.style.color = ringing ? '#b08d57' : '#8a8780'; e.currentTarget.style.background = 'none' }}
         title="Notifications"
       >
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+          style={{
+            transformOrigin: '50% 4px',
+            animation: ringing ? 'bell-ring 0.8s ease-in-out' : 'none',
+          }}
+        >
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
@@ -48,6 +82,7 @@ export function NotificationBell() {
             fontSize: '10px', fontWeight: 700, fontFamily: "'DM Mono', monospace",
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             lineHeight: 1, padding: '0 5px',
+            animation: ringing ? 'badge-pop 0.4s ease-out' : 'none',
           }}>
             {unread > 9 ? '9+' : unread}
           </span>
