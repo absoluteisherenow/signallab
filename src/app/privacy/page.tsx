@@ -49,7 +49,7 @@ export default function PrivacyPage() {
               Who We Are
             </h2>
             <p style={{ fontSize: '12px', color: C.dim, lineHeight: '1.9', letterSpacing: '0.03em' }}>
-              Signal Lab OS (signallabos.com) is a creative business platform for independent electronic music artists. It is operated by Night Manoeuvres. For data enquiries, contact us at advancingabsolute@gmail.com.
+              Signal Lab OS (signallabos.com) is a creative business platform for independent electronic music artists. It is operated by ABSOLUTE. For data enquiries, contact us at advancingabsolute@gmail.com.
             </p>
           </section>
 
