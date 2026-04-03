@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   '/landing',   // public sales / landing page
   '/advance',   // external advance request forms (promoters/venues fill these in)
   '/upload',    // public media upload links (pre-show briefs)
+  '/privacy',   // public privacy policy (required for Meta App Review)
 ]
 
 export function middleware(req: NextRequest) {
