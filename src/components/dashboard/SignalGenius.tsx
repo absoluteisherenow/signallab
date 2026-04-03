@@ -38,7 +38,11 @@ async function streamClaude(
       messages,
     }),
   })
-  if (!res.ok || !res.body) throw new Error('Failed')
+  if (!res.ok || !res.body) {
+    let detail = `Status ${res.status}`
+    try { const err = await res.json(); detail = err?.error?.message || err?.error || detail } catch {}
+    throw new Error(detail)
+  }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
