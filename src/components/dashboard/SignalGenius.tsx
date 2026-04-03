@@ -735,7 +735,7 @@ Rules:
   // Mobile: floating mic centred above the toolbar
   if (deviceType === 'mobile') {
     return (
-      <div style={{
+      <div className="signal-desktop-fab" style={{
         position: 'fixed', bottom: 72, left: 0, right: 0,
         display: 'flex', justifyContent: 'center',
         zIndex: 999, pointerEvents: 'none',

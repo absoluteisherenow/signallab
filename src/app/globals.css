@@ -570,6 +570,14 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* ── MEDITATION FULLSCREEN ── */
+body.meditation-active .mobile-tab-bar,
+body.meditation-active .sidebar-nav,
+body.meditation-active .signal-desktop-fab,
+body.meditation-active .signal-genius-fab {
+  display: none !important;
+}
+
 /* ── MOBILE RESPONSIVE ── */
 @media (max-width: 768px) {
   .sidebar-nav { display: none !important; }

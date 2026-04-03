@@ -33,8 +33,8 @@ const MODES: ModeConfig[] = [
     description: 'Calm energy for journeys',
     duration: 300,
     breatheIn: 4, hold: 4, breatheOut: 4,
-    gradient: 'radial-gradient(circle, #d4a438 0%, #b8860b 40%, #8b6914 70%, transparent 100%)',
-    glow: '0 0 80px rgba(212, 164, 56, 0.4), 0 0 160px rgba(212, 164, 56, 0.15)',
+    gradient: 'radial-gradient(circle, #d4a438 0%, #b8860b 40%, #8b6914 70%, rgba(139,105,20,0.15) 90%, transparent 100%)',
+    glow: '0 0 80px rgba(212, 164, 56, 0.5), 0 0 160px rgba(212, 164, 56, 0.25), 0 0 240px rgba(212, 164, 56, 0.1)',
     promptContext: 'A calm energy visualisation called Liquid Sunshine — warm light filling the body, perfect for travel days',
   },
   {
@@ -44,8 +44,8 @@ const MODES: ModeConfig[] = [
     description: 'Grounding focus before a show',
     duration: 300,
     breatheIn: 4, hold: 4, breatheOut: 4,
-    gradient: 'radial-gradient(circle, #c0392b 0%, #922b21 40%, #641e16 70%, transparent 100%)',
-    glow: '0 0 80px rgba(192, 57, 43, 0.45), 0 0 160px rgba(192, 57, 43, 0.15)',
+    gradient: 'radial-gradient(circle, #c0392b 0%, #922b21 40%, #641e16 70%, rgba(100,30,22,0.15) 90%, transparent 100%)',
+    glow: '0 0 80px rgba(192, 57, 43, 0.55), 0 0 160px rgba(192, 57, 43, 0.25), 0 0 240px rgba(192, 57, 43, 0.1)',
     promptContext: 'A grounding focus session called Lock In — centring energy before performing, channelling confidence',
   },
   {
@@ -55,8 +55,8 @@ const MODES: ModeConfig[] = [
     description: 'Unlock flow for studio or stage',
     duration: 300,
     breatheIn: 4, hold: 4, breatheOut: 4,
-    gradient: 'radial-gradient(circle, #fff8e7 0%, #d4a438 35%, #b8860b 65%, transparent 100%)',
-    glow: '0 0 80px rgba(255, 248, 231, 0.3), 0 0 160px rgba(212, 164, 56, 0.2)',
+    gradient: 'radial-gradient(circle, #fff8e7 0%, #d4a438 35%, #b8860b 65%, rgba(184,134,11,0.15) 90%, transparent 100%)',
+    glow: '0 0 80px rgba(255, 248, 231, 0.4), 0 0 160px rgba(212, 164, 56, 0.25), 0 0 240px rgba(212, 164, 56, 0.1)',
     promptContext: 'A creative flow opener called Open Channel — expanding awareness, unlocking ideas for music or performance',
   },
   {
@@ -66,8 +66,8 @@ const MODES: ModeConfig[] = [
     description: 'Decompress after the energy',
     duration: 300,
     breatheIn: 4, hold: 7, breatheOut: 8,
-    gradient: 'radial-gradient(circle, #5d7b93 0%, #3d566e 40%, #2c3e50 70%, transparent 100%)',
-    glow: '0 0 80px rgba(93, 123, 147, 0.3), 0 0 160px rgba(93, 123, 147, 0.1)',
+    gradient: 'radial-gradient(circle, #5d7b93 0%, #3d566e 40%, #2c3e50 70%, rgba(44,62,80,0.15) 90%, transparent 100%)',
+    glow: '0 0 80px rgba(93, 123, 147, 0.4), 0 0 160px rgba(93, 123, 147, 0.2), 0 0 240px rgba(93, 123, 147, 0.08)',
     promptContext: 'A decompression session called Night Return — releasing the energy of a show or long day, settling into stillness',
   },
 ]
@@ -99,6 +99,7 @@ export default function MeditatePage() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      document.body.classList.remove('meditation-active')
       activeRef.current = false
       if (timerRef.current) clearInterval(timerRef.current)
       if (breathRef.current) clearTimeout(breathRef.current)
@@ -115,7 +116,8 @@ export default function MeditatePage() {
   }, [])
 
   function selectMode(m: ModeConfig) {
-    // Direct state update — no URL navigation
+    // Hide nav/FAB during session
+    document.body.classList.add('meditation-active')
     setActiveMode(m)
     setScreen('session')
     setRemaining(m.duration)
@@ -239,6 +241,7 @@ export default function MeditatePage() {
   }
 
   function exitSession() {
+    document.body.classList.remove('meditation-active')
     activeRef.current = false
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     if (breathRef.current) { clearTimeout(breathRef.current); breathRef.current = null }
@@ -371,10 +374,11 @@ export default function MeditatePage() {
       <div
         onClick={togglePause}
         style={{
-          position: 'fixed', inset: 0, background: s.bg, fontFamily: s.font, color: s.text,
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: '#070706', fontFamily: s.font, color: s.text,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none',
-          zIndex: 9999, overflow: 'hidden',
+          zIndex: 10000, overflow: 'hidden',
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation',
         }}
@@ -384,7 +388,7 @@ export default function MeditatePage() {
           onClick={e => { e.stopPropagation(); exitSession() }}
           onTouchEnd={e => { e.stopPropagation(); e.preventDefault(); exitSession() }}
           style={{
-            position: 'absolute', top: 20, right: 20, color: s.dimmer,
+            position: 'absolute', top: 20, right: 20, color: '#8a8780',
             fontSize: '20px', cursor: 'pointer', padding: 16, lineHeight: 1, zIndex: 10,
             minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
@@ -395,7 +399,7 @@ export default function MeditatePage() {
         {/* Mode label */}
         <div style={{
           position: 'absolute', top: 28, left: 0, right: 0, textAlign: 'center',
-          fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: s.dimmer,
+          fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8a8780',
         }}>
           {mode.subtitle}
         </div>
@@ -404,9 +408,9 @@ export default function MeditatePage() {
         {introText && (
           <div style={{
             position: 'absolute', top: 72, left: 32, right: 32, textAlign: 'center',
-            fontSize: '13px', lineHeight: 1.7, color: introPlaying ? s.dim : s.dimmer,
+            fontSize: '13px', lineHeight: 1.7, color: introPlaying ? '#c8c0b4' : '#8a8780',
             maxWidth: 480, margin: '0 auto',
-            transition: 'opacity 1s ease', opacity: introPlaying ? 1 : 0.3,
+            transition: 'opacity 1s ease', opacity: introPlaying ? 1 : 0.5,
           }}>
             {introText}
           </div>
@@ -414,15 +418,16 @@ export default function MeditatePage() {
 
         {/* Breathing circle */}
         <div style={{
-          width: 'min(240px, 55vw)', height: 'min(240px, 55vw)',
+          width: 'min(280px, 60vw)', height: 'min(280px, 60vw)',
           borderRadius: '50%', background: mode.gradient, boxShadow: mode.glow,
           animation: paused ? 'none' : `breathe ${cycleDuration}s ease-in-out infinite`,
           transition: 'box-shadow 0.5s ease',
+          border: '1px solid rgba(255,255,255,0.06)',
         }} />
 
         {/* Breath label */}
         <div style={{
-          marginTop: 40, fontSize: '14px', color: s.dim,
+          marginTop: 40, fontSize: '16px', color: '#c8c0b4',
           letterSpacing: '0.06em', textAlign: 'center', minHeight: 24,
         }}>
           {paused ? 'Paused' : breathLabel}
@@ -431,7 +436,7 @@ export default function MeditatePage() {
         {/* Timer */}
         <div style={{
           position: 'absolute', bottom: 40, left: 0, right: 0, textAlign: 'center',
-          fontSize: '14px', fontFamily: s.font, color: s.dimmer, letterSpacing: '0.08em',
+          fontSize: '18px', fontFamily: s.font, color: '#8a8780', letterSpacing: '0.08em',
         }}>
           {formatTime(remaining)}
         </div>
