@@ -73,10 +73,8 @@ interface Alias {
 export default function Settings() {
   const [profile, setProfile] = useState({ name: '', genre: '', country: '', bio: '' })
   const [team, setTeam] = useState([
-    { id: '1', role: 'Photographer', name: '', email: '', phone: '' },
-    { id: '2', role: 'Tour Manager', name: '', email: '', phone: '' },
-    { id: '3', role: 'Driver', name: '', email: '', phone: '' },
-    { id: '4', role: 'Videographer', name: '', email: '', phone: '' },
+    { id: '1', role: 'Manager', name: '', email: '', phone: '' },
+    { id: '2', role: 'Agent', name: '', email: '', phone: '' },
   ])
   const [advance, setAdvance] = useState({ sender_name: '', reply_email: '' })
   const [payment, setPayment] = useState<PaymentSettings>({
