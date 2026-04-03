@@ -46,8 +46,15 @@ async function saveProfile(profile: Record<string, unknown>) {
 
 async function saveGigs(gigs: { title: string; venue: string; location: string; date: string; status: string }[]) {
   if (!gigs.length) return 0
+  // Fetch existing gigs to avoid duplicates
+  const existing = await fetch('/api/gigs').then(r => r.json()).catch(() => ({ gigs: [] }))
+  const existingSet = new Set(
+    (existing.gigs || []).map((g: { venue: string; date: string }) => `${g.venue}::${g.date}`)
+  )
+  const newGigs = gigs.filter(g => !existingSet.has(`${g.venue}::${g.date}`))
+  if (!newGigs.length) return 0
   const results = await Promise.allSettled(
-    gigs.map(gig =>
+    newGigs.map(gig =>
       fetch('/api/gigs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
