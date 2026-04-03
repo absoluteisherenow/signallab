@@ -8,6 +8,7 @@ const TABS = [
   { label: 'Calendar', href: '/broadcast/calendar' },
   { label: 'Content Intelligence', href: '/broadcast/scanner' },
   { label: 'Media Library', href: '/broadcast/media' },
+  { label: 'Content Strategy', href: '/broadcast/strategy' },
 ]
 
 interface SignalLabHeaderProps {
