@@ -183,6 +183,8 @@ export function MediaScanner() {
   const [error, setError] = useState('')
   const [usageInfo, setUsageInfo] = useState<{ used: number; remaining: number; monthlyLimit: number; credits: number } | null>(null)
   const [userId, setUserId] = useState('dev-user')
+  const [voiceRules, setVoiceRules] = useState<string>('')
+  const [artistName, setArtistName] = useState<string>('the artist')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const tierLimits = SCAN_TIERS[USER_TIER]
@@ -195,6 +197,15 @@ export function MediaScanner() {
         .then(r => r.json())
         .then(d => setUsageInfo({ used: d.used, remaining: d.remaining, monthlyLimit: d.monthlyLimit, credits: d.credits }))
         .catch(() => {})
+    })
+    // Load voice profile for caption generation
+    supabase.from('artist_settings').select('profile').limit(1).single().then(({ data }) => {
+      const name = data?.profile?.name || 'the artist'
+      setArtistName(name)
+      // Fetch voice rules from artist_profiles
+      supabase.from('artist_profiles').select('style_rules').ilike('name', name).limit(1).single().then(({ data: vp }) => {
+        if (vp?.style_rules) setVoiceRules(vp.style_rules)
+      })
     })
   }, [])
 
@@ -420,7 +431,9 @@ Return JSON exactly:
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               model: 'claude-sonnet-4-6',
-              system: `You write Instagram captions for NIGHT manoeuvres, an electronic music duo. Voice: warm insider tone, "we" always, no hashtags, lowercase preferred, no exclamation marks, no emojis, no forced CTAs. Sparse, observational, confident. Underground electronic music world.`,
+              system: voiceRules
+                ? `You write Instagram captions for ${artistName}. Use this REAL voice profile from their scraped Instagram data:\n\n${voiceRules}\n\nMatch this voice EXACTLY. Return ONLY the caption text.`
+                : `You write Instagram captions for ${artistName}, an electronic music artist. Voice: warm insider tone, no hashtags, lowercase preferred, no exclamation marks, no emojis, no forced CTAs. Sparse, observational, confident. Underground electronic music world.`,
               max_tokens: 200,
               messages: [{ role: 'user', content: `Write a single Instagram caption for this content. Context: ${scan.result.caption_context}. Post recommendation: ${scan.result.post_recommendation}. Tone match: ${scan.result.tone_match || 'underground electronic'}. Return ONLY the caption text, nothing else.` }],
             }),
