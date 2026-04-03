@@ -120,7 +120,7 @@ export default function Login() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              autoComplete="current-password"
               style={inputBase}
               onFocus={e => (e.target.style.borderBottomColor = '#b08d57')}
               onBlur={e => (e.target.style.borderBottomColor = '#2a2825')}
