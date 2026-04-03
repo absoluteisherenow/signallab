@@ -414,11 +414,46 @@ export function BroadcastLab() {
         .filter(a => a.style_rules)
         .map(a => `${a.name}: ${a.style_rules}`)
         .join('\n\n')
+
+      // Fetch real gig + release data to prevent hallucination
+      let gigContext = ''
+      try {
+        const nowLocal = new Date()
+        const in60 = new Date(nowLocal); in60.setDate(nowLocal.getDate() + 60)
+        const [gigsRes, releasesRes] = await Promise.allSettled([
+          fetch('/api/gigs').then(r => r.json()),
+          fetch('/api/releases').then(r => r.json()),
+        ])
+        const upcomingGigs = (gigsRes.status === 'fulfilled' ? gigsRes.value.gigs || [] : [])
+          .filter((g: { date: string; status: string }) => {
+            const d = new Date(g.date)
+            return d >= nowLocal && d <= in60 && g.status !== 'cancelled'
+          })
+          .map((g: { date: string; title: string; venue: string; location: string }) =>
+            `${new Date(g.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}: ${g.venue}, ${g.location} — ${g.title}`
+          )
+        const upcomingReleases = (releasesRes.status === 'fulfilled' ? releasesRes.value.releases || [] : [])
+          .filter((r: { release_date: string }) => {
+            const d = new Date(r.release_date)
+            return d >= nowLocal && d <= in60
+          })
+          .map((r: { release_date: string; title: string; type: string; label: string }) =>
+            `${new Date(r.release_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}: "${r.title}" ${r.type}${r.label ? ` on ${r.label}` : ''}`
+          )
+        const allEvents = [...upcomingGigs, ...upcomingReleases]
+        gigContext = allEvents.length > 0
+          ? `\nREAL UPCOMING EVENTS (use these if context mentions shows/releases — use NO other dates or locations):\n${allEvents.join('\n')}`
+          : `\nNO UPCOMING EVENTS IN DB — if context mentions a show or release, write the caption without inventing any location, venue, city, or date.`
+      } catch {
+        gigContext = `\nNO UPCOMING EVENTS IN DB — if context mentions a show or release, write the caption without inventing any location, venue, city, or date.`
+      }
+
       const raw = await callClaude(
         `You write social media captions for ${artistName}, an ${artistCountry} electronic music artist.
 ${memberContext ? `\n${memberContext}\n` : ''}
 REFERENCE ARTISTS — studied voice profiles:
 ${profilesText || artists.map(a => a.name).join(', ')}
+${gigContext}
 
 YOUR RULES:
 — All lowercase, always
@@ -426,6 +461,7 @@ YOUR RULES:
 — No exclamation marks, no emojis
 — Never describe or explain the photo or video
 — Feels like a private thought shared, not a caption written for an audience
+— CRITICAL: NEVER invent or guess location names, city names, venue names, or dates. Only use real event data from the REAL UPCOMING EVENTS list above. If no matching event exists, write the caption without any location or date specifics.
 — Safe = sounds natural, slightly complete sentence. Loose = fragment, unresolved — no closure, no CTA. Raw = shortest possible — minimum viable thought, often 3 words or fewer
 — Score each variant with estimated save rate 800–2500 based on electronic/dance lane behaviour and how strongly it triggers saves vs likes
 
@@ -747,6 +783,138 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
         </div>
       </div>
 
+      {/* CAPTION GENERATOR */}
+      <div className="bg-[#0e0d0b] border border-white/7 p-8 caption-panel">
+        <div className="flex items-center gap-2 mb-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+          Caption generator — tuned to your voice<div className="flex-1 h-px bg-white/10" />
+        </div>
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div>
+            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">What happened</label>
+            <input value={context} onChange={e => setContext(e.target.value)} placeholder="show, studio, flight..."
+              className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors placeholder-[#2e2c29]" />
+          </div>
+          <div>
+            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Platform</label>
+            <select value={platform} onChange={e => setPlatform(e.target.value)} className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors">
+              {['Instagram','TikTok','X / Twitter'].map(p => <option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Media type</label>
+            <select value={media} onChange={e => setMedia(e.target.value)} className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors">
+              {['Crowd clip (video)','Show photo','Behind the decks','Studio photo','Travel / transit','No media'].map(m => <option key={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2 mb-3">
+          {(['post','carousel','story','reel'] as const).map(f => (
+            <button key={f} onClick={() => setPostFormat(f)}
+              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${postFormat===f ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
+              {f}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2 mb-5">
+          <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden"
+            onChange={e => { if (e.target.files?.length) uploadMedia(e.target.files) }} />
+          <div className="flex items-center gap-3 mb-5 p-3 border border-white/7 bg-[#1a1917]">
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+              className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-4 py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex items-center gap-2 flex-shrink-0">
+              {uploading && <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
+              {uploading ? 'Uploading...' : 'Upload media'}
+            </button>
+            {mediaUrls.length > 0 ? (
+              <div className="flex items-center gap-2 flex-1">
+                <div className="w-10 h-10 flex-shrink-0 bg-[#1a1917] border border-white/10 overflow-hidden flex items-center justify-center">
+                  <img src={mediaUrls[0]} className="w-full h-full object-cover" alt="preview"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.parentElement as HTMLElement).innerHTML='<span style="font-size:18px">🖼</span>' }} />
+                </div>
+                <span className="text-[10px] tracking-[.1em] text-[#b08d57] flex-1 truncate">{mediaUrls.length} file{mediaUrls.length>1?'s':''} attached</span>
+                <button onClick={() => setMediaUrls([])} className="text-[#8a8780] hover:text-red-400 text-xs">x</button>
+              </div>
+            ) : (
+              <span className="text-[10px] tracking-[.08em] text-[#2e2c29] uppercase tracking-widest">No media — Instagram requires image or video</span>
+            )}
+          </div>
+
+          {['Instagram','TikTok','X / Twitter'].map(p => (
+            <button key={p} onClick={() => {setPlatform(p);setTimeout(generateCaptions,100)}}
+              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${platform===p?'border-[#b08d57] text-[#b08d57]':'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
+              {p}
+              {hasDirectConnection(p) && (
+                <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#6aaa7a] align-middle" title="Direct connection" />
+              )}
+            </button>
+          ))}
+          {/* Connection route indicator */}
+          <div className="ml-auto text-[9px] tracking-[.12em] text-[#4a4845] uppercase flex items-center gap-1.5">
+            {hasDirectConnection(platform) ? (
+              <><span className="w-1.5 h-1.5 rounded-full bg-[#6aaa7a] inline-block" />Direct</>
+            ) : (
+              <><span className="w-1.5 h-1.5 rounded-full bg-[#b08d57] inline-block opacity-60" />Via Buffer</>
+            )}
+          </div>
+        </div>
+        {generatingCaptions && (
+          <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
+            <div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.2s'}} /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.4s'}} />
+            <span>Generating captions — reading your tone profile...</span>
+          </div>
+        )}
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          {variantKeys.map(key => {
+            const v = captions?.[key]
+            return (
+              <div key={key} onClick={() => setSelectedVariant(key)}
+                className={`bg-[#1a1917] border p-4 cursor-pointer transition-colors ${selectedVariant===key?'border-[#b08d57]':'border-white/7 hover:border-white/13'}`}>
+                <div className="flex items-center gap-2 mb-2.5 text-[10px] tracking-[.18em] uppercase text-[#8a8780]">
+                  {key.charAt(0).toUpperCase()+key.slice(1)}<div className="flex-1 h-px bg-white/10" />
+                </div>
+                {generatingCaptions ? <div className="h-16 bg-white/5 animate-pulse rounded" /> : (
+                  <>
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className="text-[12px] tracking-[.05em] leading-7 min-h-[72px] flex-1">{v?.text||''}</div>
+                      <button onClick={e => { e.stopPropagation(); copyToClipboard(v?.text||'', key.charAt(0).toUpperCase()+key.slice(1)) }}
+                        className="text-[10px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors flex-shrink-0 whitespace-nowrap mt-1">
+                        Copy
+                      </button>
+                    </div>
+                    <div className="text-[10px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{}}>{v?.reasoning||''}</div>
+                    <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
+                      <button onClick={e=>{e.stopPropagation();publish(v?.text||'',platform,mediaUrls)}}
+                        className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">
+                        {hasDirectConnection(platform) ? 'Publish →' : 'Schedule →'}
+                      </button>
+                      <div className="text-[10px] text-[#8a8780]">Est. <span className={v&&v.score>1600?'text-[#3d6b4a]':v&&v.score>1200?'text-[#b08d57]':'text-[#8a8780]'}>{v?formatScore(v.score):'...'}</span></div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {captionError && <div className="bg-red-900/20 border border-red-800/40 text-red-300 text-[10px] px-4 py-3 mb-4">{captionError}</div>}
+        <div className="flex items-center justify-between pt-4 border-t border-white/7">
+          <div className="text-[9.5px] text-[#8a8780] italic flex-1 mr-4" style={{}}>
+            Tuned to: {getArtistNames().join(' · ')} · your past posts
+          </div>
+          <div className="flex gap-2.5">
+            <button onClick={generateCaptions} disabled={generatingCaptions}
+              className="text-[10px] tracking-[.16em] uppercase border border-white/13 text-[#8a8780] px-5 py-2.5 hover:border-[#8a8780] hover:text-[#f0ebe2] transition-colors disabled:opacity-40 flex items-center gap-2">
+              {generatingCaptions&&<div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
+              {generatingCaptions?'Generating...':'Regenerate'}
+            </button>
+            <button onClick={() => publish(captions?.[selectedVariant]?.text||'', platform, mediaUrls)}
+              disabled={publishing}
+              className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50">
+              {publishing ? 'Posting...' : hasDirectConnection(platform) ? 'Publish →' : 'Schedule via Buffer →'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* REFERENCE ARTISTS */}
       <div>
         <div className="flex items-center gap-2 mb-4 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
@@ -968,138 +1136,6 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
             </div>
           </div>
         )}
-      </div>
-
-      {/* CAPTION GENERATOR */}
-      <div className="bg-[#0e0d0b] border border-white/7 p-8 caption-panel">
-        <div className="flex items-center gap-2 mb-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
-          Caption generator — tuned to your voice<div className="flex-1 h-px bg-white/10" />
-        </div>
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          <div>
-            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">What happened</label>
-            <input value={context} onChange={e => setContext(e.target.value)} placeholder="show, studio, flight..."
-              className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors placeholder-[#2e2c29]" />
-          </div>
-          <div>
-            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Platform</label>
-            <select value={platform} onChange={e => setPlatform(e.target.value)} className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors">
-              {['Instagram','TikTok','X / Twitter'].map(p => <option key={p}>{p}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Media type</label>
-            <select value={media} onChange={e => setMedia(e.target.value)} className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors">
-              {['Crowd clip (video)','Show photo','Behind the decks','Studio photo','Travel / transit','No media'].map(m => <option key={m}>{m}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="flex gap-2 mb-3">
-          {(['post','carousel','story','reel'] as const).map(f => (
-            <button key={f} onClick={() => setPostFormat(f)}
-              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${postFormat===f ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
-              {f}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2 mb-5">
-          <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden"
-            onChange={e => { if (e.target.files?.length) uploadMedia(e.target.files) }} />
-          <div className="flex items-center gap-3 mb-5 p-3 border border-white/7 bg-[#1a1917]">
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-              className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-4 py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex items-center gap-2 flex-shrink-0">
-              {uploading && <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
-              {uploading ? 'Uploading...' : 'Upload media'}
-            </button>
-            {mediaUrls.length > 0 ? (
-              <div className="flex items-center gap-2 flex-1">
-                <div className="w-10 h-10 flex-shrink-0 bg-[#1a1917] border border-white/10 overflow-hidden flex items-center justify-center">
-                  <img src={mediaUrls[0]} className="w-full h-full object-cover" alt="preview"
-                    onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.parentElement as HTMLElement).innerHTML='<span style="font-size:18px">🖼</span>' }} />
-                </div>
-                <span className="text-[10px] tracking-[.1em] text-[#b08d57] flex-1 truncate">{mediaUrls.length} file{mediaUrls.length>1?'s':''} attached</span>
-                <button onClick={() => setMediaUrls([])} className="text-[#8a8780] hover:text-red-400 text-xs">x</button>
-              </div>
-            ) : (
-              <span className="text-[10px] tracking-[.08em] text-[#2e2c29] uppercase tracking-widest">No media — Instagram requires image or video</span>
-            )}
-          </div>
-
-          {['Instagram','TikTok','X / Twitter'].map(p => (
-            <button key={p} onClick={() => {setPlatform(p);setTimeout(generateCaptions,100)}}
-              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${platform===p?'border-[#b08d57] text-[#b08d57]':'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
-              {p}
-              {hasDirectConnection(p) && (
-                <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#6aaa7a] align-middle" title="Direct connection" />
-              )}
-            </button>
-          ))}
-          {/* Connection route indicator */}
-          <div className="ml-auto text-[9px] tracking-[.12em] text-[#4a4845] uppercase flex items-center gap-1.5">
-            {hasDirectConnection(platform) ? (
-              <><span className="w-1.5 h-1.5 rounded-full bg-[#6aaa7a] inline-block" />Direct</>
-            ) : (
-              <><span className="w-1.5 h-1.5 rounded-full bg-[#b08d57] inline-block opacity-60" />Via Buffer</>
-            )}
-          </div>
-        </div>
-        {generatingCaptions && (
-          <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
-            <div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.2s'}} /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.4s'}} />
-            <span>Generating captions — reading your tone profile...</span>
-          </div>
-        )}
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          {variantKeys.map(key => {
-            const v = captions?.[key]
-            return (
-              <div key={key} onClick={() => setSelectedVariant(key)}
-                className={`bg-[#1a1917] border p-4 cursor-pointer transition-colors ${selectedVariant===key?'border-[#b08d57]':'border-white/7 hover:border-white/13'}`}>
-                <div className="flex items-center gap-2 mb-2.5 text-[10px] tracking-[.18em] uppercase text-[#8a8780]">
-                  {key.charAt(0).toUpperCase()+key.slice(1)}<div className="flex-1 h-px bg-white/10" />
-                </div>
-                {generatingCaptions ? <div className="h-16 bg-white/5 animate-pulse rounded" /> : (
-                  <>
-                    <div className="flex items-start gap-2 mb-2">
-                      <div className="text-[12px] tracking-[.05em] leading-7 min-h-[72px] flex-1">{v?.text||''}</div>
-                      <button onClick={e => { e.stopPropagation(); copyToClipboard(v?.text||'', key.charAt(0).toUpperCase()+key.slice(1)) }}
-                        className="text-[10px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors flex-shrink-0 whitespace-nowrap mt-1">
-                        Copy
-                      </button>
-                    </div>
-                    <div className="text-[10px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{}}>{v?.reasoning||''}</div>
-                    <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
-                      <button onClick={e=>{e.stopPropagation();publish(v?.text||'',platform,mediaUrls)}}
-                        className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">
-                        {hasDirectConnection(platform) ? 'Publish →' : 'Schedule →'}
-                      </button>
-                      <div className="text-[10px] text-[#8a8780]">Est. <span className={v&&v.score>1600?'text-[#3d6b4a]':v&&v.score>1200?'text-[#b08d57]':'text-[#8a8780]'}>{v?formatScore(v.score):'...'}</span></div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )
-          })}
-        </div>
-        {captionError && <div className="bg-red-900/20 border border-red-800/40 text-red-300 text-[10px] px-4 py-3 mb-4">{captionError}</div>}
-        <div className="flex items-center justify-between pt-4 border-t border-white/7">
-          <div className="text-[9.5px] text-[#8a8780] italic flex-1 mr-4" style={{}}>
-            Tuned to: {getArtistNames().join(' · ')} · your past posts
-          </div>
-          <div className="flex gap-2.5">
-            <button onClick={generateCaptions} disabled={generatingCaptions}
-              className="text-[10px] tracking-[.16em] uppercase border border-white/13 text-[#8a8780] px-5 py-2.5 hover:border-[#8a8780] hover:text-[#f0ebe2] transition-colors disabled:opacity-40 flex items-center gap-2">
-              {generatingCaptions&&<div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
-              {generatingCaptions?'Generating...':'Regenerate'}
-            </button>
-            <button onClick={() => publish(captions?.[selectedVariant]?.text||'', platform, mediaUrls)}
-              disabled={publishing}
-              className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50">
-              {publishing ? 'Posting...' : hasDirectConnection(platform) ? 'Publish →' : 'Schedule via Buffer →'}
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* SIGNAL PANEL */}
