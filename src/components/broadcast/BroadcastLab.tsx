@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { aiCache } from '@/lib/aiCache'
 import { SignalLabHeader } from './SignalLabHeader'
@@ -126,6 +127,8 @@ function Bar({ value, teal = false }: { value: number; teal?: boolean }) {
 }
 
 export function BroadcastLab() {
+  const router = useRouter()
+
   // ── aiCache — shared cache shared across modules, 12-hour TTL ──────────────
   // Prevents re-running Claude on every page visit (trends + captions are expensive)
   const NS = 'signallab'
@@ -695,7 +698,19 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
   return (
     <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono flex flex-col">
 
-      <SignalLabHeader right={null} />
+      <SignalLabHeader right={
+        <button
+          onClick={() => router.push('/broadcast/strategy')}
+          style={{
+            background: '#d4a843', color: '#0a0a0f', border: 'none',
+            padding: '8px 18px', borderRadius: '8px',
+            fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase',
+            fontFamily: 'var(--font-mono)', cursor: 'pointer', fontWeight: 700,
+          }}
+        >
+          Create Content Strategy
+        </button>
+      } />
 
       <div className="flex flex-col gap-7 p-8">
 
