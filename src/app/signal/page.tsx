@@ -59,7 +59,6 @@ function SignalInner() {
     setTranscript(text)
     setPhase('processing')
     setResponse('')
-    setInput('')
 
     try {
       const res = await fetch('/api/claude/stream', {
