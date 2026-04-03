@@ -1014,8 +1014,11 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
             </button>
             {mediaUrls.length > 0 ? (
               <div className="flex items-center gap-2 flex-1">
-                <img src={mediaUrls[0]} className="w-10 h-10 object-cover" alt="preview" />
-                <span className="text-[10px] tracking-[.1em] text-[#3d6b4a] flex-1 truncate">Media ready — will attach to post</span>
+                <div className="w-10 h-10 flex-shrink-0 bg-[#1a1917] border border-white/10 overflow-hidden flex items-center justify-center">
+                  <img src={mediaUrls[0]} className="w-full h-full object-cover" alt="preview"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.parentElement as HTMLElement).innerHTML='<span style="font-size:18px">🖼</span>' }} />
+                </div>
+                <span className="text-[10px] tracking-[.1em] text-[#b08d57] flex-1 truncate">{mediaUrls.length} file{mediaUrls.length>1?'s':''} attached</span>
                 <button onClick={() => setMediaUrls([])} className="text-[#8a8780] hover:text-red-400 text-xs">x</button>
               </div>
             ) : (
