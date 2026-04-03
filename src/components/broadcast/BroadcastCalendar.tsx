@@ -736,29 +736,35 @@ export function BroadcastCalendar() {
           <div style={{ display: 'flex', gap: '2px' }}>
             {(['week', 'month'] as const).map(v => (
               <button key={v} onClick={() => setViewMode(v)} style={{
-                fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
-                padding: '7px 13px', cursor: 'pointer',
-                background: viewMode === v ? s.gold : 'transparent',
-                border: `1px solid ${viewMode === v ? s.gold : s.border}`,
-                color: viewMode === v ? '#070706' : s.dim,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                height: '32px', padding: '0 14px', borderRadius: '2px',
+                fontFamily: s.font, fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
+                cursor: 'pointer', fontWeight: 400,
+                background: viewMode === v ? 'rgba(176,141,87,0.15)' : 'transparent',
+                border: viewMode === v ? '1px solid rgba(176,141,87,0.35)' : '1px solid rgba(255,255,255,0.12)',
+                color: viewMode === v ? '#d4a843' : 'rgba(240,235,226,0.35)',
               }}>{v}</button>
             ))}
           </div>
           {/* Nav */}
           <div style={{ display: 'flex', gap: '3px' }}>
-            <button onClick={navPrev} style={{ background: s.panel, border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '14px', padding: '7px 13px', cursor: 'pointer' }}>←</button>
-            <button onClick={navToday} style={{ background: s.panel, border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 13px', cursor: 'pointer' }}>Today</button>
-            <button onClick={navNext} style={{ background: s.panel, border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '14px', padding: '7px 13px', cursor: 'pointer' }}>→</button>
+            <button onClick={navPrev} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: '32px', padding: '0 12px', borderRadius: '2px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(240,235,226,0.35)', fontFamily: s.font, fontSize: '14px', cursor: 'pointer' }}>←</button>
+            <button onClick={navToday} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: '32px', padding: '0 14px', borderRadius: '2px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(240,235,226,0.35)', fontFamily: s.font, fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>Today</button>
+            <button onClick={navNext} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: '32px', padding: '0 12px', borderRadius: '2px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(240,235,226,0.35)', fontFamily: s.font, fontSize: '14px', cursor: 'pointer' }}>→</button>
           </div>
           {/* Import button */}
           <button onClick={() => { setImportOpen(true); setPlanOpen(false) }} style={{
-            fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase',
-            padding: '8px 18px', background: 'transparent', color: s.gold, border: `1px solid ${s.gold}60`, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: '32px', padding: '0 16px', borderRadius: '2px',
+            fontFamily: s.font, fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
+            background: 'transparent', color: 'rgba(240,235,226,0.35)', border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer',
           }}>Import plan</button>
           {/* Plan button */}
           <button onClick={() => { setPlanOpen(true); setImportOpen(false) }} style={{
-            fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase',
-            padding: '8px 18px', background: s.gold, color: '#070706', border: 'none', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: '32px', padding: '0 16px', borderRadius: '2px',
+            fontFamily: s.font, fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
+            background: 'rgba(176,141,87,0.15)', color: '#d4a843', border: '1px solid rgba(176,141,87,0.35)', cursor: 'pointer',
           }}>Plan content</button>
         </div>
       } />
@@ -768,21 +774,22 @@ export function BroadcastCalendar() {
         {/* Month/week nav + platform filter */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button onClick={navPrev} style={{ background: 'none', border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '16px', padding: '6px 12px', cursor: 'pointer', lineHeight: 1 }}>←</button>
+            <button onClick={navPrev} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: '32px', padding: '0 12px', borderRadius: '2px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(240,235,226,0.35)', fontFamily: s.font, fontSize: '16px', cursor: 'pointer', lineHeight: 1 }}>←</button>
             <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '18px', fontWeight: 300, color: s.text, minWidth: '200px', textAlign: 'center' }}>
               {navLabel()}
             </div>
-            <button onClick={navNext} style={{ background: 'none', border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '16px', padding: '6px 12px', cursor: 'pointer', lineHeight: 1 }}>→</button>
-            <button onClick={navToday} style={{ background: 'none', border: `1px solid ${s.border}`, color: s.dimmer, fontFamily: s.font, fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', padding: '7px 12px', cursor: 'pointer', marginLeft: '4px' }}>Today</button>
+            <button onClick={navNext} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: '32px', padding: '0 12px', borderRadius: '2px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(240,235,226,0.35)', fontFamily: s.font, fontSize: '16px', cursor: 'pointer', lineHeight: 1 }}>→</button>
+            <button onClick={navToday} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: '32px', padding: '0 14px', borderRadius: '2px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(240,235,226,0.35)', fontFamily: s.font, fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer', marginLeft: '4px' }}>Today</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {['All', 'instagram', 'tiktok', 'threads'].map(p => (
               <button key={p} onClick={() => setFilterPlatform(p)} style={{
-                fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
-                padding: '5px 13px',
-                background: filterPlatform === p ? s.panel : 'transparent',
-                border: filterPlatform === p ? `1px solid ${PLATFORM_COLOR[p] || s.gold}` : `1px solid ${s.border}`,
-                color: filterPlatform === p ? (PLATFORM_COLOR[p] || s.gold) : s.dimmer,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                height: '28px', padding: '0 12px', borderRadius: '2px',
+                fontFamily: s.font, fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase',
+                background: filterPlatform === p ? 'rgba(176,141,87,0.12)' : 'transparent',
+                border: filterPlatform === p ? `1px solid ${PLATFORM_COLOR[p] || 'rgba(176,141,87,0.35)'}` : '1px solid rgba(255,255,255,0.12)',
+                color: filterPlatform === p ? (PLATFORM_COLOR[p] || '#d4a843') : 'rgba(240,235,226,0.25)',
                 cursor: 'pointer',
               }}>{p}</button>
             ))}

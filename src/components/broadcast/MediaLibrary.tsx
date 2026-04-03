@@ -81,19 +81,23 @@ export function MediaLibrary() {
       <SignalLabHeader right={
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => fileRef.current?.click()} style={{
-            background: 'transparent', border: `1px solid ${s.gold}`,
-            color: s.gold, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
-            textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: '32px', padding: '0 16px', borderRadius: '2px',
+            background: 'rgba(176,141,87,0.15)', border: '1px solid rgba(176,141,87,0.35)',
+            color: '#d4a843', fontFamily: s.font, fontSize: '9px', letterSpacing: '0.18em',
+            textTransform: 'uppercase', cursor: 'pointer', fontWeight: 400,
           }}>
             + Upload media
           </button>
           {selected.size > 0 && (
             <button onClick={() => window.location.href = '/broadcast'} style={{
-              background: 'transparent', border: `1px solid ${s.gold}`,
-              color: s.gold, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em',
-              textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              height: '32px', padding: '0 16px', borderRadius: '2px',
+              background: 'transparent', border: '1px solid rgba(255,255,255,0.12)',
+              color: 'rgba(240,235,226,0.35)', fontFamily: s.font, fontSize: '9px', letterSpacing: '0.18em',
+              textTransform: 'uppercase', cursor: 'pointer', fontWeight: 400,
             }}>
-              Use {selected.size} in post →
+              Use {selected.size} in post
             </button>
           )}
         </div>
