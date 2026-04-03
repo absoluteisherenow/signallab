@@ -231,10 +231,11 @@ export function ContentStrategy() {
             <button
               onClick={() => generateStrategy()}
               style={{
-                background: s.gold, color: '#0a0a0f', border: 'none',
-                padding: '12px 28px', borderRadius: '8px',
-                fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase' as const,
-                fontFamily: s.font, cursor: 'pointer', fontWeight: 600,
+                background: '#d4a843', color: '#0a0a0f', border: 'none',
+                padding: '14px 36px', borderRadius: '8px',
+                fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase' as const,
+                fontFamily: s.font, cursor: 'pointer', fontWeight: 700,
+                boxShadow: '0 0 24px rgba(212,168,67,0.25)',
               }}
             >
               Create Content Strategy
