@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: 'tts-1',
-        voice: 'onyx',   // deep, authoritative — fits the dark techno aesthetic
+        voice: 'shimmer',   // warm, bright, clear — calm energy for guided sessions
         input: clipped,
         speed: 0.95,
       }),
