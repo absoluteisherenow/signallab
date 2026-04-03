@@ -131,16 +131,19 @@ CONTENT STRATEGY (your strongest capability)
 - Every content suggestion must serve BOTH underground credibility AND growth
 
 DEEP DIVE DATA — ALREADY LOADED
-- The ARTIST DATA section below contains voice_profiles and top_performing_posts scraped from real Instagram accounts
+- The ARTIST DATA section below contains voice_profiles, nm_top_posts, competitor_analysis, and competitive_landscape
 - voice_profiles: real voice analysis — style rules, lowercase %, caption patterns for ${artistName} and reference artists
-- top_performing_posts: real engagement numbers — likes, comments, format, captions
+- nm_top_posts: NM's actual post engagement data with likes, comments, format, captions
+- competitor_analysis: scraped engagement data for alignment artists (Four Tet, Overmono, Floating Points, Bicep, Ross From Friends)
+- competitive_landscape: follower counts and engagement rates for NM vs all competitors
 - You have FULL ACCESS to this data. It is in the ARTIST DATA JSON below this prompt.
 - NEVER say "I can't access a database", "paste it in", "I don't have a live link", or "that hasn't carried over"
 - NEVER ask the user to share data that is already in ARTIST DATA — read it and use it
 - When the user says "you have the data" or "check the deep dive", they are correct — look at ARTIST DATA
 - When suggesting captions, match the voice patterns from voice_profiles
-- When suggesting formats, cite which formats get the best engagement from top_performing_posts
-- Reference specific numbers and patterns — these are REAL, not assumptions
+- When suggesting formats, cite which formats get the best engagement from competitor_analysis
+- When discussing growth targets, reference competitive_landscape for context
+- Reference specific numbers and patterns — these are REAL scraped data, not assumptions
 
 ${SKILLS_ASSISTANT_CONTENT}
 
@@ -362,12 +365,12 @@ export async function POST(req: NextRequest) {
         .not('style_rules', 'is', null)
         .limit(10),
 
-      // Top performing posts from Instagram deep dive
+      // Top performing posts from Instagram deep dive + competitor analysis
       supabase
         .from('post_performance')
         .select('platform, caption, format, actual_likes, actual_comments, estimated_score, context')
         .order('estimated_score', { ascending: false })
-        .limit(30),
+        .limit(70),
     ])
 
   const gigs     = gigsRes.status     === 'fulfilled' ? (gigsRes.value.data     || []) : []
@@ -403,8 +406,34 @@ export async function POST(req: NextRequest) {
   const voiceIntel = voiceProfiles.length > 0
     ? voiceProfiles.map((v: any) => `${v.name}: ${v.style_rules} (${v.post_count_analysed || '?'} posts analysed via ${v.data_source || 'scrape'})`).join('\n\n')
     : null
-  const engagementIntel = topPosts.length > 0
-    ? topPosts.slice(0, 15).map((p: any) => `${p.platform} ${p.format} — ${p.actual_likes || 0}L/${p.actual_comments || 0}C (score ${p.estimated_score || '?'}): "${(p.caption || '').slice(0, 100)}"`).join('\n')
+
+  // Separate NM posts from competitor posts
+  const nmPosts = topPosts.filter((p: any) => !p.context || p.context === null)
+  const competitorPosts = topPosts.filter((p: any) => p.context && p.context !== null)
+
+  const nmEngagement = nmPosts.length > 0
+    ? nmPosts.slice(0, 12).map((p: any) => `${p.format} — ${p.actual_likes || 0}L/${p.actual_comments || 0}C (score ${p.estimated_score || '?'}): "${(p.caption || '').slice(0, 80)}"`).join('\n')
+    : null
+
+  // Group competitor posts by artist for comparative analysis
+  const competitorByArtist: Record<string, any[]> = {}
+  competitorPosts.forEach((p: any) => {
+    const artist = (p.context || '').split(' | ')[0] || 'Unknown'
+    if (!competitorByArtist[artist]) competitorByArtist[artist] = []
+    competitorByArtist[artist].push(p)
+  })
+  const competitorIntel = Object.keys(competitorByArtist).length > 0
+    ? Object.entries(competitorByArtist).map(([artist, posts]) => {
+        const meta = (posts[0].context || '').split(' | ')
+        const followers = meta[2] || ''
+        const avgER = meta[3] || ''
+        const avgScore = Math.round(posts.reduce((s: number, p: any) => s + (p.estimated_score || 0), 0) / posts.length)
+        const formats: Record<string, number> = {}
+        posts.forEach((p: any) => { formats[p.format] = (formats[p.format] || 0) + 1 })
+        const topFormat = Object.entries(formats).sort((a, b) => b[1] - a[1])[0]?.[0] || 'mixed'
+        const topPost = posts[0]
+        return `${artist} (${followers}, ${avgER}): avg score ${avgScore}, favours ${topFormat}. Top post: ${topPost.estimated_score}pts ${topPost.format} "${(topPost.caption || '').slice(0, 60)}"`
+      }).join('\n')
     : null
 
   const contextPayload = {
@@ -418,7 +447,9 @@ export async function POST(req: NextRequest) {
     releases,
     team: teamData,
     ...(voiceIntel ? { voice_profiles: voiceIntel } : {}),
-    ...(engagementIntel ? { top_performing_posts: engagementIntel } : {}),
+    ...(nmEngagement ? { nm_top_posts: nmEngagement } : {}),
+    ...(competitorIntel ? { competitor_analysis: competitorIntel } : {}),
+    competitive_landscape: 'NM: 1,314 followers (9.8% ER). Four Tet: 607K (2.17% ER). Overmono: 184K (3.44% ER). Floating Points: 256K (1.84% ER). Bicep: 423K (1.25% ER). Ross From Friends: 89K (3.49% ER).',
   }
 
   // ── Call Claude ───────────────────────────────────────────────────────────
