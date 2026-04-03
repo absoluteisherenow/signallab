@@ -10,19 +10,22 @@ export async function GET(req: NextRequest) {
 
   const redirectUri = `${APP_URL}/api/social/instagram/callback`
 
-  // Scopes needed for Signal Lab OS:
-  // instagram_basic       — read profile + media
-  // instagram_content_publish — post on behalf of user
-  // pages_show_list       — list pages (needed to get page token)
-  // pages_read_engagement — read page info
+  // Scopes needed for Signal Lab OS (new instagram_business_* API):
+  // instagram_business_basic          — read profile + media
+  // instagram_business_content_publish — post on behalf of user
+  // instagram_business_manage_comments — read/reply to comments
+  // instagram_business_manage_messages — DM automation
+  // instagram_business_manage_insights — analytics
+  // pages_show_list                   — list pages (needed to get page token)
+  // pages_read_engagement             — read page info
   const scope = [
-    'instagram_basic',
-    'instagram_content_publish',
-    'instagram_manage_comments',
-    'instagram_manage_messages',
+    'instagram_business_basic',
+    'instagram_business_content_publish',
+    'instagram_business_manage_comments',
+    'instagram_business_manage_messages',
+    'instagram_business_manage_insights',
     'pages_show_list',
     'pages_read_engagement',
-    'pages_messaging',
   ].join(',')
 
   const url = new URL('https://www.facebook.com/v22.0/dialog/oauth')
