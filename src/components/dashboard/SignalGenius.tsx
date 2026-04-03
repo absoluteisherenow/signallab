@@ -613,11 +613,8 @@ Rules:
     // Add empty assistant message that will be filled by streaming
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }])
 
-    // If user asks about email, trigger an immediate scan (bypasses throttle)
     const msgLower = msg.toLowerCase()
-    if (/\b(email|inbox|gmail|scan.*mail|mail.*scan|check.*mail)\b/.test(msgLower)) {
-      checkEmailInbox(true)
-    }
+    const isEmailQuery = /\b(email|inbox|gmail|scan.*mail|mail.*scan|check.*mail)\b/.test(msgLower)
 
     try {
       // Limit conversation history to last 20 messages to avoid context overflow
@@ -658,8 +655,11 @@ Rules:
         } catch { /* malformed JSON — ignore */ }
       }
       speakResponse(displayText)
-    } catch {
-      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: 'Something went wrong. Try again.' } : m))
+      // Trigger email scan after response completes (avoids state race)
+      if (isEmailQuery) checkEmailInbox(true)
+    } catch (err: any) {
+      console.error('Signal error:', err)
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `Something went wrong — ${err?.message || 'unknown error'}. Try again.` } : m))
     } finally {
       setLoading(false)
     }
