@@ -98,7 +98,7 @@ CRITICAL: Keep your TOTAL response under 3000 tokens. Be concise. Only state fac
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 8192,
+        max_tokens: 2000,
         system: `You are an expert DJ, electronic music producer, and booker with 20+ years of experience. You analyse DJ set tracklists with precision and honesty.
 
 CORE RULE: NEVER fabricate or guess. Only state what you genuinely know or can determine from the provided data. If you cannot assess something, say so clearly rather than making something up. Credibility is everything — one fabricated detail destroys trust.

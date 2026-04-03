@@ -435,25 +435,50 @@ export async function POST(req: NextRequest) {
       }).join('\n')
     : null
 
-  const contextPayload = {
-    today: todayStr,
-    upcoming_gigs: upcomingGigs,
-    recent_past_gigs: recentPastGigs,
-    invoices,
-    revenue_streams: revenue,
-    recent_sets: enrichedSets,
-    track_library_top100: tracks,
-    releases,
-    team: teamData,
-    ...(voiceIntel ? { voice_profiles: voiceIntel } : {}),
-    ...(nmEngagement ? { nm_top_posts: nmEngagement } : {}),
-    ...(competitorIntel ? { competitor_analysis: competitorIntel } : {}),
-  }
-
   // ── Call Claude ───────────────────────────────────────────────────────────
   const queryLower = body.query.trim().toLowerCase()
   const isAdsQuery = /\b(ads?|advert|paid|boost|promot|spend|budget|campaign.*paid|meta ads|tiktok ads|spotify ad|target.*audience|retarget|lookalike|cpm|cpc|roas)\b/.test(queryLower)
   const isInstagramQuery = /\b(instagram|insta|ig|reel|reels|stories|story|grid|follower|followers|growth|engage|engagement|hashtag|algorithm|collab post|bio|profile.*optim)\b/.test(queryLower)
+
+  // ── Query-aware context filtering ─────────────────────────────────────────
+  // Only include data sections relevant to the query to reduce token usage
+  const isGigQuery = /\b(gig|show|venue|tour|book|date|schedule|upcoming|tonight|weekend|club)\b/.test(queryLower)
+  const isMoneyQuery = /\b(invoice|payment|fee|money|paid|owe|revenue|earn|income|outstanding|overdue|cash)\b/.test(queryLower)
+  const isContentQuery = /\b(post|content|caption|reel|story|social|voice|engage|strategy|plan|campaign|what should i)\b/.test(queryLower)
+  const isDJQuery = /\b(set|track|mix|bpm|key|camelot|energy|transition|dj|library|rekordbox|playlist)\b/.test(queryLower)
+  const isReleaseQuery = /\b(release|drop|single|ep|album|label|distrib|promo|press)\b/.test(queryLower)
+  const isProductionQuery = /\b(produc|synth|plugin|ableton|mix|master|sound design|signal chain|eq|compress|reverb|delay)\b/.test(queryLower)
+
+  // Always include basics; conditionally include heavy sections
+  const contextPayload: Record<string, unknown> = {
+    today: todayStr,
+    upcoming_gigs: upcomingGigs,
+    releases,
+    team: teamData,
+  }
+
+  // Only include heavy sections when relevant
+  if (isGigQuery || isMoneyQuery) contextPayload.recent_past_gigs = recentPastGigs
+  if (isMoneyQuery) { contextPayload.invoices = invoices; contextPayload.revenue_streams = revenue }
+  if (isDJQuery || isProductionQuery) { contextPayload.recent_sets = enrichedSets; contextPayload.track_library_top100 = tracks }
+  if (isContentQuery || isInstagramQuery) {
+    if (voiceIntel) contextPayload.voice_profiles = voiceIntel
+    if (nmEngagement) contextPayload.nm_top_posts = nmEngagement
+    if (competitorIntel) contextPayload.competitor_analysis = competitorIntel
+  }
+  if (isReleaseQuery) contextPayload.releases = releases
+
+  // Fallback: if no category matched, include everything (general query)
+  if (!isGigQuery && !isMoneyQuery && !isContentQuery && !isDJQuery && !isReleaseQuery && !isProductionQuery && !isInstagramQuery && !isAdsQuery) {
+    contextPayload.recent_past_gigs = recentPastGigs
+    contextPayload.invoices = invoices
+    contextPayload.revenue_streams = revenue
+    contextPayload.recent_sets = enrichedSets
+    contextPayload.track_library_top100 = tracks
+    if (voiceIntel) contextPayload.voice_profiles = voiceIntel
+    if (nmEngagement) contextPayload.nm_top_posts = nmEngagement
+    if (competitorIntel) contextPayload.competitor_analysis = competitorIntel
+  }
 
   let systemPrompt = buildSystemPrompt(todayStr, profile, body.sonic_world, body.available_plugins)
   if (isAdsQuery) {

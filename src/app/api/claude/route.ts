@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     if (!nocache) {
       const systemPart = body.system ?? ''
       const messagesPart = JSON.stringify(body.messages ?? [])
-      cacheKey = hashKey(systemPart + messagesPart)
+      cacheKey = hashKey(model + ':' + systemPart + messagesPart)
 
       const cached = await getCached(cacheKey)
       if (cached) {

@@ -57,6 +57,24 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...updates } = await req.json()
+    if (!id) return NextResponse.json({ success: false, error: 'id required' }, { status: 400 })
+
+    const { data, error } = await supabase
+      .from('scheduled_posts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+
+    if (error) throw error
+    return NextResponse.json({ success: true, post: data?.[0] })
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const { id } = await req.json()

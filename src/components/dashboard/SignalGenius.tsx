@@ -320,75 +320,76 @@ export function SignalGenius() {
     if (open) setTimeout(() => inputRef.current?.focus(), 100)
   }, [open])
 
-  // Auto-scan inbox every 25 minutes — surfaces findings in Signal for confirmation
-  useEffect(() => {
-    function buildEmailSummary(findings: any[]): string {
-      const lines = findings.map((f: any) => {
-        const e = f.extracted || {}
-        switch (f.type) {
-          case 'new_gig':
-            return `a gig booking — ${e.title || 'new show'}${e.venue ? ` at ${e.venue}` : ''}${e.date ? ` on ${e.date}` : ''}${e.fee ? ` (${e.currency || ''}${e.fee})` : ''}`
-          case 'hotel':
-            return `a hotel booking — ${e.name || 'hotel'}${e.check_in ? `, ${e.check_in}` : ''}${e.cost ? ` (${e.currency || ''}${e.cost})` : ''}`
-          case 'flight':
-            return `a flight — ${e.name || ''} ${e.flight_number || ''} ${e.from || ''} → ${e.to || ''}${e.departure_at ? ` · ${e.departure_at.slice(0, 16).replace('T', ' ')}` : ''}`
-          case 'train':
-            return `a train — ${e.name || ''} ${e.from || ''} → ${e.to || ''}${e.departure_at ? ` · ${e.departure_at.slice(0, 16).replace('T', ' ')}` : ''}`
-          case 'invoice':
-            return `an invoice — ${e.description || e.gig_title || 'payment'}${e.amount ? ` (${e.currency || ''}${e.amount})` : ''}`
-          case 'release':
-            return `a release confirmation — ${e.title || 'release'}${e.type ? ` (${e.type})` : ''}`
-          case 'rider':
-            return `a rider confirmation${f.subject ? ` — "${f.subject}"` : ''}`
-          case 'tech_spec':
-            return `a tech spec${f.subject ? ` — "${f.subject}"` : ''}`
-          case 'gig_update':
-            return `a gig update${e.update ? ` — ${e.update}` : ''}`
-          default:
-            return `a ${f.type} email`
-        }
-      })
-      const intro = findings.length === 1
-        ? `Something came in for you —`
-        : `${findings.length} things came in for you —`
-      return `${intro} ${lines.join('; ')}.\n\nShall I add ${findings.length === 1 ? 'it' : 'these'} to your schedule?`
-    }
-
-    async function checkEmailInbox() {
-      const THROTTLE_MS = 25 * 60 * 1000
-      const last = localStorage.getItem('sg_email_scan_at')
-      if (last && Date.now() - parseInt(last) < THROTTLE_MS) return
-      localStorage.setItem('sg_email_scan_at', Date.now().toString())
-
-      try {
-        const res = await fetch('/api/gmail/scan')
-        if (!res.ok) return
-        const data = await res.json()
-        const findings: any[] = data.findings || []
-        if (findings.length === 0) return
-
-        // Filter out already-surfaced or dismissed findings
-        const surfaced: string[] = JSON.parse(localStorage.getItem('sg_surfaced_emails') || '[]')
-        const dismissed: string[] = JSON.parse(localStorage.getItem('sg_dismissed_emails') || '[]')
-        const newFindings = findings.filter((f: any) =>
-          !surfaced.includes(f.messageId) && !dismissed.includes(f.messageId)
-        )
-        if (newFindings.length === 0) return
-
-        // Mark as surfaced
-        const updated = [...surfaced, ...newFindings.map((f: any) => f.messageId)].slice(-200)
-        localStorage.setItem('sg_surfaced_emails', JSON.stringify(updated))
-
-        setPendingEmailFindings(newFindings)
-        const summary = buildEmailSummary(newFindings)
-        setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: summary }])
-      } catch {
-        // Silent — no Gmail connected or network error
+  // Email scan — extracted so it can be called on-demand from chat
+  function buildEmailSummary(findings: any[]): string {
+    const lines = findings.map((f: any) => {
+      const e = f.extracted || {}
+      switch (f.type) {
+        case 'new_gig':
+          return `a gig booking — ${e.title || 'new show'}${e.venue ? ` at ${e.venue}` : ''}${e.date ? ` on ${e.date}` : ''}${e.fee ? ` (${e.currency || ''}${e.fee})` : ''}`
+        case 'hotel':
+          return `a hotel booking — ${e.name || 'hotel'}${e.check_in ? `, ${e.check_in}` : ''}${e.cost ? ` (${e.currency || ''}${e.cost})` : ''}`
+        case 'flight':
+          return `a flight — ${e.name || ''} ${e.flight_number || ''} ${e.from || ''} → ${e.to || ''}${e.departure_at ? ` · ${e.departure_at.slice(0, 16).replace('T', ' ')}` : ''}`
+        case 'train':
+          return `a train — ${e.name || ''} ${e.from || ''} → ${e.to || ''}${e.departure_at ? ` · ${e.departure_at.slice(0, 16).replace('T', ' ')}` : ''}`
+        case 'invoice':
+          return `an invoice — ${e.description || e.gig_title || 'payment'}${e.amount ? ` (${e.currency || ''}${e.amount})` : ''}`
+        case 'release':
+          return `a release confirmation — ${e.title || 'release'}${e.type ? ` (${e.type})` : ''}`
+        case 'rider':
+          return `a rider confirmation${f.subject ? ` — "${f.subject}"` : ''}`
+        case 'tech_spec':
+          return `a tech spec${f.subject ? ` — "${f.subject}"` : ''}`
+        case 'gig_update':
+          return `a gig update${e.update ? ` — ${e.update}` : ''}`
+        default:
+          return `a ${f.type} email`
       }
-    }
+    })
+    const intro = findings.length === 1
+      ? `Something came in for you —`
+      : `${findings.length} things came in for you —`
+    return `${intro} ${lines.join('; ')}.\n\nShall I add ${findings.length === 1 ? 'it' : 'these'} to your schedule?`
+  }
 
+  async function checkEmailInbox(force = false) {
+    const THROTTLE_MS = 25 * 60 * 1000
+    const last = localStorage.getItem('sg_email_scan_at')
+    if (!force && last && Date.now() - parseInt(last) < THROTTLE_MS) return
+    localStorage.setItem('sg_email_scan_at', Date.now().toString())
+
+    try {
+      const res = await fetch('/api/gmail/scan')
+      if (!res.ok) return
+      const data = await res.json()
+      const findings: any[] = data.findings || []
+      if (findings.length === 0) return
+
+      // Filter out already-surfaced or dismissed findings
+      const surfaced: string[] = JSON.parse(localStorage.getItem('sg_surfaced_emails') || '[]')
+      const dismissed: string[] = JSON.parse(localStorage.getItem('sg_dismissed_emails') || '[]')
+      const newFindings = findings.filter((f: any) =>
+        !surfaced.includes(f.messageId) && !dismissed.includes(f.messageId)
+      )
+      if (newFindings.length === 0) return
+
+      // Mark as surfaced
+      const updated = [...surfaced, ...newFindings.map((f: any) => f.messageId)].slice(-200)
+      localStorage.setItem('sg_surfaced_emails', JSON.stringify(updated))
+
+      setPendingEmailFindings(newFindings)
+      const summary = buildEmailSummary(newFindings)
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: summary }])
+    } catch {
+      // Silent — no Gmail connected or network error
+    }
+  }
+
+  // Auto-scan inbox every 25 minutes
+  useEffect(() => {
     checkEmailInbox()
-    const t = setInterval(checkEmailInbox, 25 * 60 * 1000)
+    const t = setInterval(() => checkEmailInbox(), 25 * 60 * 1000)
     return () => clearInterval(t)
   }, [])
 
@@ -591,6 +592,7 @@ Rules:
 - Currency: use the same currency as the artist's invoices/gigs.
 - BANK ACCOUNT CURRENCY MATCHING — CRITICAL: When building or referencing an invoice, always use the bank account whose currency matches the invoice currency. If the invoice is in EUR, use the EUR bank account. If GBP, use the GBP account. If a document is uploaded and its amounts are in a specific currency, automatically use the matching bank account for any invoice you build from it. Never mix currencies across bank accounts.
 - INTERMEDIARY BANK DETAILS: Only include intermediary bank details when the payment is coming from outside the EU to an EU account (e.g. a US or UK promoter paying in EUR). For EU-to-EU transfers, intermediary details are not needed and should not be included.
+- EMAIL SCANNING: Gmail is scanned automatically in the background every 25 minutes for gig offers, travel logistics, invoices, and release info. If the artist asks you to "scan email" or "check my inbox", tell them: "Your inbox is being scanned automatically — any new gig offers, travel details, or invoices will appear as a prompt above this chat. I'll flag anything that needs your attention." Do NOT attempt to scan email yourself or claim you can't access email. The system handles it.
 - OUTGOING CORRESPONDENCE — CRITICAL: Never send any email, invoice, or message without first showing the exact copy to the artist and receiving explicit confirmation. This applies every single time, with no exceptions. Show the full text before any send action.
 - INVOICE CREATION: When you have enough data to create an invoice (from a document upload, a conversation, or a confirmed gig), append this marker at the very end of your message (after all your text): [INVOICE_READY:{"gig_title":"...","amount":0.00,"currency":"EUR","due_date":"YYYY-MM-DD","artist_name":"...","wht_rate":null,"notes":"..."}] — fill in every field you know, leave unknown fields null. Only include this marker when you are ready to create the invoice and have asked the artist to confirm.
 - PAYMENT TERMS — ROYALTIES & STATEMENTS: Default due_date is 7 days from today. Money has already been received by the label/distributor so payment should be prompt.
@@ -610,6 +612,12 @@ Rules:
 
     // Add empty assistant message that will be filled by streaming
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }])
+
+    // If user asks about email, trigger an immediate scan (bypasses throttle)
+    const msgLower = msg.toLowerCase()
+    if (/\b(email|inbox|gmail|scan.*mail|mail.*scan|check.*mail)\b/.test(msgLower)) {
+      checkEmailInbox(true)
+    }
 
     try {
       // Limit conversation history to last 20 messages to avoid context overflow
