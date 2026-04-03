@@ -218,12 +218,24 @@ Return ONLY valid JSON, no markdown:
       ? `grounded in ${(topPosts as any[]).length} real posts from your lane`
       : 'scan reference artists to improve quality'
 
-    await createNotification({
-      type: 'system',
-      title: `This week's content plan is ready`,
-      message: `${saved} posts drafted — ${dataQuality}. Review in Broadcast →`,
-      href: '/broadcast/calendar',
-    })
+    // Dedup: only notify if no identical unread notification exists from this week
+    const weekStart = new Date(monday).toISOString()
+    const { data: existingNotif } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('type', 'system')
+      .eq('title', `This week's content plan is ready`)
+      .gte('created_at', weekStart)
+      .limit(1)
+
+    if (!existingNotif || existingNotif.length === 0) {
+      await createNotification({
+        type: 'system',
+        title: `This week's content plan is ready`,
+        message: `${saved} posts drafted — ${dataQuality}. Review in Broadcast →`,
+        href: '/broadcast/calendar',
+      })
+    }
 
     return NextResponse.json({
       ran: true, saved, total: posts.length,

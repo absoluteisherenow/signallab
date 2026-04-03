@@ -463,11 +463,8 @@ export async function POST() {
   }
 }
 
-// Health check / manual trigger from dashboard
-export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    endpoint: 'POST /api/gmail/process',
-    description: 'Reads unread Gmail, classifies with Claude, updates gigs',
-  })
+// Vercel Cron triggers via GET — run the same processing logic
+export async function GET(req: Request) {
+  // Allow Vercel cron or manual trigger
+  return POST()
 }

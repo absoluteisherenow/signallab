@@ -22,6 +22,9 @@ export function middleware(req: NextRequest) {
     || pathname.startsWith('/api/social')   // social OAuth callbacks — public
     || pathname.startsWith('/api/advance')  // advance form submissions — public
     || pathname.startsWith('/api/invoices') // invoice view for promoters — public
+    || pathname.startsWith('/api/gmail')    // Gmail cron + OAuth callbacks
+    || pathname.startsWith('/api/agents')   // Vercel cron agents (weekly-content, post-gig, etc.)
+    || pathname.startsWith('/api/crons')    // Vercel cron jobs (night-before, sync-performance, etc.)
     || pathname.startsWith('/_next')
     || pathname === '/signal-genius.html'   // M4L jweb — public
     || pathname === '/mockup.html'
