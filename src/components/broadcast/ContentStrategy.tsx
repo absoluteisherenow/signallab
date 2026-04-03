@@ -162,10 +162,12 @@ export function ContentStrategy() {
         <button
           onClick={addAllToCalendar}
           style={{
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-            color: s.text, padding: '8px 16px', borderRadius: '8px',
-            fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-            fontFamily: s.font, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: '32px', padding: '0 16px',
+            background: 'transparent', color: 'rgba(240,235,226,0.35)',
+            border: '1px solid rgba(255,255,255,0.12)', borderRadius: '2px',
+            fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase' as const,
+            fontFamily: s.font, cursor: 'pointer', fontWeight: 400,
           }}
         >
           Add All to Calendar
@@ -174,10 +176,12 @@ export function ContentStrategy() {
       <button
         onClick={() => generateStrategy()}
         style={{
-          background: s.gold, color: '#0a0a0f', border: 'none',
-          padding: '8px 16px', borderRadius: '8px',
-          fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-          fontFamily: s.font, cursor: 'pointer', fontWeight: 600,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          height: '32px', padding: '0 16px',
+          background: 'rgba(176,141,87,0.15)', color: '#d4a843',
+          border: '1px solid rgba(176,141,87,0.35)', borderRadius: '2px',
+          fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase' as const,
+          fontFamily: s.font, cursor: 'pointer', fontWeight: 400,
         }}
       >
         New Strategy
@@ -199,12 +203,14 @@ export function ContentStrategy() {
               key={p}
               onClick={() => switchPeriod(p)}
               style={{
-                background: period === p ? s.gold : 'rgba(255,255,255,0.05)',
-                color: period === p ? '#0a0a0f' : 'rgba(240,235,226,0.4)',
-                border: period === p ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                padding: '6px 16px', borderRadius: '6px',
-                fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-                fontFamily: s.font, cursor: 'pointer', fontWeight: period === p ? 600 : 400,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                height: '32px', padding: '0 16px',
+                background: period === p ? 'rgba(176,141,87,0.15)' : 'transparent',
+                color: period === p ? '#d4a843' : 'rgba(240,235,226,0.35)',
+                border: period === p ? '1px solid rgba(176,141,87,0.35)' : '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '2px',
+                fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase' as const,
+                fontFamily: s.font, cursor: 'pointer', fontWeight: 400,
               }}
             >
               This {p}
@@ -231,11 +237,13 @@ export function ContentStrategy() {
             <button
               onClick={() => generateStrategy()}
               style={{
-                background: '#d4a843', color: '#0a0a0f', border: 'none',
-                padding: '14px 36px', borderRadius: '8px',
-                fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase' as const,
-                fontFamily: s.font, cursor: 'pointer', fontWeight: 700,
-                boxShadow: '0 0 24px rgba(212,168,67,0.25)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                height: '40px', padding: '0 22px',
+                background: 'rgba(176,141,87,0.15)', color: '#d4a843',
+                border: '1px solid rgba(176,141,87,0.35)',
+                borderRadius: '2px',
+                fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase' as const,
+                fontFamily: s.font, cursor: 'pointer', fontWeight: 400,
               }}
             >
               Create Content Strategy
@@ -255,7 +263,7 @@ export function ContentStrategy() {
                   background: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.08)',
                   borderLeft: '2px solid rgba(212,168,67,0.4)',
-                  borderRadius: '10px',
+                  borderRadius: '2px',
                   padding: '20px',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
@@ -289,7 +297,7 @@ export function ContentStrategy() {
                   {strat.phases && strat.phases.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
                       {strat.phases.map((phase, i) => (
-                        <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '12px 14px' }}>
+                        <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '2px', padding: '12px 14px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
                             <div style={{ fontSize: '10px', color: s.gold, letterSpacing: '0.1em', fontWeight: 500, fontFamily: s.font }}>
                               {phase.name.toUpperCase()}
@@ -339,7 +347,7 @@ export function ContentStrategy() {
                   style={{
                     background: 'rgba(255,255,255,0.04)',
                     border: `1px solid ${isAdded ? 'rgba(212,168,67,0.25)' : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius: '12px',
+                    borderRadius: '2px',
                     padding: '20px',
                     display: 'flex', flexDirection: 'column', gap: '12px',
                     opacity: isAdded ? 0.55 : 1,
@@ -374,14 +382,14 @@ export function ContentStrategy() {
                       <select
                         value={editDraft.platform || post.platform}
                         onChange={e => setEditDraft(d => ({ ...d, platform: e.target.value }))}
-                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: s.text, padding: '4px 8px', fontSize: '11px', fontFamily: s.font }}
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '2px', color: s.text, padding: '4px 8px', fontSize: '11px', fontFamily: s.font }}
                       >
                         {['instagram', 'tiktok', 'threads', 'twitter'].map(p => <option key={p} value={p}>{p}</option>)}
                       </select>
                       <select
                         value={editDraft.format || post.format}
                         onChange={e => setEditDraft(d => ({ ...d, format: e.target.value }))}
-                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: s.text, padding: '4px 8px', fontSize: '11px', fontFamily: s.font }}
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '2px', color: s.text, padding: '4px 8px', fontSize: '11px', fontFamily: s.font }}
                       >
                         {['post', 'reel', 'carousel', 'story'].map(f => <option key={f} value={f}>{f}</option>)}
                       </select>
@@ -405,7 +413,7 @@ export function ContentStrategy() {
                       rows={4}
                       style={{
                         background: 'rgba(255,255,255,0.04)', border: `1px solid rgba(212,168,67,0.3)`,
-                        borderRadius: '8px', color: s.text, padding: '10px', fontSize: '13px',
+                        borderRadius: '2px', color: s.text, padding: '10px', fontSize: '13px',
                         lineHeight: 1.5, resize: 'vertical', fontFamily: 'inherit',
                       }}
                     />
@@ -424,7 +432,7 @@ export function ContentStrategy() {
                         placeholder="Featured track"
                         style={{
                           background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: '6px', color: s.dim, padding: '6px 10px', fontSize: '11px',
+                          borderRadius: '2px', color: s.dim, padding: '6px 10px', fontSize: '11px',
                           fontFamily: s.font,
                         }}
                       />
@@ -453,7 +461,7 @@ export function ContentStrategy() {
                           onClick={() => saveEdit(i)}
                           style={{
                             background: s.gold, color: '#0a0a0f', border: 'none',
-                            padding: '6px 14px', borderRadius: '6px',
+                            padding: '6px 14px', borderRadius: '2px',
                             fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' as const,
                             fontFamily: s.font, cursor: 'pointer', fontWeight: 600,
                           }}
@@ -464,7 +472,7 @@ export function ContentStrategy() {
                           onClick={() => { setEditingIndex(null); setEditDraft({}) }}
                           style={{
                             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                            color: s.text, padding: '6px 14px', borderRadius: '6px',
+                            color: s.text, padding: '6px 14px', borderRadius: '2px',
                             fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' as const,
                             fontFamily: s.font, cursor: 'pointer',
                           }}
@@ -480,7 +488,7 @@ export function ContentStrategy() {
                             disabled={addingIndex === i}
                             style={{
                               background: s.gold, color: '#0a0a0f', border: 'none',
-                              padding: '6px 14px', borderRadius: '6px',
+                              padding: '6px 14px', borderRadius: '2px',
                               fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' as const,
                               fontFamily: s.font, cursor: 'pointer', fontWeight: 600,
                               display: 'flex', alignItems: 'center', gap: '6px',
@@ -495,7 +503,7 @@ export function ContentStrategy() {
                           onClick={() => startEdit(i)}
                           style={{
                             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                            color: s.text, padding: '6px 14px', borderRadius: '6px',
+                            color: s.text, padding: '6px 14px', borderRadius: '2px',
                             fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' as const,
                             fontFamily: s.font, cursor: 'pointer',
                           }}
@@ -507,7 +515,7 @@ export function ContentStrategy() {
                           disabled={regeneratingIndex === i}
                           style={{
                             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                            color: s.text, padding: '6px 14px', borderRadius: '6px',
+                            color: s.text, padding: '6px 14px', borderRadius: '2px',
                             fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' as const,
                             fontFamily: s.font, cursor: 'pointer',
                             display: 'flex', alignItems: 'center', gap: '6px',
