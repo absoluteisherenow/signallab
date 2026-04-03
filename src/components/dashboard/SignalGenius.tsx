@@ -534,8 +534,9 @@ export function SignalGenius() {
       // ── CONTENT QUERIES: Post performance + competitor analysis ─────────────
       if (isContentQuery || isInstagramQuery || isAdsQuery) {
         const artistName = c.profile.name || 'the artist'
-        const ownPosts = c.postPerformance?.filter((p: any) => p.artist_name === artistName || !p.artist_name) || []
-        const competitorPosts = c.postPerformance?.filter((p: any) => p.artist_name && p.artist_name !== artistName) || []
+        // context field stores artist name (own posts = matches name or no context, competitors = context contains @handle)
+        const ownPosts = c.postPerformance?.filter((p: any) => !p.context || p.context === artistName || (p.context || '').startsWith(artistName)) || []
+        const competitorPosts = c.postPerformance?.filter((p: any) => p.context && !p.context.startsWith(artistName) && (p.context || '').includes('@')) || []
 
         if (ownPosts.length > 0) {
           contextBlock += `\n\nYour top performing posts:`
@@ -547,7 +548,7 @@ export function SignalGenius() {
         if (competitorPosts.length > 0) {
           const byArtist: Record<string, any[]> = {}
           competitorPosts.forEach((p: any) => {
-            const artist = (p.context || '').split(' | ')[0] || p.artist_name
+            const artist = (p.context || '').split(' | ')[0]
             if (!byArtist[artist]) byArtist[artist] = []
             byArtist[artist].push(p)
           })

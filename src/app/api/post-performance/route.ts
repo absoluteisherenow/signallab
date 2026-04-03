@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const { data, error } = await supabase
       .from('post_performance')
-      .select('artist_name, platform, caption, format, actual_likes, actual_comments, estimated_score, context')
+      .select('platform, caption, format, actual_likes, actual_comments, estimated_score, context')
       .order('estimated_score', { ascending: false })
       .limit(70)
 
