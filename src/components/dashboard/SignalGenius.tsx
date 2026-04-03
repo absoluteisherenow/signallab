@@ -80,9 +80,16 @@ export function SignalGenius() {
   const [messages, setMessages] = useState<Message[]>(() => {
     if (typeof window === 'undefined') return []
     try {
-      const saved = sessionStorage.getItem('signal_chat_messages')
+      const saved = localStorage.getItem('signal_chat_messages')
       return saved ? JSON.parse(saved) : []
     } catch { return [] }
+  })
+  const [savedNotes, setSavedNotes] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set()
+    try {
+      const saved = localStorage.getItem('signal_saved_notes')
+      return new Set(saved ? JSON.parse(saved) : [])
+    } catch { return new Set() }
   })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -106,10 +113,29 @@ export function SignalGenius() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
 
-  // Persist chat messages to sessionStorage
+  // Persist chat messages to localStorage (survives navigation + refresh)
   useEffect(() => {
-    try { sessionStorage.setItem('signal_chat_messages', JSON.stringify(messages)) } catch {}
+    try { localStorage.setItem('signal_chat_messages', JSON.stringify(messages)) } catch {}
   }, [messages])
+
+  function saveNote(msgId: string) {
+    const msg = messages.find(m => m.id === msgId)
+    if (!msg) return
+    const newSaved = new Set(savedNotes)
+    if (newSaved.has(msgId)) {
+      newSaved.delete(msgId)
+    } else {
+      newSaved.add(msgId)
+    }
+    setSavedNotes(newSaved)
+    try { localStorage.setItem('signal_saved_notes', JSON.stringify([...newSaved])) } catch {}
+  }
+
+  function clearChat() {
+    // Keep saved notes, clear everything else
+    const saved = messages.filter(m => savedNotes.has(m.id))
+    setMessages(saved)
+  }
 
   // Voice output — speak response via OpenAI TTS
   async function speakResponse(text: string) {
@@ -774,6 +800,13 @@ Rules:
               textTransform: 'uppercase', padding: '3px 8px', cursor: 'pointer',
             }}>Stop</button>
           )}
+          {messages.length > 0 && (
+            <button onClick={clearChat} title="Clear chat (keeps saved)" style={{
+              background: 'none', border: 'none', color: 'var(--text-dimmer)',
+              cursor: 'pointer', fontSize: '10px', fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.08em', padding: '2px 4px',
+            }}>clear</button>
+          )}
           <button onClick={() => setVoiceEnabled(!voiceEnabled)} title={voiceEnabled ? 'Voice on' : 'Voice off'} style={{
             background: 'none', border: 'none', color: voiceEnabled ? 'var(--gold)' : 'var(--text-dimmer)',
             cursor: 'pointer', fontSize: '14px', padding: '2px', transition: 'color 0.15s',
@@ -802,19 +835,38 @@ Rules:
           </div>
         )}
 
-        {messages.filter(m => m.content !== '').map(msg => (
-          <div key={msg.id} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
-            <div style={{
-              padding: '11px 15px',
-              background: msg.role === 'user' ? 'rgba(176,141,87,0.08)' : 'rgba(255,255,255,0.02)',
-              border: `1px solid ${msg.role === 'user' ? 'rgba(176,141,87,0.25)' : 'var(--border-dim)'}`,
-              fontSize: '12px', lineHeight: 1.7, color: 'var(--text)',
-              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            }}>
-              {msg.content}
+        {messages.filter(m => m.content !== '').map(msg => {
+          const isSaved = savedNotes.has(msg.id)
+          return (
+            <div key={msg.id} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
+              <div style={{
+                padding: '11px 15px',
+                background: msg.role === 'user' ? 'rgba(176,141,87,0.08)' : isSaved ? 'rgba(176,141,87,0.04)' : 'rgba(255,255,255,0.02)',
+                border: `1px solid ${msg.role === 'user' ? 'rgba(176,141,87,0.25)' : isSaved ? 'rgba(176,141,87,0.3)' : 'var(--border-dim)'}`,
+                fontSize: '12px', lineHeight: 1.7, color: 'var(--text)',
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              }}>
+                {msg.content}
+              </div>
+              {msg.role === 'assistant' && msg.content.length > 50 && (
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                  <button
+                    onClick={() => saveNote(msg.id)}
+                    style={{ background: 'none', border: 'none', fontSize: '10px', color: isSaved ? 'var(--gold)' : 'var(--text-dimmer)', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}
+                  >
+                    {isSaved ? '★ saved' : '☆ save'}
+                  </button>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(msg.content) }}
+                    style={{ background: 'none', border: 'none', fontSize: '10px', color: 'var(--text-dimmer)', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}
+                  >
+                    copy
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {loading && messages.length > 0 && messages[messages.length - 1].content === '' && (
           <div style={{

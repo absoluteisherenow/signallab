@@ -179,6 +179,14 @@ export function MediaScanner() {
   const [progress, setProgress] = useState(0)
   const [progressLabel, setProgressLabel] = useState('')
   const [scans, setScans] = useState<FileScan[]>([])
+  const [savedScans, setSavedScans] = useState<{ name: string; result: ScanResult; composite: number; caption?: string; thumbnail?: string }[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem('signal_scan_history')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  const [showHistory, setShowHistory] = useState(false)
   const [selectedScan, setSelectedScan] = useState(0)
   const [error, setError] = useState('')
   const [usageInfo, setUsageInfo] = useState<{ used: number; remaining: number; monthlyLimit: number; credits: number } | null>(null)
@@ -456,6 +464,21 @@ Return JSON exactly:
       }
 
       setProgressLabel('All scans complete')
+
+      // Save to scan history (lightweight — one thumbnail per scan, no full frames)
+      setScans(prev => {
+        const historyEntries = prev.map(s => ({
+          name: s.file.name,
+          result: s.result,
+          composite: s.composite,
+          caption: s.caption,
+          thumbnail: s.frames[0]?.dataUrl || undefined,
+        }))
+        const updated = [...historyEntries, ...savedScans].slice(0, 50) // Keep last 50
+        setSavedScans(updated)
+        try { localStorage.setItem('signal_scan_history', JSON.stringify(updated)) } catch {}
+        return prev
+      })
     } catch (err: any) {
       setError('Scan failed: ' + err.message)
     } finally {
@@ -605,6 +628,46 @@ Return JSON exactly:
           )}
 
           {error && <div style={{ fontSize: '11px', color: '#8a4a3a', padding: '12px 16px', border: '1px solid #4a2a1a', background: '#1a0a06' }}>{error}</div>}
+
+          {/* Scan History */}
+          {savedScans.length > 0 && scans.length === 0 && (
+            <div>
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                style={{ background: 'none', border: 'none', color: s.textDimmer, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', padding: '4px 0' }}
+              >
+                {showHistory ? '▾' : '▸'} Previous scans ({savedScans.length})
+              </button>
+              {showHistory && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                  {savedScans.map((scan, i) => {
+                    const v = scoreVerdict(scan.composite)
+                    return (
+                      <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: s.panel, border: `1px solid ${s.border}`, padding: '10px 14px' }}>
+                        {scan.thumbnail && <img src={scan.thumbnail} alt="" style={{ width: '48px', height: '28px', objectFit: 'cover', flexShrink: 0 }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '11px', color: s.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{scan.caption || scan.result.caption_context || scan.name}</div>
+                          <div style={{ fontSize: '9px', color: s.textDimmer }}>
+                            R:{scan.result.content_score.reach} · A:{scan.result.content_score.authenticity} · C:{scan.result.content_score.culture} · V:{scan.result.content_score.visual_identity}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                          <span style={{ fontSize: '16px', fontWeight: 300, color: v.color }}>{scan.composite}</span>
+                          <span style={{ fontSize: '8px', letterSpacing: '0.1em', color: v.color, textTransform: 'uppercase' }}>{v.label}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <button
+                    onClick={() => { setSavedScans([]); localStorage.removeItem('signal_scan_history'); setShowHistory(false) }}
+                    style={{ background: 'none', border: `1px solid ${s.border}`, color: s.textDimmer, fontFamily: s.font, fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '8px', cursor: 'pointer' }}
+                  >
+                    Clear history
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Post cards — strongest first */}
           {scans.length > 0 && (
