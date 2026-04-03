@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   try {
     // 1. Exchange code for short-lived user access token
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?` +
+      `https://graph.facebook.com/v22.0/oauth/access_token?` +
       `client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&client_secret=${appSecret}&code=${code}`
     )
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     // 2. Exchange for long-lived token (60 day expiry, refreshable)
     const longRes = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?` +
+      `https://graph.facebook.com/v22.0/oauth/access_token?` +
       `grant_type=fb_exchange_token&client_id=${appId}` +
       `&client_secret=${appSecret}&fb_exchange_token=${shortToken}`
     )
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
     // 3. Get user's connected pages (needed to access Instagram Business account)
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v19.0/me/accounts?access_token=${longToken}`
+      `https://graph.facebook.com/v22.0/me/accounts?access_token=${longToken}`
     )
     const pagesData = await pagesRes.json()
     const page = pagesData.data?.[0] // first page — future: let user pick
@@ -68,14 +68,14 @@ export async function GET(req: NextRequest) {
     let handle = 'unknown'
     if (pageId && pageToken) {
       const igRes = await fetch(
-        `https://graph.facebook.com/v19.0/${pageId}?fields=instagram_business_account&access_token=${pageToken}`
+        `https://graph.facebook.com/v22.0/${pageId}?fields=instagram_business_account&access_token=${pageToken}`
       )
       const igData = await igRes.json()
       igUserId = igData.instagram_business_account?.id || ''
 
       if (igUserId) {
         const profileRes = await fetch(
-          `https://graph.facebook.com/v19.0/${igUserId}?fields=username&access_token=${pageToken}`
+          `https://graph.facebook.com/v22.0/${igUserId}?fields=username&access_token=${pageToken}`
         )
         const profileData = await profileRes.json()
         handle = profileData.username ? `@${profileData.username}` : 'unknown'

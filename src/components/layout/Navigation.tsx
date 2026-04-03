@@ -35,7 +35,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-const HIDDEN_ROUTES = ['/', '/pricing', '/login', '/onboarding', '/mobile', '/join']
+const HIDDEN_ROUTES = ['/', '/pricing', '/login', '/onboarding', '/mobile', '/join', '/privacy']
 
 export function Navigation() {
   const pathname = usePathname()
