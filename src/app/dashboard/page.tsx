@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SignalBar from '@/components/SignalBar'
@@ -367,23 +367,32 @@ export default function Dashboard() {
     return parts.join(' ')
   }
 
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
   function toggleAudioBrief() {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return
     if (speaking) {
-      window.speechSynthesis.cancel()
+      audioRef.current?.pause()
+      audioRef.current = null
       setSpeaking(false)
       return
     }
     const text = buildAudioBriefText()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.rate = 0.95
-    utterance.pitch = 1
-    utterance.volume = 1
-    utterance.onend = () => setSpeaking(false)
-    utterance.onerror = () => setSpeaking(false)
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(utterance)
     setSpeaking(true)
+    fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+      .then(r => r.ok ? r.blob() : Promise.reject())
+      .then(blob => {
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        audioRef.current = audio
+        audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url) }
+        audio.onerror = () => { setSpeaking(false); URL.revokeObjectURL(url) }
+        audio.play().catch(() => setSpeaking(false))
+      })
+      .catch(() => setSpeaking(false))
   }
 
   function getSetForGig(gig: Gig): DjSet | null {
