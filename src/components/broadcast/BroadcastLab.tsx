@@ -521,7 +521,7 @@ Respond ONLY with valid JSON, no markdown.`,
 
     const mediaUrl = media?.[0] || null
     try {
-      const body: Record<string, unknown> = { caption: text }
+      const body: Record<string, unknown> = { caption: text, post_format: postFormat }
       if (platform === 'instagram' && mediaUrl) body.image_url = mediaUrl
       if (platform === 'tiktok' && mediaUrl) body.video_url = mediaUrl
       if (platform === 'twitter') body.text = text
