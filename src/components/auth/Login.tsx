@@ -7,7 +7,6 @@ export default function Login() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -22,13 +21,8 @@ export default function Login() {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
-      if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
-      } else {
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
       router.push('/dashboard')
       router.refresh()
     } catch (err: unknown) {
@@ -100,7 +94,7 @@ export default function Login() {
           textTransform: 'uppercase',
           marginBottom: 32,
         }}>
-          {mode === 'login' ? 'Sign in' : 'Create account'}
+          Sign in
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -165,29 +159,27 @@ export default function Login() {
             {loading && (
               <div style={{ width: 8, height: 8, border: '1px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             )}
-            {loading ? 'Please wait' : mode === 'login' ? 'Sign in →' : 'Create account →'}
+            {loading ? 'Please wait' : 'Sign in →'}
           </button>
         </form>
 
-        {/* Divider + toggle */}
+        {/* Waitlist link */}
         <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid #131210', textAlign: 'center' }}>
-          <button
-            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
+          <a
+            href="/join"
             style={{
-              background: 'transparent',
-              border: 'none',
               color: '#3a3830',
               fontFamily: "'DM Mono', monospace",
               fontSize: 10,
               letterSpacing: '0.08em',
-              cursor: 'pointer',
+              textDecoration: 'none',
               transition: 'color 0.15s',
             }}
             onMouseEnter={e => (e.currentTarget.style.color = '#8a8780')}
             onMouseLeave={e => (e.currentTarget.style.color = '#3a3830')}
           >
-            {mode === 'login' ? "No account? Sign up" : 'Already have an account? Sign in'}
-          </button>
+            Request access →
+          </a>
         </div>
       </div>
 
