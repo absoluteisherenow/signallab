@@ -37,10 +37,12 @@ export async function GET(req: NextRequest) {
       const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
       const { data: userInfo } = await oauth2.userinfo.get()
       email = userInfo.email || 'unknown'
-    } catch {}
+    } catch (emailErr) {
+      console.error('[gmail/callback] userinfo error:', emailErr)
+    }
 
     // Save to connected_email_accounts (upsert on email)
-    await supabase.from('connected_email_accounts').upsert({
+    const { error: upsertError } = await supabase.from('connected_email_accounts').upsert({
       email,
       label,
       access_token: tokens.access_token,
@@ -48,6 +50,8 @@ export async function GET(req: NextRequest) {
       token_expiry: tokens.expiry_date,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'email' })
+
+    if (upsertError) console.error('[gmail/callback] upsert error:', upsertError)
 
     // Also update legacy artist_settings for backwards compat
     const { data: existing } = await supabase.from('artist_settings').select('id').single()
@@ -58,13 +62,17 @@ export async function GET(req: NextRequest) {
       updated_at: new Date().toISOString(),
     }
     if (existing) {
-      await supabase.from('artist_settings').update(tokenUpdate).eq('id', existing.id)
+      const { error: updateError } = await supabase.from('artist_settings').update(tokenUpdate).eq('id', existing.id)
+      if (updateError) console.error('[gmail/callback] artist_settings update error:', updateError)
     } else {
       await supabase.from('artist_settings').insert([{ ...tokenUpdate, created_at: new Date().toISOString() }])
     }
 
+    console.log('[gmail/callback] success — email:', email, 'token_expiry:', tokens.expiry_date)
     return NextResponse.redirect(new URL('/business/settings?gmail=connected', req.url))
-  } catch {
-    return NextResponse.redirect(new URL('/dashboard?gmail=error', req.url))
+  } catch (err) {
+    console.error('[gmail/callback] fatal error:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.redirect(new URL(`/dashboard?gmail=error&reason=${encodeURIComponent(msg)}`, req.url))
   }
 }
