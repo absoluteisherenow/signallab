@@ -746,14 +746,26 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
                 <div>
                   <div className="text-sm tracking-[.08em]">{artist.name}</div>
                   <div className="text-[10px] tracking-[.1em] text-[#8a8780] mt-1">{artist.handle} · {artist.genre}</div>
-                  {artist.last_scanned && daysSince(artist.last_scanned) < 30 && (
-                    <div style={{ fontSize: '10px', color: '#2e2c29', letterSpacing: '0.08em' }} className="mt-0.5">Last scanned {daysSince(artist.last_scanned)} days ago</div>
-                  )}
                 </div>
-                {(artist.data_source === 'apify' || artist.data_source === 'manual') && artist.post_count_analysed && (
-                  <div className="text-[10px] tracking-[.12em] uppercase flex items-center gap-1 flex-shrink-0 text-[#3d6b4a]">
-                    <div className="w-1 h-1 rounded-full bg-[#3d6b4a]" />
-                    {artist.post_count_analysed} {artist.data_source === 'manual' ? 'pasted' : 'posts'}
+                {artist.data_source === 'hikerapi' && artist.post_count_analysed ? (
+                  <div className="text-[10px] tracking-[.1em] flex items-center gap-1.5 flex-shrink-0 text-[#3d6b4a]">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#3d6b4a]" />
+                    {artist.post_count_analysed} real posts
+                  </div>
+                ) : artist.data_source === 'apify' && artist.post_count_analysed ? (
+                  <div className="text-[10px] tracking-[.1em] flex items-center gap-1.5 flex-shrink-0 text-[#3d6b4a]">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#3d6b4a]" />
+                    {artist.post_count_analysed} real posts
+                  </div>
+                ) : artist.data_source === 'manual' && artist.post_count_analysed ? (
+                  <div className="text-[10px] tracking-[.1em] flex items-center gap-1.5 flex-shrink-0 text-[#b08d57]">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#b08d57]" />
+                    {artist.post_count_analysed} manual
+                  </div>
+                ) : (
+                  <div className="text-[10px] tracking-[.1em] flex items-center gap-1.5 flex-shrink-0 text-[#9a6a5a]">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#9a6a5a]" />
+                    not verified
                   </div>
                 )}
               </div>
