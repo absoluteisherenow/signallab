@@ -702,8 +702,8 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             height: '32px', padding: '0 16px',
-            background: 'transparent', color: 'rgba(240,235,226,0.35)',
-            border: '1px solid rgba(255,255,255,0.12)',
+            background: 'rgba(176,141,87,0.15)', color: '#d4a843',
+            border: '1px solid rgba(176,141,87,0.35)',
             borderRadius: '2px',
             fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
             fontFamily: "'DM Mono', monospace", fontWeight: 400,
