@@ -246,6 +246,7 @@ export default function AdvancePage() {
 
         {/* Signal Lab OS footer */}
         <div style={{ marginTop: '64px', paddingTop: '24px', borderTop: '1px solid #1a1917', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: '48px' }}>
+          <div style={{ fontSize: '9px', color: '#52504c', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '10px' }}>Powered by</div>
           <a href="https://signallabos.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
