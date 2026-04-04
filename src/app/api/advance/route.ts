@@ -14,18 +14,21 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query
     if (error) throw error
 
-    // If a specific gig was requested, also return gig details (for the public advance form)
+    // If a specific gig was requested, also return gig details + rider for the public advance form
     let gig = null
+    let techRider = null
+    let hospitalityRider = null
     if (gigId) {
-      const { data: gigData } = await supabase
-        .from('gigs')
-        .select('title, venue, date, location')
-        .eq('id', gigId)
-        .single()
-      gig = gigData
+      const [gigRes, settingsRes] = await Promise.all([
+        supabase.from('gigs').select('title, venue, date, location').eq('id', gigId).single(),
+        supabase.from('artist_settings').select('tech_rider, hospitality_rider, profile').single(),
+      ])
+      gig = gigRes.data
+      techRider = settingsRes.data?.tech_rider || null
+      hospitalityRider = settingsRes.data?.hospitality_rider || null
     }
 
-    return NextResponse.json({ requests: data || [], gig })
+    return NextResponse.json({ requests: data || [], gig, techRider, hospitalityRider })
   } catch (err: any) {
     if (err?.code === '42P01') return NextResponse.json({ requests: [], gig: null })
     return NextResponse.json({ error: err.message, requests: [], gig: null }, { status: 500 })
