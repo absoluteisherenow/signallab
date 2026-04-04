@@ -424,7 +424,7 @@ Return ONLY the JSON, no other text.` },
             >
               <div style={{ fontSize: '24px', color: s.gold, flexShrink: 0 }}>◎</div>
               <div>
-                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Identify a track</div>
+                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Track ID</div>
                 <div style={{ fontSize: '12px', color: s.dimmer }}>Listen for 10 seconds, add to your crate</div>
               </div>
             </button>
@@ -448,7 +448,7 @@ Return ONLY the JSON, no other text.` },
             >
               <div style={{ fontSize: '24px', color: s.gold, opacity: 0.8, flexShrink: 0 }}>◉</div>
               <div>
-                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Track ID / Capture Reminder</div>
+                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Capture Track Reminder</div>
                 <div style={{ fontSize: '12px', color: s.dimmer }}>Snap your CDJs, vinyl sleeve or screen</div>
               </div>
             </button>
@@ -463,7 +463,7 @@ Return ONLY the JSON, no other text.` },
             >
               <div style={{ fontSize: '24px', color: s.gold, opacity: 0.6, flexShrink: 0 }}>↑</div>
               <div>
-                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Playlist screen grab</div>
+                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Playlist Screen Grab</div>
                 <div style={{ fontSize: '12px', color: s.dimmer }}>Spotify, SoundCloud, Beatport playlist</div>
               </div>
             </button>
@@ -478,7 +478,7 @@ Return ONLY the JSON, no other text.` },
             >
               <div style={{ fontSize: '24px', color: s.gold, opacity: 0.6, flexShrink: 0 }}>≡</div>
               <div>
-                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Paste tracklist</div>
+                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Paste Tracklist</div>
                 <div style={{ fontSize: '12px', color: s.dimmer }}>Copy from anywhere, any format</div>
               </div>
             </button>
