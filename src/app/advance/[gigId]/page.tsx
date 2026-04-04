@@ -11,10 +11,10 @@ interface GigInfo {
 }
 
 const PROMOTER_FIELDS = [
-  { key: 'set_time', label: 'Set time + length', placeholder: 'e.g. 01:00 – 02:30' },
-  { key: 'doors_time', label: 'Doors', placeholder: 'e.g. 22:00' },
   { key: 'local_contact_name', label: 'Contact on the night', placeholder: 'Name' },
   { key: 'local_contact_phone', label: 'Contact phone', placeholder: '+44 7700 000000' },
+  { key: 'set_time', label: 'Set time + length', placeholder: 'e.g. 01:00 – 02:30' },
+  { key: 'doors_time', label: 'Doors', placeholder: 'e.g. 22:00' },
   { key: 'additional_notes', label: 'Anything else', placeholder: 'Optional' },
 ]
 
