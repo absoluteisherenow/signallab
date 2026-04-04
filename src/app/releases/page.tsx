@@ -176,6 +176,8 @@ function ReleasesTab({ s, mobile }: { s: any; mobile: boolean }) {
 
 // ─── DJ Promo tab ─────────────────────────────────────────────────────────────
 
+interface TrackMeta { title: string | null; author: string | null; description: string | null; artwork: string | null }
+
 function DJPromoTab({ s }: { s: any }) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
@@ -189,10 +191,40 @@ function DJPromoTab({ s }: { s: any }) {
   const [showBlast, setShowBlast] = useState(false)
   const [filterTier, setFilterTier] = useState('all')
   const [form, setForm] = useState({ name: '', instagram_handle: '', email: '', genre: '', tier: 'standard', notes: '' })
+  const [trackMeta, setTrackMeta] = useState<TrackMeta | null>(null)
+  const [fetchingMeta, setFetchingMeta] = useState(false)
+  const [writingPromo, setWritingPromo] = useState(false)
 
   const inp = `width: 100%; background: var(--panel); border: 1px solid var(--border-dim); color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; outline: none;`
 
   useEffect(() => { loadContacts() }, [])
+
+  // Auto-fetch SoundCloud metadata when URL changes
+  useEffect(() => {
+    if (!blastUrl || !blastUrl.includes('soundcloud.com')) { setTrackMeta(null); return }
+    const t = setTimeout(async () => {
+      setFetchingMeta(true)
+      try {
+        const d = await fetch(`/api/soundcloud/preview?url=${encodeURIComponent(blastUrl)}`).then(r => r.json())
+        setTrackMeta(d.error ? null : d)
+      } catch { setTrackMeta(null) }
+      finally { setFetchingMeta(false) }
+    }, 600)
+    return () => clearTimeout(t)
+  }, [blastUrl])
+
+  async function writePromo() {
+    setWritingPromo(true)
+    try {
+      const selectedContacts = contacts.filter(c => selected.has(c.id)).map(c => ({ name: c.name, genre: c.genre, tier: c.tier }))
+      const d = await fetch('/api/promo-write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track: trackMeta, contacts: selectedContacts }),
+      }).then(r => r.json())
+      if (d.message) setBlastMessage(d.message)
+    } finally { setWritingPromo(false) }
+  }
 
   async function loadContacts() {
     setLoading(true)
@@ -344,23 +376,62 @@ function DJPromoTab({ s }: { s: any }) {
 
       {/* Blast panel */}
       {showBlast && (
-        <div style={{ width: '320px', borderLeft: `1px solid ${s.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+        <div style={{ width: '380px', borderLeft: `1px solid ${s.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${s.border}` }}>
             <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.gold }}>Send promo — {selected.size} selected</div>
             <button onClick={() => { setShowBlast(false); setBlastResult(null) }} style={{ background: 'transparent', border: 'none', color: s.dimmer, cursor: 'pointer', fontSize: '16px', fontFamily: s.font }}>×</button>
           </div>
           <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
+
+            {/* SoundCloud URL */}
             <div>
-              <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.dimmer, marginBottom: '8px' }}>Private SoundCloud URL</div>
-              <input value={blastUrl} onChange={e => setBlastUrl(e.target.value)} placeholder="https://soundcloud.com/..."
-                style={{ width: '100%', background: 'var(--bg)', border: `1px solid ${s.borderMid}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+              <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.dimmer, marginBottom: '8px' }}>
+                Private SoundCloud URL
+                {fetchingMeta && <span style={{ marginLeft: '8px', color: s.dimmer, fontStyle: 'italic' }}>loading…</span>}
+              </div>
+              <input value={blastUrl} onChange={e => { setBlastUrl(e.target.value); setTrackMeta(null) }} placeholder="https://soundcloud.com/..."
+                style={{ width: '100%', background: 'var(--bg)', border: `1px solid ${trackMeta ? s.gold + '60' : s.borderMid}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' }} />
             </div>
+
+            {/* Track preview card */}
+            {trackMeta && (
+              <div style={{ background: 'var(--bg)', border: `1px solid ${s.border}`, display: 'flex', gap: '12px', padding: '12px' }}>
+                {trackMeta.artwork && (
+                  <img src={trackMeta.artwork} alt="" style={{ width: '64px', height: '64px', objectFit: 'cover', flexShrink: 0, borderRadius: '2px' }} />
+                )}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '12px', color: s.text, marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trackMeta.title || 'Untitled'}</div>
+                  <div style={{ fontSize: '10px', color: s.dimmer, marginBottom: '8px' }}>{trackMeta.author || '—'}</div>
+                  {trackMeta.description && (
+                    <div style={{ fontSize: '9px', color: s.dimmer, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                      {trackMeta.description}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Write with Signal button */}
+            {trackMeta && (
+              <button onClick={writePromo} disabled={writingPromo}
+                style={{ background: 'transparent', border: `1px solid ${s.gold}60`, color: s.gold, cursor: writingPromo ? 'default' : 'pointer', padding: '10px 16px', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: s.font, opacity: writingPromo ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                {writingPromo ? 'Writing…' : '✦ Write promo with Signal'}
+              </button>
+            )}
+
+            {/* Message */}
             <div>
-              <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.dimmer, marginBottom: '8px' }}>Message</div>
-              <textarea value={blastMessage} onChange={e => setBlastMessage(e.target.value)} rows={6}
-                placeholder={"hey — new EP out on fabric Records April 17. private link below, would love your support 🖤"}
-                style={{ width: '100%', background: 'var(--bg)', border: `1px solid ${s.borderMid}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px 12px', outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.dimmer }}>Message</div>
+                {blastMessage && (
+                  <button onClick={() => setBlastMessage('')} style={{ background: 'transparent', border: 'none', color: s.dimmer, cursor: 'pointer', fontSize: '9px', fontFamily: s.font, letterSpacing: '0.1em' }}>clear</button>
+                )}
+              </div>
+              <textarea value={blastMessage} onChange={e => setBlastMessage(e.target.value)} rows={7}
+                placeholder={"hey — new EP out on Fabric Records April 17. private link below, would love your support 🖤"}
+                style={{ width: '100%', background: 'var(--bg)', border: `1px solid ${s.borderMid}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px 12px', outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.6 }} />
             </div>
+
             {blastResult && (
               <div style={{ padding: '12px 16px', border: `1px solid ${blastResult.failed === 0 ? 'rgba(61,107,74,0.4)' : `${s.gold}40`}`, background: blastResult.failed === 0 ? 'rgba(61,107,74,0.1)' : `${s.gold}10`, fontSize: '10px' }}>
                 <div style={{ color: blastResult.failed === 0 ? '#3d6b4a' : s.gold, marginBottom: '6px' }}>{blastResult.sent} sent · {blastResult.failed} failed</div>
