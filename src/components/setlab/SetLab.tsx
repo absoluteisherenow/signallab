@@ -166,6 +166,7 @@ export function SetLab() {
   const [wantlist, setWantlist] = useState<any[]>([])
   const [wantlistLoading, setWantlistLoading] = useState(false)
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set())
+  const [playingTrack, setPlayingTrack] = useState<{ id: string; title: string; artist: string; spotify_url: string; album_art?: string } | null>(null)
   // libraryMode removed — Library tab now shows all sections
   const audioInputRef = useRef<HTMLInputElement>(null)
   const screenshotInputRef = useRef<HTMLInputElement>(null)
@@ -939,6 +940,8 @@ Return ONLY valid JSON, no markdown.`, 300)
         if (spotify.key && spotify.key !== track.key) { updates.key = spotify.key; corrections.push(`Key → ${spotify.key}`) }
         if (spotify.camelot) updates.camelot = spotify.camelot
         if (spotify.energy) updates.energy = spotify.energy
+        if (spotify.spotify_url) updates.spotify_url = spotify.spotify_url
+        if (spotify.album_art) updates.album_art = spotify.album_art
         updates.enriched = true
       }
 
@@ -1825,12 +1828,21 @@ Return ONLY valid JSON, no markdown.`, 300)
                       <input type="checkbox" checked={selectedTracks.has(track.id)} readOnly
                         style={{ cursor: 'pointer', accentColor: s.gold }} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }} onClick={e => {
+                      e.stopPropagation()
+                      if (track.spotify_url) {
+                        const spotifyId = track.spotify_url.match(/track\/([a-zA-Z0-9]+)/)?.[1]
+                        if (spotifyId) setPlayingTrack(playingTrack?.id === track.id ? null : { id: track.id, title: track.title, artist: track.artist, spotify_url: `https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0`, album_art: track.album_art })
+                      }
+                    }}>
                       {track.album_art ? (
-                        <img src={track.album_art} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                        <div style={{ width: '32px', height: '32px', position: 'relative', cursor: track.spotify_url ? 'pointer' : 'default' }}>
+                          <img src={track.album_art} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', opacity: playingTrack?.id === track.id ? 0.4 : 1, transition: 'opacity 0.15s' }} />
+                          {track.spotify_url && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s' }}>{playingTrack?.id === track.id ? '■' : '▶'}</div>}
+                        </div>
                       ) : (
-                        <div style={{ width: '32px', height: '32px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: '10px', color: s.textDimmer }}>♪</span>
+                        <div style={{ width: '32px', height: '32px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: track.spotify_url ? 'pointer' : 'default' }}>
+                          <span style={{ fontSize: track.spotify_url ? '12px' : '10px', color: track.spotify_url ? s.gold : s.textDimmer }}>{track.spotify_url ? (playingTrack?.id === track.id ? '■' : '▶') : '♪'}</span>
                         </div>
                       )}
                     </div>
@@ -3784,8 +3796,31 @@ Return ONLY valid JSON, no markdown.`, 300)
         </div>
       )}
 
+      {/* ── SPOTIFY MINI-PLAYER ── */}
+      {playingTrack && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+          background: s.black, borderTop: `1px solid ${s.border}`,
+          display: 'flex', alignItems: 'center', height: '80px',
+        }}>
+          <iframe
+            src={playingTrack.spotify_url}
+            width="100%"
+            height="80"
+            frameBorder="0"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            style={{ border: 'none' }}
+          />
+          <button onClick={() => setPlayingTrack(null)} style={{
+            position: 'absolute', top: '8px', right: '12px', background: 'rgba(0,0,0,0.7)',
+            border: 'none', color: s.textDim, fontSize: '16px', cursor: 'pointer', padding: '4px 8px', zIndex: 101,
+          }}>✕</button>
+        </div>
+      )}
+
       {toast && (
-        <div style={{ position: 'fixed', bottom: '90px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 50, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)' }}>
+        <div style={{ position: 'fixed', bottom: playingTrack ? '90px' : '90px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 50, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)' }}>
           <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: s.setlab, marginBottom: '4px' }}>{toast.tag}</div>
           {toast.msg}
         </div>
