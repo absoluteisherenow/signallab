@@ -21,16 +21,16 @@ const FORM_ROWS: { key: string; label: string; placeholder: string }[][] = [
     { key: 'driver_contact', label: 'Driver contact', placeholder: '+44 7700 000000' },
   ],
   [
-    { key: 'artist_liaison_name', label: 'Artist liaison', placeholder: 'Name' },
-    { key: 'artist_liaison_contact', label: 'AL contact', placeholder: '+44 7700 000000' },
+    { key: 'artist_liaison_name', label: 'Artist liaison name', placeholder: 'Name' },
+    { key: 'artist_liaison_contact', label: 'Artist liaison contact', placeholder: '+44 7700 000000' },
   ],
   [
-    { key: 'videographer_name', label: 'Videographer', placeholder: 'Name' },
-    { key: 'videographer_contact', label: 'Contact', placeholder: '+44 7700 000000' },
+    { key: 'videographer_name', label: 'Videographer name', placeholder: 'Name' },
+    { key: 'videographer_contact', label: 'Videographer contact', placeholder: '+44 7700 000000' },
   ],
   [
-    { key: 'sound_tech_name', label: 'Sound tech', placeholder: 'Name' },
-    { key: 'sound_tech_contact', label: 'Contact', placeholder: '+44 7700 000000' },
+    { key: 'sound_tech_name', label: 'Sound tech name', placeholder: 'Name' },
+    { key: 'sound_tech_contact', label: 'Sound tech contact', placeholder: '+44 7700 000000' },
   ],
   [
     { key: 'set_time', label: 'Set time', placeholder: 'e.g. 01:00 – 02:30' },
