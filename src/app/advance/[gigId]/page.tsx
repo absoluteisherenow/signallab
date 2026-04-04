@@ -92,8 +92,8 @@ export default function AdvancePage() {
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 
         {/* NM Emblem */}
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <img src="/nm-emblem.png" alt="Night Manoeuvres" style={{ width: '100px', height: '100px', objectFit: 'contain' }} />
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '48px' }}>
+          <img src="/nm-emblem.png" alt="Night Manoeuvres" style={{ width: '100px', height: '100px', objectFit: 'contain', display: 'block' }} />
         </div>
 
         {/* Header */}
