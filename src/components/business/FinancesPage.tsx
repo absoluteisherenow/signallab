@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { BarChart3, DollarSign, TrendingUp, Calendar, Receipt, Camera } from 'lucide-react'
 import { Header } from '@/components/dashboard/Header'
+import { BlurredAmount } from '@/components/ui/BlurredAmount'
 
 interface FinancialEntry {
   id: number
@@ -364,7 +365,7 @@ export function FinancesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-night-dark-gray text-sm mb-2">Total Income</p>
-                  <p className="text-3xl font-bold text-green-400">€{totalIncome.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-green-400"><BlurredAmount>€{totalIncome.toLocaleString()}</BlurredAmount></p>
                 </div>
                 <DollarSign className="w-8 h-8 text-green-400/50" />
               </div>
@@ -374,7 +375,7 @@ export function FinancesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-night-dark-gray text-sm mb-2">Total Expenses</p>
-                  <p className="text-3xl font-bold text-red-400">€{totalExpenses.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-red-400"><BlurredAmount>€{totalExpenses.toLocaleString()}</BlurredAmount></p>
                 </div>
                 <BarChart3 className="w-8 h-8 text-red-400/50" />
               </div>
@@ -384,7 +385,7 @@ export function FinancesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-night-dark-gray text-sm mb-2">Total Profit</p>
-                  <p className="text-3xl font-bold text-night-silver">€{totalProfit.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-night-silver"><BlurredAmount>€{totalProfit.toLocaleString()}</BlurredAmount></p>
                 </div>
                 <TrendingUp className="w-8 h-8 text-night-silver/50" />
               </div>
@@ -394,7 +395,7 @@ export function FinancesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-night-dark-gray text-sm mb-2">Average Profit</p>
-                  <p className="text-3xl font-bold text-night-silver">€{avgProfit.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-night-silver"><BlurredAmount>€{avgProfit.toLocaleString()}</BlurredAmount></p>
                 </div>
                 <BarChart3 className="w-8 h-8 text-night-silver/50" />
               </div>
@@ -442,13 +443,13 @@ export function FinancesPage() {
                       </td>
                       <td className="py-3 px-4 text-night-light">{entry.event}</td>
                       <td className="py-3 px-4 text-right text-green-400 font-semibold">
-                        €{entry.income.toLocaleString()}
+                        <BlurredAmount>€{entry.income.toLocaleString()}</BlurredAmount>
                       </td>
                       <td className="py-3 px-4 text-right text-red-400 font-semibold">
-                        -€{entry.expenses.toLocaleString()}
+                        <BlurredAmount>-€{entry.expenses.toLocaleString()}</BlurredAmount>
                       </td>
                       <td className="py-3 px-4 text-right text-night-silver font-bold">
-                        €{entry.profit.toLocaleString()}
+                        <BlurredAmount>€{entry.profit.toLocaleString()}</BlurredAmount>
                       </td>
                     </tr>
                   ))}
@@ -489,7 +490,7 @@ export function FinancesPage() {
                       <div className="text-sm text-night-light font-medium">{invoice.gig_title}</div>
                       {invoice.notes && <div className="text-xs text-night-dark-gray mt-1">{invoice.notes}</div>}
                       <div className="flex gap-3 mt-2 text-xs text-night-dark-gray">
-                        <span>{invoice.amount > 0 ? `${invoice.currency}${invoice.amount.toLocaleString()}` : 'Amount TBC'}</span>
+                        <span>{invoice.amount > 0 ? <BlurredAmount>{invoice.currency}{invoice.amount.toLocaleString()}</BlurredAmount> : 'Amount TBC'}</span>
                         {invoice.due_date && <span>Due {new Date(invoice.due_date).toLocaleDateString('en-GB')}</span>}
                       </div>
                     </div>
@@ -540,8 +541,7 @@ export function FinancesPage() {
                             {invoice.gig_title}
                           </td>
                           <td className={`py-3 px-4 text-right font-semibold ${overdue ? 'text-red-400' : 'text-green-400'}`}>
-                            {invoice.currency}
-                            {invoice.amount.toLocaleString()}
+                            <BlurredAmount>{invoice.currency}{invoice.amount.toLocaleString()}</BlurredAmount>
                           </td>
                           <td className={`py-3 px-4 ${overdue ? 'text-red-400 font-semibold' : 'text-night-dark-gray'}`}>
                             {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-GB') : '—'}
@@ -869,7 +869,7 @@ export function FinancesPage() {
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px', textAlign: 'right', color: '#f0ebe2', fontWeight: 600 }}>
-                          {expense.currency} {expense.amount.toFixed(2)}
+                          <BlurredAmount>{expense.currency} {expense.amount.toFixed(2)}</BlurredAmount>
                         </td>
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                           {expense.id && (

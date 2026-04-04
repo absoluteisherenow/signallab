@@ -699,7 +699,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
 
                   {b.cost != null && (
                     <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-dim)' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-dimmer)', letterSpacing: '0.1em' }}>{currencySymbol(b.currency)}{b.cost.toLocaleString()}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-dimmer)', letterSpacing: '0.1em' }}><BlurredAmount>{currencySymbol(b.currency)}{b.cost.toLocaleString()}</BlurredAmount></span>
                     </div>
                   )}
                 </div>

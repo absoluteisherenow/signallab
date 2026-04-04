@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { ScanPulse } from '@/components/ui/ScanPulse'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
+import { BlurredAmount } from '@/components/ui/BlurredAmount'
 
 interface TravelBooking {
   id: string
@@ -92,6 +93,9 @@ export default function Logistics() {
   const [toast, setToast] = useState('')
   const [artistLocation, setArtistLocation] = useState<string>('')
 
+  // All travel bookings (for dashboard view)
+  const [allTravel, setAllTravel] = useState<(TravelBooking & { gig_title?: string; gig_venue?: string; gig_date?: string; gig_id?: string })[]>([])
+
   // Contacts editing
   const [editingContacts, setEditingContacts] = useState<string | null>(null)
   const [contactForm, setContactForm] = useState<Partial<Gig>>({})
@@ -112,6 +116,11 @@ export default function Logistics() {
       .then(d => {
         if (d.settings?.profile?.country) setArtistLocation(d.settings.profile.country)
       })
+      .catch(() => {})
+    // Fetch all travel bookings
+    fetch('/api/travel')
+      .then(r => r.json())
+      .then(d => setAllTravel(d.bookings || []))
       .catch(() => {})
   }, [])
 
@@ -240,21 +249,116 @@ export default function Logistics() {
 
       <div style={{ padding: '48px 56px' }}>
 
-      {/* ADVANCE STATUS SUMMARY */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '32px' }}>
-        {[
-          { label: 'Advances complete', value: Object.values(advanceStatus).filter(v => v === 'complete').length, color: 'var(--green)' },
-          { label: 'Awaiting response', value: Object.values(advanceStatus).filter(v => v === 'sent').length, color: 'var(--gold)' },
-          { label: 'Not yet sent', value: (gigs?.length ?? 0) - Object.keys(advanceStatus).length, color: 'var(--text-dimmer)' },
-        ].map(stat => (
-          <div key={stat.label} className="card">
-            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
-            <div className="display" style={{ fontSize: '32px', color: stat.color }}>{stat.value}</div>
-          </div>
-        ))}
-      </div>
+      {/* UPCOMING TRAVEL */}
+      {(() => {
+        const todayStr = new Date().toISOString().slice(0, 10)
+        const upcomingGigs = (gigs || []).filter(g => g.date >= todayStr && g.status !== 'cancelled').sort((a, b) => a.date.localeCompare(b.date))
+        const upcomingFlights = allTravel.filter(b => b.type === 'flight')
+        const upcomingHotels = allTravel.filter(b => b.type === 'hotel')
+        const upcomingTrains = allTravel.filter(b => b.type === 'train')
+        const gigsNeedingTravel = upcomingGigs.filter(g => {
+          const hasBooking = allTravel.some(b => b.gig_id === g.id)
+          return !hasBooking
+        })
 
-      {/* GIG LIST */}
+        return (
+          <>
+            {/* TRAVEL STATS */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', marginBottom: '32px' }}>
+              {[
+                { label: 'Upcoming flights', value: upcomingFlights.length, color: upcomingFlights.length > 0 ? 'var(--gold)' : 'var(--text-dimmer)' },
+                { label: 'Hotels booked', value: upcomingHotels.length, color: upcomingHotels.length > 0 ? 'var(--green)' : 'var(--text-dimmer)' },
+                { label: 'Train journeys', value: upcomingTrains.length, color: upcomingTrains.length > 0 ? 'var(--text)' : 'var(--text-dimmer)' },
+                { label: 'Gigs needing travel', value: gigsNeedingTravel.length, color: gigsNeedingTravel.length > 0 ? '#c9614a' : 'var(--green)' },
+              ].map(stat => (
+                <div key={stat.label} className="card">
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
+                  <div className="display" style={{ fontSize: '32px', color: stat.color }}>{stat.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* BOOKED TRAVEL TIMELINE */}
+            {allTravel.length > 0 && (
+              <div style={{ marginBottom: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Booked travel</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {allTravel.map(b => (
+                    <div key={b.id} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '16px 24px', display: 'grid', gridTemplateColumns: '32px 1fr 200px 160px', alignItems: 'center', gap: '16px' }}>
+                      <span style={{ fontSize: '18px' }}>
+                        {b.type === 'flight' ? '✈' : b.type === 'train' ? '🚂' : '🏨'}
+                      </span>
+                      <div>
+                        <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '2px' }}>
+                          {b.name || (b.type === 'flight' ? 'Flight' : b.type === 'train' ? 'Train' : 'Hotel')}
+                          {b.flight_number ? ` ${b.flight_number}` : ''}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>
+                          {b.type !== 'hotel' && (b.from_location || b.to_location) && `${b.from_location} → ${b.to_location}`}
+                          {b.type === 'hotel' && `${fmtDate(b.check_in)} → ${fmtDate(b.check_out)}`}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>
+                        {b.type !== 'hotel' && b.departure_at && fmtDateTime(b.departure_at)}
+                        {b.type === 'hotel' && b.check_in && `Check-in ${fmtDate(b.check_in)}`}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {b.gig_title && (
+                          <div style={{ fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.1em' }}>
+                            {b.gig_venue || b.gig_title}
+                            {b.gig_date && ` · ${new Date(b.gig_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`}
+                          </div>
+                        )}
+                        {b.reference && <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)' }}>Ref: {b.reference}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* QUICK SEARCH — GIGS NEEDING TRAVEL */}
+            {gigsNeedingTravel.length > 0 && (
+              <div style={{ marginBottom: '32px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#c9614a', textTransform: 'uppercase', marginBottom: '16px' }}>Needs booking</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {gigsNeedingTravel.slice(0, 5).map(gig => {
+                    const gigDate = new Date(gig.date)
+                    const daysTo = Math.ceil((gigDate.getTime() - Date.now()) / 86400000)
+                    return (
+                      <div key={gig.id} style={{ background: 'var(--panel)', border: '1px solid rgba(201, 97, 74, 0.15)', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '2px' }}>{gig.venue || gig.title}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>
+                            {gig.location} · {gigDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {daysTo}d away
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <a href={searchFlightsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '6px 12px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                            Flights ↗
+                          </a>
+                          <a href={searchTrainsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '6px 12px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                            Trains ↗
+                          </a>
+                          <a href={searchHotelUrl(gig.location, gig.date)} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '6px 12px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                            Hotels ↗
+                          </a>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )
+      })()}
+
+      {/* GIG LIST — EXPAND FOR DETAILS */}
+      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>All gigs — expand for travel & contacts</div>
       {gigs === null && (
         <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-dimmer)', fontSize: 13 }}>Loading...</div>
       )}
@@ -270,6 +374,11 @@ export default function Logistics() {
           const isOpen = selected === gig.id
           const gigDate = new Date(gig.date)
           const daysTo = Math.ceil((gigDate.getTime() - Date.now()) / 86400000)
+          const gigTravel = allTravel.filter(b => b.gig_id === gig.id)
+          const hasFlight = gigTravel.some(b => b.type === 'flight')
+          const hasTrain = gigTravel.some(b => b.type === 'train')
+          const hasHotel = gigTravel.some(b => b.type === 'hotel')
+          const travelIcons = [hasFlight && '✈', hasTrain && '🚂', hasHotel && '🏨'].filter(Boolean).join(' ')
 
           return (
             <div key={gig.id}>
@@ -280,7 +389,7 @@ export default function Logistics() {
                 padding: '20px 28px',
                 cursor: 'pointer',
                 display: 'grid',
-                gridTemplateColumns: '2fr 140px 100px 180px 80px',
+                gridTemplateColumns: '2fr 140px 160px 80px',
                 alignItems: 'center',
                 transition: 'all 0.15s',
               }}>
@@ -291,14 +400,12 @@ export default function Logistics() {
                 <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
                   {gigDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {gig.time}
                 </div>
-                <div>
-                  <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: gig.status === 'confirmed' ? 'var(--green)' : '#8a6a3a', background: gig.status === 'confirmed' ? 'rgba(61, 107, 74, 0.1)' : 'rgba(138, 106, 58, 0.1)', padding: '4px 10px' }}>
-                    {gig.status}
-                  </span>
-                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor(advStatus), flexShrink: 0 }} />
-                  <span style={{ fontSize: '12px', color: statusColor(advStatus) }}>{statusLabel(advStatus)}</span>
+                  {travelIcons ? (
+                    <span style={{ fontSize: '14px' }}>{travelIcons}</span>
+                  ) : (
+                    <span style={{ fontSize: '10px', letterSpacing: '0.1em', color: '#c9614a', textTransform: 'uppercase' }}>No travel booked</span>
+                  )}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', textAlign: 'right' }}>
                   {daysTo > 0 ? `${daysTo}d →` : 'Past'}
@@ -308,6 +415,23 @@ export default function Logistics() {
               {/* EXPANDED */}
               {isOpen && (
                 <div style={{ background: '#0a0906', border: '1px solid rgba(176, 141, 87, 0.125)', borderTop: 'none', padding: '32px 28px' }}>
+
+                  {/* SEARCH LINKS — prominent at top */}
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '28px', flexWrap: 'wrap' }}>
+                    <a href={searchFlightsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '11px', letterSpacing: '0.12em', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.3)', padding: '10px 20px', textDecoration: 'none', textTransform: 'uppercase', background: 'rgba(176,141,87,0.06)' }}>
+                      ✈ Search flights to {gig.location?.split(',')[0]} ↗
+                    </a>
+                    <a href={searchTrainsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '11px', letterSpacing: '0.12em', color: 'var(--text-dim)', border: '1px solid var(--border-dim)', padding: '10px 20px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                      🚂 Search trains ↗
+                    </a>
+                    <a href={searchHotelUrl(gig.location, gig.date)} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '11px', letterSpacing: '0.12em', color: 'var(--text-dim)', border: '1px solid var(--border-dim)', padding: '10px 20px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                      🏨 Search hotels ↗
+                    </a>
+                  </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '32px' }}>
 
                     {/* SHOW DETAILS */}
@@ -318,7 +442,7 @@ export default function Logistics() {
                         { l: 'Location', v: gig.location },
                         { l: 'Date', v: gigDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) },
                         { l: 'Set time', v: gig.time },
-                        { l: 'Fee', v: `${({'GBP':'£','USD':'$','EUR':'€','CHF':'CHF ','AUD':'A$','CAD':'C$','JPY':'¥'} as Record<string,string>)[gig.currency || 'EUR'] || '€'}${gig.fee?.toLocaleString()}` },
+                        { l: 'Fee', v: <BlurredAmount>{({'GBP':'£','USD':'$','EUR':'€','CHF':'CHF ','AUD':'A$','CAD':'C$','JPY':'¥'} as Record<string,string>)[gig.currency || 'EUR'] || '€'}{gig.fee?.toLocaleString()}</BlurredAmount> },
                         { l: 'Status', v: gig.status },
                       ].map(f => (
                         <div key={f.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid var(--border-dim)', fontSize: '12px' }}>
@@ -469,7 +593,7 @@ export default function Logistics() {
                                         <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '3px' }}>Ref: {b.reference}</div>
                                       )}
                                       {b.cost && (
-                                        <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>{b.currency} {b.cost.toLocaleString()}</div>
+                                        <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}><BlurredAmount>{b.currency} {b.cost.toLocaleString()}</BlurredAmount></div>
                                       )}
                                     </div>
                                     <button onClick={() => deleteTravel(gig.id, b.id)}

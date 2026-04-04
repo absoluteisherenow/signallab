@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { analyseAudioFile } from '@/lib/audioAnalysis'
 import { ScanPulse } from '@/components/ui/ScanPulse'
+import { isTauri, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, type TauriTrack } from '@/lib/tauri'
+import { CollectionSidebar } from '@/components/setlab/CollectionSidebar'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800, model = 'claude-haiku-4-5-20251001'): Promise<string> {
   const res = await fetch('/api/claude', {
@@ -221,6 +223,7 @@ export function SetLab() {
   const [discoverLoading, setDiscoverLoading] = useState(false)
   const [discoverError, setDiscoverError] = useState('')
   const [maxPopularity, setMaxPopularity] = useState(35)
+  const [depthFilter, setDepthFilter] = useState(100) // 0-100, 100 = show all
   const [discoverMeta, setDiscoverMeta] = useState<{ targetCamelot: string; targetBpm: number; debug?: any } | null>(null)
   const [discoverCallCount, setDiscoverCallCount] = useState(0)
   const [raChartedCount, setRaChartedCount] = useState(0)
@@ -577,7 +580,8 @@ export function SetLab() {
     t.genre.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.moment_type.toLowerCase().includes(searchQuery.toLowerCase())
 
-  const filteredLibrary = curatedLibrary.filter(searchFn)
+  const depthFiltered = depthFilter >= 100 ? curatedLibrary : curatedLibrary.filter(t => (t.energy || 5) <= Math.ceil(depthFilter / 10))
+  const filteredLibrary = depthFiltered.filter(searchFn)
 
   function addToSet(track: Track, switchTab = false) {
     const prev = set[set.length - 1]
@@ -1070,45 +1074,56 @@ Provide:
 
   async function loadPastSets() {
     try {
-      const { data } = await supabase.from('dj_sets').select('*').order('created_at', { ascending: false }).limit(10)
-      if (data) setPastSets(data)
+      if (isTauri()) {
+        const sets = await tauriGetSets()
+        setPastSets(sets)
+      } else {
+        const { data } = await supabase.from('dj_sets').select('*').order('created_at', { ascending: false }).limit(10)
+        if (data) setPastSets(data)
+      }
     } catch {}
   }
 
   async function loadLibrary() {
     setLibraryLoading(true)
     try {
-      const res = await fetch('/api/tracks')
-      const data = await res.json()
-      if (data.tracks && data.tracks.length > 0) {
-        setLibrary(data.tracks.map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          artist: t.artist,
-          bpm: t.bpm || 0,
-          key: t.key || '',
-          camelot: t.camelot || '',
-          energy: t.energy || 0,
-          genre: t.genre || '',
-          duration: t.duration || '',
-          notes: t.notes || '',
-          analysed: t.enriched || false,
-          moment_type: t.moment_type || '',
-          position_score: t.position_score || '',
-          mix_in: t.mix_in || '',
-          mix_out: t.mix_out || '',
-          crowd_reaction: t.crowd_reaction || '',
-          similar_to: t.similar_to || '',
-          producer_style: t.producer_style || '',
-          crowd_hits: t.crowd_hits || 0,
-          source: t.source || 'manual',
-          discovered_via: t.discovered_via || null,
-          spotify_url: t.spotify_url || '',
-          album_art: t.album_art || '',
-          has_local_audio: audioFileMap.has(t.id),
+      if (isTauri()) {
+        // Desktop: load from local SQLite
+        const tracks = await tauriGetTracks()
+        setLibrary(tracks.map((t: TauriTrack) => ({
+          id: t.id, title: t.title, artist: t.artist,
+          bpm: t.bpm || 0, key: t.key || '', camelot: t.camelot || '',
+          energy: t.energy || 0, genre: t.genre || '', duration: t.duration || '',
+          notes: t.notes || '', analysed: t.analysed || false,
+          moment_type: t.moment_type || '', position_score: t.position_score || '',
+          mix_in: t.mix_in || '', mix_out: t.mix_out || '',
+          crowd_reaction: t.crowd_reaction || '', similar_to: t.similar_to || '',
+          producer_style: t.producer_style || '', crowd_hits: t.crowd_hits || 0,
+          source: t.source || 'manual', discovered_via: t.discovered_via || null,
+          spotify_url: t.spotify_url || '', album_art: t.album_art || '',
+          has_local_audio: !!(t.file_path),
         })))
       } else {
-        setLibrary([])
+        // Web: load from Supabase via API
+        const res = await fetch('/api/tracks')
+        const data = await res.json()
+        if (data.tracks && data.tracks.length > 0) {
+          setLibrary(data.tracks.map((t: any) => ({
+            id: t.id, title: t.title, artist: t.artist,
+            bpm: t.bpm || 0, key: t.key || '', camelot: t.camelot || '',
+            energy: t.energy || 0, genre: t.genre || '', duration: t.duration || '',
+            notes: t.notes || '', analysed: t.enriched || false,
+            moment_type: t.moment_type || '', position_score: t.position_score || '',
+            mix_in: t.mix_in || '', mix_out: t.mix_out || '',
+            crowd_reaction: t.crowd_reaction || '', similar_to: t.similar_to || '',
+            producer_style: t.producer_style || '', crowd_hits: t.crowd_hits || 0,
+            source: t.source || 'manual', discovered_via: t.discovered_via || null,
+            spotify_url: t.spotify_url || '', album_art: t.album_art || '',
+            has_local_audio: audioFileMap.has(t.id),
+          })))
+        } else {
+          setLibrary([])
+        }
       }
     } catch {
       setLibrary([])
@@ -1117,8 +1132,12 @@ Provide:
     }
   }
 
-  async function deleteTrack(id: string) {
-    await fetch('/api/tracks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+  async function deleteTrackFromLibrary(id: string) {
+    if (isTauri()) {
+      await tauriDeleteTrack(id)
+    } else {
+      await fetch('/api/tracks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    }
     setLibrary(prev => prev.filter(t => t.id !== id))
     showToast('Track removed', 'Done')
   }
@@ -1126,7 +1145,11 @@ Provide:
   async function deleteSelectedTracks() {
     const ids = Array.from(selectedTracks)
     if (!confirm(`Delete ${ids.length} track${ids.length !== 1 ? 's' : ''} from library?`)) return
-    await Promise.all(ids.map(id => fetch('/api/tracks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })))
+    if (isTauri()) {
+      await Promise.all(ids.map(id => tauriDeleteTrack(id)))
+    } else {
+      await Promise.all(ids.map(id => fetch('/api/tracks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })))
+    }
     setLibrary(prev => prev.filter(t => !selectedTracks.has(t.id)))
     showToast(`${ids.length} tracks deleted`, 'Done')
     setSelectedTracks(new Set())
@@ -1905,16 +1928,51 @@ Return ONLY valid JSON, no markdown.`, 300)
     display: 'flex', alignItems: 'center', gap: '8px',
   })
 
+  const [isDesktop, setIsDesktop] = useState(false)
+  useEffect(() => { setIsDesktop(isTauri()) }, [])
+
+  const playlistCounts: Record<string, number> = {}
+  Object.entries(playlistGroups).forEach(([name, tracks]) => { playlistCounts[name] = tracks.length })
+
+  const sidebarEl = isDesktop ? (
+    <CollectionSidebar
+      totalTracks={curatedLibrary.length}
+      discoveryCount={discoveries.length}
+      wantlistCount={wantlist.length}
+      playlists={playlistCounts}
+      pastSets={pastSets}
+      folders={[]}
+      activeSection={librarySection}
+      onSectionChange={(section) => {
+        if (section === 'all' || section === 'discoveries' || section === 'playlists' || section === 'wantlist') {
+          setLibrarySection(section as any)
+          setActiveTab('library')
+        } else if (section.startsWith('playlist:')) {
+          setLibrarySection('playlists')
+          setActiveTab('library')
+        } else if (section.startsWith('set:')) {
+          const ps = pastSets.find((p: any) => p.id === section.slice(4))
+          if (ps) loadSetIntoBuilder(ps)
+        }
+      }}
+      onIntelligence={() => setActiveTab('intelligence')}
+      intelligenceActive={activeTab === 'intelligence'}
+      onImportRekordbox={() => { window.location.href = '/setlab/import' }}
+    />
+  ) : null
+
   return (
-    <div style={{ minHeight: '100vh', background: s.bg, color: s.text, fontFamily: s.font }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: s.bg, color: s.text, fontFamily: s.font }}>
+      {sidebarEl}
+      <div style={{ flex: 1, minHeight: '100vh', overflow: 'auto' }}>
 
       {/* HEADER */}
-      <div style={{ padding: '40px 48px 0', borderBottom: `1px solid ${s.border}` }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '20px' }}>
+      <div style={{ padding: isDesktop ? '24px 36px 0' : '40px 48px 0', borderBottom: `1px solid ${s.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: isDesktop ? '14px' : '20px' }}>
           <div>
-            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Set Lab</div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, color: s.text }}>
-              Your sets
+            {!isDesktop && <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Set Lab</div>}
+            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: isDesktop ? 'clamp(24px, 3vw, 36px)' : 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, color: s.text }}>
+              {activeTab === 'library' ? 'Library' : activeTab === 'builder' ? 'Set Builder' : activeTab === 'history' ? 'History' : activeTab === 'discover' ? 'Discover' : activeTab === 'scanner' ? 'Scanner' : activeTab === 'intelligence' ? 'Intelligence' : 'Your sets'}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '4px' }}>
@@ -1930,7 +1988,10 @@ Return ONLY valid JSON, no markdown.`, 300)
 
         {/* Tabs — underline style */}
         <div style={{ display: 'flex', gap: '0' }}>
-          {(['library', 'builder', 'history', 'discover', 'scanner', 'intelligence'] as const).map(tab => (
+          {(isDesktop
+            ? (['library', 'discover', 'builder'] as const)
+            : (['library', 'builder', 'history', 'discover', 'scanner', 'intelligence'] as const)
+          ).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               background: 'none',
               border: 'none',
@@ -1947,15 +2008,39 @@ Return ONLY valid JSON, no markdown.`, 300)
             }}>{{ builder: 'set builder', discover: 'discover', library: 'library', history: 'history', scanner: 'scanner', intelligence: 'intelligence' }[tab]}</button>
           ))}
         </div>
+
+        {/* Underground depth bar — desktop global filter */}
+        {isDesktop && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0 10px' }}>
+            <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: s.textDimmer, whiteSpace: 'nowrap' }}>Depth</span>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input type="range" min={5} max={100} value={depthFilter}
+                onChange={e => setDepthFilter(Number(e.target.value))}
+                style={{
+                  width: '100%', height: '4px', appearance: 'none', background: 'transparent', cursor: 'pointer',
+                  position: 'relative', zIndex: 2,
+                }}
+              />
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', transform: 'translateY(-50%)', background: 'rgba(176,141,87,0.1)', pointerEvents: 'none' }}>
+                <div style={{ height: '100%', width: `${depthFilter}%`, background: depthFilter < 25 ? '#9a6a5a' : depthFilter < 50 ? s.gold : depthFilter < 70 ? '#3d6b4a' : 'rgba(176,141,87,0.25)', transition: 'width 0.1s, background 0.2s' }} />
+              </div>
+            </div>
+            <span style={{ fontSize: '10px', color: depthFilter < 25 ? '#9a6a5a' : depthFilter < 50 ? s.gold : depthFilter < 70 ? '#3d6b4a' : s.textDim, letterSpacing: '0.06em', whiteSpace: 'nowrap', minWidth: '80px', textAlign: 'right' }}>
+              {depthFilter >= 100 ? 'All' : depthFilter < 25 ? 'Deep cuts' : depthFilter < 50 ? 'Underground' : depthFilter < 70 ? 'Known' : 'Popular'}
+              {depthFilter < 100 && <span style={{ color: s.textDimmer }}> · {depthFiltered.length}</span>}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div style={{ padding: '24px 48px' }}>
+      <div style={{ padding: isDesktop ? '16px 28px' : '24px 48px' }}>
 
         {/* ═══ LIBRARY TAB ═══ */}
         {activeTab === 'library' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-            {/* ── SUB-TABS ── */}
+            {/* ── SUB-TABS (web only — desktop uses sidebar) ── */}
+            {!isDesktop && (
             <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${s.border}` }}>
               {([
                 { key: 'all', label: 'All', count: curatedLibrary.length },
@@ -1973,13 +2058,14 @@ Return ONLY valid JSON, no markdown.`, 300)
                 }}>{tab.label} ({tab.count})</button>
               ))}
             </div>
+            )}
 
             {/* ── LIBRARY SECTION (visible when 'all' selected) ── */}
             {librarySection === 'all' && <>
 
-            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '8px' }}>
+            {!isDesktop && <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '8px' }}>
               Library ({curatedLibrary.length})
-            </div>
+            </div>}
 
             {/* Search / Add track */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -2026,6 +2112,8 @@ Return ONLY valid JSON, no markdown.`, 300)
               ))}
             </div>
 
+            {/* Import zones — hidden on desktop (imports via sidebar / Rekordbox) */}
+            {!isDesktop && <>
             {/* Paste tracklist */}
             {pasteMode ? (
               <div style={{ background: s.panel, border: `1px solid ${s.gold}40`, padding: '16px 20px' }}>
@@ -2149,6 +2237,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                 </div>
               )}
             </div>
+            </>}
 
             {/* Track library with expandable intelligence */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
@@ -2362,7 +2451,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                           Edit
                         </button>
                         <button
-                          onClick={() => { if (confirm(`Remove "${track.title}"?`)) deleteTrack(track.id) }}
+                          onClick={() => { if (confirm(`Remove "${track.title}"?`)) deleteTrackFromLibrary(track.id) }}
                           style={{ ...btn('#9a6a5a', 'transparent'), fontSize: '10px', padding: '6px 14px', marginLeft: 'auto' }}>
                           Delete
                         </button>
@@ -4228,7 +4317,11 @@ Return ONLY valid JSON, no markdown.`, 300)
         </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } } select option { background: #1a1208; } .track-art-cell:hover .play-overlay { opacity: 1 !important; }`}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } select option { background: #1a1208; } .track-art-cell:hover .play-overlay { opacity: 1 !important; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--panel); border: 2px solid var(--gold); cursor: grab; margin-top: -4px; }
+        input[type=range]::-webkit-slider-runnable-track { height: 4px; background: transparent; }
+      `}</style>
+    </div>
     </div>
   )
 }

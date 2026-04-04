@@ -8,6 +8,7 @@ import { SkeletonRows } from '@/components/ui/Skeleton'
 import { useMobile } from '@/hooks/useMobile'
 import MobileShell from '@/components/mobile/MobileShell'
 import GigDayTimeline from '@/components/gigs/GigDayTimeline'
+import { BlurredAmount } from '@/components/ui/BlurredAmount'
 
 interface Gig {
   id: string
@@ -804,7 +805,7 @@ export default function Dashboard() {
   ]
 
   // ── ATTENTION ITEMS ──
-  const attentionItems: { label: string; detail: string; href: string }[] = []
+  const attentionItems: { label: string; detail: React.ReactNode; href: string }[] = []
   if (!loading) {
     // Overdue invoices
     if (overdueInvoices.length > 0) {
@@ -813,7 +814,7 @@ export default function Dashboard() {
       const symbol = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : '£'
       attentionItems.push({
         label: `${overdueInvoices.length} overdue invoice${overdueInvoices.length !== 1 ? 's' : ''}`,
-        detail: `${symbol}${total.toLocaleString()} outstanding`,
+        detail: <><BlurredAmount>{symbol}{total.toLocaleString()}</BlurredAmount> outstanding</>,
         href: '/business/finances',
       })
     }

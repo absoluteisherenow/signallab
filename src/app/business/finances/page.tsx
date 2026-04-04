@@ -495,7 +495,7 @@ export default function Finances() {
             ].map(stat => (
               <div key={stat.label} style={{ background: 'var(--panel)', border: `1px solid ${stat.alert ? 'rgba(138, 74, 58, 0.25)' : 'var(--border-dim)'}`, padding: '24px 28px' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '12px' }}>{stat.label}</div>
-                <div className="display" style={{ fontSize: '28px', color: stat.alert ? 'var(--gold-bright)' : stat.green ? 'var(--green)' : 'var(--text)', marginBottom: '6px' }}>{stat.value}</div>
+                <div className="display" style={{ fontSize: '28px', color: stat.alert ? 'var(--gold-bright)' : stat.green ? 'var(--green)' : 'var(--text)', marginBottom: '6px' }}><BlurredAmount>{stat.value}</BlurredAmount></div>
                 <div style={{ fontSize: '11px', color: 'var(--border)' }}>{stat.sub}</div>
               </div>
             ))}
@@ -553,13 +553,13 @@ export default function Finances() {
                       {/* Bar group */}
                       <div style={{ display: 'flex', gap: '3px', alignItems: 'flex-end', height: '104px', marginBottom: '10px' }}>
                         {fm.confirmed > 0 ? (
-                          <div title={`Confirmed: ${fm.confirmed.toLocaleString()}`} style={{ flex: 1, height: `${confirmedH}px`, background: 'linear-gradient(180deg, var(--gold), #7a5a28)', transition: 'height 0.4s ease', minHeight: '2px' }} />
+                          <div title="Confirmed" style={{ flex: 1, height: `${confirmedH}px`, background: 'linear-gradient(180deg, var(--gold), #7a5a28)', transition: 'height 0.4s ease', minHeight: '2px' }} />
                         ) : null}
                         {fm.pendingFees > 0 ? (
-                          <div title={`Pending: ${fm.pendingFees.toLocaleString()}`} style={{ flex: 1, height: `${pendingH}px`, background: 'rgba(176,141,87,0.35)', border: '1px solid rgba(176,141,87,0.2)', transition: 'height 0.4s ease', minHeight: '2px', boxSizing: 'border-box' }} />
+                          <div title="Pending" style={{ flex: 1, height: `${pendingH}px`, background: 'rgba(176,141,87,0.35)', border: '1px solid rgba(176,141,87,0.2)', transition: 'height 0.4s ease', minHeight: '2px', boxSizing: 'border-box' }} />
                         ) : null}
                         {fm.invoiced > 0 ? (
-                          <div title={`Invoiced: ${fm.invoiced.toLocaleString()}`} style={{ flex: 1, height: `${invoicedH}px`, background: 'rgba(61,107,74,0.7)', border: '1px solid rgba(61,107,74,0.3)', transition: 'height 0.4s ease', minHeight: '2px', boxSizing: 'border-box' }} />
+                          <div title="Invoiced" style={{ flex: 1, height: `${invoicedH}px`, background: 'rgba(61,107,74,0.7)', border: '1px solid rgba(61,107,74,0.3)', transition: 'height 0.4s ease', minHeight: '2px', boxSizing: 'border-box' }} />
                         ) : null}
                         {totalAmt === 0 && (
                           <div style={{ flex: 1, height: '2px', background: 'var(--border-dim)' }} />
@@ -567,9 +567,9 @@ export default function Finances() {
                       </div>
                       {/* Label block */}
                       <div style={{ fontSize: '11px', letterSpacing: '0.12em', color: 'var(--text)', textTransform: 'uppercase', marginBottom: '6px' }}>{fm.label}</div>
-                      {fm.confirmed > 0 && <div style={{ fontSize: '10px', color: 'var(--gold)', marginBottom: '2px' }}>Confirmed: {fm.confirmed.toLocaleString()}</div>}
-                      {fm.pendingFees > 0 && <div style={{ fontSize: '10px', color: 'rgba(176,141,87,0.7)', marginBottom: '2px' }}>Pending: {fm.pendingFees.toLocaleString()}</div>}
-                      {fm.invoiced > 0 && <div style={{ fontSize: '10px', color: 'rgba(61,107,74,0.9)', marginBottom: '2px' }}>Invoiced: {fm.invoiced.toLocaleString()}</div>}
+                      {fm.confirmed > 0 && <div style={{ fontSize: '10px', color: 'var(--gold)', marginBottom: '2px' }}>Confirmed: <BlurredAmount>{fm.confirmed.toLocaleString()}</BlurredAmount></div>}
+                      {fm.pendingFees > 0 && <div style={{ fontSize: '10px', color: 'rgba(176,141,87,0.7)', marginBottom: '2px' }}>Pending: <BlurredAmount>{fm.pendingFees.toLocaleString()}</BlurredAmount></div>}
+                      {fm.invoiced > 0 && <div style={{ fontSize: '10px', color: 'rgba(61,107,74,0.9)', marginBottom: '2px' }}>Invoiced: <BlurredAmount>{fm.invoiced.toLocaleString()}</BlurredAmount></div>}
                       {totalAmt === 0 && <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>Nothing booked</div>}
                     </div>
                   )
@@ -775,16 +775,16 @@ export default function Finances() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                         <div>
                           <div style={{ fontSize: '9px', letterSpacing: '0.12em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>Revenue</div>
-                          <div style={{ fontSize: '20px', color: 'var(--green)', fontFamily: "'Unbounded', sans-serif", fontWeight: 300 }}>{rev.toLocaleString()}</div>
+                          <div style={{ fontSize: '20px', color: 'var(--green)', fontFamily: "'Unbounded', sans-serif", fontWeight: 300 }}><BlurredAmount>{rev.toLocaleString()}</BlurredAmount></div>
                         </div>
                         <div>
                           <div style={{ fontSize: '9px', letterSpacing: '0.12em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>Expenses</div>
-                          <div style={{ fontSize: '20px', color: exp > 0 ? 'var(--gold-bright)' : 'var(--text-dimmer)', fontFamily: "'Unbounded', sans-serif", fontWeight: 300 }}>{exp.toLocaleString()}</div>
+                          <div style={{ fontSize: '20px', color: exp > 0 ? 'var(--gold-bright)' : 'var(--text-dimmer)', fontFamily: "'Unbounded', sans-serif", fontWeight: 300 }}><BlurredAmount>{exp.toLocaleString()}</BlurredAmount></div>
                         </div>
                         <div>
                           <div style={{ fontSize: '9px', letterSpacing: '0.12em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>P&L</div>
                           <div style={{ fontSize: '20px', color: pl >= 0 ? 'var(--green)' : '#c9614a', fontFamily: "'Unbounded', sans-serif", fontWeight: 300 }}>
-                            {pl >= 0 ? '+' : ''}{pl.toLocaleString()}
+                            <BlurredAmount>{pl >= 0 ? '+' : ''}{pl.toLocaleString()}</BlurredAmount>
                           </div>
                         </div>
                       </div>
@@ -801,13 +801,13 @@ export default function Finances() {
               <div>
                 <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>This month</div>
                 <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, color: thisMonthExpTotal > 0 ? 'var(--gold-bright)' : 'var(--text-dimmer)' }}>
-                  {fmtCurrency(expenseCurrency, thisMonthExpTotal, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <BlurredAmount>{fmtCurrency(expenseCurrency, thisMonthExpTotal, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</BlurredAmount>
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '4px' }}>All time</div>
                 <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, color: 'var(--text-dim)' }}>
-                  {fmtCurrency(expenseCurrency, expensesByCurrency[expenseCurrency] || 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <BlurredAmount>{fmtCurrency(expenseCurrency, expensesByCurrency[expenseCurrency] || 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</BlurredAmount>
                 </div>
               </div>
             </div>
@@ -946,7 +946,7 @@ export default function Finances() {
                           </span>
                         </div>
                         <div style={{ fontSize: '13px', color: 'var(--text)' }}>
-                          {Number(exp.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <BlurredAmount>{Number(exp.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</BlurredAmount>
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>{exp.currency}</div>
                         <div>

@@ -3,9 +3,15 @@
   "configurations": [
     {
       "name": "signallab",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["/Users/anthonymcginley/CLAUDE/signallab/.claude/dev.sh"],
       "port": 3000
+    },
+    {
+      "name": "setlab",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "-p", "3100"],
+      "port": 3100
     }
   ]
 }
