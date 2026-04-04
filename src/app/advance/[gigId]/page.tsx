@@ -113,30 +113,64 @@ export default function AdvancePage() {
         </div>
 
         {/* TECH RIDER */}
-        {techRider && (
-          <div style={{ marginBottom: '40px' }}>
-            <div style={sectionHeader}>Technical requirements</div>
-            <div style={riderBox}>
-              {techRider.split('\n').map((line, i) => (
-                <div key={i} style={{ padding: '6px 0', fontSize: '14px', lineHeight: 1.7, color: '#e8e4dc' }}>
-                  {line}
-                </div>
-              ))}
-            </div>
-            <label style={confirmRow} onClick={() => setTechConfirmed(!techConfirmed)}>
-              <div style={{
-                ...checkbox,
-                background: techConfirmed ? '#b08d57' : 'transparent',
-                borderColor: techConfirmed ? '#b08d57' : '#3a3835',
-              }}>
-                {techConfirmed && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
+        {techRider && (() => {
+          const hasWeBring = techRider.toLowerCase().includes('we bring')
+          const parts = hasWeBring ? techRider.split(/we bring:?/i) : [techRider]
+          const venueProvides = parts[0].replace(/^HYBRID LIVE\s*/i, '').trim()
+          const weBring = parts[1]?.trim() || null
+          // Extract synth spec if present
+          const hasSynthSpec = weBring?.toLowerCase().includes('synth spec')
+          const weBringLines = weBring ? weBring.split(/synth spec:?/i)[0].trim() : null
+          const synthSpec = hasSynthSpec && weBring ? weBring.split(/synth spec:?/i)[1]?.trim() : null
+
+          return (
+            <div style={{ marginBottom: '40px' }}>
+              <div style={sectionHeader}>Technical requirements {techRider.toLowerCase().startsWith('hybrid') ? '— Hybrid Live' : ''}</div>
+
+              {/* Venue provides */}
+              <div style={{ fontSize: '11px', letterSpacing: '0.15em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '10px' }}>Please provide</div>
+              <div style={riderBox}>
+                {venueProvides.split('\n').filter(l => l.trim()).map((line, i) => (
+                  <div key={i} style={{ padding: '6px 0', fontSize: '14px', lineHeight: 1.7, color: '#e8e4dc' }}>
+                    {line}
+                  </div>
+                ))}
               </div>
-              <span style={{ fontSize: '14px', color: techConfirmed ? '#ffffff' : '#b0ada6' }}>
-                Confirmed — we can provide this
-              </span>
-            </label>
-          </div>
-        )}
+
+              {/* We bring */}
+              {weBringLines && (
+                <>
+                  <div style={{ fontSize: '11px', letterSpacing: '0.15em', color: '#8a8780', textTransform: 'uppercase', marginBottom: '10px', marginTop: '20px' }}>We bring (no action needed)</div>
+                  <div style={{ ...riderBox, opacity: 0.7, borderStyle: 'dashed' as const }}>
+                    {weBringLines.split('\n').filter(l => l.trim()).map((line, i) => (
+                      <div key={i} style={{ padding: '6px 0', fontSize: '14px', lineHeight: 1.7, color: '#b0ada6' }}>
+                        {line}
+                      </div>
+                    ))}
+                    {synthSpec && (
+                      <div style={{ padding: '10px 0 2px', fontSize: '12px', color: '#6a6862', borderTop: '1px solid #2e2c29', marginTop: '8px' }}>
+                        Synth dimensions: {synthSpec}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <label style={confirmRow} onClick={() => setTechConfirmed(!techConfirmed)}>
+                <div style={{
+                  ...checkbox,
+                  background: techConfirmed ? '#b08d57' : 'transparent',
+                  borderColor: techConfirmed ? '#b08d57' : '#3a3835',
+                }}>
+                  {techConfirmed && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
+                </div>
+                <span style={{ fontSize: '14px', color: techConfirmed ? '#ffffff' : '#b0ada6' }}>
+                  Confirmed — we can provide this
+                </span>
+              </label>
+            </div>
+          )
+        })()}
 
         {/* HOSPITALITY RIDER */}
         {hospitalityRider && (
