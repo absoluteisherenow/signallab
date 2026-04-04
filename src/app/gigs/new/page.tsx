@@ -23,7 +23,8 @@ export default function NewGig() {
     artwork_url: '',
     ra_url: '',
   })
-  const [artworkTab, setArtworkTab] = useState<'ra' | 'url'>('ra')
+  const [artworkTab, setArtworkTab] = useState<'ra' | 'upload'>('ra')
+  const [uploadingArtwork, setUploadingArtwork] = useState(false)
   const [raInput, setRaInput] = useState('')
   const [fetchingArtwork, setFetchingArtwork] = useState(false)
   const [artworkPreview, setArtworkPreview] = useState<string | null>(null)
@@ -59,6 +60,17 @@ export default function NewGig() {
   const labelStyle = {
     fontSize: '10px', letterSpacing: '0.18em', color: s.dimmer,
     textTransform: 'uppercase' as const, marginBottom: '8px', display: 'block',
+  }
+
+  async function handleArtworkUpload(file: File) {
+    setUploadingArtwork(true); setArtworkError('')
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const d = await fetch('/api/upload/artwork', { method: 'POST', body: fd }).then(r => r.json())
+      if (d.url) { setArtworkPreview(d.url); setForm(f => ({ ...f, artwork_url: d.url })) }
+      else setArtworkError(d.error || 'Upload failed')
+    } catch { setArtworkError('Upload failed') }
+    finally { setUploadingArtwork(false) }
   }
 
   function currencyFromLocation(location: string): string {
@@ -232,15 +244,15 @@ export default function NewGig() {
 
           {/* Tab switcher */}
           <div style={{ display: 'flex', gap: '0', marginBottom: '20px', borderBottom: `1px solid ${s.border}` }}>
-            {(['ra', 'url'] as const).map(t => (
-              <button key={t} onClick={() => setArtworkTab(t)} style={{
+            {(['ra', 'upload'] as const).map(t => (
+              <button key={t} onClick={() => { setArtworkTab(t); setArtworkPreview(null); setArtworkError(''); setRaInput(''); setForm(f => ({ ...f, artwork_url: '', ra_url: '' })) }} style={{
                 padding: '8px 18px', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
                 background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: s.font,
                 color: artworkTab === t ? s.gold : s.dimmer,
                 borderBottom: artworkTab === t ? `1px solid ${s.gold}` : '1px solid transparent',
                 marginBottom: '-1px',
               }}>
-                {t === 'ra' ? 'From RA' : 'Image URL'}
+                {t === 'ra' ? 'From RA' : 'Upload'}
               </button>
             ))}
           </div>
@@ -261,10 +273,21 @@ export default function NewGig() {
                 </div>
               ) : (
                 <div>
-                  <label style={labelStyle}>Paste image URL</label>
-                  <input value={form.artwork_url} onChange={e => { setForm(f => ({ ...f, artwork_url: e.target.value })); setArtworkPreview(e.target.value || null) }}
-                    placeholder="https://i1.sndcdn.com/artworks-..."
-                    style={inputStyle} />
+                  <label style={labelStyle}>
+                    Upload artwork
+                    {uploadingArtwork && <span style={{ marginLeft: '8px', color: s.dimmer, fontStyle: 'italic', textTransform: 'none' }}>uploading…</span>}
+                  </label>
+                  <label style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: '100%', height: '80px', border: `1px dashed ${artworkPreview ? s.gold + '60' : s.border}`,
+                    cursor: 'pointer', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase',
+                    color: s.dimmer, background: 'transparent', boxSizing: 'border-box' as const,
+                  }}>
+                    {uploadingArtwork ? 'Uploading…' : artworkPreview ? '✓ Uploaded — click to replace' : '+ Choose file'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleArtworkUpload(f) }} />
+                  </label>
+                  {artworkError && <div style={{ fontSize: '10px', color: '#8a4a3a', marginTop: '6px' }}>{artworkError}</div>}
                 </div>
               )}
             </div>
