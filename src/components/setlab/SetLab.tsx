@@ -55,8 +55,70 @@ interface Track {
   has_local_audio?: boolean
 }
 
-// ── In-memory audio file map (no duplication — holds references to dropped files) ──
+// ── Audio file map — holds references to files (from drops or folder scan) ──
 const audioFileMap = new Map<string, File>()
+
+// ── File System Access API — persistent folder access ──
+async function storeFolderHandle(handle: FileSystemDirectoryHandle) {
+  try {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('setlab_fs', 1)
+      req.onupgradeneeded = () => req.result.createObjectStore('handles')
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+    const tx = db.transaction('handles', 'readwrite')
+    tx.objectStore('handles').put(handle, 'musicFolder')
+  } catch { /* indexedDB not available */ }
+}
+
+async function getStoredFolderHandle(): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('setlab_fs', 1)
+      req.onupgradeneeded = () => req.result.createObjectStore('handles')
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+    const tx = db.transaction('handles', 'readonly')
+    const getReq = tx.objectStore('handles').get('musicFolder')
+    return new Promise((resolve) => {
+      getReq.onsuccess = () => resolve(getReq.result || null)
+      getReq.onerror = () => resolve(null)
+    })
+  } catch { return null }
+}
+
+async function scanFolderForAudio(handle: FileSystemDirectoryHandle, library: Track[]): Promise<number> {
+  let linked = 0
+  const tracksByFile = new Map<string, Track>()
+  for (const t of library) {
+    // Match by title (filename without extension often matches title)
+    const key = t.title.toLowerCase().replace(/[^a-z0-9]/g, '')
+    tracksByFile.set(key, t)
+    // Also try "artist - title" format
+    if (t.artist) tracksByFile.set((t.artist + t.title).toLowerCase().replace(/[^a-z0-9]/g, ''), t)
+  }
+
+  async function walkDir(dir: FileSystemDirectoryHandle) {
+    for await (const entry of (dir as any).values()) {
+      if (entry.kind === 'file' && /\.(mp3|wav|flac|aac|m4a|ogg|aiff?)$/i.test(entry.name)) {
+        const nameKey = entry.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+        const match = tracksByFile.get(nameKey)
+        if (match) {
+          const file = await entry.getFile()
+          audioFileMap.set(match.id, file)
+          linked++
+        }
+      } else if (entry.kind === 'directory') {
+        await walkDir(entry)
+      }
+    }
+  }
+
+  await walkDir(handle)
+  return linked
+}
 
 interface SetTrack extends Track {
   position: number
@@ -190,6 +252,8 @@ export function SetLab() {
   const [audioPlaying, setAudioPlaying] = useState(false)
   const [audioTime, setAudioTime] = useState(0)
   const [audioDuration, setAudioDuration] = useState(0)
+  const [musicFolderName, setMusicFolderName] = useState<string | null>(null)
+  const [linkingFolder, setLinkingFolder] = useState(false)
   const audioInputRef = useRef<HTMLInputElement>(null)
   const screenshotInputRef = useRef<HTMLInputElement>(null)
   const [screenshotImporting, setScreenshotImporting] = useState(false)
@@ -234,6 +298,38 @@ export function SetLab() {
     setToast({ msg, tag })
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), 3400)
+  }
+
+  // ── Music Folder Linking ────────────────────────────────────────────────
+  async function linkMusicFolder() {
+    try {
+      const handle = await (window as any).showDirectoryPicker({ mode: 'read' })
+      setLinkingFolder(true)
+      await storeFolderHandle(handle)
+      const linked = await scanFolderForAudio(handle, library)
+      setMusicFolderName(handle.name)
+      setLibrary(prev => prev.map(t => audioFileMap.has(t.id) ? { ...t, has_local_audio: true } : t))
+      showToast(`Linked "${handle.name}" — ${linked} tracks matched`, 'Audio')
+      setLinkingFolder(false)
+    } catch (err: any) {
+      if (err.name !== 'AbortError') showToast('Could not access folder: ' + err.message, 'Error')
+      setLinkingFolder(false)
+    }
+  }
+
+  async function reconnectMusicFolder() {
+    const handle = await getStoredFolderHandle()
+    if (!handle) return
+    try {
+      const perm = await (handle as any).queryPermission({ mode: 'read' })
+      if (perm === 'granted') {
+        const linked = await scanFolderForAudio(handle, library)
+        if (linked > 0) {
+          setMusicFolderName(handle.name)
+          setLibrary(prev => prev.map(t => audioFileMap.has(t.id) ? { ...t, has_local_audio: true } : t))
+        }
+      }
+    } catch { /* permission not granted yet */ }
   }
 
   // ── Audio Playback ─────────────────────────────────────────────────────
@@ -1608,7 +1704,7 @@ Return ONLY valid JSON, no markdown.`, 300)
     showToast('Removed from wantlist', 'Removed')
   }
 
-  useEffect(() => { loadLibrary(); loadPastSets(); fetchUpcomingGig(); loadWantlist() }, [])
+  useEffect(() => { loadLibrary().then(() => reconnectMusicFolder()); loadPastSets(); fetchUpcomingGig(); loadWantlist() }, [])
 
   // ── Persist scanner state across navigation ──────────────────────────────
   const SCANNER_KEY = 'setlab_scanner_v1'
@@ -2004,6 +2100,14 @@ Return ONLY valid JSON, no markdown.`, 300)
                 </div>
               )}
             </div>
+
+            {/* Link music folder for playback */}
+            <button onClick={linkMusicFolder} disabled={linkingFolder}
+              style={{ width: '100%', background: musicFolderName ? `${s.gold}10` : s.panel, border: `1px dashed ${musicFolderName ? s.gold + '60' : s.border}`, color: musicFolderName ? s.gold : s.textDim, fontFamily: s.font, fontSize: '12px', padding: '14px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = s.gold)}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = musicFolderName ? s.gold + '60' : s.border)}>
+              {linkingFolder ? 'Scanning folder...' : musicFolderName ? `♪ Linked: ${musicFolderName} — click to change` : '♪ Link music folder for playback'}
+            </button>
 
             {/* Screenshot import zone — snap a photo of Traktor/Rekordbox tracklist */}
             <div
