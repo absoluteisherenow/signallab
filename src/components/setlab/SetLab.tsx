@@ -150,6 +150,7 @@ export function SetLab() {
   const raRichMapRef = useRef<Map<string, { charted_by: string; chart_title: string }>>(new Map())
   // ── Crate Dig state ────────────────────────────────────────────────────
   const [discoverMode, setDiscoverMode] = useState<'beatport' | 'crate'>('beatport')
+  const [discoverSource, setDiscoverSource] = useState<string>('current-set') // 'current-set', 'library', 'playlist:Name', 'set:id'
   const [crateDigTrack, setCrateDigTrack] = useState<Track | null>(null)
   const [crateDigAxis, setCrateDigAxis] = useState<'label' | 'artist' | 'style' | 'credit'>('label')
   const [crateDigResults, setCrateDigResults] = useState<any[]>([])
@@ -1145,9 +1146,24 @@ Return ONLY valid JSON, no markdown.`, 300)
     }
   }
 
+  function getDiscoverSeeds(): Track[] {
+    if (discoverSource === 'current-set') return set
+    if (discoverSource === 'library') return curatedLibrary
+    if (discoverSource.startsWith('playlist:')) {
+      const name = discoverSource.slice(9)
+      return playlistTracks.filter(t => (t.discovered_via?.playlist || 'Untitled') === name)
+    }
+    if (discoverSource.startsWith('set:')) {
+      const setId = discoverSource.slice(4)
+      const ps = pastSets.find((p: any) => p.id === setId)
+      if (ps?.tracks) return ps.tracks
+    }
+    return set.length > 0 ? set : curatedLibrary
+  }
+
   async function discoverTracks(pop = maxPopularity) {
-    const seedTracks = library.length > 0 ? library : set
-    if (seedTracks.length === 0) { setDiscoverError('Add some tracks to your library first'); return }
+    const seedTracks = getDiscoverSeeds()
+    if (seedTracks.length === 0) { setDiscoverError('Select a source with tracks first'); return }
     setDiscoverLoading(true)
     setDiscoverError('')
     setDiscoverResults([])
@@ -2437,6 +2453,22 @@ Return ONLY valid JSON, no markdown.`, 300)
         {activeTab === 'discover' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
+            {/* Discover source selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.textDimmer, flexShrink: 0 }}>Discover from</div>
+              <select value={discoverSource} onChange={e => setDiscoverSource(e.target.value)}
+                style={{ flex: 1, background: s.panel, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px 12px', outline: 'none', cursor: 'pointer' }}>
+                <option value="current-set">Current set ({set.length} tracks)</option>
+                <option value="library">Full library ({curatedLibrary.length} tracks)</option>
+                {Object.entries(playlistGroups).map(([name, tracks]) => (
+                  <option key={`pl:${name}`} value={`playlist:${name}`}>{name} ({tracks.length} tracks)</option>
+                ))}
+                {pastSets.map((ps: any) => (
+                  <option key={`set:${ps.id}`} value={`set:${ps.id}`}>{ps.name || 'Untitled set'} ({ps.tracks?.length || 0} tracks)</option>
+                ))}
+              </select>
+            </div>
+
             {/* Mode toggle */}
             <div style={{ display: 'flex', gap: '0' }}>
               {(['beatport', 'crate'] as const).map(mode => (
@@ -2650,7 +2682,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                           style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
                         {crateTrackDropdown && (
                           <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 10, background: s.panel, border: `1px solid ${s.border}`, maxHeight: '240px', overflowY: 'auto' }}>
-                            {library
+                            {getDiscoverSeeds()
                               .filter(t => !crateTrackSearch || `${t.title} ${t.artist}`.toLowerCase().includes(crateTrackSearch.toLowerCase()))
                               .slice(0, 15)
                               .map(t => (
@@ -2662,7 +2694,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                                   <div style={{ fontSize: '10px', color: s.textDim, marginTop: '1px' }}>{t.artist}</div>
                                 </div>
                               ))}
-                            {library.filter(t => !crateTrackSearch || `${t.title} ${t.artist}`.toLowerCase().includes(crateTrackSearch.toLowerCase())).length === 0 && (
+                            {getDiscoverSeeds().filter(t => !crateTrackSearch || `${t.title} ${t.artist}`.toLowerCase().includes(crateTrackSearch.toLowerCase())).length === 0 && (
                               <div style={{ padding: '12px 14px', fontSize: '11px', color: s.textDimmer }}>No tracks match</div>
                             )}
                           </div>
