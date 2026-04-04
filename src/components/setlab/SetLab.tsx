@@ -2616,16 +2616,16 @@ Return ONLY valid JSON, no markdown.`, 300)
                               </a>
                             )}
                           </div>
-                          <button disabled={alreadyInLib} onClick={async () => {
-                            if (alreadyInLib) return
-                            const t: Track = { id: track.id, title: track.title, artist: track.artist, bpm: track.bpm, key: '', camelot: track.camelot, energy: track.energy || 5,
-                              genre: 'Electronic', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
-                            await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: [t] }) })
-                            setLibrary(prev => [...prev, t])
-                            showToast(`${track.title} added to library`, 'Added')
-                          }} style={{ ...btn(alreadyInLib ? s.textDimmer : s.setlab, 'transparent'), fontSize: '10px', padding: '6px 12px', flexShrink: 0,
-                            opacity: alreadyInLib ? 0.4 : 1, cursor: alreadyInLib ? 'default' : 'pointer' }}>
-                            {alreadyInLib ? '✓ In library' : '+ Add'}
+                          <button onClick={async () => {
+                            const t: Track = { id: alreadyInLib ? library.find(l => l.title.toLowerCase() === track.title.toLowerCase() && l.artist.toLowerCase() === track.artist.toLowerCase())!.id : track.id, title: track.title, artist: track.artist, bpm: track.bpm, key: '', camelot: track.camelot, energy: track.energy || 0,
+                              genre: '', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
+                            if (!alreadyInLib) {
+                              await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: [t] }) })
+                              setLibrary(prev => [...prev, t])
+                            }
+                            addToSet(t)
+                          }} style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>
+                            Add →
                           </button>
                         </div>
                       )
@@ -2810,17 +2810,17 @@ Return ONLY valid JSON, no markdown.`, 300)
                                 Discogs ↗
                               </a>
                             )}
-                            <button disabled={alreadyInLib} onClick={async () => {
-                              if (alreadyInLib) return
-                              const t: Track = { id: `discogs-${release.id}`, title: release.title, artist: release.artist, bpm: 0, key: '', camelot: '', energy: 5,
-                                genre: 'Electronic', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
-                              await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ tracks: [{ ...t, source: 'discogs', discovered_via: { discogs_release_id: release.id, dig_type: crateDigAxis, source_track_id: crateDigTrack?.id } }] }) })
-                              setLibrary(prev => [...prev, t])
-                              showToast(`${release.title} added to library`, 'Added')
-                            }} style={{ ...btn(alreadyInLib ? s.textDimmer : s.setlab, 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0,
-                              opacity: alreadyInLib ? 0.4 : 1, cursor: alreadyInLib ? 'default' : 'pointer' }}>
-                              {alreadyInLib ? '✓ Library' : '+ Add'}
+                            <button onClick={async () => {
+                              const t: Track = { id: alreadyInLib ? library.find(l => l.title.toLowerCase() === (release.title || '').toLowerCase() && l.artist.toLowerCase() === (release.artist || '').toLowerCase())?.id || `discogs-${release.id}` : `discogs-${release.id}`, title: release.title, artist: release.artist, bpm: 0, key: '', camelot: '', energy: 0,
+                                genre: '', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
+                              if (!alreadyInLib) {
+                                await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ tracks: [{ ...t, source: 'discogs', discovered_via: { discogs_release_id: release.id, dig_type: crateDigAxis, source_track_id: crateDigTrack?.id } }] }) })
+                                setLibrary(prev => [...prev, t])
+                              }
+                              addToSet(t)
+                            }} style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0 }}>
+                              Add →
                             </button>
                             <button disabled={alreadyInWantlist} onClick={() => {
                               if (alreadyInWantlist) return
