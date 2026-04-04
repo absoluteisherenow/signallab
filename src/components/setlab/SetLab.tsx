@@ -41,6 +41,8 @@ interface Track {
   similar_to: string      // similar tracks in library
   producer_style: string  // "Four Tet-esque organic textures" etc
   crowd_hits?: number     // times tagged as standout in post-gig debrief
+  source?: string
+  discovered_via?: any
 }
 
 interface SetTrack extends Track {
@@ -160,7 +162,7 @@ export function SetLab() {
   // ── Wantlist state ─────────────────────────────────────────────────────
   const [wantlist, setWantlist] = useState<any[]>([])
   const [wantlistLoading, setWantlistLoading] = useState(false)
-  const [libraryMode, setLibraryMode] = useState<'library' | 'wantlist'>('library')
+  // libraryMode removed — Library tab now shows all sections
   const audioInputRef = useRef<HTMLInputElement>(null)
   const screenshotInputRef = useRef<HTMLInputElement>(null)
   const [screenshotImporting, setScreenshotImporting] = useState(false)
@@ -410,12 +412,24 @@ Return JSON:
     }
   }
 
-  const filteredLibrary = library.filter(t =>
+  const mobileSources = ['shazam', 'snap', 'screenshot']
+  const curatedLibrary = library.filter(t => !mobileSources.includes(t.source || ''))
+  const discoveries = library.filter(t => t.source === 'shazam' || t.source === 'snap')
+  const playlistTracks = library.filter(t => t.source === 'screenshot')
+  const playlistGroups = playlistTracks.reduce<Record<string, Track[]>>((acc, t) => {
+    const name = t.discovered_via?.playlist || 'Untitled'
+    if (!acc[name]) acc[name] = []
+    acc[name].push(t)
+    return acc
+  }, {})
+
+  const searchFn = (t: Track) =>
     t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.genre.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.moment_type.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+
+  const filteredLibrary = curatedLibrary.filter(searchFn)
 
   function addToSet(track: Track) {
     const prev = set[set.length - 1]
@@ -775,6 +789,8 @@ Provide:
           similar_to: t.similar_to || '',
           producer_style: t.producer_style || '',
           crowd_hits: t.crowd_hits || 0,
+          source: t.source || 'manual',
+          discovered_via: t.discovered_via || null,
         })))
       } else {
         setLibrary([])
@@ -1549,83 +1565,10 @@ Return corrected JSON:
         {activeTab === 'library' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-            {/* Library / Wantlist toggle */}
-            <div style={{ display: 'flex', gap: '0' }}>
-              {(['library', 'wantlist'] as const).map(mode => (
-                <button key={mode} onClick={() => setLibraryMode(mode)} style={{
-                  fontFamily: s.font, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase',
-                  padding: '10px 24px', cursor: 'pointer', border: `1px solid ${s.border}`,
-                  background: libraryMode === mode ? s.panel : 'transparent',
-                  color: libraryMode === mode ? s.text : s.textDimmer,
-                  borderBottom: libraryMode === mode ? `2px solid ${mode === 'wantlist' ? s.gold : s.setlab}` : `1px solid ${s.border}`,
-                }}>
-                  {mode === 'library' ? `Library (${library.length})` : `Wantlist (${wantlist.length})`}
-                </button>
-              ))}
+            {/* ── LIBRARY SECTION ── */}
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px' }}>
+              Library ({curatedLibrary.length})
             </div>
-
-            {/* ── WANTLIST VIEW ── */}
-            {libraryMode === 'wantlist' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {wantlistLoading && (
-                  <div style={{ padding: '40px', textAlign: 'center' }}><ScanPulse size="sm" color={s.gold} /></div>
-                )}
-                {!wantlistLoading && wantlist.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '56px 40px' }}>
-                    <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '16px' }}>Wantlist empty</div>
-                    <div style={{ fontSize: '14px', color: s.textDim, marginBottom: '8px' }}>Save releases from Crate Dig to build your wantlist.</div>
-                    <div style={{ fontSize: '12px', color: s.textDimmer }}>Go to Discover → Crate Dig to start digging.</div>
-                  </div>
-                )}
-                {wantlist.map((item: any) => (
-                  <div key={item.discogs_release_id} style={{ background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 18px', transition: 'border-color 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
-                    onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
-                    {item.thumb
-                      ? <img src={item.thumb} alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }} />
-                      : <div style={{ width: '48px', height: '48px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: s.textDimmer }}>&#9835;</div>}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
-                      <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{item.artist}</div>
-                      {item.label_name && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{item.label_name}{item.year ? ` · ${item.year}` : ''}</div>}
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-                      {item.dig_type && (
-                        <div style={{ fontSize: '9px', padding: '3px 7px', background: `${s.setlab}15`, border: `1px solid ${s.setlab}40`, color: s.setlab, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                          {item.dig_type}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-                      {item.discogs_url && (
-                        <a href={item.discogs_url} target="_blank" rel="noreferrer"
-                          style={{ fontSize: '10px', color: s.setlab, textDecoration: 'none', letterSpacing: '0.1em', border: `1px solid ${s.setlab}40`, padding: '5px 10px', whiteSpace: 'nowrap' }}>
-                          Discogs ↗
-                        </a>
-                      )}
-                      <button onClick={async () => {
-                        const t: Track = { id: `discogs-${item.discogs_release_id}`, title: item.title, artist: item.artist, bpm: 0, key: '', camelot: '', energy: 5,
-                          genre: 'Electronic', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
-                        await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ tracks: [{ ...t, source: 'discogs', discovered_via: { discogs_release_id: item.discogs_release_id, dig_type: item.dig_type, source_track_id: item.source_track_id } }] }) })
-                        setLibrary(prev => [...prev, t])
-                        removeFromWantlist(item.discogs_release_id)
-                        showToast(`${item.title} moved to library`, 'Added')
-                      }} style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0 }}>
-                        + Library
-                      </button>
-                      <button onClick={() => removeFromWantlist(item.discogs_release_id)}
-                        style={{ ...btn('#9a6a5a', 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0 }}>
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* ── LIBRARY VIEW (existing) ── */}
-            {libraryMode === 'library' && <>
 
             {/* Search + Add + Filter */}
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1842,7 +1785,122 @@ Return corrected JSON:
                 </div>
               ))}
             </div>
-          </>}
+            {/* ── DISCOVERIES SECTION ── */}
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '32px' }}>
+              Discoveries ({discoveries.length})
+            </div>
+            {discoveries.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 24px' }}>
+                <div style={{ fontSize: '12px', color: s.textDimmer }}>Tracks identified on mobile appear here</div>
+              </div>
+            ) : (
+              <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
+                {discoveries.map(track => (
+                  <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em' }}>{track.title}</div>
+                      <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
+                    </div>
+                    <div style={{ fontSize: '9px', padding: '3px 7px', background: `${s.gold}15`, border: `1px solid ${s.gold}40`, color: s.gold, letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
+                      {track.source}
+                    </div>
+                    <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>Add →</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── PLAYLISTS SECTION ── */}
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '32px' }}>
+              Playlists ({Object.keys(playlistGroups).length})
+            </div>
+            {Object.keys(playlistGroups).length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 24px' }}>
+                <div style={{ fontSize: '12px', color: s.textDimmer }}>Tracklists captured from screenshots appear here</div>
+              </div>
+            ) : (
+              Object.entries(playlistGroups).map(([name, tracks]) => (
+                <div key={name} style={{ background: s.panel, border: `1px solid ${s.border}`, marginBottom: '8px' }}>
+                  <div style={{ padding: '12px 20px', borderBottom: `1px solid ${s.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '12px', color: s.text, letterSpacing: '0.06em' }}>{name}</div>
+                    <div style={{ fontSize: '10px', color: s.textDimmer }}>{tracks.length} tracks</div>
+                  </div>
+                  {tracks.map(track => (
+                    <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', color: s.text }}>{track.title}</div>
+                        <div style={{ fontSize: '11px', color: s.textDim, marginTop: '1px' }}>{track.artist}</div>
+                      </div>
+                      <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>Add →</button>
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+
+            {/* ── WANTLIST SECTION ── */}
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '32px' }}>
+              Wantlist ({wantlist.length})
+            </div>
+            {wantlistLoading && (
+              <div style={{ padding: '40px', textAlign: 'center' }}><ScanPulse size="sm" color={s.gold} /></div>
+            )}
+            {!wantlistLoading && wantlist.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '32px 24px' }}>
+                <div style={{ fontSize: '12px', color: s.textDimmer }}>Save releases from Crate Dig to build your wantlist</div>
+              </div>
+            )}
+            {wantlist.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {wantlist.map((item: any) => (
+                  <div key={item.discogs_release_id} style={{ background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 18px', transition: 'border-color 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
+                    {item.thumb
+                      ? <img src={item.thumb} alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }} />
+                      : <div style={{ width: '48px', height: '48px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: s.textDimmer }}>&#9835;</div>}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+                      <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{item.artist}</div>
+                      {item.label_name && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{item.label_name}{item.year ? ` · ${item.year}` : ''}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                      {item.dig_type && (
+                        <div style={{ fontSize: '9px', padding: '3px 7px', background: `${s.setlab}15`, border: `1px solid ${s.setlab}40`, color: s.setlab, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                          {item.dig_type}
+                        </div>
+                      )}
+                      {item.discogs_url && (
+                        <a href={item.discogs_url} target="_blank" rel="noreferrer"
+                          style={{ fontSize: '10px', color: s.setlab, textDecoration: 'none', letterSpacing: '0.1em', border: `1px solid ${s.setlab}40`, padding: '5px 10px', whiteSpace: 'nowrap' }}>
+                          Discogs ↗
+                        </a>
+                      )}
+                      <button onClick={async () => {
+                        const t: Track = { id: `discogs-${item.discogs_release_id}`, title: item.title, artist: item.artist, bpm: 0, key: '', camelot: '', energy: 5,
+                          genre: 'Electronic', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
+                        await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ tracks: [{ ...t, source: 'discogs', discovered_via: { discogs_release_id: item.discogs_release_id, dig_type: item.dig_type, source_track_id: item.source_track_id } }] }) })
+                        setLibrary(prev => [...prev, t])
+                        removeFromWantlist(item.discogs_release_id)
+                        showToast(`${item.title} moved to library`, 'Added')
+                      }} style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0 }}>
+                        + Library
+                      </button>
+                      <button onClick={() => removeFromWantlist(item.discogs_release_id)}
+                        style={{ ...btn('#9a6a5a', 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0 }}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
           </div>
         )}
 

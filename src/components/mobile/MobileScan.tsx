@@ -343,7 +343,10 @@ Return ONLY the JSON, no other text.` },
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tracks: valid.map(t => ({ artist: t.artist, title: t.title, source: 'screenshot' })),
+          tracks: valid.map(t => ({
+            artist: t.artist, title: t.title, source: 'screenshot',
+            discovered_via: { playlist: name.trim() || `Tracklist ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` },
+          })),
         }),
       })
     } catch (e) {
