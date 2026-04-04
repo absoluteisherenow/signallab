@@ -43,6 +43,8 @@ interface Track {
   crowd_hits?: number     // times tagged as standout in post-gig debrief
   source?: string
   discovered_via?: any
+  spotify_url?: string
+  album_art?: string
 }
 
 interface SetTrack extends Track {
@@ -422,6 +424,8 @@ Return ONLY valid JSON, no markdown.`, 300)
             crowd_reaction: intelligence.crowd_reaction || '',
             similar_to: '',
             producer_style: intelligence.producer_style || '',
+            spotify_url: spotify?.spotify_url || '',
+            album_art: spotify?.album_art || '',
           }
 
           await fetch('/api/tracks', {
@@ -1790,7 +1794,7 @@ Return ONLY valid JSON, no markdown.`, 300)
 
             {/* Track library with expandable intelligence */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '12px 20px', borderBottom: `1px solid ${s.border}`, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '12px 20px', borderBottom: `1px solid ${s.border}`, alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input type="checkbox" checked={selectedTracks.size > 0 && filteredLibrary.every(t => selectedTracks.has(t.id))}
                     onChange={() => {
@@ -1799,6 +1803,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                     }}
                     style={{ cursor: 'pointer', accentColor: s.gold }} />
                 </div>
+                <div />
                 {['Track', 'Artist', 'BPM', 'Key', 'Camelot', 'Energy', 'Moment', ''].map(h => (
                   <div key={h} style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase' }}>{h}</div>
                 ))}
@@ -1812,7 +1817,7 @@ Return ONLY valid JSON, no markdown.`, 300)
               )}
               {filteredLibrary.map(track => (
                 <div key={track.id}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer', background: selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}
+                  <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer', background: selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}
                     onClick={() => setExpandedTrack(expandedTrack === track.id ? null : track.id)}
                     onMouseEnter={e => { if (!selectedTracks.has(track.id)) e.currentTarget.style.background = s.bg }}
                     onMouseLeave={e => { e.currentTarget.style.background = selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}>
@@ -1820,8 +1825,21 @@ Return ONLY valid JSON, no markdown.`, 300)
                       <input type="checkbox" checked={selectedTracks.has(track.id)} readOnly
                         style={{ cursor: 'pointer', accentColor: s.gold }} />
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      {track.album_art ? (
+                        <img src={track.album_art} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '32px', height: '32px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: '10px', color: s.textDimmer }}>♪</span>
+                        </div>
+                      )}
+                    </div>
                     <div>
-                      <div style={{ fontSize: '13px', letterSpacing: '0.05em', color: s.text }}>{track.title}</div>
+                      <div style={{ fontSize: '13px', letterSpacing: '0.05em', color: s.text }}>
+                        {track.spotify_url ? (
+                          <a href={track.spotify_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: s.text, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.color = s.gold)} onMouseLeave={e => (e.currentTarget.style.color = s.text)}>{track.title}</a>
+                        ) : track.title}
+                      </div>
                       {track.notes && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{track.notes}</div>}
                     </div>
                     <div style={{ fontSize: '12px', color: s.textDim, display: 'flex', alignItems: 'center' }}>{track.artist}</div>
@@ -1905,6 +1923,12 @@ Return ONLY valid JSON, no markdown.`, 300)
 
                       {/* Actions row */}
                       <div style={{ display: 'flex', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${s.border}` }}>
+                        {track.spotify_url && (
+                          <a href={track.spotify_url} target="_blank" rel="noopener noreferrer"
+                            style={{ ...btn('#1DB954', 'transparent'), fontSize: '10px', padding: '6px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                            ▶ Listen on Spotify
+                          </a>
+                        )}
                         <button
                           onClick={() => reanalyseTrack(track)}
                           disabled={reanalysing === track.id}

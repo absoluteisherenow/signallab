@@ -74,6 +74,8 @@ export async function POST(req: NextRequest) {
       source: t.source || 'manual',
       enriched: t.enriched || false,
       discovered_via: t.discovered_via || null,
+      spotify_url: t.spotify_url || null,
+      album_art: t.album_art || null,
     }))
 
     const { data, error } = await supabase
