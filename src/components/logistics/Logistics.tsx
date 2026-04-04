@@ -369,7 +369,7 @@ export default function Logistics() {
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        {(gigs || []).map(gig => {
+        {(gigs || []).filter(g => g.date >= new Date().toISOString().slice(0, 10)).map(gig => {
           const advStatus = advanceStatus[gig.id] || 'not_sent'
           const isOpen = selected === gig.id
           const gigDate = new Date(gig.date)

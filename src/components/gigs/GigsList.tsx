@@ -102,7 +102,13 @@ export function GigsList() {
 
   const aColor = (s: string) => s === 'complete' ? f.green : s === 'sent' ? f.gold : f.dimmer
   const aLabel = (s: string) => s === 'complete' ? 'Advance complete' : s === 'sent' ? 'Sent — awaiting' : 'Not sent'
-  const gigList = gigs || []
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const gigList = [...(gigs || [])].sort((a, b) => {
+    const aUp = a.date >= todayStr ? 0 : 1
+    const bUp = b.date >= todayStr ? 0 : 1
+    if (aUp !== bUp) return aUp - bUp
+    return aUp === 0 ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)
+  })
   const totalFees = gigList.filter(g => g.status === 'confirmed').reduce((a, g) => a + g.fee, 0)
 
   return (
