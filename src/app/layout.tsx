@@ -4,6 +4,7 @@ import { Navigation } from '@/components/layout/Navigation'
 import { CommandPalette } from '@/components/ui/CommandPalette'
 import { KeyboardShortcuts } from '@/components/ui/KeyboardShortcuts'
 import { SignalGenius } from '@/components/dashboard/SignalGenius'
+import { FetchProgress } from '@/components/ui/FetchProgress'
 
 export const metadata: Metadata = {
   title: 'Signal Lab OS',
@@ -36,6 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ background: 'var(--bg)', color: 'var(--text)', margin: 0, padding: 0 }}>
+        <FetchProgress />
         <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
           <Navigation />
           <main className="app-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: '100vh' }}>
