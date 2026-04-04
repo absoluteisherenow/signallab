@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
         status: body.status || 'pending',
         promoter_email: body.promoter_email || null,
         notes: body.notes || null,
+        artwork_url: body.artwork_url || null,
+        ra_url: body.ra_url || null,
       }])
       .select()
     if (error) throw error

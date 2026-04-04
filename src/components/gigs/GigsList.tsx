@@ -19,6 +19,8 @@ interface Gig {
   audience: number
   status: string
   promoter_email?: string
+  artwork_url?: string
+  ra_url?: string
 }
 
 
@@ -166,9 +168,14 @@ export function GigsList() {
                 onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = '#111009' }}
                 onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = f.panel }}
               >
-                <div>
-                  <div style={{ fontSize: '14px', color: f.text, marginBottom: '3px' }}>{gig.title}</div>
-                  <div style={{ fontSize: '11px', color: f.dimmer }}>{gig.venue}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  {gig.artwork_url && (
+                    <img src={gig.artwork_url} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover', flexShrink: 0, borderRadius: '2px', opacity: 0.85 }} />
+                  )}
+                  <div>
+                    <div style={{ fontSize: '14px', color: f.text, marginBottom: '3px' }}>{gig.title}</div>
+                    <div style={{ fontSize: '11px', color: f.dimmer }}>{gig.venue}</div>
+                  </div>
                 </div>
                 <div>
                   <div style={{ fontSize: '13px', color: f.dim }}>{gigDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
@@ -203,7 +210,17 @@ export function GigsList() {
                       onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)'; e.currentTarget.style.color = f.gold }}
                     >Edit gig →</button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: `${gig.artwork_url ? '160px ' : ''}1fr 1fr 1fr`, gap: '20px' }}>
+
+                    {/* ARTWORK */}
+                    {gig.artwork_url && (
+                      <div>
+                        <img src={gig.artwork_url} alt="" style={{ width: '160px', height: '160px', objectFit: 'cover', display: 'block', border: `1px solid ${f.border}` }} />
+                        {gig.ra_url && (
+                          <a href={gig.ra_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '9px', color: f.dimmer, textDecoration: 'none', letterSpacing: '0.1em', display: 'block', marginTop: '8px' }}>↗ View on RA</a>
+                        )}
+                      </div>
+                    )}
 
                     {/* DETAILS */}
                     <div>

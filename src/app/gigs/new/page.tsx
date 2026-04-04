@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
 
@@ -20,7 +20,29 @@ export default function NewGig() {
     status: 'pending',
     promoter_email: '',
     notes: '',
+    artwork_url: '',
+    ra_url: '',
   })
+  const [artworkTab, setArtworkTab] = useState<'ra' | 'url'>('ra')
+  const [raInput, setRaInput] = useState('')
+  const [fetchingArtwork, setFetchingArtwork] = useState(false)
+  const [artworkPreview, setArtworkPreview] = useState<string | null>(null)
+  const [artworkError, setArtworkError] = useState('')
+
+  // Debounced RA artwork fetch
+  useEffect(() => {
+    if (!raInput || !raInput.includes('ra.co')) { setArtworkPreview(null); setArtworkError(''); return }
+    const t = setTimeout(async () => {
+      setFetchingArtwork(true); setArtworkError('')
+      try {
+        const d = await fetch(`/api/ra/artwork?url=${encodeURIComponent(raInput)}`).then(r => r.json())
+        if (d.artwork) { setArtworkPreview(d.artwork); setForm(f => ({ ...f, artwork_url: d.artwork, ra_url: raInput })) }
+        else setArtworkError(d.error || 'No artwork found')
+      } catch { setArtworkError('Could not fetch — check the URL') }
+      finally { setFetchingArtwork(false) }
+    }, 700)
+    return () => clearTimeout(t)
+  }, [raInput])
 
   const s = {
     bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
@@ -201,6 +223,64 @@ export default function NewGig() {
                 placeholder="Any additional notes about the show..."
                 rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
+          </div>
+        </div>
+
+        {/* ARTWORK */}
+        <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '32px', marginBottom: '16px' }}>
+          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px' }}>Artwork</div>
+
+          {/* Tab switcher */}
+          <div style={{ display: 'flex', gap: '0', marginBottom: '20px', borderBottom: `1px solid ${s.border}` }}>
+            {(['ra', 'url'] as const).map(t => (
+              <button key={t} onClick={() => setArtworkTab(t)} style={{
+                padding: '8px 18px', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
+                background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: s.font,
+                color: artworkTab === t ? s.gold : s.dimmer,
+                borderBottom: artworkTab === t ? `1px solid ${s.gold}` : '1px solid transparent',
+                marginBottom: '-1px',
+              }}>
+                {t === 'ra' ? 'From RA' : 'Image URL'}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              {artworkTab === 'ra' ? (
+                <div>
+                  <label style={labelStyle}>
+                    Resident Advisor event URL
+                    {fetchingArtwork && <span style={{ marginLeft: '8px', color: s.dimmer, fontStyle: 'italic', textTransform: 'none' }}>fetching…</span>}
+                  </label>
+                  <input value={raInput} onChange={e => { setRaInput(e.target.value); setArtworkPreview(null); setForm(f => ({ ...f, artwork_url: '', ra_url: '' })) }}
+                    placeholder="https://ra.co/events/2147483"
+                    style={{ ...inputStyle, borderColor: artworkPreview ? `${s.gold}60` : undefined }} />
+                  {artworkError && <div style={{ fontSize: '10px', color: '#8a4a3a', marginTop: '6px' }}>{artworkError}</div>}
+                  {artworkPreview && <div style={{ fontSize: '10px', color: '#3d6b4a', marginTop: '6px' }}>✓ Artwork found</div>}
+                </div>
+              ) : (
+                <div>
+                  <label style={labelStyle}>Paste image URL</label>
+                  <input value={form.artwork_url} onChange={e => { setForm(f => ({ ...f, artwork_url: e.target.value })); setArtworkPreview(e.target.value || null) }}
+                    placeholder="https://i1.sndcdn.com/artworks-..."
+                    style={inputStyle} />
+                </div>
+              )}
+            </div>
+
+            {/* Preview */}
+            {artworkPreview ? (
+              <div style={{ flexShrink: 0, position: 'relative' }}>
+                <img src={artworkPreview} alt="Event artwork" style={{ width: '120px', height: '120px', objectFit: 'cover', display: 'block', border: `1px solid ${s.border}` }} />
+                <button onClick={() => { setArtworkPreview(null); setRaInput(''); setForm(f => ({ ...f, artwork_url: '', ra_url: '' })) }}
+                  style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(7,7,6,0.8)', border: 'none', color: s.dimmer, cursor: 'pointer', fontSize: '12px', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              </div>
+            ) : (
+              <div style={{ width: '120px', height: '120px', border: `1px dashed ${s.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ fontSize: '9px', color: s.dimmer, letterSpacing: '0.1em', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.6 }}>No<br/>artwork</div>
+              </div>
+            )}
           </div>
         </div>
 
