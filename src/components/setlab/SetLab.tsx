@@ -622,34 +622,35 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
     if (rawLines.length === 0) { showToast('Paste a tracklist first', 'Error'); return }
 
     // ── Smart format detection ──────────────────────────────────────────
-    // Supports: multi-line blocks (Key/Artist/Title), "Artist - Title", numbered lists, mixed
-    // Normalise Cyrillic А→A, В→B and handle spaced keys like "11 m" → "11m"
+    // Supports: multi-line blocks (Key/Artist/Title), "Artist - Title",
+    // numbered lists (Spotify charts), Rekordbox exports, mixed formats
     const normLine = (l: string) => l.replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B')
     const isCamelot = (l: string) => {
-      const n = normLine(l).replace(/\s+/g, '') // collapse spaces: "11 m" → "11m"
+      const n = normLine(l).replace(/\s+/g, '')
       return /^(\d{1,2}[ABabMm]|[ABabMm])$/i.test(n)
     }
-    const parseCamelot = (l: string) => {
-      const n = normLine(l).replace(/\s+/g, '').toUpperCase()
-      return n.replace(/M$/, 'A') // "11M" (minor) → "11A" in Camelot notation... actually keep raw
-    }
+    const parseCamelot = (l: string) => normLine(l).replace(/\s+/g, '').toUpperCase()
+    const isJustNumber = (l: string) => /^\d+\.?$/.test(l.trim()) // "21", "22.", etc.
     const hasDash = (l: string) => l.includes(' — ') || l.includes(' - ') || l.includes(' – ')
     const splitDash = (l: string) => {
       const sep = l.includes(' — ') ? ' — ' : l.includes(' – ') ? ' – ' : ' - '
       return [l.split(sep)[0].trim(), l.split(sep).slice(1).join(sep).trim()]
     }
 
+    // Pre-process: strip pure number lines (chart positions like 21, 22, 23...)
+    const lines = rawLines.filter(l => !isJustNumber(l))
+
     const parsedTracks: { artist: string; title: string; camelot: string }[] = []
 
-    // Score format: count how many lines look like camelot keys vs dashed lines
-    const camelotCount = rawLines.filter(l => isCamelot(l)).length
-    const dashCount = rawLines.filter(l => hasDash(l)).length
+    // Score format
+    const camelotCount = lines.filter(l => isCamelot(l)).length
+    const dashCount = lines.filter(l => hasDash(l)).length
 
-    if (dashCount > camelotCount && dashCount >= rawLines.length * 0.4) {
+    if (dashCount > camelotCount && dashCount >= lines.length * 0.4) {
       // Predominantly "Artist - Title" format (single-line)
-      for (const line of rawLines) {
+      for (const line of lines) {
         const cleaned = line.replace(/^\d+[\.\)\-\s]+/, '').trim()
-        if (isCamelot(cleaned)) continue // skip stray key lines
+        if (isCamelot(cleaned)) continue
         if (hasDash(cleaned)) {
           const [artist, title] = splitDash(cleaned)
           if (title) parsedTracks.push({ artist, title, camelot: '' })
@@ -659,49 +660,35 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
       }
     } else {
       // Multi-line format: walk through lines, grouping into tracks
+      // In multi-line mode, dashes in track names are NOT separators
       let i = 0
-      while (i < rawLines.length) {
-        const line = rawLines[i]
+      while (i < lines.length) {
+        const line = lines[i]
 
-        // Check if current line is a camelot key
         if (isCamelot(line)) {
           const camelot = parseCamelot(line)
-          // Next line(s) are artist + title
-          if (i + 2 < rawLines.length && !isCamelot(rawLines[i + 1])) {
-            const artist = rawLines[i + 1]
-            const title = rawLines[i + 2]
-            // But if title looks like a camelot key, artist line was actually the title
-            if (isCamelot(title)) {
-              parsedTracks.push({ artist: '', title: artist, camelot })
+          if (i + 2 < lines.length && !isCamelot(lines[i + 1])) {
+            const nextNext = lines[i + 2]
+            if (isCamelot(nextNext)) {
+              // Key + one line before next key = artist only
+              parsedTracks.push({ artist: lines[i + 1], title: '', camelot })
               i += 2
             } else {
-              parsedTracks.push({ artist, title, camelot })
+              parsedTracks.push({ artist: lines[i + 1], title: nextNext, camelot })
               i += 3
             }
-          } else if (i + 1 < rawLines.length) {
-            // Key + one more line = title only
-            parsedTracks.push({ artist: '', title: rawLines[i + 1], camelot })
+          } else if (i + 1 < lines.length) {
+            parsedTracks.push({ artist: '', title: lines[i + 1], camelot })
             i += 2
           } else {
-            i++ // orphan key at end
-          }
-        } else if (hasDash(line)) {
-          // Inline "Artist - Title"
-          const [artist, title] = splitDash(line)
-          if (title) parsedTracks.push({ artist, title, camelot: '' })
-          i++
-        } else {
-          // No key prefix — check if next line is also not a key (artist + title pair)
-          if (i + 1 < rawLines.length && !isCamelot(rawLines[i + 1]) && !hasDash(rawLines[i + 1])) {
-            // Two non-key, non-dash lines = artist then title
-            parsedTracks.push({ artist: line, title: rawLines[i + 1], camelot: '' })
-            i += 2
-          } else if (i + 1 < rawLines.length && isCamelot(rawLines[i + 1])) {
-            // This line followed by a key = this is a standalone title/artist, next block starts
-            parsedTracks.push({ artist: line, title: '', camelot: '' })
             i++
+          }
+        } else {
+          // Two consecutive non-key lines = title then artist (Spotify/chart order)
+          if (i + 1 < lines.length && !isCamelot(lines[i + 1])) {
+            parsedTracks.push({ artist: lines[i + 1], title: line, camelot: '' })
+            i += 2
           } else {
-            // Single orphan line — treat as title
             parsedTracks.push({ artist: '', title: line, camelot: '' })
             i++
           }
@@ -709,12 +696,12 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
       }
     }
 
-    // Clean up: remove entries with no title, trim BPM suffixes like "130" at end
+    // Clean up
     const cleaned = parsedTracks
       .filter(t => t.title || t.artist)
       .map(t => ({
         ...t,
-        title: t.title || t.artist, // if only artist, use as title for Spotify search
+        title: t.title || t.artist,
         artist: t.title ? t.artist : '',
       }))
 
@@ -2092,7 +2079,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                         {track.moment_type || '—'}
                       </span>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); addToSet(track, true) }} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px' }}>→ Set</button>
+                    <button onClick={(e) => { e.stopPropagation(); addToSet(track) }} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px' }}>→ Set</button>
                   </div>
 
                   {/* ── Expanded Track Intelligence Card ── */}
@@ -2224,7 +2211,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                     <div style={{ fontSize: '9px', padding: '3px 7px', background: `${s.gold}15`, border: `1px solid ${s.gold}40`, color: s.gold, letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
                       {track.source}
                     </div>
-                    <button onClick={() => addToSet(track, true)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>→ Set</button>
+                    <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>→ Set</button>
                   </div>
                 ))}
               </div>
@@ -2256,7 +2243,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                         <div style={{ fontSize: '12px', color: s.text }}>{track.title}</div>
                         <div style={{ fontSize: '11px', color: s.textDim, marginTop: '1px' }}>{track.artist}</div>
                       </div>
-                      <button onClick={() => addToSet(track, true)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>→ Set</button>
+                      <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>→ Set</button>
                     </div>
                   ))}
                 </div>
