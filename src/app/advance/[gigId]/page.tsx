@@ -10,14 +10,29 @@ interface GigInfo {
   location?: string
 }
 
-const PROMOTER_FIELDS = [
-  { key: 'local_contact_name', label: 'Promoter name', placeholder: 'Name' },
-  { key: 'local_contact_phone', label: 'Promoter contact', placeholder: '+44 7700 000000' },
-  { key: 'set_time', label: 'Set time', placeholder: 'e.g. 01:00 – 02:30' },
-  { key: 'running_order', label: 'Running order', placeholder: 'e.g. DJ A 22:00–23:30, NM 23:30–01:00, DJ B 01:00–03:00' },
-  { key: 'driver', label: 'Driver / transport', placeholder: 'e.g. Car collecting from hotel at 21:00' },
-  { key: 'artist_liaison', label: 'Artist liaison', placeholder: 'Name + contact if different from above' },
-  { key: 'additional_notes', label: 'Anything else', placeholder: 'Optional' },
+// Paired rows: [left, right] on same line. Single item = full width.
+const FORM_ROWS: { key: string; label: string; placeholder: string }[][] = [
+  [
+    { key: 'local_contact_name', label: 'Promoter name', placeholder: 'Name' },
+    { key: 'local_contact_phone', label: 'Promoter contact', placeholder: '+44 7700 000000' },
+  ],
+  [
+    { key: 'driver_name', label: 'Driver name', placeholder: 'Name' },
+    { key: 'driver_contact', label: 'Driver contact', placeholder: '+44 7700 000000' },
+  ],
+  [
+    { key: 'artist_liaison_name', label: 'Artist liaison', placeholder: 'Name' },
+    { key: 'artist_liaison_contact', label: 'AL contact', placeholder: '+44 7700 000000' },
+  ],
+  [
+    { key: 'set_time', label: 'Set time', placeholder: 'e.g. 01:00 – 02:30' },
+  ],
+  [
+    { key: 'running_order', label: 'Running order', placeholder: 'e.g. DJ A 22:00, NM 00:00, DJ B 02:00' },
+  ],
+  [
+    { key: 'additional_notes', label: 'Anything else', placeholder: 'Optional' },
+  ],
 ]
 
 export default function AdvancePage() {
@@ -199,23 +214,27 @@ export default function AdvancePage() {
           </div>
         )}
 
-        {/* PROMOTER DETAILS */}
+        {/* SHOW DETAILS */}
         <div style={{ marginBottom: '40px' }}>
-          <div style={sectionHeader}>Promoter contact</div>
+          <div style={sectionHeader}>Show details</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {PROMOTER_FIELDS.map(field => (
-              <div key={field.key}>
-                <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  {field.label}
-                </div>
-                <input
-                  value={form[field.key] || ''}
-                  onChange={e => setForm(p => ({ ...p, [field.key]: e.target.value }))}
-                  placeholder={field.placeholder}
-                  style={inputStyle}
-                  onFocus={e => e.target.style.borderColor = '#b08d57'}
-                  onBlur={e => e.target.style.borderColor = '#2e2c29'}
-                />
+            {FORM_ROWS.map((row, ri) => (
+              <div key={ri} style={{ display: 'flex', gap: '12px' }}>
+                {row.map(field => (
+                  <div key={field.key} style={{ flex: 1 }}>
+                    <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      {field.label}
+                    </div>
+                    <input
+                      value={form[field.key] || ''}
+                      onChange={e => setForm(p => ({ ...p, [field.key]: e.target.value }))}
+                      placeholder={field.placeholder}
+                      style={inputStyle}
+                      onFocus={e => e.target.style.borderColor = '#b08d57'}
+                      onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                    />
+                  </div>
+                ))}
               </div>
             ))}
           </div>
