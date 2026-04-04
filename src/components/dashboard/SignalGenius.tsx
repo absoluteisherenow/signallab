@@ -473,7 +473,10 @@ export function SignalGenius() {
       })
 
       contextBlock += `\n\nArtist: ${c.profile.name || 'Unknown'} · ${c.profile.genre || 'Electronic'} · ${c.profile.country || ''}`
-      contextBlock += `\nThis quarter: ${c.quarterStats.gigs} gigs, ${c.quarterStats.posts} posts published, ${c.quarterStats.revenue > 0 ? '£' + c.quarterStats.revenue.toLocaleString() + ' revenue' : 'no revenue logged'}.`
+      const postsNote = c.quarterStats.posts > 0
+        ? `${c.quarterStats.posts} posts scheduled via this system`
+        : `post history not synced from Instagram (user posts directly on platform — do NOT say they have zero posts)`
+      contextBlock += `\nThis quarter: ${c.quarterStats.gigs} gigs, ${postsNote}, ${c.quarterStats.revenue > 0 ? '£' + c.quarterStats.revenue.toLocaleString() + ' revenue' : 'no revenue logged'}.`
 
       // ── ALWAYS INCLUDED: Connected social accounts ──────────────────────────
       if (c.connectedSocialAccounts?.length > 0) {
