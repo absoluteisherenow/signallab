@@ -328,6 +328,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           <a href="sms:${esc(gig.promoter_phone)}" style="flex:1;text-align:center;padding:14px 12px;border:1px solid #1a1917;color:#8a8780;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Message</a>
         </div>` : ''}
       ${gig.promoter_email ? `<a href="mailto:${esc(gig.promoter_email)}" style="display:block;text-align:center;padding:14px 20px;border:1px solid #1a1917;color:#8a8780;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Email promoter</a>` : ''}
+      <a href="/gig-pass/${params.id}" style="display:block;text-align:center;padding:14px;border:1px solid rgba(176,141,87,0.3);color:#b08d57;text-decoration:none;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0">Open full gig pass</a>
       <a href="/dashboard" style="display:block;text-align:center;padding:14px 20px;border:1px solid #1a1917;color:#52504c;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">← Back to dashboard</a>
     </div>
 
@@ -349,12 +350,22 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     </div>` : ''}
 
     <!-- Add to home screen hint -->
-    <div style="padding:16px 24px 48px;text-align:center">
-      <div style="font-size:11px;color:#52504c;margin-bottom:8px">Tap <span style="color:#8a8780">Share</span> then <span style="color:#8a8780">Add to Home Screen</span></div>
-      <div style="font-size:10px;color:#2a2a28">to keep this pass on your phone</div>
+    <div style="text-align:center;padding:24px 0 12px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#52504c">
+      Tap <span style="color:#b08d57">Share</span> then <span style="color:#b08d57">Add to Home Screen</span> to save offline
     </div>
 
   </div>
+  <script>
+    // Cache this page data in localStorage for offline access
+    try {
+      const data = {
+        url: window.location.href,
+        title: document.title,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('wallet-pass-${params.id}', JSON.stringify(data));
+    } catch(e) {}
+  </script>
 </body>
 </html>`
 
@@ -362,7 +373,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
       },
     })
   } catch (err: any) {

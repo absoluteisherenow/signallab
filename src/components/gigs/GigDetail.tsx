@@ -22,6 +22,24 @@ interface Gig {
   ra_url: string | null
 }
 
+interface TravelBooking {
+  id: string
+  type: 'flight' | 'train' | 'hotel'
+  name: string | null
+  flight_number: string | null
+  from_location: string | null
+  to_location: string | null
+  departure_at: string | null
+  arrival_at: string | null
+  check_in: string | null
+  check_out: string | null
+  reference: string | null
+  cost: number | null
+  currency: string
+  notes: string | null
+  source: string
+}
+
 interface GigDetailProps {
   gigId: string
 }
@@ -98,6 +116,10 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const [fetchingArtwork, setFetchingArtwork] = useState(false)
   const [raInput, setRaInput] = useState('')
   const [artworkError, setArtworkError] = useState('')
+  const [travelBookings, setTravelBookings] = useState<TravelBooking[]>([])
+  const [showAddTravel, setShowAddTravel] = useState(false)
+  const [addingTravel, setAddingTravel] = useState(false)
+  const [travelType, setTravelType] = useState<'flight' | 'hotel' | 'train'>('flight')
 
   // Parse rider sections from notes
   function parseRider(notes: string | null): { tech: string | null; hospitality: string | null; confirmed: boolean } | null {
@@ -134,6 +156,11 @@ export function GigDetail({ gigId }: GigDetailProps) {
           setAdvanceStatus(d.requests[0].completed ? 'complete' : 'sent')
         }
       })
+      .catch(() => {})
+
+    fetch(`/api/gigs/${gigId}/travel`)
+      .then(r => r.json())
+      .then(d => setTravelBookings(d.bookings || []))
       .catch(() => {})
   }, [gigId])
 
@@ -220,6 +247,53 @@ export function GigDetail({ gigId }: GigDetailProps) {
       showToast('Delete failed')
       setDeleting(false)
     }
+  }
+
+  async function handleDeleteTravel(bookingId: string) {
+    try {
+      await fetch(`/api/gigs/${gigId}/travel?bookingId=${bookingId}`, { method: 'DELETE' })
+      setTravelBookings(prev => prev.filter(b => b.id !== bookingId))
+      showToast('Booking removed')
+    } catch {
+      showToast('Failed to remove booking')
+    }
+  }
+
+  async function handleAddTravel(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setAddingTravel(true)
+    const fd = new FormData(e.currentTarget)
+    const data: Record<string, any> = { type: travelType }
+    fd.forEach((v, k) => { if (v) data[k] = v })
+    try {
+      const res = await fetch(`/api/gigs/${gigId}/travel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const d = await res.json()
+      if (d.booking) {
+        setTravelBookings(prev => [...prev, d.booking])
+        setShowAddTravel(false)
+        showToast('Travel added')
+      }
+    } catch {
+      showToast('Failed to add travel')
+    } finally {
+      setAddingTravel(false)
+    }
+  }
+
+  function formatDateTime(dt: string | null): string {
+    if (!dt) return '—'
+    const d = new Date(dt)
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  function formatDate(dt: string | null): string {
+    if (!dt) return '—'
+    const d = new Date(dt)
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
   }
 
   // Debounced RA fetch
@@ -489,6 +563,278 @@ export function GigDetail({ gigId }: GigDetailProps) {
           )}
         </form>
 
+        {/* Travel & Logistics */}
+        <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Travel & Logistics</div>
+            {travelBookings.length > 0 && !showAddTravel && (
+              <button type="button" onClick={() => setShowAddTravel(true)}
+                style={{ background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '10px 18px', cursor: 'pointer' }}>
+                + Add
+              </button>
+            )}
+          </div>
+
+          {travelBookings.length === 0 && !showAddTravel && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>No travel booked</div>
+              <button type="button" onClick={() => setShowAddTravel(true)}
+                style={{ background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer' }}>
+                Add travel
+              </button>
+            </div>
+          )}
+
+          {travelBookings.length > 0 && (
+            <div style={{ display: 'grid', gap: '12px', marginBottom: showAddTravel ? '24px' : 0 }}>
+              {travelBookings.map(b => (
+                <div key={b.id} style={{ position: 'relative', background: 'var(--bg)', border: '1px solid var(--border-dim)', padding: '20px 24px' }}>
+                  <button type="button" onClick={() => handleDeleteTravel(b.id)}
+                    style={{ position: 'absolute', top: '12px', right: '12px', background: 'transparent', border: 'none', color: 'var(--text-dimmer)', cursor: 'pointer', fontSize: '14px', fontFamily: 'var(--font-mono)', padding: '4px 8px', lineHeight: 1 }}>
+                    x
+                  </button>
+
+                  {b.type === 'flight' && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                        <span style={{ fontSize: '14px' }}>✈</span>
+                        <span style={{ fontSize: '13px', color: 'var(--text)', letterSpacing: '0.05em' }}>
+                          {b.flight_number && <span style={{ color: 'var(--gold)', marginRight: '8px' }}>{b.flight_number}</span>}
+                          {b.name || 'Flight'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        {(b.from_location || b.to_location) && (
+                          <div>
+                            <div style={s.label}>Route</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{b.from_location || '—'} → {b.to_location || '—'}</div>
+                          </div>
+                        )}
+                        {b.departure_at && (
+                          <div>
+                            <div style={s.label}>Departure</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{formatDateTime(b.departure_at)}</div>
+                          </div>
+                        )}
+                        {b.arrival_at && (
+                          <div>
+                            <div style={s.label}>Arrival</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{formatDateTime(b.arrival_at)}</div>
+                          </div>
+                        )}
+                        {b.reference && (
+                          <div>
+                            <div style={s.label}>Reference</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{b.reference}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {b.type === 'hotel' && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                        <span style={{ fontSize: '14px' }}>🏨</span>
+                        <span style={{ fontSize: '13px', color: 'var(--text)' }}>{b.name || 'Hotel'}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        {b.from_location && (
+                          <div>
+                            <div style={s.label}>Address</div>
+                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.from_location)}`} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: '13px', color: 'var(--gold)', textDecoration: 'none' }}>{b.from_location}</a>
+                          </div>
+                        )}
+                        {b.check_in && (
+                          <div>
+                            <div style={s.label}>Check-in</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{formatDate(b.check_in)}</div>
+                          </div>
+                        )}
+                        {b.check_out && (
+                          <div>
+                            <div style={s.label}>Check-out</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{formatDate(b.check_out)}</div>
+                          </div>
+                        )}
+                        {b.reference && (
+                          <div>
+                            <div style={s.label}>Reference</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{b.reference}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {b.type === 'train' && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                        <span style={{ fontSize: '14px' }}>🚂</span>
+                        <span style={{ fontSize: '13px', color: 'var(--text)' }}>{b.name || 'Train'}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        {(b.from_location || b.to_location) && (
+                          <div>
+                            <div style={s.label}>Route</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{b.from_location || '—'} → {b.to_location || '—'}</div>
+                          </div>
+                        )}
+                        {b.departure_at && (
+                          <div>
+                            <div style={s.label}>Departure</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{formatDateTime(b.departure_at)}</div>
+                          </div>
+                        )}
+                        {b.reference && (
+                          <div>
+                            <div style={s.label}>Reference</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{b.reference}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {b.cost != null && (
+                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-dim)' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-dimmer)', letterSpacing: '0.1em' }}>{currencySymbol(b.currency)}{b.cost.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showAddTravel && (
+            <form onSubmit={handleAddTravel}>
+              <div style={{ display: 'flex', gap: '0', marginBottom: '20px' }}>
+                {(['flight', 'hotel', 'train'] as const).map(t => (
+                  <button key={t} type="button" onClick={() => setTravelType(t)}
+                    style={{
+                      flex: 1, padding: '10px 16px', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase',
+                      background: travelType === t ? 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)' : 'transparent',
+                      border: travelType === t ? '1px solid var(--gold)' : '1px solid var(--border-dim)',
+                      color: travelType === t ? 'var(--gold)' : 'var(--text-dimmer)',
+                      cursor: 'pointer', fontFamily: 'var(--font-mono)',
+                    }}>
+                    {t === 'flight' ? '✈ Flight' : t === 'hotel' ? '🏨 Hotel' : '🚂 Train'}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                {travelType === 'flight' && (
+                  <>
+                    <div>
+                      <div style={s.label}>Airline</div>
+                      <input name="name" placeholder="e.g. Ryanair" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Flight number</div>
+                      <input name="flight_number" placeholder="e.g. FR1234" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>From</div>
+                      <input name="from_location" placeholder="e.g. Dublin" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>To</div>
+                      <input name="to_location" placeholder="e.g. Berlin" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Departure</div>
+                      <input name="departure_at" type="datetime-local" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Arrival</div>
+                      <input name="arrival_at" type="datetime-local" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Reference</div>
+                      <input name="reference" placeholder="Booking ref" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Cost</div>
+                      <input name="cost" type="number" step="0.01" placeholder="0.00" style={s.input} />
+                    </div>
+                  </>
+                )}
+
+                {travelType === 'hotel' && (
+                  <>
+                    <div>
+                      <div style={s.label}>Hotel name</div>
+                      <input name="name" placeholder="e.g. Hotel Amano" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Address</div>
+                      <input name="from_location" placeholder="Full address" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Check-in</div>
+                      <input name="check_in" type="date" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Check-out</div>
+                      <input name="check_out" type="date" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Reference</div>
+                      <input name="reference" placeholder="Booking ref" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Cost</div>
+                      <input name="cost" type="number" step="0.01" placeholder="0.00" style={s.input} />
+                    </div>
+                  </>
+                )}
+
+                {travelType === 'train' && (
+                  <>
+                    <div>
+                      <div style={s.label}>Operator</div>
+                      <input name="name" placeholder="e.g. Eurostar" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>From</div>
+                      <input name="from_location" placeholder="e.g. London St Pancras" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>To</div>
+                      <input name="to_location" placeholder="e.g. Brussels Midi" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Departure</div>
+                      <input name="departure_at" type="datetime-local" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Reference</div>
+                      <input name="reference" placeholder="Booking ref" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Cost</div>
+                      <input name="cost" type="number" step="0.01" placeholder="0.00" style={s.input} />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="submit" disabled={addingTravel}
+                  style={{ background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer', opacity: addingTravel ? 0.7 : 1 }}>
+                  {addingTravel ? 'Saving…' : 'Save booking'}
+                </button>
+                <button type="button" onClick={() => setShowAddTravel(false)}
+                  style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
         {/* Advance section */}
         <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -550,6 +896,10 @@ export function GigDetail({ gigId }: GigDetailProps) {
             style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
             Wallet pass
           </a>
+          <Link href={`/gig-pass/${gig.id}`}
+            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
+            Gig pass
+          </Link>
           <Link href="/business/finances"
             style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '12px 20px', textDecoration: 'none' }}>
             Finances

@@ -7,6 +7,7 @@ import SignalBar from '@/components/SignalBar'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { useMobile } from '@/hooks/useMobile'
 import MobileShell from '@/components/mobile/MobileShell'
+import GigDayTimeline from '@/components/gigs/GigDayTimeline'
 
 interface Gig {
   id: string
@@ -27,6 +28,12 @@ interface Gig {
   driver_phone?: string
   driver_notes?: string
   notes?: string
+  set_time?: string
+  set_length?: number
+  doors_time?: string
+  doors?: string
+  venue_address?: string
+  address?: string
 }
 
 interface TravelBooking {
@@ -526,23 +533,6 @@ export default function Dashboard() {
 
   // ── TONIGHT MODE ──
   if (tonightGig && !loading) {
-    const advStatus = advanceMap[tonightGig.id]
-    const advLabel = advStatus === 'complete' ? 'Complete' : advStatus === 'sent' ? 'Sent' : 'Not sent'
-    const advColor = advStatus === 'complete' ? 'var(--green)' : advStatus === 'sent' ? 'var(--gold)' : 'var(--text-dimmer)'
-
-    const mapsUrl = tonightGig.location
-      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tonightGig.location)}`
-      : null
-
-    const travelSummary = tonightTravel.length > 0
-      ? tonightTravel.map(t => {
-          if (t.type === 'flight') return `Flight ${t.flight_number || t.name || ''} ${t.from_location || ''} → ${t.to_location || ''}`
-          if (t.type === 'hotel') return `Hotel: ${t.name || 'Booked'}${t.check_in ? ` · Check-in ${t.check_in}` : ''}`
-          if (t.type === 'train') return `Train: ${t.from_location || ''} → ${t.to_location || ''}`
-          return `${t.type}: ${t.name || 'Booked'}`
-        })
-      : null
-
     return (
       <div style={{
         background: 'var(--bg)',
@@ -628,110 +618,26 @@ export default function Dashboard() {
             {tonightGig.time || '—'}
           </div>
 
-          {/* Details grid */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '40px' }}>
-
-            {/* Venue address */}
-            {tonightGig.location && (
-              <div>
-                <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-                  Venue address
-                </div>
-                {mapsUrl ? (
-                  <a
-                    href={mapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: '14px', color: 'var(--text)', textDecoration: 'underline', textDecorationColor: 'var(--border-dim)', textUnderlineOffset: '3px' }}
-                  >
-                    {tonightGig.location}
-                  </a>
-                ) : (
-                  <div style={{ fontSize: '14px', color: 'var(--text)' }}>{tonightGig.location}</div>
-                )}
-              </div>
-            )}
-
-            {/* Local contact */}
-            {tonightGig.al_name && (
-              <div>
-                <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-                  Local contact
-                </div>
-                <div style={{ fontSize: '14px', color: 'var(--text)' }}>
-                  {tonightGig.al_name}
-                  {tonightGig.al_phone && (
-                    <> · <a href={`tel:${tonightGig.al_phone}`} style={{ color: 'var(--gold)', textDecoration: 'none' }}>{tonightGig.al_phone}</a></>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Promoter */}
-            {(tonightGig.promoter_email || tonightGig.promoter_phone) && (
-              <div>
-                <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-                  Promoter
-                </div>
-                <div style={{ fontSize: '14px', color: 'var(--text)' }}>
-                  {tonightGig.promoter_phone && (
-                    <a href={`tel:${tonightGig.promoter_phone}`} style={{ color: 'var(--gold)', textDecoration: 'none' }}>{tonightGig.promoter_phone}</a>
-                  )}
-                  {tonightGig.promoter_phone && tonightGig.promoter_email && <> · </>}
-                  {tonightGig.promoter_email && (
-                    <a href={`mailto:${tonightGig.promoter_email}`} style={{ color: 'var(--text-dim)', textDecoration: 'none' }}>{tonightGig.promoter_email}</a>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Driver */}
-            {tonightGig.driver_name && (
-              <div>
-                <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-                  Driver
-                </div>
-                <div style={{ fontSize: '14px', color: 'var(--text)' }}>
-                  {tonightGig.driver_name}
-                  {tonightGig.driver_phone && (
-                    <> · <a href={`tel:${tonightGig.driver_phone}`} style={{ color: 'var(--gold)', textDecoration: 'none' }}>{tonightGig.driver_phone}</a></>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Travel status */}
-            {travelSummary && (
-              <div>
-                <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-                  Travel
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {travelSummary.map((line, i) => (
-                    <div key={i} style={{ fontSize: '14px', color: 'var(--text)' }}>{line}</div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {tonightTravel.length === 0 && (
-              <div>
-                <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-                  Travel
-                </div>
-                <div style={{ fontSize: '14px', color: 'var(--text-dimmer)' }}>No bookings</div>
-              </div>
-            )}
-
-            {/* Advance status */}
-            <div>
-              <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-                Advance
-              </div>
-              <div style={{ fontSize: '14px', color: advColor, fontFamily: 'var(--font-mono)' }}>
-                {advLabel}
-              </div>
-            </div>
-          </div>
+          {/* Gig day timeline */}
+          <GigDayTimeline
+            gig={{
+              venue: tonightGig.venue,
+              location: tonightGig.location,
+              date: tonightGig.date,
+              time: tonightGig.time,
+              set_time: tonightGig.set_time || tonightGig.time,
+              set_length: tonightGig.set_length,
+              doors_time: tonightGig.doors_time || tonightGig.doors,
+              venue_address: tonightGig.venue_address || tonightGig.address || tonightGig.location,
+              al_name: tonightGig.al_name,
+              al_phone: tonightGig.al_phone,
+              promoter_email: tonightGig.promoter_email,
+              promoter_phone: tonightGig.promoter_phone,
+              driver_name: tonightGig.driver_name,
+              driver_phone: tonightGig.driver_phone,
+            }}
+            travelBookings={tonightTravel as any}
+          />
 
           {/* Divider */}
           <div style={{ borderTop: '1px solid var(--border-dim)', marginBottom: '32px' }} />
@@ -817,6 +723,22 @@ export default function Dashboard() {
             >
               Wallet pass
             </a>
+            <Link
+              href={`/gig-pass/${tonightGig.id}`}
+              style={{
+                display: 'inline-block',
+                border: '1px solid rgba(176,141,87,0.3)',
+                color: 'var(--gold)',
+                padding: '14px 28px',
+                fontSize: '11px',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase' as const,
+                textDecoration: 'none',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              Gig pass
+            </Link>
           </div>
         </div>
 

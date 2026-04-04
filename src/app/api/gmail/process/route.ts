@@ -22,6 +22,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getGmailClients } from '@/lib/gmail-accounts'
+import { createNotification } from '@/lib/notifications'
 
 // Use service role key to bypass RLS for token reads/writes and gig updates
 const supabase = createClient(
@@ -103,6 +104,9 @@ Email types to detect:
 - "rider": hospitality or technical rider confirmed
 - "invoice": invoice received, payment request, or payment receipt (deposit paid, balance due, payment confirmed)
 - "release": release confirmation, distribution email, label announcement, streaming live notification, mastering delivery
+- "flight_change": flight time, gate, or route has changed (not a new booking — an update to an existing one)
+- "flight_cancellation": flight has been cancelled
+- "booking_change": hotel or transport booking has been changed (date, room, etc.)
 - "gig_update": general info update for an existing show (schedule change, new contact, etc.)
 - "ignore": newsletters, spam, unrelated
 
@@ -193,23 +197,48 @@ Return:
 async function handleNewGig(extracted: any, emailFrom: string) {
   if (!extracted.title && !extracted.venue) return null
 
+  // Need at minimum a venue and date to auto-create
+  if (!extracted.venue || !extracted.date) return null
+
+  // Check for duplicates — same venue + date
+  const { data: existing } = await supabase
+    .from('gigs')
+    .select('id')
+    .eq('venue', extracted.venue)
+    .eq('date', extracted.date)
+    .maybeSingle()
+
+  if (existing) return null // Already exists
+
   const { data, error } = await supabase.from('gigs').insert([{
-    title: extracted.title || `Show @ ${extracted.venue}`,
-    venue: extracted.venue || '',
+    title: extracted.title || `${extracted.venue} show`,
+    venue: extracted.venue,
     location: extracted.location || '',
-    date: extracted.date || null,
+    date: extracted.date,
     time: extracted.time || '22:00',
     fee: extracted.fee || 0,
     currency: extracted.currency || 'EUR',
-    status: 'confirmed',
+    status: 'pending', // NOT confirmed — needs artist approval
     promoter_email: extracted.promoter_email || emailFrom,
     promoter_name: extracted.promoter_name || '',
     notes: extracted.notes || '',
     created_at: new Date().toISOString(),
-  }]).select()
+  }]).select().single()
 
   if (error) throw error
-  return data?.[0]
+
+  if (data) {
+    await createNotification({
+      type: 'gig_added',
+      title: `Booking detected — ${extracted.venue}`,
+      message: `${extracted.title || extracted.venue} on ${extracted.date}${extracted.fee ? ` for ${extracted.currency || '€'}${extracted.fee}` : ''}. Tap to review and confirm.`,
+      href: `/gigs/${data.id}`,
+      gig_id: data.id,
+      sendEmail: true,
+    })
+  }
+
+  return data
 }
 
 async function handleTravel(type: string, gigId: string | null, extracted: any) {
@@ -378,7 +407,9 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
 
     switch (classification.type) {
       case 'new_gig':
-        actionResult = await handleNewGig(classification.extracted, from)
+        if (classification.confidence >= 0.7) {
+          actionResult = await handleNewGig(classification.extracted, from)
+        }
         break
       case 'hotel':
       case 'flight':
@@ -403,6 +434,105 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
         await handleGigUpdate(classification.gig_id, classification.extracted)
         actionResult = { updated: classification.gig_id }
         break
+
+      case 'flight_change': {
+        // Extract new flight details from the email
+        const fcExtractRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.ANTHROPIC_API_KEY!,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 512,
+            system: 'Extract flight change details from this email. Return JSON: { "flight_number": string, "old_departure": string|null, "new_departure": string, "old_arrival": string|null, "new_arrival": string, "from": string|null, "to": string|null, "reference": string|null }. Return ONLY valid JSON.',
+            messages: [{ role: 'user', content: body }],
+          }),
+        })
+        const fcExtractData = await fcExtractRes.json()
+        const flightChangeDetails = JSON.parse(fcExtractData.content?.[0]?.text || '{}')
+
+        if (flightChangeDetails.flight_number) {
+          const { data: existingFlight } = await supabase
+            .from('travel_bookings')
+            .select('id, gig_id')
+            .eq('flight_number', flightChangeDetails.flight_number)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (existingFlight) {
+            await supabase.from('travel_bookings').update({
+              departure_at: flightChangeDetails.new_departure || undefined,
+              arrival_at: flightChangeDetails.new_arrival || undefined,
+            }).eq('id', existingFlight.id)
+
+            await createNotification({
+              type: 'system',
+              title: `Flight changed — ${flightChangeDetails.flight_number}`,
+              message: `New departure: ${flightChangeDetails.new_departure || 'unknown'}${flightChangeDetails.old_departure ? ` (was ${flightChangeDetails.old_departure})` : ''}`,
+              href: existingFlight.gig_id ? `/gigs/${existingFlight.gig_id}` : undefined,
+              gig_id: existingFlight.gig_id || undefined,
+              sendEmail: true,
+            })
+          }
+        }
+        actionResult = { updated: 'flight_change', flight: flightChangeDetails.flight_number || null }
+        break
+      }
+
+      case 'flight_cancellation': {
+        const fxExtractRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.ANTHROPIC_API_KEY!,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 256,
+            system: 'Extract the cancelled flight number and any rebooking details. Return JSON: { "flight_number": string, "rebooking_reference": string|null, "rebooking_details": string|null }. Return ONLY valid JSON.',
+            messages: [{ role: 'user', content: body }],
+          }),
+        })
+        const fxExtractData = await fxExtractRes.json()
+        const cancelDetails = JSON.parse(fxExtractData.content?.[0]?.text || '{}')
+
+        if (cancelDetails.flight_number) {
+          const { data: existingCancelled } = await supabase
+            .from('travel_bookings')
+            .select('id, gig_id')
+            .eq('flight_number', cancelDetails.flight_number)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          await createNotification({
+            type: 'system',
+            title: `FLIGHT CANCELLED — ${cancelDetails.flight_number}`,
+            message: cancelDetails.rebooking_details || 'Check your email for rebooking options',
+            href: existingCancelled?.gig_id ? `/gigs/${existingCancelled.gig_id}` : undefined,
+            gig_id: existingCancelled?.gig_id || undefined,
+            sendEmail: true,
+          })
+        }
+        actionResult = { alert: 'flight_cancellation', flight: cancelDetails.flight_number || null }
+        break
+      }
+
+      case 'booking_change': {
+        await createNotification({
+          type: 'system',
+          title: 'Booking change detected',
+          message: 'A travel booking has been updated — check your email for details',
+          sendEmail: false,
+        })
+        actionResult = { alert: 'booking_change' }
+        break
+      }
     }
 
     await markProcessed(gmail, msg.id)

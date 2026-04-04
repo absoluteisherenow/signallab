@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const { gigId, gigTitle, venue, date, promoterEmail, promoterName, artistName } = await req.json()
+    const { gigId, gigTitle, venue, date, promoterEmail, promoterName, artistName, location } = await req.json()
+
+    const isLocal = location && /london|hackney|dalston|shoreditch|brixton|peckham|bermondsey|camden|islington/i.test(location)
 
     if (!gigId || !gigTitle || !venue || !date || !promoterEmail) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -22,7 +24,7 @@ export async function POST(req: NextRequest) {
 
 Never mention AI, automation, bots, or anything about how this email was generated. This reads like a hand-written email from the artist or their team.
 
-The email asks the promoter to fill in advance details for an upcoming show. Include all the advance questions INLINE in the email body so the promoter can just hit reply and fill them in. Also include a link to the online form as a backup option.
+The email asks the promoter to fill in advance details for an upcoming show. Include all the advance questions INLINE in the email body so the promoter can just hit reply and fill them in. Also include a link to the online form as a backup option.${isLocal ? '\n\nThis is a LOCAL gig (London area) — no need to ask about hotels, transfers, or parking. Keep the questions focused on the essentials: times, tech, and contact info.' : '\n\nThis is an OUT-OF-TOWN gig — travel logistics matter. Make sure hotel, transfer, and parking questions are clearly included.'}
 
 Output valid JSON with exactly these keys:
 - "subject": a short, natural subject line
@@ -47,11 +49,13 @@ The email should:
 
    - Load-in / soundcheck time:
    - Doors time:
-   - Set time / set length:
-   - Parking available?:
+   - Set time / set length:${isLocal ? '' : `
+   - Parking available?:`}
    - WiFi details (network + password):
-   - Dressing room / hospitality:
-   - Hotel details (if being provided):
+   - Dressing room / hospitality:${isLocal ? '' : `
+   - Hotel name + address (if being provided):
+   - Hotel check-in date + time:
+   - Airport/station transfer arranged? (driver name + phone + pickup details):`}
    - Local contact name + phone:
    - Any backline / technical requirements to note:
    - Additional notes:

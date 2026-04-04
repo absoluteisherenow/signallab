@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMobile } from '@/hooks/useMobile'
+import GigDayTimeline from '@/components/gigs/GigDayTimeline'
 
 interface Gig {
   id: string
@@ -270,6 +271,7 @@ export default function MobileShell() {
   const [showHowTo, setShowHowTo] = useState(false)
   const [systemNotifications, setSystemNotifications] = useState<SystemNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [tonightTravel, setTonightTravel] = useState<any[]>([])
 
   useEffect(() => {
     setIsInstalled(window.matchMedia('(display-mode: standalone)').matches)
@@ -315,6 +317,15 @@ export default function MobileShell() {
   const now = new Date()
   const today = now.toISOString().split('T')[0]
   const tonightGig = gigs.find(g => g.date === today)
+
+  useEffect(() => {
+    if (tonightGig) {
+      fetch(`/api/gigs/${tonightGig.id}/travel`)
+        .then(r => r.json())
+        .then(d => setTonightTravel(d.bookings || []))
+        .catch(() => {})
+    }
+  }, [tonightGig?.id])
   const upcoming = gigs
     .filter(g => new Date(g.date) >= now && g.date !== today)
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -465,10 +476,31 @@ export default function MobileShell() {
             {tonightGig.set_time && ` · ${tonightGig.set_time}`}
             {tonightGig.set_end_time && ` — ${tonightGig.set_end_time}`}
           </div>
-          <a href={`/api/gigs/${tonightGig.id}/wallet`} style={{
+          <GigDayTimeline
+            gig={{
+              venue: tonightGig.venue,
+              location: tonightGig.city,
+              date: tonightGig.date,
+              time: tonightGig.set_time || '',
+              set_time: tonightGig.set_time,
+              set_length: (tonightGig as any).set_length,
+              doors_time: (tonightGig as any).doors_time || (tonightGig as any).doors,
+              venue_address: tonightGig.venue_address || tonightGig.city,
+              al_name: tonightGig.al_name,
+              al_phone: tonightGig.al_phone,
+              promoter_email: tonightGig.promoter_email,
+              promoter_phone: (tonightGig as any).promoter_phone,
+              driver_name: (tonightGig as any).driver_name,
+              driver_phone: (tonightGig as any).driver_phone,
+            }}
+            travelBookings={tonightTravel}
+            compact
+          />
+          <a href={`/gig-pass/${tonightGig.id}`} style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
             background: s.gold, color: '#070706', textDecoration: 'none',
             padding: '12px 24px', fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase',
+            marginTop: '16px',
           }}>
             Open gig pass
           </a>

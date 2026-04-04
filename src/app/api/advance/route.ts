@@ -107,9 +107,39 @@ export async function PUT(req: NextRequest) {
             type: 'hotel',
             name: data.hotel_name,
             from_location: data.hotel_address || null,
-            check_in: data.hotel_checkin || null,
+            check_in: data.hotel_checkin_date || null,
+            reference: data.hotel_reference || null,
             source: 'advance',
           }])
+        }
+      }
+
+      // Cross-populate transfer into travel_bookings
+      if (data.transfer_driver_name) {
+        const existingTransfer = await supabase
+          .from('travel_bookings')
+          .select('id')
+          .eq('gig_id', data.gig_id)
+          .eq('type', 'train')
+          .eq('source', 'advance')
+          .maybeSingle()
+        if (!existingTransfer.data) {
+          await supabase.from('travel_bookings').insert([{
+            gig_id: data.gig_id,
+            type: 'train',
+            name: data.transfer_driver_name,
+            notes: `Phone: ${data.transfer_driver_phone || ''}. Pickup: ${data.transfer_pickup_location || ''}`,
+            departure_at: data.transfer_pickup_time ? new Date(data.transfer_pickup_time).toISOString() : null,
+            source: 'advance',
+          }])
+        }
+
+        // Cross-populate driver details to gig
+        const driverUpdate: Record<string, string> = {}
+        if (data.transfer_driver_name) driverUpdate.driver_name = data.transfer_driver_name
+        if (data.transfer_driver_phone) driverUpdate.driver_phone = data.transfer_driver_phone
+        if (Object.keys(driverUpdate).length > 0) {
+          await supabase.from('gigs').update(driverUpdate).eq('id', data.gig_id)
         }
       }
     }

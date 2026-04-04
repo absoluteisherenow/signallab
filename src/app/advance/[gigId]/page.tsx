@@ -10,6 +10,12 @@ interface GigInfo {
   location?: string
 }
 
+function isLocalGig(location?: string): boolean {
+  if (!location) return false
+  const loc = location.toLowerCase()
+  return /london|hackney|dalston|shoreditch|brixton|peckham|bermondsey|camden|islington/.test(loc)
+}
+
 // Paired rows: [left, right] on same line. Single item = full width.
 const FORM_ROWS: { key: string; label: string; placeholder: string }[][] = [
   [
@@ -53,6 +59,8 @@ export default function AdvancePage() {
   const [hospitalityRider, setHospitalityRider] = useState<string | null>(null)
   const [techConfirmed, setTechConfirmed] = useState(false)
   const [hospoConfirmed, setHospoConfirmed] = useState(false)
+  const [accomProvided, setAccomProvided] = useState(false)
+  const [transferProvided, setTransferProvided] = useState(false)
 
   useEffect(() => {
     fetch(`/api/advance?gigId=${gigId}`)
@@ -247,6 +255,166 @@ export default function AdvancePage() {
             ))}
           </div>
         </div>
+
+        {/* ACCOMMODATION & TRANSFER — non-local gigs only */}
+        {gig && !isLocalGig(gig.location) && (
+          <>
+            {/* ACCOMMODATION */}
+            <div style={{ marginBottom: '40px' }}>
+              <div style={sectionHeader}>Accommodation</div>
+              <label style={confirmRow} onClick={() => setAccomProvided(!accomProvided)}>
+                <div style={{
+                  ...checkbox,
+                  background: accomProvided ? '#b08d57' : 'transparent',
+                  borderColor: accomProvided ? '#b08d57' : '#3a3835',
+                }}>
+                  {accomProvided && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
+                </div>
+                <span style={{ fontSize: '14px', color: accomProvided ? '#ffffff' : '#b0ada6' }}>
+                  Is accommodation being provided?
+                </span>
+              </label>
+              {accomProvided && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
+                  {[
+                    { key: 'hotel_name', label: 'Hotel name', placeholder: 'Hotel name' },
+                    { key: 'hotel_address', label: 'Hotel address', placeholder: 'Full address' },
+                  ].map(field => (
+                    <div key={field.key}>
+                      <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        {field.label}
+                      </div>
+                      <input
+                        value={form[field.key] || ''}
+                        onChange={e => setForm(p => ({ ...p, [field.key]: e.target.value }))}
+                        placeholder={field.placeholder}
+                        style={inputStyle}
+                        onFocus={e => e.target.style.borderColor = '#b08d57'}
+                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                      />
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Check-in date
+                      </div>
+                      <input
+                        type="date"
+                        value={form.hotel_checkin_date || ''}
+                        onChange={e => setForm(p => ({ ...p, hotel_checkin_date: e.target.value }))}
+                        style={{ ...inputStyle, colorScheme: 'dark' }}
+                        onFocus={e => e.target.style.borderColor = '#b08d57'}
+                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Check-in time
+                      </div>
+                      <input
+                        value={form.hotel_checkin_time || ''}
+                        onChange={e => setForm(p => ({ ...p, hotel_checkin_time: e.target.value }))}
+                        placeholder="e.g. 14:00"
+                        style={inputStyle}
+                        onFocus={e => e.target.style.borderColor = '#b08d57'}
+                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Confirmation reference
+                    </div>
+                    <input
+                      value={form.hotel_reference || ''}
+                      onChange={e => setForm(p => ({ ...p, hotel_reference: e.target.value }))}
+                      placeholder="Booking reference"
+                      style={inputStyle}
+                      onFocus={e => e.target.style.borderColor = '#b08d57'}
+                      onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* TRANSFER */}
+            <div style={{ marginBottom: '40px' }}>
+              <div style={sectionHeader}>Airport / station transfer</div>
+              <label style={confirmRow} onClick={() => setTransferProvided(!transferProvided)}>
+                <div style={{
+                  ...checkbox,
+                  background: transferProvided ? '#b08d57' : 'transparent',
+                  borderColor: transferProvided ? '#b08d57' : '#3a3835',
+                }}>
+                  {transferProvided && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
+                </div>
+                <span style={{ fontSize: '14px', color: transferProvided ? '#ffffff' : '#b0ada6' }}>
+                  Is a pickup being arranged?
+                </span>
+              </label>
+              {transferProvided && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Driver / company name
+                      </div>
+                      <input
+                        value={form.transfer_driver_name || ''}
+                        onChange={e => setForm(p => ({ ...p, transfer_driver_name: e.target.value }))}
+                        placeholder="Name"
+                        style={inputStyle}
+                        onFocus={e => e.target.style.borderColor = '#b08d57'}
+                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Driver phone
+                      </div>
+                      <input
+                        value={form.transfer_driver_phone || ''}
+                        onChange={e => setForm(p => ({ ...p, transfer_driver_phone: e.target.value }))}
+                        placeholder="+44 7700 000000"
+                        style={inputStyle}
+                        onFocus={e => e.target.style.borderColor = '#b08d57'}
+                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Pickup location
+                    </div>
+                    <input
+                      value={form.transfer_pickup_location || ''}
+                      onChange={e => setForm(p => ({ ...p, transfer_pickup_location: e.target.value }))}
+                      placeholder="e.g. Berlin Tegel arrivals"
+                      style={inputStyle}
+                      onFocus={e => e.target.style.borderColor = '#b08d57'}
+                      onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Pickup time
+                    </div>
+                    <input
+                      value={form.transfer_pickup_time || ''}
+                      onChange={e => setForm(p => ({ ...p, transfer_pickup_time: e.target.value }))}
+                      placeholder="e.g. 14:30"
+                      style={inputStyle}
+                      onFocus={e => e.target.style.borderColor = '#b08d57'}
+                      onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         {/* SUBMIT */}
         <button
