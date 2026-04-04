@@ -180,6 +180,9 @@ export function SetLab() {
   const [playingTrack, setPlayingTrack] = useState<{ id: string; title: string; artist: string; spotify_url: string; album_art?: string } | null>(null)
   const [librarySection, setLibrarySection] = useState<'all' | 'discoveries' | 'playlists' | 'wantlist'>('all')
   // libraryMode removed — Library tab now shows all sections
+  const [userPlaylists, setUserPlaylists] = useState<Record<string, string[]>>({}) // name → track IDs
+  const [addToMenu, setAddToMenu] = useState<string | null>(null) // track.id when menu is open
+  const [newPlaylistName, setNewPlaylistName] = useState('')
   const audioInputRef = useRef<HTMLInputElement>(null)
   const screenshotInputRef = useRef<HTMLInputElement>(null)
   const [screenshotImporting, setScreenshotImporting] = useState(false)
@@ -4044,7 +4047,7 @@ Return ONLY valid JSON, no markdown.`, 300)
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: playingTrack ? '90px' : '90px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 50, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)' }}>
+        <div style={{ position: 'fixed', top: '20px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 9999, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)', borderRadius: '4px' }}>
           <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: s.setlab, marginBottom: '4px' }}>{toast.tag}</div>
           {toast.msg}
         </div>
