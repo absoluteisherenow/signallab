@@ -596,6 +596,8 @@ body.landing-active .app-main {
 /* ── ADVANCE FORM — public page, hide app shell ── */
 body.advance-active .app-shell {
   display: block !important;
+  height: auto !important;
+  overflow: visible !important;
 }
 body.advance-active .app-shell > nav,
 body.advance-active .sidebar-nav,
@@ -607,12 +609,14 @@ body.advance-active [class*="command-palette"] {
 }
 body.advance-active .app-main {
   padding-bottom: 0 !important;
-  overflow-y: auto !important;
+  overflow-y: visible !important;
+  overflow: visible !important;
   height: auto !important;
   min-height: 100vh !important;
 }
 body.advance-active {
   overflow-y: auto !important;
+  overflow: auto !important;
   height: auto !important;
 }
 
