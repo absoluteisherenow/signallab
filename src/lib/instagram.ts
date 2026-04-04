@@ -222,7 +222,7 @@ async function fetchIGProfile(
 
 async function sendDM(accessToken: string, igUserId: string, recipientId: string, message: string): Promise<boolean> {
   try {
-    const res = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/messages`, {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${igUserId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -89,7 +89,8 @@ export default function MeditatePage() {
   const [breathPhase, setBreathPhase] = useState<BreathPhase>('in')
   const [introText, setIntroText] = useState('')
   const [introPlaying, setIntroPlaying] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const breathRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeRef = useRef(false)
@@ -103,7 +104,10 @@ export default function MeditatePage() {
       activeRef.current = false
       if (timerRef.current) clearInterval(timerRef.current)
       if (breathRef.current) clearTimeout(breathRef.current)
-      if (audioRef.current) audioRef.current.pause()
+      audioSourceRef.current?.stop()
+      audioCtxRef.current?.close()
+      audioCtxRef.current = null
+      audioSourceRef.current = null
     }
   }, [])
 
@@ -142,6 +146,14 @@ export default function MeditatePage() {
         return prev - 1
       })
     }, 1000)
+
+    // Unlock AudioContext during user gesture so TTS can play later
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+      audioCtxRef.current = new AudioContext()
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume()
+    }
 
     // Generate intro + speak it
     generateIntro(m)
@@ -196,14 +208,17 @@ export default function MeditatePage() {
             body: JSON.stringify({ text: fullText }),
           })
           if (ttsRes.ok) {
-            const blob = await ttsRes.blob()
-            const url = URL.createObjectURL(blob)
-            const audio = new Audio(url)
-            audioRef.current = audio
+            const arrayBuffer = await ttsRes.arrayBuffer()
+            const ctx = audioCtxRef.current
+            if (!ctx || !activeRef.current) return
+            const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+            const source = ctx.createBufferSource()
+            source.buffer = audioBuffer
+            source.connect(ctx.destination)
+            audioSourceRef.current = source
             setIntroPlaying(true)
-            audio.onended = () => { setIntroPlaying(false); URL.revokeObjectURL(url) }
-            audio.onerror = () => { setIntroPlaying(false); URL.revokeObjectURL(url) }
-            audio.play().catch(() => setIntroPlaying(false))
+            source.onended = () => setIntroPlaying(false)
+            source.start(0)
           }
         } catch {}
       }
@@ -218,7 +233,8 @@ export default function MeditatePage() {
         // Pause
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
         if (breathRef.current) { clearTimeout(breathRef.current); breathRef.current = null }
-        if (audioRef.current && !audioRef.current.paused) audioRef.current.pause()
+        audioSourceRef.current?.stop()
+        audioCtxRef.current?.suspend()
       } else {
         // Resume
         timerRef.current = setInterval(() => {
@@ -234,7 +250,7 @@ export default function MeditatePage() {
           })
         }, 1000)
         runBreath(mode, breathPhase)
-        if (audioRef.current && audioRef.current.paused && introPlaying) audioRef.current.play().catch(() => {})
+        audioCtxRef.current?.resume()
       }
       return !prev
     })
@@ -245,7 +261,10 @@ export default function MeditatePage() {
     activeRef.current = false
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     if (breathRef.current) { clearTimeout(breathRef.current); breathRef.current = null }
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    audioSourceRef.current?.stop()
+    audioSourceRef.current = null
+    audioCtxRef.current?.close()
+    audioCtxRef.current = null
     setActiveMode(null)
     setScreen('choose')
     setPaused(false)

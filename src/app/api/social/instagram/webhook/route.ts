@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { handleComment, handleDMReply } from '@/lib/instagram'
 
+// Simple in-memory dedup for webhook retries within the same instance
+const recentlyProcessed = new Set<string>()
+function markProcessed(id: string) {
+  recentlyProcessed.add(id)
+  setTimeout(() => recentlyProcessed.delete(id), 60000) // 1 min TTL
+}
+
 // GET — Instagram webhook verification
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -27,6 +34,8 @@ export async function POST(req: NextRequest) {
         if (change.field === 'comments') {
           const c = change.value
           if (!c?.id || !c?.from?.id || !c?.media?.id) continue
+          if (recentlyProcessed.has(c.id)) continue
+          markProcessed(c.id)
           await handleComment({
             commentId: c.id,
             commentText: (c.text || '').toLowerCase(),
@@ -40,6 +49,9 @@ export async function POST(req: NextRequest) {
           const m = change.value
           // Ignore messages sent by the page itself
           if (m?.sender?.id && m?.message?.text && !m?.message?.is_echo) {
+            const msgId = m?.message?.mid || `${m.sender.id}-${Date.now()}`
+            if (recentlyProcessed.has(msgId)) continue
+            markProcessed(msgId)
             await handleDMReply({
               senderId: m.sender.id,
               messageText: m.message.text,

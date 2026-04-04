@@ -11,7 +11,7 @@ export async function GET() {
     .from('dj_contacts')
     .select('*')
     .order('name', { ascending: true })
-  if (error) return NextResponse.json({ contacts: [] })
+  if (error) return NextResponse.json({ contacts: [], error: error.message }, { status: 500 })
   return NextResponse.json({ contacts: data || [] })
 }
 

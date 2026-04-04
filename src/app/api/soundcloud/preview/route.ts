@@ -7,10 +7,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
     const res = await fetch(
       `https://soundcloud.com/oembed?url=${encodeURIComponent(url)}&format=json`,
-      { next: { revalidate: 3600 } }
+      { next: { revalidate: 3600 }, signal: controller.signal }
     )
+    clearTimeout(timeout)
     if (!res.ok) {
       return NextResponse.json({ error: 'Track not found — may be fully private (no secret token)' }, { status: 404 })
     }

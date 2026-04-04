@@ -11,7 +11,7 @@ async function resolveIGUserId(handle: string, accessToken: string, igUserId: st
   try {
     // Search for user via the Graph API
     const res = await fetch(
-      `https://graph.facebook.com/v25.0/${igUserId}?fields=business_discovery.fields(id,username)&business_discovery_user=${handle}&access_token=${accessToken}`
+      `https://graph.facebook.com/v21.0/${igUserId}?fields=business_discovery.fields(id,username)&business_discovery_user=${handle}&access_token=${accessToken}`
     )
     if (!res.ok) return null
     const data = await res.json()
@@ -23,7 +23,7 @@ async function resolveIGUserId(handle: string, accessToken: string, igUserId: st
 
 async function sendDM(accessToken: string, igUserId: string, recipientId: string, message: string): Promise<boolean> {
   try {
-    const res = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/messages`, {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${igUserId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -40,7 +40,7 @@ async function sendDM(accessToken: string, igUserId: string, recipientId: string
 
 export async function POST(req: NextRequest) {
   try {
-    const { contact_ids, message, promo_url } = await req.json()
+    const { contact_ids, message, promo_url, track_title, track_artist } = await req.json()
     if (!contact_ids?.length || !message) {
       return NextResponse.json({ error: 'contact_ids and message required' }, { status: 400 })
     }
@@ -69,12 +69,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No contacts found' }, { status: 400 })
     }
 
-    const fullMessage = promo_url ? `${message}\n\n${promo_url}` : message
-    const results: { name: string; handle: string; sent: boolean; error?: string }[] = []
+    // Create blast record for tracking
+    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'
+    const { data: blast } = await supabase
+      .from('promo_blasts')
+      .insert({
+        track_url: promo_url || null,
+        track_title: track_title || null,
+        track_artist: track_artist || null,
+        message,
+        contact_count: contacts.length,
+      })
+      .select()
+      .single()
+
+    // Generate tracked links per contact (if there's a promo URL)
+    const trackedLinks: Record<string, string> = {}
+    if (promo_url && blast) {
+      for (const contact of contacts) {
+        const code = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4)
+        await supabase.from('promo_tracked_links').insert({
+          blast_id: blast.id,
+          contact_id: contact.id,
+          code,
+          destination_url: promo_url,
+        })
+        trackedLinks[contact.id] = `${APP_URL}/go/${code}`
+      }
+    }
+
+    const results: { name: string; handle: string; sent: boolean; error?: string; contact_id?: string }[] = []
 
     for (const contact of contacts) {
       if (!contact.instagram_handle && !contact.instagram_user_id) {
-        results.push({ name: contact.name, handle: contact.instagram_handle || '?', sent: false, error: 'No Instagram handle' })
+        results.push({ name: contact.name, handle: contact.instagram_handle || '?', sent: false, error: 'No Instagram handle', contact_id: contact.id })
         continue
       }
 
@@ -84,18 +112,21 @@ export async function POST(req: NextRequest) {
       if (!recipientId && contact.instagram_handle) {
         recipientId = await resolveIGUserId(contact.instagram_handle, account.access_token, account.platform_user_id)
         if (recipientId) {
-          // Cache it for next time
           await supabase.from('dj_contacts').update({ instagram_user_id: recipientId }).eq('id', contact.id)
         }
       }
 
       if (!recipientId) {
-        results.push({ name: contact.name, handle: contact.instagram_handle || '?', sent: false, error: 'Could not resolve Instagram ID — they may not follow you' })
+        results.push({ name: contact.name, handle: contact.instagram_handle || '?', sent: false, error: 'Could not resolve Instagram ID — they may not follow you', contact_id: contact.id })
         continue
       }
 
+      // Use tracked link instead of raw URL
+      const contactUrl = trackedLinks[contact.id] || promo_url
+      const fullMessage = contactUrl ? `${message}\n\n${contactUrl}` : message
+
       const sent = await sendDM(account.access_token, account.platform_user_id, recipientId, fullMessage)
-      results.push({ name: contact.name, handle: contact.instagram_handle || '?', sent })
+      results.push({ name: contact.name, handle: contact.instagram_handle || '?', sent, contact_id: contact.id })
 
       if (sent) {
         await supabase.from('dj_contacts').update({
@@ -111,7 +142,12 @@ export async function POST(req: NextRequest) {
     const sent = results.filter(r => r.sent).length
     const failed = results.filter(r => !r.sent).length
 
-    return NextResponse.json({ ok: true, sent, failed, results })
+    // Update blast with results
+    if (blast) {
+      await supabase.from('promo_blasts').update({ sent_count: sent, failed_count: failed }).eq('id', blast.id)
+    }
+
+    return NextResponse.json({ ok: true, sent, failed, results, blast_id: blast?.id })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

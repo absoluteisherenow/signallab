@@ -64,28 +64,41 @@ export async function POST() {
       REELS: ['impressions', 'reach', 'saved', 'video_views'],
     }
 
-    const enriched = await Promise.allSettled(
-      posts.map(async (post) => {
-        const metrics = insightMetrics[post.media_type] || ['impressions', 'reach', 'saved']
-        try {
-          const insightUrl = `https://graph.instagram.com/v25.0/${post.id}/insights?metric=${metrics.join(',')}&access_token=${access_token}`
-          const insightRes = await fetchIG(insightUrl, 5000)
-          if (!insightRes.ok) return { ...post, impressions: null, reach: null, saved: null }
-          const insightData = await insightRes.json()
-          const byName: Record<string, number> = {}
-          ;(insightData.data || []).forEach((m: any) => { byName[m.name] = m.values?.[0]?.value ?? m.value ?? null })
-          return {
-            ...post,
-            impressions: byName.impressions ?? null,
-            reach: byName.reach ?? null,
-            saved: byName.saved ?? null,
-            video_views: byName.video_views ?? null,
+    // Batch insight requests — 10 at a time to avoid rate limits
+    const enriched: PromiseSettledResult<any>[] = []
+    for (let i = 0; i < posts.length; i += 10) {
+      const batch = posts.slice(i, i + 10)
+      const batchResults = await Promise.allSettled(
+        batch.map(async (post) => {
+          const metrics = insightMetrics[post.media_type] || ['impressions', 'reach', 'saved']
+          try {
+            const insightUrl = `https://graph.instagram.com/v25.0/${post.id}/insights?metric=${metrics.join(',')}&access_token=${access_token}`
+            let insightRes = await fetchIG(insightUrl, 5000)
+            // Retry once on transient failure
+            if (!insightRes.ok && (insightRes.status === 429 || insightRes.status >= 500)) {
+              await new Promise(r => setTimeout(r, 2000))
+              insightRes = await fetchIG(insightUrl, 5000)
+            }
+            if (!insightRes.ok) return { ...post, impressions: null, reach: null, saved: null }
+            const insightData = await insightRes.json()
+            const byName: Record<string, number> = {}
+            ;(insightData.data || []).forEach((m: any) => { byName[m.name] = m.values?.[0]?.value ?? m.value ?? null })
+            return {
+              ...post,
+              impressions: byName.impressions ?? null,
+              reach: byName.reach ?? null,
+              saved: byName.saved ?? null,
+              video_views: byName.video_views ?? null,
+            }
+          } catch {
+            return { ...post, impressions: null, reach: null, saved: null }
           }
-        } catch {
-          return { ...post, impressions: null, reach: null, saved: null }
-        }
-      })
-    )
+        })
+      )
+      enriched.push(...batchResults)
+      // Small delay between batches
+      if (i + 10 < posts.length) await new Promise(r => setTimeout(r, 500))
+    }
 
     const toUpsert = enriched
       .filter(r => r.status === 'fulfilled')

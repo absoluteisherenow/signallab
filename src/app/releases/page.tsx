@@ -20,6 +20,7 @@ const TIERS = ['priority', 'standard', 'new']
 export default function DropLabPage() {
   const mobile = useMobile()
   const [tab, setTab] = useState<'releases' | 'promo'>('releases')
+  const [initialPromoUrl, setInitialPromoUrl] = useState('')
 
   const s = {
     bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)', borderMid: 'var(--border)',
@@ -62,14 +63,14 @@ export default function DropLabPage() {
         </div>
       </div>
 
-      {tab === 'releases' ? <ReleasesTab s={s} mobile={mobile} /> : <DJPromoTab s={s} />}
+      {tab === 'releases' ? <ReleasesTab s={s} mobile={mobile} onSendPromo={(url) => { setInitialPromoUrl(url); setTab('promo') }} /> : <DJPromoTab s={s} initialUrl={initialPromoUrl} onUrlConsumed={() => setInitialPromoUrl('')} />}
     </div>
   )
 }
 
 // ─── Releases tab ─────────────────────────────────────────────────────────────
 
-function ReleasesTab({ s, mobile }: { s: any; mobile: boolean }) {
+function ReleasesTab({ s, mobile, onSendPromo }: { s: any; mobile: boolean; onSendPromo: (url: string) => void }) {
   const [releases, setReleases] = useState<Release[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -94,7 +95,14 @@ function ReleasesTab({ s, mobile }: { s: any; mobile: boolean }) {
             <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '2px' }}>{release.artist && `${release.artist} · `}{TYPE_LABELS[release.type] || release.type} · {formatDate(release.release_date)}</div>
           </div>
         </div>
-        <Link href={`/releases/${release.id}/edit`} style={{ fontSize: '9px', color: s.dimmer, textDecoration: 'none', flexShrink: 0 }}>Edit</Link>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+          {release.streaming_url && (
+            <button onClick={() => onSendPromo(release.streaming_url!)} style={{ fontSize: '9px', color: s.gold, background: 'transparent', border: `1px solid ${s.gold}40`, padding: '4px 10px', fontFamily: s.font, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              Promo →
+            </button>
+          )}
+          <Link href={`/releases/${release.id}/edit`} style={{ fontSize: '9px', color: s.dimmer, textDecoration: 'none', flexShrink: 0 }}>Edit</Link>
+        </div>
       </div>
     )
     return (
@@ -121,10 +129,15 @@ function ReleasesTab({ s, mobile }: { s: any; mobile: boolean }) {
             </a>
           ) : <span style={{ fontSize: '10px', color: s.dimmer }}>{isPast ? 'No link' : '—'}</span>}
         </div>
-        <div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <Link href={`/releases/${release.id}/campaign`} style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: s.gold, border: `1px solid ${s.gold}40`, padding: '5px 12px', textDecoration: 'none', display: 'inline-block' }}>
             Build campaign →
           </Link>
+          {release.streaming_url && (
+            <button onClick={() => onSendPromo(release.streaming_url!)} style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.dim, border: `1px solid ${s.border}`, padding: '5px 12px', background: 'transparent', fontFamily: s.font, cursor: 'pointer' }}>
+              Send promo →
+            </button>
+          )}
         </div>
         <div>
           <Link href={`/releases/${release.id}/edit`} style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.dimmer, textDecoration: 'none', padding: '5px 8px' }}>Edit</Link>
@@ -178,7 +191,7 @@ function ReleasesTab({ s, mobile }: { s: any; mobile: boolean }) {
 
 interface TrackMeta { title: string | null; author: string | null; description: string | null; artwork: string | null }
 
-function DJPromoTab({ s }: { s: any }) {
+function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: string; onUrlConsumed?: () => void }) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -187,17 +200,48 @@ function DJPromoTab({ s }: { s: any }) {
   const [blasting, setBlasting] = useState(false)
   const [blastMessage, setBlastMessage] = useState('')
   const [blastUrl, setBlastUrl] = useState('')
-  const [blastResult, setBlastResult] = useState<{ sent: number; failed: number; results: any[] } | null>(null)
+  const [blastResult, setBlastResult] = useState<{ sent: number; failed: number; results: any[]; blast_id?: string } | null>(null)
   const [showBlast, setShowBlast] = useState(false)
   const [filterTier, setFilterTier] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [importing, setImporting] = useState(false)
   const [form, setForm] = useState({ name: '', instagram_handle: '', email: '', genre: '', tier: 'standard', notes: '' })
   const [trackMeta, setTrackMeta] = useState<TrackMeta | null>(null)
   const [fetchingMeta, setFetchingMeta] = useState(false)
   const [writingPromo, setWritingPromo] = useState(false)
+  const [blastHistory, setBlastHistory] = useState<any[]>([])
+  const [showHistory, setShowHistory] = useState(false)
+  const [reactions, setReactions] = useState<Record<string, string>>({})
 
   const inp = `width: 100%; background: var(--panel); border: 1px solid var(--border-dim); color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; outline: none;`
 
   useEffect(() => { loadContacts() }, [])
+
+  // Pre-fill URL when coming from a release row
+  useEffect(() => {
+    if (initialUrl) {
+      setBlastUrl(initialUrl)
+      setShowBlast(true)
+      onUrlConsumed?.()
+    }
+  }, [initialUrl])
+
+  // Load draft from localStorage
+  useEffect(() => {
+    const draft = localStorage.getItem('nm_blast_draft')
+    if (draft) {
+      try { const d = JSON.parse(draft); if (d.message) setBlastMessage(d.message); if (d.url) setBlastUrl(d.url) } catch {}
+    }
+  }, [])
+
+  // Save draft to localStorage
+  useEffect(() => {
+    if (blastMessage || blastUrl) {
+      localStorage.setItem('nm_blast_draft', JSON.stringify({ message: blastMessage, url: blastUrl }))
+    } else {
+      localStorage.removeItem('nm_blast_draft')
+    }
+  }, [blastMessage, blastUrl])
 
   // Auto-fetch SoundCloud metadata when URL changes
   useEffect(() => {
@@ -233,6 +277,11 @@ function DJPromoTab({ s }: { s: any }) {
     setLoading(false)
   }
 
+  async function loadBlastHistory() {
+    const d = await fetch('/api/promo-stats').then(r => r.json())
+    setBlastHistory(d.blasts || [])
+  }
+
   async function addContact() {
     if (!form.name) return
     setSaving(true)
@@ -251,18 +300,73 @@ function DJPromoTab({ s }: { s: any }) {
 
   async function sendBlast() {
     if (!blastMessage || selected.size === 0) return
+    const names = contacts.filter(c => selected.has(c.id)).map(c => c.name)
+    const preview = names.slice(0, 3).join(', ') + (names.length > 3 ? ` + ${names.length - 3} more` : '')
+    if (!window.confirm(`Send DM to ${selected.size} contacts?\n\n${preview}`)) return
     setBlasting(true); setBlastResult(null)
     try {
-      const d = await fetch('/api/promo-blast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_ids: Array.from(selected), message: blastMessage, promo_url: blastUrl || null }) }).then(r => r.json())
+      const d = await fetch('/api/promo-blast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_ids: Array.from(selected), message: blastMessage, promo_url: blastUrl || null, track_title: trackMeta?.title || null, track_artist: trackMeta?.author || null }) }).then(r => r.json())
       setBlastResult(d)
-      if (d.ok) { await loadContacts(); setSelected(new Set()); setBlastMessage(''); setBlastUrl('') }
+      if (d.ok) { await loadContacts(); setSelected(new Set()); setBlastMessage(''); setBlastUrl(''); localStorage.removeItem('nm_blast_draft') }
     } finally { setBlasting(false) }
+  }
+
+  function handleCSVImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      try {
+        const text = ev.target?.result as string
+        const lines = text.split('\n').filter(l => l.trim())
+        if (lines.length < 2) { setImporting(false); return }
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
+        const nameIdx = headers.findIndex(h => h === 'name')
+        const igIdx = headers.findIndex(h => h.includes('instagram') || h === 'ig' || h === 'handle')
+        const emailIdx = headers.findIndex(h => h.includes('email'))
+        const genreIdx = headers.findIndex(h => h.includes('genre'))
+        const tierIdx = headers.findIndex(h => h.includes('tier'))
+        const notesIdx = headers.findIndex(h => h.includes('notes'))
+        if (nameIdx === -1) { alert('CSV must have a "name" column'); setImporting(false); return }
+
+        let imported = 0
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim().replace(/^['"]|['"]$/g, ''))
+          const name = cols[nameIdx]
+          if (!name) continue
+          await fetch('/api/contacts', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name,
+              instagram_handle: igIdx >= 0 ? cols[igIdx] : '',
+              email: emailIdx >= 0 ? cols[emailIdx] : '',
+              genre: genreIdx >= 0 ? cols[genreIdx] : '',
+              tier: tierIdx >= 0 && ['priority','standard','new'].includes(cols[tierIdx]?.toLowerCase()) ? cols[tierIdx].toLowerCase() : 'standard',
+              notes: notesIdx >= 0 ? cols[notesIdx] : '',
+            }),
+          })
+          imported++
+        }
+        await loadContacts()
+        alert(`${imported} contacts imported`)
+      } catch (err) { alert('Import failed — check CSV format') }
+      finally { setImporting(false); e.target.value = '' }
+    }
+    reader.readAsText(file)
   }
 
   function toggleSelect(id: string) { setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s }) }
   function selectAll() { const ids = filtered.map(c => c.id); setSelected(prev => prev.size === ids.length ? new Set() : new Set(ids)) }
 
-  const filtered = filterTier === 'all' ? contacts : contacts.filter(c => c.tier === filterTier)
+  const filtered = contacts.filter(c => {
+    if (filterTier !== 'all' && c.tier !== filterTier) return false
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      return c.name.toLowerCase().includes(q) || (c.instagram_handle || '').toLowerCase().includes(q) || (c.genre || '').toLowerCase().includes(q)
+    }
+    return true
+  })
 
   return (
     <div style={{ display: 'flex', flex: 1, height: 'calc(100vh - 140px)' }}>
@@ -281,6 +385,12 @@ function DJPromoTab({ s }: { s: any }) {
                 }}>{t}</button>
               ))}
             </div>
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search contacts..."
+              style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '10px', padding: '4px 12px', outline: 'none', width: '160px' }}
+            />
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {selected.size > 0 && (
@@ -291,6 +401,10 @@ function DJPromoTab({ s }: { s: any }) {
             <button onClick={() => setAdding(true)} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, cursor: 'pointer', padding: '0 14px', height: '32px', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font }}>
               + Add contact
             </button>
+            <label style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, cursor: 'pointer', padding: '0 14px', height: '32px', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font, display: 'inline-flex', alignItems: 'center' }}>
+              {importing ? 'Importing...' : '↑ Import CSV'}
+              <input type="file" accept=".csv" onChange={handleCSVImport} style={{ display: 'none' }} />
+            </label>
           </div>
         </div>
 
@@ -430,6 +544,9 @@ function DJPromoTab({ s }: { s: any }) {
               <textarea value={blastMessage} onChange={e => setBlastMessage(e.target.value)} rows={7}
                 placeholder={"hey — new EP out on Fabric Records April 17. private link below, would love your support 🖤"}
                 style={{ width: '100%', background: 'var(--bg)', border: `1px solid ${s.borderMid}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px 12px', outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.6 }} />
+              <div style={{ textAlign: 'right', fontSize: '9px', color: blastMessage.length > 1000 ? '#f87171' : s.dimmer, marginTop: '4px' }}>
+                {blastMessage.length}/1000
+              </div>
             </div>
 
             {blastResult && (
@@ -438,11 +555,77 @@ function DJPromoTab({ s }: { s: any }) {
                 {blastResult.results?.filter(r => !r.sent).map((r, i) => <div key={i} style={{ fontSize: '9px', color: s.dim }}>× {r.name}: {r.error}</div>)}
               </div>
             )}
+            {blastResult && blastResult.failed > 0 && (
+              <button onClick={() => {
+                const failedIds = contacts.filter(c =>
+                  blastResult.results?.some(r => !r.sent && (r.handle === c.instagram_handle || r.name === c.name))
+                ).map(c => c.id)
+                setSelected(new Set(failedIds))
+              }}
+                style={{ background: 'transparent', border: `1px solid ${s.gold}40`, color: s.gold, cursor: 'pointer', padding: '8px 16px', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font }}>
+                Select {blastResult.failed} failed to retry →
+              </button>
+            )}
+            {blastResult && blastResult.sent > 0 && (
+              <div>
+                <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.dimmer, marginBottom: '8px', marginTop: '8px' }}>DJ Reactions</div>
+                {blastResult.results?.filter((r: any) => r.sent).map((r: any, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${s.border}` }}>
+                    <div style={{ fontSize: '10px', color: s.text }}>{r.name}</div>
+                    <select
+                      value={reactions[r.contact_id] || 'none'}
+                      onChange={async (e) => {
+                        const reaction = e.target.value
+                        setReactions(prev => ({ ...prev, [r.contact_id]: reaction }))
+                        if (blastResult.blast_id) {
+                          await fetch('/api/promo-reactions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ blast_id: blastResult.blast_id, contact_id: r.contact_id, reaction }),
+                          })
+                        }
+                      }}
+                      style={{ background: 'var(--bg)', border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '9px', padding: '3px 8px', outline: 'none' }}
+                    >
+                      <option value="none">—</option>
+                      <option value="playing">🔥 Playing it</option>
+                      <option value="liked">👍 Liked it</option>
+                      <option value="replied">💬 Replied</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
             <button onClick={sendBlast} disabled={blasting || !blastMessage || selected.size === 0}
               style={{ background: s.gold, color: '#070706', border: 'none', cursor: 'pointer', padding: '12px 20px', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', fontFamily: s.font, opacity: blasting || !blastMessage || selected.size === 0 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               {blasting ? 'Sending...' : 'Send via Instagram DM →'}
             </button>
             <div style={{ fontSize: '9px', color: s.dimmer, lineHeight: 1.6 }}>Only reaches contacts who follow you on Instagram</div>
+            {/* Blast history */}
+            <div style={{ borderTop: `1px solid ${s.border}`, marginTop: '8px', paddingTop: '16px' }}>
+              <button onClick={() => { setShowHistory(!showHistory); if (!showHistory) loadBlastHistory() }}
+                style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, cursor: 'pointer', padding: '8px 16px', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font, width: '100%' }}>
+                {showHistory ? 'Hide history' : 'Blast history →'}
+              </button>
+              {showHistory && (
+                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {blastHistory.length === 0 && <div style={{ fontSize: '10px', color: s.dimmer }}>No blasts yet</div>}
+                  {blastHistory.map((b: any) => (
+                    <div key={b.id} style={{ background: 'var(--bg)', border: `1px solid ${s.border}`, padding: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <div style={{ fontSize: '10px', color: s.text }}>{b.track_title || 'Untitled'}</div>
+                        <div style={{ fontSize: '9px', color: s.dimmer }}>{new Date(b.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', fontSize: '9px', color: s.dim }}>
+                        <span>{b.sent_count}/{b.contact_count} sent</span>
+                        {b.totalClicks !== undefined && <span>{b.uniqueOpens} opened</span>}
+                        {b.reactionCount > 0 && <span>{b.reactionCount} reactions</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
