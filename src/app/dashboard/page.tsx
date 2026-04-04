@@ -866,9 +866,9 @@ export default function Dashboard() {
       desc: 'BPM, key, production techniques, mix character — actionable.',
     },
     {
-      href: '/releases', label: 'Drop Lab', accent: '#8aad6b',
-      title: 'Plan a release',
-      desc: 'Pre-save to launch day. Phase-by-phase rollout.',
+      href: '/drop-lab', label: 'Drop Lab', accent: '#8aad6b',
+      title: 'DJ promo & release contacts',
+      desc: 'Private SoundCloud blasts to your DJ list via Instagram DM.',
     },
     {
       href: '/business/finances', label: 'Finances', accent: '#ad8a6b',

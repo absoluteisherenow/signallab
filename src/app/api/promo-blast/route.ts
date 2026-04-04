@@ -1,0 +1,118 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+// Resolve Instagram handle → user ID using existing connected account token
+async function resolveIGUserId(handle: string, accessToken: string, igUserId: string): Promise<string | null> {
+  try {
+    // Search for user via the Graph API
+    const res = await fetch(
+      `https://graph.facebook.com/v25.0/${igUserId}?fields=business_discovery.fields(id,username)&business_discovery_user=${handle}&access_token=${accessToken}`
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return data?.business_discovery?.id || null
+  } catch {
+    return null
+  }
+}
+
+async function sendDM(accessToken: string, igUserId: string, recipientId: string, message: string): Promise<boolean> {
+  try {
+    const res = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text: message },
+        access_token: accessToken,
+      }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { contact_ids, message, promo_url } = await req.json()
+    if (!contact_ids?.length || !message) {
+      return NextResponse.json({ error: 'contact_ids and message required' }, { status: 400 })
+    }
+
+    // Get connected Instagram account
+    const { data: account } = await supabase
+      .from('connected_social_accounts')
+      .select('access_token, platform_user_id, token_expiry')
+      .eq('platform', 'instagram')
+      .single()
+
+    if (!account?.access_token) {
+      return NextResponse.json({ error: 'No Instagram account connected' }, { status: 400 })
+    }
+    if (account.token_expiry && Date.now() > Number(account.token_expiry)) {
+      return NextResponse.json({ error: 'Instagram token expired — reconnect in Settings' }, { status: 401 })
+    }
+
+    // Load contacts
+    const { data: contacts } = await supabase
+      .from('dj_contacts')
+      .select('*')
+      .in('id', contact_ids)
+
+    if (!contacts?.length) {
+      return NextResponse.json({ error: 'No contacts found' }, { status: 400 })
+    }
+
+    const fullMessage = promo_url ? `${message}\n\n${promo_url}` : message
+    const results: { name: string; handle: string; sent: boolean; error?: string }[] = []
+
+    for (const contact of contacts) {
+      if (!contact.instagram_handle && !contact.instagram_user_id) {
+        results.push({ name: contact.name, handle: contact.instagram_handle || '?', sent: false, error: 'No Instagram handle' })
+        continue
+      }
+
+      let recipientId = contact.instagram_user_id
+
+      // Resolve user ID if we don't have it cached
+      if (!recipientId && contact.instagram_handle) {
+        recipientId = await resolveIGUserId(contact.instagram_handle, account.access_token, account.platform_user_id)
+        if (recipientId) {
+          // Cache it for next time
+          await supabase.from('dj_contacts').update({ instagram_user_id: recipientId }).eq('id', contact.id)
+        }
+      }
+
+      if (!recipientId) {
+        results.push({ name: contact.name, handle: contact.instagram_handle || '?', sent: false, error: 'Could not resolve Instagram ID — they may not follow you' })
+        continue
+      }
+
+      const sent = await sendDM(account.access_token, account.platform_user_id, recipientId, fullMessage)
+      results.push({ name: contact.name, handle: contact.instagram_handle || '?', sent })
+
+      if (sent) {
+        await supabase.from('dj_contacts').update({
+          last_sent_at: new Date().toISOString(),
+          total_promos_sent: (contact.total_promos_sent || 0) + 1,
+        }).eq('id', contact.id)
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(r => setTimeout(r, 300))
+    }
+
+    const sent = results.filter(r => r.sent).length
+    const failed = results.filter(r => !r.sent).length
+
+    return NextResponse.json({ ok: true, sent, failed, results })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
