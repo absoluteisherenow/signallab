@@ -873,6 +873,15 @@ Provide:
     showToast('Track removed', 'Done')
   }
 
+  async function deleteSelectedTracks() {
+    const ids = Array.from(selectedTracks)
+    if (!confirm(`Delete ${ids.length} track${ids.length !== 1 ? 's' : ''} from library?`)) return
+    await Promise.all(ids.map(id => fetch('/api/tracks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })))
+    setLibrary(prev => prev.filter(t => !selectedTracks.has(t.id)))
+    showToast(`${ids.length} tracks deleted`, 'Done')
+    setSelectedTracks(new Set())
+  }
+
   async function reanalyseTrack(track: Track) {
     setReanalysing(track.id)
     try {
@@ -1932,6 +1941,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button onClick={() => setSelectedTracks(new Set())} style={{ ...btn(s.border), fontSize: '10px', padding: '8px 16px', color: s.textDim }}>Clear</button>
+                  <button onClick={deleteSelectedTracks} style={{ ...btn('#ff4444'), fontSize: '10px', padding: '8px 16px' }}>Delete</button>
                   <button onClick={addSelectedToSet} style={{ ...btn(s.gold), fontSize: '10px', padding: '8px 20px' }}>Add {selectedTracks.size} to Set →</button>
                 </div>
               </div>
