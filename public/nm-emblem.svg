@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Night Manoeuvres emblem — crossed batons with 4 dots -->
+  <!-- Two crossed batons -->
+  <line x1="22" y1="18" x2="78" y2="82" stroke="#f0ebe2" stroke-width="3" stroke-linecap="round"/>
+  <line x1="78" y1="18" x2="22" y2="82" stroke="#f0ebe2" stroke-width="3" stroke-linecap="round"/>
+  <!-- Four dots between the arms -->
+  <circle cx="50" cy="22" r="4.5" fill="#f0ebe2"/>
+  <circle cx="50" cy="78" r="4.5" fill="#f0ebe2"/>
+  <circle cx="22" cy="50" r="4.5" fill="#f0ebe2"/>
+  <circle cx="78" cy="50" r="4.5" fill="#f0ebe2"/>
+</svg>

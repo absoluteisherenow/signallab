@@ -73,7 +73,11 @@ export default function AdvancePage() {
   if (submitted) return (
     <div style={{ minHeight: '100vh', background: '#070706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono', 'Courier New', monospace" }}>
       <div style={{ textAlign: 'center', color: '#f0ebe2', padding: '24px' }}>
-        <img src="/nm-logo-bw.png" alt="Night Manoeuvres" style={{ width: '160px', marginBottom: '40px', opacity: 1, filter: 'invert(1) brightness(2)' }} />
+        <div style={{ marginBottom: '40px' }}>
+          <img src="/nm-emblem.svg" alt="" style={{ width: '52px', height: '52px', marginBottom: '16px' }} />
+          <div style={{ fontSize: '12px', letterSpacing: '0.35em', fontWeight: 500, color: '#f0ebe2', textTransform: 'uppercase', fontFamily: "'DM Mono', 'Courier New', monospace" }}>NIGHT</div>
+          <div style={{ fontSize: '18px', fontWeight: 300, color: '#f0ebe2', fontFamily: "'Georgia', 'Times New Roman', serif", fontStyle: 'italic', marginTop: '2px', letterSpacing: '0.02em' }}>manoeuvres</div>
+        </div>
         <div style={{ color: '#b08d57', fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '20px' }}>Advance confirmed</div>
         <div style={{ fontSize: '28px', fontWeight: 300, marginBottom: '16px', lineHeight: 1.3 }}>Thank you</div>
         {gig && (
@@ -91,9 +95,15 @@ export default function AdvancePage() {
     <div style={{ minHeight: '100vh', background: '#070706', color: '#f0ebe2', fontFamily: "'DM Mono', 'Courier New', monospace", padding: '48px 24px' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 
-        {/* NM Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <img src="/nm-logo-bw.png" alt="Night Manoeuvres" style={{ width: '180px', opacity: 1, filter: 'invert(1) brightness(2)' }} />
+        {/* NM Emblem + Typeset Name */}
+        <div style={{ textAlign: 'center', marginBottom: '56px' }}>
+          <img src="/nm-emblem.svg" alt="" style={{ width: '64px', height: '64px', marginBottom: '20px' }} />
+          <div style={{ fontSize: '13px', letterSpacing: '0.35em', fontWeight: 500, color: '#f0ebe2', textTransform: 'uppercase', fontFamily: "'DM Mono', 'Courier New', monospace" }}>
+            NIGHT
+          </div>
+          <div style={{ fontSize: '22px', fontWeight: 300, color: '#f0ebe2', fontFamily: "'Georgia', 'Times New Roman', serif", fontStyle: 'italic', marginTop: '2px', letterSpacing: '0.02em' }}>
+            manoeuvres
+          </div>
         </div>
 
         {/* Header */}
