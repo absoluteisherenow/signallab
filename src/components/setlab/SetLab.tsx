@@ -600,59 +600,60 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
     setSuggestingNext(false)
   }
 
-  // ── AI Track Analysis ──────────────────────────────────────────────────
+  // ── Add Track (Spotify lookup, no API credits needed) ──────────────────
   async function analyseAndAddTrack() {
-    if (!newTrack.title || !newTrack.artist) { showToast('Title and artist required', 'Error'); return }
+    if (!newTrack.title && !newTrack.artist) { showToast('Enter a track name', 'Error'); return }
     setAnalysingTrack(true)
     try {
-      const raw = await callClaude(
-        'You are a music intelligence expert for DJs. Return ONLY valid JSON, no markdown.',
-        `Analyse this track for a DJ's library. Return comprehensive intelligence:
-Track: ${newTrack.artist} — ${newTrack.title}
+      // Spotify lookup — free, no Claude needed
+      let spotify: any = null
+      const query = newTrack.artist
+        ? { artist: newTrack.artist, title: newTrack.title }
+        : { artist: newTrack.title.split(' - ')[0]?.trim() || newTrack.title, title: newTrack.title.split(' - ')[1]?.trim() || newTrack.title }
+      try {
+        const spRes = await fetch('/api/spotify/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(query),
+        })
+        const spData = await spRes.json()
+        if (spData.found) spotify = spData
+      } catch { /* Spotify unavailable */ }
 
-Return JSON:
-{
-  "bpm": number,
-  "key": "musical key (e.g. F minor)",
-  "camelot": "Camelot code (e.g. 4A)",
-  "energy": number 1-10 (how much it lifts a room),
-  "genre": "genre",
-  "duration": "M:SS",
-  "moment_type": "opener|builder|peak|breakdown|closer",
-  "position_score": "warm-up|build|peak|cool-down",
-  "mix_in": "specific DJ technique to bring this track in (mention EQ, effects, timing)",
-  "mix_out": "specific technique to transition out",
-  "crowd_reaction": "expected crowd response in 5-8 words",
-  "producer_style": "one sentence about the production style/approach",
-  "notes": "one sentence about when/how to use this in a set"
-}`, 400)
-      const d = JSON.parse(raw.replace(/```json|```/g, '').trim())
       const track: Track = {
         id: Date.now().toString(),
-        title: newTrack.title,
-        artist: newTrack.artist,
-        bpm: d.bpm || 128,
-        key: d.key || '',
-        camelot: d.camelot || '',
-        energy: d.energy || 5,
-        genre: d.genre || 'Electronic',
-        duration: d.duration || '5:00',
-        notes: d.notes || '',
-        analysed: true,
-        moment_type: d.moment_type || 'builder',
-        position_score: d.position_score || 'build',
-        mix_in: d.mix_in || '',
-        mix_out: d.mix_out || '',
-        crowd_reaction: d.crowd_reaction || '',
+        title: spotify?.title || newTrack.title || query.title,
+        artist: spotify?.artist || newTrack.artist || query.artist,
+        bpm: spotify?.bpm || 0,
+        key: spotify?.audio_features_available ? (spotify.key || '') : '',
+        camelot: spotify?.audio_features_available ? (spotify.camelot || '') : '',
+        energy: spotify?.audio_features_available ? (spotify.energy || 0) : 0,
+        genre: '',
+        duration: spotify?.duration_ms ? `${Math.floor(spotify.duration_ms / 60000)}:${String(Math.floor((spotify.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
+        notes: '',
+        analysed: !!(spotify?.audio_features_available),
+        moment_type: '',
+        position_score: '',
+        mix_in: '',
+        mix_out: '',
+        crowd_reaction: '',
         similar_to: '',
-        producer_style: d.producer_style || '',
+        producer_style: '',
+        spotify_url: spotify?.spotify_url || '',
+        album_art: spotify?.album_art || '',
       }
+
+      await fetch('/api/tracks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracks: [track] }),
+      })
       setLibrary(prev => [...prev, track])
       setNewTrack({ title: '', artist: '' })
       setAddingTrack(false)
-      showToast(`${track.title} analysed — ${track.moment_type} track, energy ${track.energy}/10`, 'Intelligence')
+      showToast(spotify ? `${track.title} added with Spotify data` : `${track.title} added — not found on Spotify`, 'Done')
     } catch (err: any) {
-      showToast('Analysis failed: ' + err.message, 'Error')
+      showToast('Could not add track: ' + err.message, 'Error')
     } finally {
       setAnalysingTrack(false)
     }
@@ -1731,11 +1732,35 @@ Return ONLY valid JSON, no markdown.`, 300)
               Library ({curatedLibrary.length})
             </div>
 
-            {/* Search + Add + Filter */}
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search tracks, artists, genres, moment types..."
-                style={{ flex: 1, background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+            {/* Search / Add track */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {addingTrack ? (
+                <>
+                  <input value={newTrack.artist} onChange={e => setNewTrack(p => ({ ...p, artist: e.target.value }))}
+                    placeholder="Artist"
+                    onKeyDown={e => e.key === 'Enter' && analyseAndAddTrack()}
+                    style={{ flex: 1, background: s.black, border: `1px solid ${s.gold}40`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+                  <input value={newTrack.title} onChange={e => setNewTrack(p => ({ ...p, title: e.target.value }))}
+                    placeholder="Track title"
+                    onKeyDown={e => e.key === 'Enter' && analyseAndAddTrack()}
+                    autoFocus
+                    style={{ flex: 1, background: s.black, border: `1px solid ${s.gold}40`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+                  <button onClick={analyseAndAddTrack} disabled={analysingTrack}
+                    style={{ ...btn(s.gold), padding: '12px 20px', opacity: analysingTrack ? 0.5 : 1 }}>
+                    {analysingTrack ? 'Looking up...' : 'Add'}
+                  </button>
+                  <button onClick={() => { setAddingTrack(false); setNewTrack({ title: '', artist: '' }) }}
+                    style={{ ...btn(s.border), padding: '12px 16px', color: s.textDim }}>✕</button>
+                </>
+              ) : (
+                <>
+                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search tracks, artists, genres, moment types..."
+                    style={{ flex: 1, background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
+                  <button onClick={() => setAddingTrack(true)}
+                    style={{ ...btn(s.gold), padding: '12px 20px', whiteSpace: 'nowrap' }}>+ Add track</button>
+                </>
+              )}
             </div>
 
             {/* Moment type filter pills */}
