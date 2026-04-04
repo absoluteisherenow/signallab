@@ -242,11 +242,11 @@ export default function AutomationsPage() {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-[9px] tracking-[.2em] uppercase text-[#52504c] mb-2">
-                    DM message — use <span className="text-[#b08d57]">{'{claim_url}'}</span> to insert the claim link
+                    Opening DM <span className="text-[#2e2c29] normal-case tracking-normal">— leave blank to use default. email collected in DM reply automatically.</span>
                   </label>
                   <textarea value={form.dm_message} onChange={e => setForm(p => ({ ...p, dm_message: e.target.value }))}
                     rows={3}
-                    placeholder={"hey — here's your free download. enter your email at {claim_url} and it's yours 🖤"}
+                    placeholder="hey 🖤 just reply with your email address and i'll send the free download straight to your inbox"
                     className="w-full bg-[#0e0d0b] border border-white/10 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors placeholder-[#2e2c29] resize-none" />
                 </div>
                 <div>
@@ -331,14 +331,11 @@ export default function AutomationsPage() {
                   <div className="text-[11px] text-[#8a8780] leading-relaxed">{selectedAuto.dm_message}</div>
                 </div>
                 <div className="bg-[#0e0d0b] border border-white/7 p-4 col-span-2">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-[9px] tracking-[.18em] uppercase text-[#52504c]">Claim link</div>
-                    <button onClick={() => copyLink(selectedAuto.claim_url, selectedAuto.id)}
-                      className="text-[9px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors">
-                      {copied === selectedAuto.id ? 'Copied ✓' : 'Copy →'}
-                    </button>
+                  <div className="text-[9px] tracking-[.18em] uppercase text-[#52504c] mb-2">Flow</div>
+                  <div className="text-[10px] text-[#8a8780] leading-relaxed">
+                    Comment trigger → auto DM → reply with email → {selectedAuto.reward_url ? 'reward link sent in DM' : 'email captured, reward sent manually'}
+                    {selectedAuto.follow_required && ' · follow-gated'}
                   </div>
-                  <div className="text-[10px] text-[#b08d57] break-all">{selectedAuto.claim_url}</div>
                 </div>
               </div>
 

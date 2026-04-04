@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { handleComment } from '@/lib/instagram'
+import { handleComment, handleDMReply } from '@/lib/instagram'
 
-// GET — Instagram webhook verification (hub.challenge)
+// GET — Instagram webhook verification
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const mode = searchParams.get('hub.mode')
@@ -14,28 +14,38 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
 
-// POST — Instagram webhook events (new comments)
+// POST — Instagram webhook events (comments + DM replies)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-
-    if (body.object !== 'instagram') {
-      return NextResponse.json({ ok: true })
-    }
+    if (body.object !== 'instagram') return NextResponse.json({ ok: true })
 
     for (const entry of body.entry || []) {
       for (const change of entry.changes || []) {
-        if (change.field !== 'comments') continue
 
-        const commentData = change.value
-        const commentId = commentData?.id
-        const commentText: string = (commentData?.text || '').toLowerCase()
-        const commenterId = commentData?.from?.id
-        const mediaId = commentData?.media?.id
+        // ── Comment on a post ──────────────────────────────────────────────
+        if (change.field === 'comments') {
+          const c = change.value
+          if (!c?.id || !c?.from?.id || !c?.media?.id) continue
+          await handleComment({
+            commentId: c.id,
+            commentText: (c.text || '').toLowerCase(),
+            commenterId: c.from.id,
+            mediaId: c.media.id,
+          })
+        }
 
-        if (!commentId || !commenterId || !mediaId) continue
-
-        await handleComment({ commentId, commentText, commenterId, mediaId })
+        // ── DM reply ───────────────────────────────────────────────────────
+        if (change.field === 'messages') {
+          const m = change.value
+          // Ignore messages sent by the page itself
+          if (m?.sender?.id && m?.message?.text && !m?.message?.is_echo) {
+            await handleDMReply({
+              senderId: m.sender.id,
+              messageText: m.message.text,
+            })
+          }
+        }
       }
     }
 
