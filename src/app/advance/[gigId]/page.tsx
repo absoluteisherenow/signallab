@@ -210,13 +210,17 @@ export default function AdvancePage() {
         </button>
 
         {/* Signal Lab OS footer */}
-        <div style={{ marginTop: '64px', paddingTop: '24px', borderTop: '1px solid #1a1917', textAlign: 'center', paddingBottom: '48px' }}>
-          <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ verticalAlign: 'middle' }}>
-            <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" strokeWidth="1.5" opacity="0.25"/>
-            <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-          </svg>
-          <span style={{ fontFamily: "'Unbounded', Arial, sans-serif", fontWeight: 200, fontSize: '10px', color: '#b08d57', letterSpacing: '0.12em', textTransform: 'uppercase', marginLeft: '6px', verticalAlign: 'middle' }}>Signal Lab OS</span>
-          <div style={{ fontSize: '9px', color: '#52504c', marginTop: '6px', letterSpacing: '0.1em' }}>signallabos.com</div>
+        <div style={{ marginTop: '64px', paddingTop: '24px', borderTop: '1px solid #1a1917', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: '48px' }}>
+          <a href="https://signallabos.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" strokeWidth="1.5" opacity="0.25"/>
+                <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              </svg>
+              <span style={{ fontFamily: "'Unbounded', Arial, sans-serif", fontWeight: 200, fontSize: '10px', color: '#b08d57', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Signal Lab OS</span>
+            </div>
+            <span style={{ fontSize: '9px', color: '#52504c', letterSpacing: '0.1em' }}>Join the waitlist</span>
+          </a>
         </div>
       </div>
     </div>
