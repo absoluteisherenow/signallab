@@ -255,54 +255,29 @@ export function SetLab() {
           } catch (e) { /* Spotify unavailable */ }
         }
 
-        // Step 3: Claude for SUBJECTIVE intelligence only
-        let intelligence: any = {}
-        if (analysis.title && analysis.artist) {
-          try {
-            const intRaw = await callClaude(
-              'You are a DJ music intelligence expert. NEVER guess or fabricate BPM, key, or energy values. Only provide subjective set positioning advice.',
-              `Provide DJ intelligence for this track. Do NOT include bpm, key, camelot, or energy.
-
-Track: ${analysis.artist} — ${analysis.title}
-Detected BPM: ${analysis.bpm}
-
-If you genuinely know this track, return JSON:
-{
-  "moment_type": "opener|builder|peak|breakdown|closer",
-  "position_score": "warm-up|build|peak|cool-down",
-  "mix_in": "specific DJ mix-in technique for this track",
-  "mix_out": "specific mix-out technique",
-  "crowd_reaction": "expected crowd response in 5-8 words",
-  "producer_style": "one sentence about production style",
-  "notes": "when/how to use in a set"
-}
-
-If you do NOT know this track well enough, return: {"unknown": true}
-Return ONLY valid JSON, no markdown.`, 300)
-            const parsed = JSON.parse(intRaw.replace(/```json|```/g, '').trim())
-            if (!parsed.unknown) intelligence = parsed
-          } catch (e) { /* skip intelligence */ }
-        }
+        // Intelligence skipped on import — use "Verify & correct" per track to get mix tips (saves API credits)
 
         const track: Track = {
           id: Date.now().toString() + Math.random(),
-          title: analysis.title || 'Unknown',
-          artist: analysis.artist || 'Unknown',
+          title: spotify?.title || analysis.title || 'Unknown',
+          artist: spotify?.artist || analysis.artist || 'Unknown',
           bpm: analysis.bpm || spotify?.bpm || 0,
-          key: spotify?.key || '',
-          camelot: spotify?.camelot || '',
-          energy: spotify?.energy || 0,
+          key: spotify?.audio_features_available ? (spotify.key || '') : '',
+          camelot: spotify?.audio_features_available ? (spotify.camelot || '') : '',
+          energy: spotify?.audio_features_available ? (spotify.energy || 0) : 0,
           genre: '',
           duration: analysis.duration,
-          notes: intelligence.notes || '',
-          analysed: true,
-          moment_type: intelligence.moment_type || '',
-          position_score: intelligence.position_score || '',
-          mix_in: intelligence.mix_in || '',
-          mix_out: intelligence.mix_out || '',
-          crowd_reaction: intelligence.crowd_reaction || '',
+          notes: '',
+          analysed: !!(spotify?.audio_features_available),
+          moment_type: '',
+          position_score: '',
+          mix_in: '',
+          mix_out: '',
+          crowd_reaction: '',
           similar_to: '',
-          producer_style: intelligence.producer_style || '',
+          producer_style: '',
+          spotify_url: spotify?.spotify_url || '',
+          album_art: spotify?.album_art || '',
         }
 
         setLibrary(prev => [...prev, track])
@@ -387,57 +362,27 @@ Return ONLY valid JSON, no markdown.`, 300)
             if (spData.found) spotify = spData
           } catch (e) { /* Spotify unavailable — leave fields blank */ }
 
-          // Step 2: Claude for SUBJECTIVE intelligence only (no BPM/key/energy guessing)
-          let intelligence: any = {}
-          try {
-            const intRaw = await callClaude(
-              'You are a DJ music intelligence expert. NEVER guess or fabricate BPM, key, or energy values. Only provide subjective set positioning advice.',
-              `Provide DJ intelligence for this track. Do NOT include bpm, key, camelot, or energy — those come from verified sources only.
-
-Track: ${ext.artist} — ${ext.title}
-
-If you genuinely know this track, return JSON:
-{
-  "moment_type": "opener|builder|peak|breakdown|closer",
-  "position_score": "warm-up|build|peak|cool-down",
-  "mix_in": "specific DJ mix-in technique for this track",
-  "mix_out": "specific mix-out technique",
-  "crowd_reaction": "expected crowd response in 5-8 words",
-  "producer_style": "one sentence about production style",
-  "notes": "when/how to use in a set"
-}
-
-If you do NOT know this track well enough, return: {"unknown": true}
-Return ONLY valid JSON, no markdown.`, 300)
-            const parsed = JSON.parse(intRaw.replace(/```json|```/g, '').trim())
-            if (!parsed.unknown) intelligence = parsed
-          } catch (e) { /* Claude unavailable — skip intelligence */ }
-
-          // Only use key data from Spotify (verified) — never trust Claude-guessed keys
-          const verifiedKey = spotify?.audio_features_available ? spotify.key : null
-          const verifiedCamelot = spotify?.audio_features_available ? spotify.camelot : null
-          const verifiedBpm = spotify?.bpm || ext.bpm || 0
-          const verifiedEnergy = spotify?.audio_features_available ? (spotify?.energy || 0) : 0
+          // Intelligence skipped on import — use "Verify & correct" per track for mix tips (saves API credits)
 
           const track: Track = {
             id: Date.now().toString() + Math.random(),
-            title: ext.title,
-            artist: ext.artist,
-            bpm: verifiedBpm,
-            key: verifiedKey || '',
-            camelot: verifiedCamelot || '',
-            energy: verifiedEnergy,
+            title: spotify?.title || ext.title,
+            artist: spotify?.artist || ext.artist,
+            bpm: spotify?.bpm || ext.bpm || 0,
+            key: spotify?.audio_features_available ? (spotify.key || '') : '',
+            camelot: spotify?.audio_features_available ? (spotify.camelot || '') : '',
+            energy: spotify?.audio_features_available ? (spotify.energy || 0) : 0,
             genre: '',
             duration: spotify?.duration_ms ? `${Math.floor(spotify.duration_ms / 60000)}:${String(Math.floor((spotify.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
-            notes: intelligence.notes || '',
+            notes: '',
             analysed: !!(spotify?.audio_features_available),
-            moment_type: intelligence.moment_type || '',
-            position_score: intelligence.position_score || '',
-            mix_in: intelligence.mix_in || '',
-            mix_out: intelligence.mix_out || '',
-            crowd_reaction: intelligence.crowd_reaction || '',
+            moment_type: '',
+            position_score: '',
+            mix_in: '',
+            mix_out: '',
+            crowd_reaction: '',
             similar_to: '',
-            producer_style: intelligence.producer_style || '',
+            producer_style: '',
             spotify_url: spotify?.spotify_url || '',
             album_art: spotify?.album_art || '',
           }
