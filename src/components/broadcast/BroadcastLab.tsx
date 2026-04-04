@@ -756,9 +756,20 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
     <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono flex flex-col">
 
       <SignalLabHeader right={
-        <Link
-          href="/broadcast/strategy"
-          style={{
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Link href="/broadcast/automations" style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: '32px', padding: '0 16px',
+            background: 'rgba(176,141,87,0.08)', color: '#8a8780',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '2px',
+            fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
+            fontFamily: "'DM Mono', monospace", fontWeight: 400,
+            textDecoration: 'none', whiteSpace: 'nowrap',
+          }}>
+            DM Campaigns
+          </Link>
+          <Link href="/broadcast/strategy" style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             height: '32px', padding: '0 16px',
             background: 'rgba(176,141,87,0.15)', color: '#d4a843',
@@ -767,10 +778,10 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
             fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
             fontFamily: "'DM Mono', monospace", fontWeight: 400,
             textDecoration: 'none', whiteSpace: 'nowrap',
-          }}
-        >
-          Content Strategy
-        </Link>
+          }}>
+            Content Strategy
+          </Link>
+        </div>
       } />
 
       <div className="flex flex-col gap-7 p-8">

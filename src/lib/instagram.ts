@@ -16,37 +16,43 @@ export async function handleComment({
   commenterId: string
   mediaId: string
 }) {
+  // Load enabled automations — post-specific OR global (no platform_post_id)
   const { data: automations } = await supabase
     .from('comment_automations')
     .select('*')
-    .eq('platform_post_id', mediaId)
     .eq('enabled', true)
+    .or(`platform_post_id.eq.${mediaId},platform_post_id.is.null`)
 
   if (!automations?.length) return
 
+  // Get connected Instagram token
   const { data: account } = await supabase
-    .from('social_accounts')
-    .select('token, platform_user_id')
+    .from('connected_social_accounts')
+    .select('access_token, platform_user_id')
     .eq('platform', 'instagram')
     .single()
 
-  if (!account?.token) return
+  if (!account?.access_token) return
 
   const lowerText = commentText.toLowerCase()
 
   for (const automation of automations) {
-    const keyword = (automation.trigger_keyword || '◼').toLowerCase()
-    if (!lowerText.includes(keyword)) continue
+    const keyword = (automation.trigger_keyword || '').toLowerCase().trim()
+    // Empty keyword = trigger on any comment; otherwise match substring
+    if (keyword && !lowerText.includes(keyword)) continue
+    // Skip if already processed this comment for this automation
     if ((automation.processed_comment_ids || []).includes(commentId)) continue
 
+    // Send DM
     const sent = await sendInstagramDM({
-      accessToken: account.token,
+      accessToken: account.access_token,
       igUserId: account.platform_user_id,
       recipientId: commenterId,
       message: automation.dm_message,
     })
 
     if (sent) {
+      // Mark comment as processed
       await supabase
         .from('comment_automations')
         .update({
@@ -54,7 +60,40 @@ export async function handleComment({
           sent_count: (automation.sent_count || 0) + 1,
         })
         .eq('id', automation.id)
+
+      // Capture lead — look up their profile first
+      const profile = await fetchIGProfile(commenterId, account.access_token)
+
+      await supabase
+        .from('dm_leads')
+        .upsert({
+          automation_id: automation.id,
+          campaign_name: automation.campaign_name,
+          instagram_user_id: commenterId,
+          username: profile?.username || null,
+          follower_count: profile?.followers_count || null,
+          biography: profile?.biography || null,
+          post_id: mediaId,
+          comment_text: commentText,
+          dm_sent: true,
+          triggered_at: new Date().toISOString(),
+        }, { onConflict: 'instagram_user_id,automation_id' })
     }
+  }
+}
+
+async function fetchIGProfile(
+  igUserId: string,
+  accessToken: string
+): Promise<{ username?: string; followers_count?: number; biography?: string } | null> {
+  try {
+    const res = await fetch(
+      `https://graph.instagram.com/v25.0/${igUserId}?fields=username,followers_count,biography&access_token=${accessToken}`
+    )
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
   }
 }
 
