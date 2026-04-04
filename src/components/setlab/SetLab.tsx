@@ -163,6 +163,7 @@ export function SetLab() {
   // ── Wantlist state ─────────────────────────────────────────────────────
   const [wantlist, setWantlist] = useState<any[]>([])
   const [wantlistLoading, setWantlistLoading] = useState(false)
+  const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set())
   // libraryMode removed — Library tab now shows all sections
   const audioInputRef = useRef<HTMLInputElement>(null)
   const screenshotInputRef = useRef<HTMLInputElement>(null)
@@ -396,18 +397,24 @@ Return ONLY valid JSON, no markdown.`, 300)
             if (!parsed.unknown) intelligence = parsed
           } catch (e) { /* Claude unavailable — skip intelligence */ }
 
+          // Only use key data from Spotify (verified) — never trust Claude-guessed keys
+          const verifiedKey = spotify?.audio_features_available ? spotify.key : null
+          const verifiedCamelot = spotify?.audio_features_available ? spotify.camelot : null
+          const verifiedBpm = spotify?.bpm || ext.bpm || 0
+          const verifiedEnergy = spotify?.audio_features_available ? (spotify?.energy || 0) : 0
+
           const track: Track = {
             id: Date.now().toString() + Math.random(),
             title: ext.title,
             artist: ext.artist,
-            bpm: spotify?.bpm || ext.bpm || 0,
-            key: spotify?.key || (ext.key as string) || '',
-            camelot: spotify?.camelot || '',
-            energy: spotify?.energy || 0,
+            bpm: verifiedBpm,
+            key: verifiedKey || '',
+            camelot: verifiedCamelot || '',
+            energy: verifiedEnergy,
             genre: '',
             duration: spotify?.duration_ms ? `${Math.floor(spotify.duration_ms / 60000)}:${String(Math.floor((spotify.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
             notes: intelligence.notes || '',
-            analysed: !!spotify,
+            analysed: !!(spotify?.audio_features_available),
             moment_type: intelligence.moment_type || '',
             position_score: intelligence.position_score || '',
             mix_in: intelligence.mix_in || '',
@@ -456,14 +463,47 @@ Return ONLY valid JSON, no markdown.`, 300)
 
   const filteredLibrary = curatedLibrary.filter(searchFn)
 
-  function addToSet(track: Track) {
+  function addToSet(track: Track, switchTab = false) {
     const prev = set[set.length - 1]
     const compatibility = prev ? getCompatibility(prev.camelot, track.camelot) : 100
     const flow_score = prev ? getFlowScore(prev, track) : 100
     const setTrack: SetTrack = { ...track, position: set.length + 1, transition_note: '', compatibility, flow_score }
     setSet(s => [...s, setTrack])
     setSuggestions([])
-    showToast(`${track.title} added to set`, 'Set')
+    showToast(`${track.title} added to set (${set.length + 1} tracks)`, 'Set')
+    if (switchTab) setActiveTab('builder')
+  }
+
+  function toggleTrackSelection(id: string) {
+    setSelectedTracks(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function addSelectedToSet() {
+    const tracks = filteredLibrary.filter(t => selectedTracks.has(t.id))
+    if (tracks.length === 0) return
+    setSet(prev => {
+      const newTracks = tracks.map((track, i) => {
+        const prevTrack = i === 0 ? prev[prev.length - 1] : undefined
+        const prevInBatch = i > 0 ? tracks[i - 1] : undefined
+        const ref = prevTrack || prevInBatch
+        return {
+          ...track,
+          position: prev.length + i + 1,
+          transition_note: '',
+          compatibility: ref ? getCompatibility(ref.camelot, track.camelot) : 100,
+          flow_score: ref ? getFlowScore(ref as any, track) : 100,
+        }
+      })
+      return [...prev, ...newTracks]
+    })
+    setSuggestions([])
+    showToast(`${tracks.length} tracks added to set`, 'Set')
+    setSelectedTracks(new Set())
+    setActiveTab('builder')
   }
 
   function removeFromSet(id: string) {
@@ -1741,7 +1781,15 @@ Return ONLY valid JSON, no markdown.`, 300)
 
             {/* Track library with expandable intelligence */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '12px 20px', borderBottom: `1px solid ${s.border}` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '12px 20px', borderBottom: `1px solid ${s.border}`, alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <input type="checkbox" checked={selectedTracks.size > 0 && filteredLibrary.every(t => selectedTracks.has(t.id))}
+                    onChange={() => {
+                      if (filteredLibrary.every(t => selectedTracks.has(t.id))) setSelectedTracks(new Set())
+                      else setSelectedTracks(new Set(filteredLibrary.map(t => t.id)))
+                    }}
+                    style={{ cursor: 'pointer', accentColor: s.gold }} />
+                </div>
                 {['Track', 'Artist', 'BPM', 'Key', 'Camelot', 'Energy', 'Moment', ''].map(h => (
                   <div key={h} style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase' }}>{h}</div>
                 ))}
@@ -1755,10 +1803,14 @@ Return ONLY valid JSON, no markdown.`, 300)
               )}
               {filteredLibrary.map(track => (
                 <div key={track.id}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer' }}
+                  <div style={{ display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer', background: selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}
                     onClick={() => setExpandedTrack(expandedTrack === track.id ? null : track.id)}
-                    onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    onMouseEnter={e => { if (!selectedTracks.has(track.id)) e.currentTarget.style.background = s.bg }}
+                    onMouseLeave={e => { e.currentTarget.style.background = selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); toggleTrackSelection(track.id) }}>
+                      <input type="checkbox" checked={selectedTracks.has(track.id)} readOnly
+                        style={{ cursor: 'pointer', accentColor: s.gold }} />
+                    </div>
                     <div>
                       <div style={{ fontSize: '13px', letterSpacing: '0.05em', color: s.text }}>{track.title}</div>
                       {track.notes && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{track.notes}</div>}
@@ -1788,7 +1840,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                         {track.moment_type || '—'}
                       </span>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); addToSet(track) }} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px' }}>Add →</button>
+                    <button onClick={(e) => { e.stopPropagation(); addToSet(track, true) }} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px' }}>→ Set</button>
                   </div>
 
                   {/* ── Expanded Track Intelligence Card ── */}
@@ -1866,6 +1918,25 @@ Return ONLY valid JSON, no markdown.`, 300)
                 </div>
               ))}
             </div>
+
+            {/* ── FLOATING SELECTION BAR ── */}
+            {selectedTracks.size > 0 && (
+              <div style={{
+                position: 'sticky', bottom: '24px', zIndex: 50,
+                background: s.black, border: `1px solid ${s.gold}40`,
+                padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                boxShadow: `0 8px 32px rgba(0,0,0,0.6)`,
+              }}>
+                <div style={{ fontSize: '12px', color: s.text, letterSpacing: '0.06em' }}>
+                  {selectedTracks.size} track{selectedTracks.size !== 1 ? 's' : ''} selected
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={() => setSelectedTracks(new Set())} style={{ ...btn(s.border), fontSize: '10px', padding: '8px 16px', color: s.textDim }}>Clear</button>
+                  <button onClick={addSelectedToSet} style={{ ...btn(s.gold), fontSize: '10px', padding: '8px 20px' }}>Add {selectedTracks.size} to Set →</button>
+                </div>
+              </div>
+            )}
+
             {/* ── DISCOVERIES SECTION ── */}
             <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '32px' }}>
               Discoveries ({discoveries.length})
@@ -1887,7 +1958,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                     <div style={{ fontSize: '9px', padding: '3px 7px', background: `${s.gold}15`, border: `1px solid ${s.gold}40`, color: s.gold, letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
                       {track.source}
                     </div>
-                    <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>Add →</button>
+                    <button onClick={() => addToSet(track, true)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>→ Set</button>
                   </div>
                 ))}
               </div>
@@ -1916,7 +1987,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                         <div style={{ fontSize: '12px', color: s.text }}>{track.title}</div>
                         <div style={{ fontSize: '11px', color: s.textDim, marginTop: '1px' }}>{track.artist}</div>
                       </div>
-                      <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>Add →</button>
+                      <button onClick={() => addToSet(track, true)} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px', flexShrink: 0 }}>→ Set</button>
                     </div>
                   ))}
                 </div>

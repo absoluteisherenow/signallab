@@ -157,6 +157,7 @@ export async function POST(req: NextRequest) {
       preview_url: track.preview_url || null,
       album_art: track.album?.images?.[0]?.url || null,
       spotify_url: track.external_urls?.spotify || null,
+      audio_features_available: audioFeaturesAvailable,
       ...(audioFeaturesAvailable ? {} : { audio_features_note: 'Audio features endpoint unavailable — BPM, key, energy data not returned' }),
     })
 
