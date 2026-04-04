@@ -31,6 +31,17 @@ function currencySymbol(c: string): string {
   return map[c] || c + ' '
 }
 
+function currencyFromLocation(location: string): string {
+  const loc = location.toLowerCase()
+  if (/australia|melbourne|sydney|brisbane|perth|adelaide|hobart/.test(loc)) return 'AUD'
+  if (/\buk\b|united kingdom|england|scotland|wales|london|manchester|glasgow|bristol|edinburgh|leeds|birmingham|liverpool|nottingham|brighton|belfast|cardiff|sheffield|newcastle/.test(loc)) return 'GBP'
+  if (/\busa\b|\bus\b|united states|new york|los angeles|chicago|miami|san francisco|las vegas|detroit|brooklyn|boston|seattle|portland|denver|atlanta|austin|nashville|philadelphia|washington/.test(loc)) return 'USD'
+  if (/switzerland|zurich|zürich|geneva|basel|bern/.test(loc)) return 'CHF'
+  if (/japan|tokyo|osaka|kyoto/.test(loc)) return 'JPY'
+  if (/canada|toronto|montreal|vancouver/.test(loc)) return 'CAD'
+  return 'EUR'
+}
+
 const s = {
   label: { fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase' as const, marginBottom: '6px' },
   value: { fontSize: '14px', color: 'var(--text)', lineHeight: 1.4 },
@@ -103,7 +114,15 @@ export function GigDetail({ gigId }: GigDetailProps) {
   useEffect(() => {
     fetch(`/api/gigs/${gigId}`)
       .then(r => r.json())
-      .then(d => { if (d.gig) { setGig(d.gig); if (d.gig.artwork_url) setArtworkPreview(d.gig.artwork_url) } })
+      .then(d => {
+        if (d.gig) {
+          const g = d.gig
+          // Auto-correct currency from location on load
+          if (g.location) g.currency = currencyFromLocation(g.location)
+          setGig(g)
+          if (g.artwork_url) setArtworkPreview(g.artwork_url)
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
 
@@ -127,7 +146,11 @@ export function GigDetail({ gigId }: GigDetailProps) {
     if (!gig) return
     setSaving(true)
     const fd = new FormData(e.currentTarget)
-    const updates = Object.fromEntries(fd.entries())
+    const updates = Object.fromEntries(fd.entries()) as Record<string, string>
+    // Auto-detect currency from location — always override
+    if (updates.location) {
+      updates.currency = currencyFromLocation(updates.location)
+    }
     try {
       const res = await fetch(`/api/gigs/${gigId}`, {
         method: 'PUT',
