@@ -19,6 +19,7 @@ const MODULES = [
   { num: '03', name: 'SONIX LAB', desc: 'Technical analysis for mixes and productions. Frequency, structure, level data — so you can hear what the numbers say.' },
   { num: '04', name: 'SET LAB', desc: 'Tracks what you play, how you play it, and what works. The more you use it, the better it knows your sound — so you can evolve faster as yourself.' },
   { num: '05', name: 'DROP LAB', desc: 'Phase-by-phase release planning and campaign management. Every release coordinated, nothing missed.' },
+  { num: '06', name: 'DJ PROMO', desc: 'Personal promo blasts direct to your DJ network. Branded listening pages, tracked opens, reaction capture — know exactly who played your record.' },
 ]
 
 const ROLES = ['Artist', 'Manager / Agent', 'Label', 'Promoter / Booker']
@@ -103,7 +104,7 @@ export default function JoinPage() {
           fontSize: '13px', color: C.dim, lineHeight: '1.9',
           maxWidth: '540px', letterSpacing: '0.04em', marginBottom: '52px',
         }}>
-          One platform for gig planning, invoicing, tour logistics, and release management — built for how electronic music artists actually work.
+          One platform for gig planning, invoicing, tour logistics, release management, and DJ promo — built for how electronic music artists actually work.
         </p>
 
         <button
@@ -122,7 +123,7 @@ export default function JoinPage() {
           fontWeight: 300, letterSpacing: '0.04em',
           color: C.text, marginBottom: '20px',
         }}>
-          Five modules. One system. Career infrastructure.
+          Six modules. One system. Career infrastructure.
         </h2>
         <p style={{ fontSize: '13px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8' }}>
           Everything is connected. A confirmed gig feeds your schedule. A release syncs your campaign. A tour updates your logistics. The system handles the infrastructure so you can focus on the work.

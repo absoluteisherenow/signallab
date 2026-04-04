@@ -256,6 +256,23 @@ export default function Finances() {
     }
   }
 
+  async function deleteInvoice(id: string) {
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setInvoices(prev => prev.filter(i => i.id !== id))
+        showToast('Invoice deleted')
+      }
+    } catch {
+      showToast('Failed to delete invoice')
+    }
+  }
+
   async function sendInvoice(inv: Invoice) {
     setSendingId(inv.id)
     try {
@@ -637,8 +654,8 @@ export default function Finances() {
 
           {/* INVOICE TABLE */}
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
-              {['Show', 'Due date', 'Type', 'Amount', 'WHT', 'Net', '', 'Send', 'Chase', ''].map((h, i) => (
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px 60px', gap: '0', padding: '12px 24px', borderBottom: '1px solid var(--border-dim)' }}>
+              {['Show', 'Due date', 'Type', 'Amount', 'WHT', 'Net', '', 'Send', 'Chase', '', ''].map((h, i) => (
                 <div key={i} style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase' }}>{h}</div>
               ))}
             </div>
@@ -656,7 +673,7 @@ export default function Finances() {
                 const whtAmount = inv.wht_rate ? Math.round(inv.amount * (inv.wht_rate / 100)) : 0
                 const netAmount = inv.amount - whtAmount
                 return (
-                  <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
+                  <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px 60px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
                     <div>
                       <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.gig_title}</div>
                       {inv.artist_name && <div style={{ fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '3px' }}>{inv.artist_name}</div>}
@@ -720,6 +737,11 @@ export default function Finances() {
                           Mark paid
                         </button>
                       )}
+                    </div>
+                    <div>
+                      <button onClick={() => { if (confirm('Delete this invoice?')) deleteInvoice(inv.id) }} style={{ background: 'transparent', border: 'none', color: 'rgba(138,74,58,0.6)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 10px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                        Delete
+                      </button>
                     </div>
                   </div>
                 )

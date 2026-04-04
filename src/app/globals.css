@@ -593,6 +593,22 @@ body.landing-active .app-main {
   padding-bottom: 0 !important;
 }
 
+/* ── ADVANCE FORM — public page, hide app shell ── */
+body.advance-active .app-shell {
+  display: block !important;
+}
+body.advance-active .app-shell > nav,
+body.advance-active .sidebar-nav,
+body.advance-active .signal-desktop-fab,
+body.advance-active .signal-genius-fab,
+body.advance-active .mobile-tab-bar,
+body.advance-active [class*="command-palette"] {
+  display: none !important;
+}
+body.advance-active .app-main {
+  padding-bottom: 0 !important;
+}
+
 /* ── MOBILE RESPONSIVE ── */
 @media (max-width: 768px) {
   .sidebar-nav { display: none !important; }

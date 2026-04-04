@@ -93,7 +93,7 @@ export function Navigation() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith('/join/')) {
+  if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith('/join/') || pathname.startsWith('/go/')) {
     return null
   }
 
@@ -435,15 +435,15 @@ export function Navigation() {
             Scan
           </Link>
 
-          {/* Upload */}
-          <Link href="/broadcast" style={{
+          {/* Promo */}
+          <Link href="/releases?tab=promo" style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: isActive('/broadcast') ? 'var(--gold)' : 'var(--text-dimmer)',
+            color: isActive('/releases') ? 'var(--gold)' : 'var(--text-dimmer)',
             padding: '8px 0', flex: 1,
           }}>
-            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>↑</div>
-            Upload
+            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>↗</div>
+            Promo
           </Link>
 
           {/* Tour */}

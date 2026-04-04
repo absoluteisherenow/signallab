@@ -170,6 +170,14 @@ export function SetLab() {
   const [scannerRaMap, setScannerRaMap] = useState<Map<string, { charted_by: string; chart_title: string }>>(new Map())
   const [scannerRaLoading, setScannerRaLoading] = useState(false)
   const scannerRaFetched = useRef(false)
+  // ── History Screenshot Import state ─────────────────────────────────────
+  const [historyScreenshotDragging, setHistoryScreenshotDragging] = useState(false)
+  const [historyImportPhase, setHistoryImportPhase] = useState<'idle' | 'uploading' | 'extracting' | 'matching' | 'preview' | 'saving'>('idle')
+  const [historyExtractedTracks, setHistoryExtractedTracks] = useState<Array<{ title: string; artist: string; bpm?: number | null; key?: string | null; position: number }>>([])
+  const [historyMatches, setHistoryMatches] = useState<Array<{ extracted: any; library_match: any; confidence: 'exact' | 'partial' | 'none' }>>([])
+  const [historyImageUrl, setHistoryImageUrl] = useState<string | null>(null)
+  const [historyImportError, setHistoryImportError] = useState('')
+  const [historySetName, setHistorySetName] = useState('')
   // ── Gig context ──────────────────────────────────────────────────────────
   const [gigs, setGigs] = useState<any[]>([])
   const [upcomingGig, setUpcomingGig] = useState<{ id: string; title: string; venue: string; date: string; slot_time?: string; status: string } | null>(null)
@@ -1206,6 +1214,116 @@ Return corrected JSON:
     } catch {}
   }, [scanPhase, detectedTracks, scannerTracklist, scannerContext, scanResult])
 
+  // ── History Screenshot Import Functions ──────────────────────────────────
+  async function handleHistoryScreenshot(file: File) {
+    if (!file || !file.type.startsWith('image/')) {
+      showToast('Please drop an image file', 'Error')
+      return
+    }
+    setHistoryImportPhase('uploading')
+    setHistoryImportError('')
+    setHistoryExtractedTracks([])
+    setHistoryMatches([])
+    setHistoryImageUrl(null)
+    setHistorySetName('')
+
+    try {
+      // Step 1: Upload + extract via Claude Vision
+      setHistoryImportPhase('extracting')
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const extractRes = await fetch('/api/sets/from-screenshot', {
+        method: 'POST',
+        body: formData,
+      })
+      const extractData = await extractRes.json()
+
+      if (extractData.error || !extractData.tracks?.length) {
+        throw new Error(extractData.error || 'No tracks found in this image')
+      }
+
+      setHistoryExtractedTracks(extractData.tracks)
+      setHistoryImageUrl(extractData.imageUrl)
+
+      // Step 2: Match against library
+      setHistoryImportPhase('matching')
+      const matchRes = await fetch('/api/sets/from-screenshot/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracks: extractData.tracks }),
+      })
+      const matchData = await matchRes.json()
+
+      if (matchData.error) {
+        // Non-fatal: show tracks without match data
+        setHistoryMatches(extractData.tracks.map((t: any) => ({
+          extracted: t,
+          library_match: null,
+          confidence: 'none' as const,
+        })))
+      } else {
+        setHistoryMatches(matchData.matches)
+      }
+
+      setHistoryImportPhase('preview')
+      showToast(`${extractData.tracks.length} tracks extracted`, 'Set Lab')
+    } catch (err: any) {
+      setHistoryImportError(err.message || 'Failed to process screenshot')
+      setHistoryImportPhase('idle')
+      showToast(err.message || 'Could not read screenshot', 'Error')
+    }
+  }
+
+  async function saveHistoryScreenshotSet() {
+    if (historyMatches.length === 0) return
+    setHistoryImportPhase('saving')
+
+    try {
+      const tracksToSave = historyMatches.map(m => ({
+        title: m.extracted.title,
+        artist: m.extracted.artist,
+        bpm: m.extracted.bpm || null,
+        key: m.extracted.key || null,
+        library_match_id: m.library_match?.id || null,
+      }))
+
+      const res = await fetch('/api/sets/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: historySetName || `Screenshot import — ${new Date().toLocaleDateString('en-GB')}`,
+          tracks: tracksToSave,
+          imageUrl: historyImageUrl,
+          source: 'screenshot-import',
+        }),
+      })
+      const data = await res.json()
+
+      if (data.error) throw new Error(data.error)
+
+      showToast('Set saved to history', 'Set Lab')
+      setHistoryImportPhase('idle')
+      setHistoryExtractedTracks([])
+      setHistoryMatches([])
+      setHistoryImageUrl(null)
+      setHistorySetName('')
+      loadPastSets()
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save set', 'Error')
+      setHistoryImportPhase('preview')
+    }
+  }
+
+  function cancelHistoryImport() {
+    setHistoryImportPhase('idle')
+    setHistoryExtractedTracks([])
+    setHistoryMatches([])
+    setHistoryImageUrl(null)
+    setHistorySetName('')
+    setHistoryImportError('')
+  }
+
   function clearScannerState() {
     try { localStorage.removeItem(SCANNER_KEY) } catch {}
     setCurrentScanId(null)
@@ -1756,6 +1874,176 @@ Return corrected JSON:
         {/* ═══ HISTORY TAB ═══ */}
         {activeTab === 'history' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            {/* ── Screenshot Import Zone ── */}
+            {historyImportPhase === 'idle' && (
+              <div
+                onDragOver={e => { e.preventDefault(); setHistoryScreenshotDragging(true) }}
+                onDragLeave={() => setHistoryScreenshotDragging(false)}
+                onDrop={async e => {
+                  e.preventDefault()
+                  setHistoryScreenshotDragging(false)
+                  const file = e.dataTransfer.files[0]
+                  if (file) await handleHistoryScreenshot(file)
+                }}
+                onClick={() => {
+                  const inp = document.createElement('input')
+                  inp.type = 'file'; inp.accept = 'image/*'
+                  inp.onchange = async (ev) => {
+                    const f = (ev.target as HTMLInputElement).files?.[0]
+                    if (f) await handleHistoryScreenshot(f)
+                  }
+                  inp.click()
+                }}
+                style={{
+                  border: `1px dashed ${historyScreenshotDragging ? s.setlab : s.border}`,
+                  background: historyScreenshotDragging ? 'rgba(154,106,90,0.06)' : s.panel,
+                  padding: '40px 32px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{ fontSize: '24px', marginBottom: '14px', opacity: 0.25 }}>&#9678;</div>
+                <div style={{ fontSize: '11px', letterSpacing: '0.15em', color: s.text, textTransform: 'uppercase', marginBottom: '6px' }}>
+                  Drop a screenshot of your set history
+                </div>
+                <div style={{ fontSize: '10px', color: s.textDimmer }}>
+                  Rekordbox history, Traktor, CDJ screen, or any tracklist image
+                </div>
+              </div>
+            )}
+
+            {/* ── Loading States ── */}
+            {(historyImportPhase === 'uploading' || historyImportPhase === 'extracting' || historyImportPhase === 'matching') && (
+              <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '48px 32px', textAlign: 'center' }}>
+                <ScanPulse size="sm" color={s.setlab} />
+                <div style={{ fontSize: '11px', letterSpacing: '0.15em', color: s.setlab, textTransform: 'uppercase', marginTop: '16px' }}>
+                  {historyImportPhase === 'uploading' && 'Uploading image...'}
+                  {historyImportPhase === 'extracting' && 'Reading your tracklist...'}
+                  {historyImportPhase === 'matching' && 'Matching against your library...'}
+                </div>
+              </div>
+            )}
+
+            {/* ── Error State ── */}
+            {historyImportError && historyImportPhase === 'idle' && (
+              <div style={{ background: 'rgba(154,106,90,0.08)', border: '1px solid rgba(154,106,90,0.3)', padding: '14px 18px', fontSize: '11px', color: '#9a6a5a' }}>
+                {historyImportError}
+              </div>
+            )}
+
+            {/* ── Preview Extracted Tracks ── */}
+            {(historyImportPhase === 'preview' || historyImportPhase === 'saving') && historyMatches.length > 0 && (
+              <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>
+                    {historyMatches.length} tracks extracted
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
+                    {(() => {
+                      const exact = historyMatches.filter(m => m.confidence === 'exact').length
+                      const partial = historyMatches.filter(m => m.confidence === 'partial').length
+                      const none = historyMatches.filter(m => m.confidence === 'none').length
+                      return (
+                        <>
+                          {exact > 0 && <span style={{ color: '#3d6b4a' }}>{exact} in library</span>}
+                          {partial > 0 && <span style={{ color: s.gold }}>{partial} partial</span>}
+                          {none > 0 && <span style={{ color: s.textDimmer }}>{none} new</span>}
+                        </>
+                      )
+                    })()}
+                  </div>
+                </div>
+
+                {/* Set name input */}
+                <input
+                  value={historySetName}
+                  onChange={e => setHistorySetName(e.target.value)}
+                  placeholder="Set name (optional)"
+                  style={{
+                    width: '100%', background: s.black, border: `1px solid ${s.border}`,
+                    color: s.text, fontFamily: s.font, fontSize: '12px', padding: '10px 14px',
+                    outline: 'none', boxSizing: 'border-box', marginBottom: '16px',
+                  }}
+                />
+
+                {/* Track list */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '20px' }}>
+                  {historyMatches.map((match, i) => {
+                    const dotColor = match.confidence === 'exact' ? '#3d6b4a' : match.confidence === 'partial' ? '#b08d57' : '#52504c'
+                    return (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        padding: '10px 14px', background: s.black, border: `1px solid ${s.border}`,
+                      }}>
+                        {/* Position */}
+                        <div style={{ fontSize: '10px', color: s.textDimmer, minWidth: '20px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                          {match.extracted.position || i + 1}
+                        </div>
+
+                        {/* Match indicator dot */}
+                        <div style={{
+                          width: '6px', height: '6px', borderRadius: '50%',
+                          background: dotColor, flexShrink: 0,
+                        }} />
+
+                        {/* Track info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: '12px', color: s.text, letterSpacing: '0.03em',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          }}>
+                            {match.extracted.title}
+                            <span style={{ color: s.textDim }}> — {match.extracted.artist}</span>
+                          </div>
+                        </div>
+
+                        {/* BPM / Key */}
+                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                          {match.extracted.bpm && (
+                            <div style={{ fontSize: '10px', color: s.textDimmer }}>{match.extracted.bpm}</div>
+                          )}
+                          {match.extracted.key && (
+                            <div style={{ fontSize: '10px', color: s.gold }}>{match.extracted.key}</div>
+                          )}
+                        </div>
+
+                        {/* Match label */}
+                        <div style={{
+                          fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase',
+                          color: dotColor, flexShrink: 0,
+                        }}>
+                          {match.confidence === 'exact' ? 'In library' : match.confidence === 'partial' ? 'Partial' : 'New'}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    onClick={saveHistoryScreenshotSet}
+                    style={{ ...btn(s.setlab), flex: 1, justifyContent: 'center', fontSize: '11px', padding: '13px' }}
+                  >
+                    {historyImportPhase === 'saving' ? (
+                      <><ScanPulse size="sm" color={s.setlab} /> Saving...</>
+                    ) : (
+                      'Save set'
+                    )}
+                  </button>
+                  <button
+                    onClick={cancelHistoryImport}
+                    style={{ ...btn(s.textDim, 'transparent'), fontSize: '11px', padding: '13px 22px' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Past Sets List ── */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px' }}>
               <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>Past sets</div>
               {pastSets.length === 0 ? (

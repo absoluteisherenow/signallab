@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { useMobile } from '@/hooks/useMobile'
 import { SKILL_SOCIAL_STRATEGY, SKILL_VOICE_ENGINE, SKILL_ADS_MANAGER, SKILL_INSTAGRAM_GROWTH } from '@/lib/skillPromptsClient'
 
@@ -908,7 +909,9 @@ Rules:
     setDeviceType(window.innerWidth <= 768 ? 'mobile' : 'desktop')
   }, [])
 
+  const pathname = usePathname()
   if (deviceType === 'unknown') return null
+  if (pathname.startsWith('/go/')) return null
 
   // Mobile: floating mic centred above the toolbar
   if (deviceType === 'mobile') {

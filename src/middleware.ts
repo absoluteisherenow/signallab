@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   '/advance',   // external advance request forms (promoters/venues fill these in)
   '/upload',    // public media upload links (pre-show briefs)
   '/privacy',   // public privacy policy (required for Meta App Review)
+  '/go',        // promo landing pages for DJs (reaction-gated download)
 ]
 
 export function middleware(req: NextRequest) {
@@ -25,6 +26,7 @@ export function middleware(req: NextRequest) {
     || pathname.startsWith('/api/gmail')    // Gmail cron + OAuth callbacks
     || pathname.startsWith('/api/agents')   // Vercel cron agents (weekly-content, post-gig, etc.)
     || pathname.startsWith('/api/crons')    // Vercel cron jobs (night-before, sync-performance, etc.)
+    || pathname.startsWith('/api/promo-click') // promo landing page API (public for DJs)
     || pathname.startsWith('/_next')
     || pathname === '/signal-genius.html'   // M4L jweb — public
     || pathname === '/mockup.html'
@@ -50,5 +52,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$|.*\\.ico$|.*\\.webp$|manifest\\.json$|sw\\.js$).*)'],
 }

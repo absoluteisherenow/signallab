@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { createNotification } from '@/lib/notifications'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +8,7 @@ const supabase = createClient(
 )
 
 // Called by Vercel cron daily at 9am
-// Also callable manually via POST /api/invoices/reminders
+// Creates DRAFTS — never sends directly. User approves before send.
 
 export async function GET(req: NextRequest) {
   return handler()
@@ -106,8 +106,22 @@ Use the promoter's first name. Reference the specific show. Keep it under 100 wo
   return text
 }
 
+function bodyToHtml(bodyText: string, subject: string): string {
+  const lines = bodyText.split('\n').map((line: string) => {
+    if (line.trim() === '') return '<br/>'
+    return `<p style="margin:0 0 8px;line-height:1.6">${line}</p>`
+  }).join('\n')
+
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;background:#070706;color:#f0ebe2;padding:40px;max-width:580px">
+  <div style="color:#b08d57;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:24px">NIGHT MANOEUVRES — PAYMENT REMINDER</div>
+  <div style="color:#f0ebe2;font-size:14px;line-height:1.7">
+    ${lines}
+  </div>
+  <div style="margin-top:40px;padding-top:20px;border-top:1px solid #1a1917;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#52504c">Signal Lab OS &middot; signallabos.com</div>
+</div>`
+}
+
 async function handler() {
-  const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -118,7 +132,7 @@ async function handler() {
       .eq('status', 'pending')
 
     if (error) throw error
-    if (!invoices?.length) return NextResponse.json({ sent: 0, message: 'No pending invoices' })
+    if (!invoices?.length) return NextResponse.json({ drafts: 0, message: 'No pending invoices' })
 
     const results: string[] = []
 
@@ -139,7 +153,20 @@ async function handler() {
         continue
       }
 
-      // Derive promoter first name — fall back to "there" if not stored
+      // Check if draft already exists for this invoice + milestone
+      const { data: existingDraft } = await supabase
+        .from('invoice_reminder_drafts')
+        .select('id')
+        .eq('invoice_id', invoice.id)
+        .eq('milestone', milestone)
+        .in('status', ['draft', 'sent'])
+        .single()
+
+      if (existingDraft) {
+        results.push(`Skipped ${invoice.gig_title} [${milestone}]: draft already exists`)
+        continue
+      }
+
       const promoterFullName: string = gig?.promoter_name || ''
       const promoterFirstName = promoterFullName.split(' ')[0] || 'there'
 
@@ -156,9 +183,9 @@ async function handler() {
           ? `Invoice due today — ${gigTitle}`
           : `Overdue invoice — ${gigTitle} (${Math.abs(daysUntilDue)} days overdue)`
 
-      let body: string
+      let bodyText: string
       try {
-        body = await generateChaseEmail({
+        bodyText = await generateChaseEmail({
           gigTitle,
           venue,
           gigDate,
@@ -169,35 +196,51 @@ async function handler() {
           milestone,
         })
       } catch (claudeErr: any) {
-        // Fall back to plain text if Claude fails — don't skip the reminder
-        body = `Hi ${promoterFirstName},\n\nJust a reminder that the invoice for ${gigTitle} (${currency} ${amount.toLocaleString()}) is ${daysUntilDue === 0 ? 'due today' : daysUntilDue > 0 ? `due in ${daysUntilDue} days` : `${Math.abs(daysUntilDue)} days overdue`}.\n\nPlease arrange payment at your earliest convenience.\n\nNight Manoeuvres`
+        bodyText = `Hi ${promoterFirstName},\n\nJust a reminder that the invoice for ${gigTitle} (${currency} ${amount.toLocaleString()}) is ${daysUntilDue === 0 ? 'due today' : daysUntilDue > 0 ? `due in ${daysUntilDue} days` : `${Math.abs(daysUntilDue)} days overdue`}.\n\nPlease arrange payment at your earliest convenience.\n\nNight Manoeuvres`
         results.push(`Claude fallback for ${invoice.gig_title}: ${claudeErr.message}`)
       }
 
-      try {
-        await resend.emails.send({
-          from: 'bookings@nightmanoeuvres.com',
-          to: promoterEmail,
+      const bodyHtml = bodyToHtml(bodyText, subject)
+
+      // Create draft — NOT send
+      const { error: insertErr } = await supabase
+        .from('invoice_reminder_drafts')
+        .insert({
+          invoice_id: invoice.id,
+          gig_id: invoice.gig_id || null,
+          milestone,
+          promoter_email: promoterEmail,
+          promoter_name: promoterFullName,
           subject,
-          text: body,
+          body_text: bodyText,
+          body_html: bodyHtml,
+          status: 'draft',
+          generated_at: new Date().toISOString(),
         })
-        results.push(`Sent [${milestone}] to ${promoterEmail}: ${subject}`)
-      } catch (emailErr: any) {
-        results.push(`Failed to send to ${promoterEmail}: ${emailErr.message}`)
+
+      if (insertErr) {
+        results.push(`Failed to create draft for ${invoice.gig_title}: ${insertErr.message}`)
+        continue
       }
+
+      results.push(`Draft created [${milestone}] for ${promoterEmail}: ${subject}`)
     }
 
-    // Save reminder log to Supabase
-    if (results.length > 0) {
-      await supabase.from('reminder_log').insert(
-        results.map(r => ({ message: r, sent_at: new Date().toISOString() }))
-      )
+    // Notify the artist there are drafts to review
+    const draftCount = results.filter(r => r.startsWith('Draft created')).length
+    if (draftCount > 0) {
+      await createNotification({
+        type: 'invoice_overdue',
+        title: `${draftCount} invoice reminder${draftCount > 1 ? 's' : ''} ready to review`,
+        message: 'Review and approve before sending',
+        href: '/finances',
+      })
     }
 
     return NextResponse.json({
       success: true,
-      sent: results.length,
-      reminders: results,
+      drafts: draftCount,
+      results,
     })
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 })

@@ -44,6 +44,17 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id } = await req.json()
+    const { error } = await supabase.from('invoices').delete().eq('id', id)
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+  }
+}
+
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json()

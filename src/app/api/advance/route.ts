@@ -13,10 +13,22 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await query
     if (error) throw error
-    return NextResponse.json({ requests: data || [] })
+
+    // If a specific gig was requested, also return gig details (for the public advance form)
+    let gig = null
+    if (gigId) {
+      const { data: gigData } = await supabase
+        .from('gigs')
+        .select('title, venue, date, location')
+        .eq('id', gigId)
+        .single()
+      gig = gigData
+    }
+
+    return NextResponse.json({ requests: data || [], gig })
   } catch (err: any) {
-    if (err?.code === '42P01') return NextResponse.json({ requests: [] })
-    return NextResponse.json({ error: err.message, requests: [] }, { status: 500 })
+    if (err?.code === '42P01') return NextResponse.json({ requests: [], gig: null })
+    return NextResponse.json({ error: err.message, requests: [], gig: null }, { status: 500 })
   }
 }
 

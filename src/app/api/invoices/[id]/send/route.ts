@@ -139,15 +139,35 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-// POST — send the email
+// POST — preview OR send the invoice email
+// Body: { to?: string, confirmed?: boolean }
+// Step 1 (no confirmed): returns preview data for approval
+// Step 2 (confirmed: true): actually sends the email
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { to } = await req.json().catch(() => ({}))
+    const { to, confirmed } = await req.json().catch(() => ({} as any))
     const data = await buildEmailData(params.id, to)
     if (!data) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
     const { artistName, invoiceUrl, invoice, dueDate, promoterEmail, subject, greeting, invoiceNumber, html } = data
 
+    // Step 1: return preview for approval (no sending)
+    if (!confirmed) {
+      return NextResponse.json({
+        success: true,
+        preview: true,
+        to: promoterEmail,
+        subject,
+        html,
+        greeting,
+        invoiceNumber,
+        amount: `${invoice.currency} ${Number(invoice.amount).toLocaleString()}`,
+        dueDate,
+        message: 'Review this invoice email. Call again with confirmed: true to send.',
+      })
+    }
+
+    // Step 2: confirmed — actually send
     // Try Gmail send
     try {
       const clients = await getGmailClients()

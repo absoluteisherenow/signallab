@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useMobile } from '@/hooks/useMobile'
 
 type Release = {
@@ -10,7 +11,7 @@ type Release = {
 }
 
 interface Contact {
-  id: string; name: string; instagram_handle: string | null; email: string | null
+  id: string; name: string; instagram_handle: string | null; email: string | null; whatsapp: string | null
   genre: string | null; tier: string; notes: string | null; last_sent_at: string | null; total_promos_sent: number
 }
 
@@ -18,8 +19,17 @@ const TYPE_LABELS: Record<string, string> = { single: 'Single', ep: 'EP', album:
 const TIERS = ['priority', 'standard', 'new']
 
 export default function DropLabPage() {
+  return (
+    <Suspense fallback={null}>
+      <DropLabInner />
+    </Suspense>
+  )
+}
+
+function DropLabInner() {
   const mobile = useMobile()
-  const [tab, setTab] = useState<'releases' | 'promo'>('releases')
+  const searchParams = useSearchParams()
+  const [tab, setTab] = useState<'releases' | 'promo'>(searchParams.get('tab') === 'promo' ? 'promo' : 'releases')
   const [initialPromoUrl, setInitialPromoUrl] = useState('')
 
   const s = {
@@ -41,11 +51,11 @@ export default function DropLabPage() {
               {tab === 'releases' ? 'Your catalogue' : 'DJ Promo'}
             </div>
           </div>
-          {tab === 'releases' && (
+          {tab === 'releases' ? (
             <Link href="/releases/new" style={{ background: s.gold, color: '#070706', textDecoration: 'none', padding: '0 24px', height: '36px', display: 'inline-flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: mobile ? '0' : '4px' }}>
               + New release
             </Link>
-          )}
+          ) : null}
         </div>
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '0' }}>
@@ -205,13 +215,14 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
   const [filterTier, setFilterTier] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [importing, setImporting] = useState(false)
-  const [form, setForm] = useState({ name: '', instagram_handle: '', email: '', genre: '', tier: 'standard', notes: '' })
+  const [form, setForm] = useState({ name: '', instagram_handle: '', email: '', phone: '', genre: '', tier: 'standard', notes: '' })
   const [trackMeta, setTrackMeta] = useState<TrackMeta | null>(null)
   const [fetchingMeta, setFetchingMeta] = useState(false)
   const [writingPromo, setWritingPromo] = useState(false)
   const [blastHistory, setBlastHistory] = useState<any[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [reactions, setReactions] = useState<Record<string, string>>({})
+  const [blastChannel, setBlastChannel] = useState<'instagram' | 'whatsapp' | 'email'>('instagram')
 
   const inp = `width: 100%; background: var(--panel); border: 1px solid var(--border-dim); color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; outline: none;`
 
@@ -286,8 +297,9 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
     if (!form.name) return
     setSaving(true)
     try {
-      const d = await fetch('/api/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }).then(r => r.json())
-      if (d.contact) { setContacts(prev => [...prev, d.contact].sort((a, b) => a.name.localeCompare(b.name))); setAdding(false); setForm({ name: '', instagram_handle: '', email: '', genre: '', tier: 'standard', notes: '' }) }
+      const { phone, ...rest } = form
+      const d = await fetch('/api/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...rest, whatsapp: phone }) }).then(r => r.json())
+      if (d.contact) { setContacts(prev => [...prev, d.contact].sort((a, b) => a.name.localeCompare(b.name))); setAdding(false); setForm({ name: '', instagram_handle: '', email: '', phone: '', genre: '', tier: 'standard', notes: '' }) }
     } finally { setSaving(false) }
   }
 
@@ -300,12 +312,46 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
 
   async function sendBlast() {
     if (!blastMessage || selected.size === 0) return
-    const names = contacts.filter(c => selected.has(c.id)).map(c => c.name)
+    const selectedContacts = contacts.filter(c => selected.has(c.id))
+    const names = selectedContacts.map(c => c.name)
     const preview = names.slice(0, 3).join(', ') + (names.length > 3 ? ` + ${names.length - 3} more` : '')
-    if (!window.confirm(`Send DM to ${selected.size} contacts?\n\n${preview}`)) return
+    const channelLabel = blastChannel === 'instagram' ? 'Instagram DM' : blastChannel === 'whatsapp' ? 'WhatsApp' : 'email'
+    if (!window.confirm(`Send ${channelLabel} to ${selected.size} contacts?\n\n${preview}`)) return
+
+    // WhatsApp: open pre-filled links (can't bulk-send via API without Business API)
+    if (blastChannel === 'whatsapp') {
+      const siteUrl = window.location.origin
+      let opened = 0, failed = 0
+      const results: any[] = []
+      for (const c of selectedContacts) {
+        const phone = c.whatsapp?.replace(/\D/g, '')
+        if (!phone) { results.push({ name: c.name, sent: false, error: 'No phone number' }); failed++; continue }
+        const msg = encodeURIComponent(blastMessage + (blastUrl ? `\n\n${siteUrl}/go/${blastUrl.split('/').pop()}` : ''))
+        window.open(`https://wa.me/${phone}?text=${msg}`, '_blank')
+        results.push({ name: c.name, sent: true }); opened++
+      }
+      setBlastResult({ sent: opened, failed, results })
+      return
+    }
+
+    // Email: send via API
+    if (blastChannel === 'email') {
+      setBlasting(true); setBlastResult(null)
+      try {
+        const d = await fetch('/api/promo-blast', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contact_ids: Array.from(selected), message: blastMessage, promo_url: blastUrl || null, track_title: trackMeta?.title || null, track_artist: trackMeta?.author || null, channel: 'email' }),
+        }).then(r => r.json())
+        setBlastResult(d)
+        if (d.ok) { await loadContacts(); setSelected(new Set()); setBlastMessage(''); setBlastUrl(''); localStorage.removeItem('nm_blast_draft') }
+      } finally { setBlasting(false) }
+      return
+    }
+
+    // Instagram DM (existing flow)
     setBlasting(true); setBlastResult(null)
     try {
-      const d = await fetch('/api/promo-blast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_ids: Array.from(selected), message: blastMessage, promo_url: blastUrl || null, track_title: trackMeta?.title || null, track_artist: trackMeta?.author || null }) }).then(r => r.json())
+      const d = await fetch('/api/promo-blast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_ids: Array.from(selected), message: blastMessage, promo_url: blastUrl || null, track_title: trackMeta?.title || null, track_artist: trackMeta?.author || null, channel: 'instagram' }) }).then(r => r.json())
       setBlastResult(d)
       if (d.ok) { await loadContacts(); setSelected(new Set()); setBlastMessage(''); setBlastUrl(''); localStorage.removeItem('nm_blast_draft') }
     } finally { setBlasting(false) }
@@ -393,11 +439,9 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
             />
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {selected.size > 0 && (
-              <button onClick={() => setShowBlast(true)} style={{ background: s.gold, color: '#070706', border: 'none', cursor: 'pointer', padding: '0 20px', height: '32px', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font }}>
-                Send promo to {selected.size} →
-              </button>
-            )}
+            <button onClick={() => setShowBlast(true)} style={{ background: selected.size > 0 ? s.gold : 'transparent', color: selected.size > 0 ? '#070706' : s.gold, border: selected.size > 0 ? 'none' : `1px solid ${s.gold}60`, cursor: 'pointer', padding: '0 20px', height: '32px', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font }}>
+              {selected.size > 0 ? `Send promo to ${selected.size} →` : '+ New blast'}
+            </button>
             <button onClick={() => setAdding(true)} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, cursor: 'pointer', padding: '0 14px', height: '32px', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font }}>
               + Add contact
             </button>
@@ -416,6 +460,7 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
                 { label: 'Name', key: 'name', placeholder: 'DJ / Promoter name' },
                 { label: 'Instagram handle', key: 'instagram_handle', placeholder: '@handle' },
                 { label: 'Email', key: 'email', placeholder: 'email@domain.com' },
+                { label: 'Phone (WhatsApp)', key: 'phone', placeholder: '+44 7700 900000' },
                 { label: 'Genre', key: 'genre', placeholder: 'Techno / House / Electronica' },
                 { label: 'Notes', key: 'notes', placeholder: 'Fabric resident, plays our stuff...' },
               ].map(f => (
@@ -549,6 +594,14 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
               </div>
             </div>
 
+            {/* Save / Send */}
+            {(blastMessage || blastUrl) && !blastResult && (
+              <button onClick={() => { setShowBlast(false) }}
+                style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dim, cursor: 'pointer', padding: '10px 16px', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font, width: '100%' }}>
+                Save draft and close
+              </button>
+            )}
+
             {blastResult && (
               <div style={{ padding: '12px 16px', border: `1px solid ${blastResult.failed === 0 ? 'rgba(61,107,74,0.4)' : `${s.gold}40`}`, background: blastResult.failed === 0 ? 'rgba(61,107,74,0.1)' : `${s.gold}10`, fontSize: '10px' }}>
                 <div style={{ color: blastResult.failed === 0 ? '#3d6b4a' : s.gold, marginBottom: '6px' }}>{blastResult.sent} sent · {blastResult.failed} failed</div>
@@ -596,11 +649,44 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
                 ))}
               </div>
             )}
+            {/* Channel selector */}
+            <div>
+              <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.dimmer, marginBottom: '8px' }}>Send via</div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {([
+                  { key: 'instagram' as const, label: 'Instagram DM' },
+                  { key: 'whatsapp' as const, label: 'WhatsApp' },
+                  { key: 'email' as const, label: 'Email' },
+                ]).map(ch => (
+                  <button key={ch.key} onClick={() => setBlastChannel(ch.key)}
+                    style={{
+                      flex: 1, padding: '8px 4px', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase',
+                      background: blastChannel === ch.key ? `${s.gold}15` : 'transparent',
+                      border: `1px solid ${blastChannel === ch.key ? s.gold : s.border}`,
+                      color: blastChannel === ch.key ? s.gold : s.dimmer,
+                      cursor: 'pointer', fontFamily: s.font, transition: 'all 0.15s',
+                    }}>
+                    {ch.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {selected.size === 0 && (
+              <button onClick={selectAll}
+                style={{ background: 'transparent', border: `1px solid ${s.gold}40`, color: s.gold, cursor: 'pointer', padding: '10px 16px', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font, width: '100%' }}>
+                Select all {filtered.length} contacts →
+              </button>
+            )}
             <button onClick={sendBlast} disabled={blasting || !blastMessage || selected.size === 0}
-              style={{ background: s.gold, color: '#070706', border: 'none', cursor: 'pointer', padding: '12px 20px', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', fontFamily: s.font, opacity: blasting || !blastMessage || selected.size === 0 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              {blasting ? 'Sending...' : 'Send via Instagram DM →'}
+              style={{ background: s.gold, color: '#070706', border: 'none', cursor: 'pointer', padding: '12px 20px', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', fontFamily: s.font, opacity: blasting || !blastMessage || selected.size === 0 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}>
+              {blasting ? 'Sending...' : selected.size === 0 ? 'Select contacts to send' : `Send to ${selected.size} via ${blastChannel === 'instagram' ? 'Instagram DM' : blastChannel === 'whatsapp' ? 'WhatsApp' : 'Email'} →`}
             </button>
-            <div style={{ fontSize: '9px', color: s.dimmer, lineHeight: 1.6 }}>Only reaches contacts who follow you on Instagram</div>
+            <div style={{ fontSize: '9px', color: s.dimmer, lineHeight: 1.6 }}>
+              {blastChannel === 'instagram' ? 'Only reaches contacts who follow you on Instagram' :
+               blastChannel === 'whatsapp' ? 'Opens WhatsApp with pre-filled message for each contact' :
+               'Sends personalised email to each contact'}
+            </div>
             {/* Blast history */}
             <div style={{ borderTop: `1px solid ${s.border}`, marginTop: '8px', paddingTop: '16px' }}>
               <button onClick={() => { setShowHistory(!showHistory); if (!showHistory) loadBlastHistory() }}
