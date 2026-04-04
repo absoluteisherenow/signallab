@@ -18,6 +18,8 @@ interface Gig {
   status: string
   promoter_email: string | null
   notes: string | null
+  artwork_url: string | null
+  ra_url: string | null
 }
 
 interface GigDetailProps {
@@ -78,6 +80,12 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const [advanceStatus, setAdvanceStatus] = useState<string | null>(null)
   const [sendingAdvance, setSendingAdvance] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [artworkTab, setArtworkTab] = useState<'ra' | 'upload'>('upload')
+  const [artworkPreview, setArtworkPreview] = useState<string | null>(null)
+  const [uploadingArtwork, setUploadingArtwork] = useState(false)
+  const [fetchingArtwork, setFetchingArtwork] = useState(false)
+  const [raInput, setRaInput] = useState('')
+  const [artworkError, setArtworkError] = useState('')
 
   // Parse rider sections from notes
   function parseRider(notes: string | null): { tech: string | null; hospitality: string | null; confirmed: boolean } | null {
@@ -95,7 +103,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
   useEffect(() => {
     fetch(`/api/gigs/${gigId}`)
       .then(r => r.json())
-      .then(d => { if (d.gig) setGig(d.gig) })
+      .then(d => { if (d.gig) { setGig(d.gig); if (d.gig.artwork_url) setArtworkPreview(d.gig.artwork_url) } })
       .catch(() => {})
       .finally(() => setLoading(false))
 
@@ -188,6 +196,32 @@ export function GigDetail({ gigId }: GigDetailProps) {
     }
   }
 
+  // Debounced RA fetch
+  useEffect(() => {
+    if (!raInput || !raInput.includes('ra.co')) { setArtworkError(''); return }
+    const t = setTimeout(async () => {
+      setFetchingArtwork(true); setArtworkError('')
+      try {
+        const d = await fetch(`/api/ra/artwork?url=${encodeURIComponent(raInput)}`).then(r => r.json())
+        if (d.artwork) setArtworkPreview(d.artwork)
+        else setArtworkError(d.error || 'No artwork found')
+      } catch { setArtworkError('Could not fetch') }
+      finally { setFetchingArtwork(false) }
+    }, 700)
+    return () => clearTimeout(t)
+  }, [raInput])
+
+  async function handleArtworkUpload(file: File) {
+    setUploadingArtwork(true); setArtworkError('')
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const d = await fetch('/api/upload/artwork', { method: 'POST', body: fd }).then(r => r.json())
+      if (d.url) setArtworkPreview(d.url)
+      else setArtworkError(d.error || 'Upload failed')
+    } catch { setArtworkError('Upload failed') }
+    finally { setUploadingArtwork(false) }
+  }
+
   if (loading) return (
     <div style={{ padding: '80px 56px', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '12px', letterSpacing: '0.1em' }}>Loading…</div>
   )
@@ -218,12 +252,17 @@ export function GigDetail({ gigId }: GigDetailProps) {
           <Link href="/gigs" style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textDecoration: 'none', textTransform: 'uppercase' }}>← Gigs</Link>
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '12px' }}>
-              {gig.status === 'confirmed' ? '● Confirmed' : gig.status === 'cancelled' ? '○ Cancelled' : '◎ Pending'}
+          <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+            {artworkPreview && !editing && (
+              <img src={artworkPreview} alt="" style={{ width: '80px', height: '80px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-dim)', borderRadius: '2px' }} />
+            )}
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '12px' }}>
+                {gig.status === 'confirmed' ? '● Confirmed' : gig.status === 'cancelled' ? '○ Cancelled' : '◎ Pending'}
+              </div>
+              <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 46px)', lineHeight: 1.0, marginBottom: '10px' }}>{gig.title}</div>
+              <div style={{ fontSize: '14px', color: 'var(--text-dim)' }}>{gig.venue} · {gig.location}</div>
             </div>
-            <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 46px)', lineHeight: 1.0, marginBottom: '10px' }}>{gig.title}</div>
-            <div style={{ fontSize: '14px', color: 'var(--text-dim)' }}>{gig.venue} · {gig.location}</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {!editing && (
@@ -350,6 +389,65 @@ export function GigDetail({ gigId }: GigDetailProps) {
               </div>
             )
           })()}
+
+          {/* Artwork */}
+          {editing && (
+            <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>Artwork</div>
+
+              {/* Hidden input so artwork_url is included in FormData */}
+              <input type="hidden" name="artwork_url" value={artworkPreview || ''} readOnly />
+              <input type="hidden" name="ra_url" value={raInput || gig.ra_url || ''} readOnly />
+
+              <div style={{ display: 'flex', gap: '0', marginBottom: '20px', borderBottom: '1px solid var(--border-dim)' }}>
+                {(['upload', 'ra'] as const).map(t => (
+                  <button key={t} type="button" onClick={() => { setArtworkTab(t); setArtworkError('') }} style={{
+                    padding: '8px 18px', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
+                    background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)',
+                    color: artworkTab === t ? 'var(--gold)' : 'var(--text-dimmer)',
+                    borderBottom: artworkTab === t ? '1px solid var(--gold)' : '1px solid transparent',
+                    marginBottom: '-1px',
+                  }}>
+                    {t === 'ra' ? 'From RA' : 'Upload'}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  {artworkTab === 'upload' ? (
+                    <div>
+                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '72px', border: `1px dashed ${artworkPreview ? 'var(--gold)' : 'var(--border-dim)'}`, cursor: 'pointer', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', background: 'transparent', boxSizing: 'border-box' as const }}>
+                        {uploadingArtwork ? 'Uploading…' : artworkPreview ? '✓ Uploaded — click to replace' : '+ Choose file'}
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleArtworkUpload(f) }} />
+                      </label>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '8px' }}>
+                        Resident Advisor URL {fetchingArtwork && <span style={{ fontStyle: 'italic' }}>fetching…</span>}
+                      </div>
+                      <input value={raInput} onChange={e => setRaInput(e.target.value)} placeholder="https://ra.co/events/..."
+                        style={{ ...s.input, borderColor: artworkPreview && raInput ? 'var(--gold)' : undefined }} />
+                    </div>
+                  )}
+                  {artworkError && <div style={{ fontSize: '10px', color: '#8a4a3a', marginTop: '6px' }}>{artworkError}</div>}
+                </div>
+
+                {artworkPreview ? (
+                  <div style={{ flexShrink: 0, position: 'relative' }}>
+                    <img src={artworkPreview} alt="" style={{ width: '100px', height: '100px', objectFit: 'cover', display: 'block', border: '1px solid var(--border-dim)' }} />
+                    <button type="button" onClick={() => { setArtworkPreview(null); setRaInput('') }}
+                      style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(7,7,6,0.85)', border: 'none', color: 'var(--text-dimmer)', cursor: 'pointer', fontSize: '12px', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                  </div>
+                ) : (
+                  <div style={{ width: '100px', height: '100px', border: '1px dashed var(--border-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{ fontSize: '9px', color: 'var(--text-dimmer)', letterSpacing: '0.1em', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.6 }}>No<br/>artwork</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {editing && (
             <div style={{ display: 'flex', gap: '8px', marginBottom: '44px' }}>
