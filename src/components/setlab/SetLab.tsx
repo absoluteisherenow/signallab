@@ -2041,7 +2041,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                       <input type="checkbox" checked={selectedTracks.has(track.id)} readOnly
                         style={{ cursor: 'pointer', accentColor: s.gold }} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }} onClick={e => {
+                    <div className="track-art-cell" style={{ display: 'flex', alignItems: 'center', position: 'relative' }} onClick={e => {
                       e.stopPropagation()
                       if (track.spotify_url) {
                         const spotifyId = track.spotify_url.match(/track\/([a-zA-Z0-9]+)/)?.[1]
@@ -2051,7 +2051,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                       {track.album_art ? (
                         <div style={{ width: '32px', height: '32px', position: 'relative', cursor: track.spotify_url ? 'pointer' : 'default' }}>
                           <img src={track.album_art} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', opacity: playingTrack?.id === track.id ? 0.4 : 1, transition: 'opacity 0.15s' }} />
-                          {track.spotify_url && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s' }}>{playingTrack?.id === track.id ? '■' : '▶'}</div>}
+                          {track.spotify_url && <div className="play-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s', background: 'rgba(0,0,0,0.4)' }}>{playingTrack?.id === track.id ? '■' : '▶'}</div>}
                         </div>
                       ) : (
                         <div style={{ width: '32px', height: '32px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: track.spotify_url ? 'pointer' : 'default' }}>
@@ -4053,7 +4053,7 @@ Return ONLY valid JSON, no markdown.`, 300)
         </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } } select option { background: #1a1208; }`}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } select option { background: #1a1208; } .track-art-cell:hover .play-overlay { opacity: 1 !important; }`}</style>
     </div>
   )
 }
