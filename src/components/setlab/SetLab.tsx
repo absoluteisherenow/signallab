@@ -753,7 +753,7 @@ Provide:
     setVenue(ps.venue || '')
     setSlotType(ps.slot_type || 'Club — peak time')
     setActiveTab('builder')
-    showToast(`"${ps.name || 'Set'}" loaded into builder`, 'Set Lab')
+    showToast(`"${ps.name || 'Set'}" loaded into Set Builder`, 'Set Lab')
   }
 
   async function loadPastSets() {
@@ -1554,7 +1554,7 @@ Return corrected JSON:
               cursor: 'pointer',
               transition: 'color 0.15s',
               marginBottom: '-1px',
-            }}>{tab}</button>
+            }}>{{ builder: 'set builder', discover: 'discover' }[tab] || tab}</button>
           ))}
         </div>
       </div>
@@ -2340,7 +2340,7 @@ Return corrected JSON:
               <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '16px' }}>Past sets</div>
               {pastSets.length === 0 ? (
                 <div style={{ padding: '32px', textAlign: 'center', color: s.textDimmer, fontSize: '12px' }}>
-                  No past sets yet — save your first set in the Builder tab
+                  No past sets yet — save your first set in the Set Builder tab
                 </div>
               ) : (
                 pastSets.map((ps, i) => (
