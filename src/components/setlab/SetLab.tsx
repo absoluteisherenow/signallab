@@ -146,6 +146,21 @@ export function SetLab() {
   const [raOnlyFilter, setRaOnlyFilter] = useState(false)
   // RA rich index: key → attribution
   const raRichMapRef = useRef<Map<string, { charted_by: string; chart_title: string }>>(new Map())
+  // ── Crate Dig state ────────────────────────────────────────────────────
+  const [discoverMode, setDiscoverMode] = useState<'beatport' | 'crate'>('beatport')
+  const [crateDigTrack, setCrateDigTrack] = useState<Track | null>(null)
+  const [crateDigAxis, setCrateDigAxis] = useState<'label' | 'artist' | 'style' | 'credit'>('label')
+  const [crateDigResults, setCrateDigResults] = useState<any[]>([])
+  const [crateDigLoading, setCrateDigLoading] = useState(false)
+  const [crateDigError, setCrateDigError] = useState('')
+  const [crateDigMeta, setCrateDigMeta] = useState<{ label_name?: string; artist_name?: string; style?: string; year_range?: string; credits?: any[]; release_title?: string } | null>(null)
+  const crateDigResolveCache = useRef<Map<string, any>>(new Map())
+  const [crateTrackSearch, setCrateTrackSearch] = useState('')
+  const [crateTrackDropdown, setCrateTrackDropdown] = useState(false)
+  // ── Wantlist state ─────────────────────────────────────────────────────
+  const [wantlist, setWantlist] = useState<any[]>([])
+  const [wantlistLoading, setWantlistLoading] = useState(false)
+  const [libraryMode, setLibraryMode] = useState<'library' | 'wantlist'>('library')
   const audioInputRef = useRef<HTMLInputElement>(null)
   const screenshotInputRef = useRef<HTMLInputElement>(null)
   const [screenshotImporting, setScreenshotImporting] = useState(false)
@@ -1143,7 +1158,147 @@ Return corrected JSON:
     }
   }
 
-  useEffect(() => { loadLibrary(); loadPastSets(); fetchUpcomingGig() }, [])
+  // ── Crate Dig function ──────────────────────────────────────────────────
+  async function crateDigFrom(track: Track, axis: 'label' | 'artist' | 'style' | 'credit') {
+    setCrateDigLoading(true)
+    setCrateDigError('')
+    setCrateDigResults([])
+    setCrateDigMeta(null)
+
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
+
+    try {
+      // Step 1: Resolve the track on Discogs (cached client-side)
+      const resolveKey = `${normalize(track.artist)}::${normalize(track.title)}`
+      let resolved = crateDigResolveCache.current.get(resolveKey)
+
+      if (!resolved) {
+        const resolveRes = await fetch('/api/discogs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'resolve', artist: track.artist, title: track.title }),
+        })
+        resolved = await resolveRes.json()
+        if (resolved.error) throw new Error(resolved.error)
+        crateDigResolveCache.current.set(resolveKey, resolved)
+      }
+
+      if (!resolved.resolved) {
+        setCrateDigError(`Could not find "${track.artist} - ${track.title}" on Discogs`)
+        setCrateDigLoading(false)
+        return
+      }
+
+      // Step 2: Dig based on axis
+      let digResult: any
+      switch (axis) {
+        case 'label': {
+          if (!resolved.label_id) { setCrateDigError('No label found for this release'); setCrateDigLoading(false); return }
+          const res = await fetch('/api/discogs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'label-dig', label_id: resolved.label_id, label_name: resolved.label_name }),
+          })
+          digResult = await res.json()
+          if (digResult.error) throw new Error(digResult.error)
+          setCrateDigMeta({ label_name: digResult.label_name })
+          break
+        }
+        case 'artist': {
+          const res = await fetch('/api/discogs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'artist-dig', artist: track.artist }),
+          })
+          digResult = await res.json()
+          if (digResult.error) throw new Error(digResult.error)
+          setCrateDigMeta({ artist_name: digResult.artist_name })
+          break
+        }
+        case 'style': {
+          const style = resolved.styles?.[0]
+          if (!style) { setCrateDigError('No style data found for this release'); setCrateDigLoading(false); return }
+          const res = await fetch('/api/discogs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'style-dig', style, year: resolved.year || 2020 }),
+          })
+          digResult = await res.json()
+          if (digResult.error) throw new Error(digResult.error)
+          setCrateDigMeta({ style: digResult.style, year_range: digResult.year_range })
+          break
+        }
+        case 'credit': {
+          if (!resolved.release_id) { setCrateDigError('No release found to search credits'); setCrateDigLoading(false); return }
+          const res = await fetch('/api/discogs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'credit-dig', release_id: resolved.release_id }),
+          })
+          digResult = await res.json()
+          if (digResult.error) throw new Error(digResult.error)
+          setCrateDigMeta({ credits: digResult.credits, release_title: digResult.release_title })
+          break
+        }
+      }
+
+      // Step 3: Filter out tracks already in library
+      const releases = (digResult.releases || []).filter((r: any) => {
+        const rArtist = normalize(r.artist || '')
+        const rTitle = normalize(r.title || '')
+        return !library.some(t => normalize(t.artist) === rArtist && normalize(t.title) === rTitle)
+      })
+
+      setCrateDigResults(releases)
+    } catch (err: any) {
+      setCrateDigError(err.message)
+    } finally {
+      setCrateDigLoading(false)
+    }
+  }
+
+  // ── Wantlist functions ─────────────────────────────────────────────────
+  async function loadWantlist() {
+    setWantlistLoading(true)
+    try {
+      const res = await fetch('/api/discogs/wantlist')
+      const data = await res.json()
+      setWantlist(data.items || [])
+    } catch (e) { /* silent */ }
+    setWantlistLoading(false)
+  }
+
+  async function addToWantlist(item: any, digType: string, sourceTrackId: string) {
+    await fetch('/api/discogs/wantlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        discogs_release_id: String(item.id),
+        title: item.title,
+        artist: item.artist,
+        label_name: item.label_name || '',
+        year: item.year || null,
+        thumb: item.thumb || '',
+        discogs_url: item.discogs_url || '',
+        dig_type: digType,
+        source_track_id: sourceTrackId,
+      }),
+    })
+    setWantlist(prev => [{ ...item, discogs_release_id: String(item.id), dig_type: digType, source_track_id: sourceTrackId, created_at: new Date().toISOString() }, ...prev])
+    showToast(`${item.title} added to wantlist`, 'Saved')
+  }
+
+  async function removeFromWantlist(discogsReleaseId: string) {
+    await fetch('/api/discogs/wantlist', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ discogs_release_id: discogsReleaseId }),
+    })
+    setWantlist(prev => prev.filter(w => w.discogs_release_id !== discogsReleaseId))
+    showToast('Removed from wantlist', 'Removed')
+  }
+
+  useEffect(() => { loadLibrary(); loadPastSets(); fetchUpcomingGig(); loadWantlist() }, [])
 
   // ── Persist scanner state across navigation ──────────────────────────────
   const SCANNER_KEY = 'setlab_scanner_v1'
@@ -1394,6 +1549,84 @@ Return corrected JSON:
         {activeTab === 'library' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
+            {/* Library / Wantlist toggle */}
+            <div style={{ display: 'flex', gap: '0' }}>
+              {(['library', 'wantlist'] as const).map(mode => (
+                <button key={mode} onClick={() => setLibraryMode(mode)} style={{
+                  fontFamily: s.font, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase',
+                  padding: '10px 24px', cursor: 'pointer', border: `1px solid ${s.border}`,
+                  background: libraryMode === mode ? s.panel : 'transparent',
+                  color: libraryMode === mode ? s.text : s.textDimmer,
+                  borderBottom: libraryMode === mode ? `2px solid ${mode === 'wantlist' ? s.gold : s.setlab}` : `1px solid ${s.border}`,
+                }}>
+                  {mode === 'library' ? `Library (${library.length})` : `Wantlist (${wantlist.length})`}
+                </button>
+              ))}
+            </div>
+
+            {/* ── WANTLIST VIEW ── */}
+            {libraryMode === 'wantlist' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {wantlistLoading && (
+                  <div style={{ padding: '40px', textAlign: 'center' }}><ScanPulse size="sm" color={s.gold} /></div>
+                )}
+                {!wantlistLoading && wantlist.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '56px 40px' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '16px' }}>Wantlist empty</div>
+                    <div style={{ fontSize: '14px', color: s.textDim, marginBottom: '8px' }}>Save releases from Crate Dig to build your wantlist.</div>
+                    <div style={{ fontSize: '12px', color: s.textDimmer }}>Go to Discover → Crate Dig to start digging.</div>
+                  </div>
+                )}
+                {wantlist.map((item: any) => (
+                  <div key={item.discogs_release_id} style={{ background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 18px', transition: 'border-color 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
+                    {item.thumb
+                      ? <img src={item.thumb} alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }} />
+                      : <div style={{ width: '48px', height: '48px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: s.textDimmer }}>&#9835;</div>}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+                      <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{item.artist}</div>
+                      {item.label_name && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{item.label_name}{item.year ? ` · ${item.year}` : ''}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                      {item.dig_type && (
+                        <div style={{ fontSize: '9px', padding: '3px 7px', background: `${s.setlab}15`, border: `1px solid ${s.setlab}40`, color: s.setlab, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                          {item.dig_type}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                      {item.discogs_url && (
+                        <a href={item.discogs_url} target="_blank" rel="noreferrer"
+                          style={{ fontSize: '10px', color: s.setlab, textDecoration: 'none', letterSpacing: '0.1em', border: `1px solid ${s.setlab}40`, padding: '5px 10px', whiteSpace: 'nowrap' }}>
+                          Discogs ↗
+                        </a>
+                      )}
+                      <button onClick={async () => {
+                        const t: Track = { id: `discogs-${item.discogs_release_id}`, title: item.title, artist: item.artist, bpm: 0, key: '', camelot: '', energy: 5,
+                          genre: 'Electronic', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
+                        await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ tracks: [{ ...t, source: 'discogs', discovered_via: { discogs_release_id: item.discogs_release_id, dig_type: item.dig_type, source_track_id: item.source_track_id } }] }) })
+                        setLibrary(prev => [...prev, t])
+                        removeFromWantlist(item.discogs_release_id)
+                        showToast(`${item.title} moved to library`, 'Added')
+                      }} style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0 }}>
+                        + Library
+                      </button>
+                      <button onClick={() => removeFromWantlist(item.discogs_release_id)}
+                        style={{ ...btn('#9a6a5a', 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0 }}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── LIBRARY VIEW (existing) ── */}
+            {libraryMode === 'library' && <>
+
             {/* Search + Add + Filter */}
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
@@ -1609,6 +1842,7 @@ Return corrected JSON:
                 </div>
               ))}
             </div>
+          </>}
           </div>
         )}
 
@@ -2083,229 +2317,391 @@ Return corrected JSON:
         {activeTab === 'discover' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-            {/* Header + controls */}
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
-                <div>
-                  <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, marginBottom: '6px' }}>DISCOVER</div>
-                  <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
-                    Real tracks from Beatport × RA charts — filtered to your key, BPM, and underground depth.<br/>
-                    {discoverMeta && <span style={{ color: s.goldDim }}>Matching {discoverMeta.targetCamelot} · ~{discoverMeta.targetBpm} BPM</span>}
-                  </div>
-                </div>
-                <div style={{ fontSize: '10px', color: s.textDimmer, textAlign: 'right', lineHeight: '1.7' }}>
-                  <div style={{ color: '#f7a500', opacity: 0.7 }}>Beatport catalogue</div>
-                  <div style={{ color: '#dc2626', opacity: 0.7 }}>RA charts cross-ref</div>
-                  <div>Camelot + BPM filtered</div>
-                </div>
-              </div>
-
-              {/* Underground slider */}
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.textDimmer }}>
-                    Underground depth
-                  </div>
-                  <div style={{ fontSize: '11px', color: maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : s.textDim, letterSpacing: '0.1em' }}>
-                    {maxPopularity < 25 ? 'Rare gems' : maxPopularity < 50 ? 'Underground' : maxPopularity < 70 ? 'Known tracks' : 'Popular'}&nbsp;
-                    <span style={{ color: s.textDimmer }}>/ max popularity {maxPopularity}</span>
-                  </div>
-                </div>
-                <div style={{ position: 'relative', height: '4px', background: s.border, cursor: 'pointer' }}
-                  onClick={e => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    setMaxPopularity(Math.round(((e.clientX - rect.left) / rect.width) * 100))
-                  }}>
-                  {/* Track fill */}
-                  <div style={{ position: 'absolute', top: 0, left: 0, height: '4px', width: `${maxPopularity}%`, background: maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#3d6b4a', transition: 'width 0.15s' }} />
-                  {/* Thumb */}
-                  <div style={{ position: 'absolute', top: '50%', left: `${maxPopularity}%`, transform: 'translate(-50%, -50%)', width: '14px', height: '14px', background: s.panel, border: `2px solid ${maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#3d6b4a'}`, borderRadius: '50%', cursor: 'grab' }} />
-                </div>
-                <input type="range" min={5} max={100} value={maxPopularity}
-                  onChange={e => setMaxPopularity(Number(e.target.value))}
-                  style={{ position: 'absolute', opacity: 0, width: '1px', height: '1px', pointerEvents: 'none' }} />
-                {/* Labels */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '10px', color: s.textDimmer }}>
-                  <span>Rare</span>
-                  <span>Underground</span>
-                  <span>Known</span>
-                  <span>Popular</span>
-                </div>
-              </div>
-
-              {/* RA-only filter toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <button
-                  onClick={() => setRaOnlyFilter(f => !f)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <div style={{ width: '32px', height: '18px', borderRadius: '9px', background: raOnlyFilter ? 'rgba(220,38,38,0.3)' : s.border, border: `1px solid ${raOnlyFilter ? '#dc2626' : s.borderBright}`, position: 'relative', transition: 'all 0.2s' }}>
-                    <div style={{ position: 'absolute', top: '2px', left: raOnlyFilter ? '14px' : '2px', width: '12px', height: '12px', borderRadius: '50%', background: raOnlyFilter ? '#dc2626' : s.textDimmer, transition: 'left 0.2s' }} />
-                  </div>
-                  <span style={{ fontSize: '10px', letterSpacing: '0.15em', color: raOnlyFilter ? '#dc2626' : s.textDimmer, fontFamily: s.font, textTransform: 'uppercase' }}>RA charted only</span>
+            {/* Mode toggle */}
+            <div style={{ display: 'flex', gap: '0' }}>
+              {(['beatport', 'crate'] as const).map(mode => (
+                <button key={mode} onClick={() => setDiscoverMode(mode)} style={{
+                  fontFamily: s.font, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase',
+                  padding: '10px 24px', cursor: 'pointer', border: `1px solid ${s.border}`,
+                  background: discoverMode === mode ? s.panel : 'transparent',
+                  color: discoverMode === mode ? s.text : s.textDimmer,
+                  borderBottom: discoverMode === mode ? `2px solid ${s.setlab}` : `1px solid ${s.border}`,
+                }}>
+                  {mode === 'beatport' ? 'Beatport x RA' : 'Crate Dig'}
                 </button>
-                {raOnlyFilter && raChartedCount > 0 && (
-                  <span style={{ fontSize: '10px', color: s.textDimmer }}>— {raChartedCount} tracks from last search</span>
-                )}
-              </div>
-
-              <button
-                onClick={() => discoverTracks(maxPopularity)}
-                disabled={discoverLoading}
-                style={{ ...btn(s.setlab), justifyContent: 'center', width: '100%', fontSize: '11px', padding: '13px' }}>
-                {discoverLoading
-                  ? <><ScanPulse size="sm" color={s.setlab} /> Finding rare gems...</>
-                  : 'Find rare gems →'}
-              </button>
-
-              {discoverCallCount >= 8 && (
-                <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(154,106,90,0.1)', border: '1px solid rgba(154,106,90,0.3)', fontSize: '10px', color: '#9a6a5a' }}>
-                  ⚠ {discoverCallCount} searches this session — go easy to keep results fresh
-                </div>
-              )}
-
-              {discoverError && (
-                <div style={{ marginTop: '12px', fontSize: '11px', color: '#9a6a5a', padding: '10px 14px', background: 'rgba(154,106,90,0.1)', border: '1px solid rgba(154,106,90,0.3)' }}>
-                  {discoverError}
-                </div>
-              )}
+              ))}
             </div>
 
-            {/* Results grid */}
-            {discoverResults.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: `1px solid ${s.border}` }}>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>
-                    {raOnlyFilter
-                      ? `${discoverResults.filter((t: any) => t.ra_charted).length} RA charted tracks`
-                      : `${discoverResults.length} matches${raChartedCount > 0 ? ` — ${raChartedCount} RA charted` : ''} — sorted rarest first`
-                    }
+            {/* ── BEATPORT MODE ── */}
+            {discoverMode === 'beatport' && (
+              <>
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
+                    <div>
+                      <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, marginBottom: '6px' }}>DISCOVER</div>
+                      <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
+                        Real tracks from Beatport x RA charts — filtered to your key, BPM, and underground depth.<br/>
+                        {discoverMeta && <span style={{ color: s.goldDim }}>Matching {discoverMeta.targetCamelot} · ~{discoverMeta.targetBpm} BPM</span>}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '10px', color: s.textDimmer, textAlign: 'right', lineHeight: '1.7' }}>
+                      <div style={{ color: '#f7a500', opacity: 0.7 }}>Beatport catalogue</div>
+                      <div style={{ color: '#dc2626', opacity: 0.7 }}>RA charts cross-ref</div>
+                      <div>Camelot + BPM filtered</div>
+                    </div>
                   </div>
-                  {discoverMeta && (
-                    <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                      Compatible with {discoverMeta.targetCamelot} · ~{discoverMeta.targetBpm} BPM
+
+                  {/* Underground slider */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.textDimmer }}>
+                        Underground depth
+                      </div>
+                      <div style={{ fontSize: '11px', color: maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : s.textDim, letterSpacing: '0.1em' }}>
+                        {maxPopularity < 25 ? 'Rare gems' : maxPopularity < 50 ? 'Underground' : maxPopularity < 70 ? 'Known tracks' : 'Popular'}&nbsp;
+                        <span style={{ color: s.textDimmer }}>/ max popularity {maxPopularity}</span>
+                      </div>
+                    </div>
+                    <div style={{ position: 'relative', height: '4px', background: s.border, cursor: 'pointer' }}
+                      onClick={e => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setMaxPopularity(Math.round(((e.clientX - rect.left) / rect.width) * 100))
+                      }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, height: '4px', width: `${maxPopularity}%`, background: maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#3d6b4a', transition: 'width 0.15s' }} />
+                      <div style={{ position: 'absolute', top: '50%', left: `${maxPopularity}%`, transform: 'translate(-50%, -50%)', width: '14px', height: '14px', background: s.panel, border: `2px solid ${maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#3d6b4a'}`, borderRadius: '50%', cursor: 'grab' }} />
+                    </div>
+                    <input type="range" min={5} max={100} value={maxPopularity}
+                      onChange={e => setMaxPopularity(Number(e.target.value))}
+                      style={{ position: 'absolute', opacity: 0, width: '1px', height: '1px', pointerEvents: 'none' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '10px', color: s.textDimmer }}>
+                      <span>Rare</span><span>Underground</span><span>Known</span><span>Popular</span>
+                    </div>
+                  </div>
+
+                  {/* RA-only filter toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                    <button onClick={() => setRaOnlyFilter(f => !f)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      <div style={{ width: '32px', height: '18px', borderRadius: '9px', background: raOnlyFilter ? 'rgba(220,38,38,0.3)' : s.border, border: `1px solid ${raOnlyFilter ? '#dc2626' : s.borderBright}`, position: 'relative', transition: 'all 0.2s' }}>
+                        <div style={{ position: 'absolute', top: '2px', left: raOnlyFilter ? '14px' : '2px', width: '12px', height: '12px', borderRadius: '50%', background: raOnlyFilter ? '#dc2626' : s.textDimmer, transition: 'left 0.2s' }} />
+                      </div>
+                      <span style={{ fontSize: '10px', letterSpacing: '0.15em', color: raOnlyFilter ? '#dc2626' : s.textDimmer, fontFamily: s.font, textTransform: 'uppercase' }}>RA charted only</span>
+                    </button>
+                    {raOnlyFilter && raChartedCount > 0 && (
+                      <span style={{ fontSize: '10px', color: s.textDimmer }}>— {raChartedCount} tracks from last search</span>
+                    )}
+                  </div>
+
+                  <button onClick={() => discoverTracks(maxPopularity)} disabled={discoverLoading}
+                    style={{ ...btn(s.setlab), justifyContent: 'center', width: '100%', fontSize: '11px', padding: '13px' }}>
+                    {discoverLoading ? <><ScanPulse size="sm" color={s.setlab} /> Finding rare gems...</> : 'Find rare gems →'}
+                  </button>
+
+                  {discoverCallCount >= 8 && (
+                    <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(154,106,90,0.1)', border: '1px solid rgba(154,106,90,0.3)', fontSize: '10px', color: '#9a6a5a' }}>
+                      {discoverCallCount} searches this session — go easy to keep results fresh
+                    </div>
+                  )}
+                  {discoverError && (
+                    <div style={{ marginTop: '12px', fontSize: '11px', color: '#9a6a5a', padding: '10px 14px', background: 'rgba(154,106,90,0.1)', border: '1px solid rgba(154,106,90,0.3)' }}>
+                      {discoverError}
                     </div>
                   )}
                 </div>
 
-                {discoverResults.filter((t: any) => !raOnlyFilter || t.ra_charted).map((track: any) => {
-                  const popLabel = track.popularity < 20 ? 'Rare' : track.popularity < 40 ? 'Underground' : track.popularity < 65 ? 'Known' : 'Popular'
-                  const popColor = track.popularity < 20 ? '#9a6a5a' : track.popularity < 40 ? s.gold : track.popularity < 65 ? '#3d6b4a' : s.textDimmer
-                  const alreadyInLib = library.some(t => t.title.toLowerCase() === track.title.toLowerCase() && t.artist.toLowerCase() === track.artist.toLowerCase())
-
-                  return (
-                    <div key={track.id} style={{ background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 18px', transition: 'border-color 0.15s' }}
-                      onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
-                      onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
-
-                      {/* Album art */}
-                      {track.album_art
-                        ? <img src={track.album_art} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', flexShrink: 0 }} />
-                        : <div style={{ width: '52px', height: '52px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: s.textDimmer }}>♫</div>
-                      }
-
-                      {/* Track info */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-                        <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
-                        {track.reason && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '3px' }}>{track.reason}</div>}
-                        {track.release_year && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{track.album} · {track.release_year}</div>}
+                {/* Beatport results grid */}
+                {discoverResults.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: `1px solid ${s.border}` }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>
+                        {raOnlyFilter
+                          ? `${discoverResults.filter((t: any) => t.ra_charted).length} RA charted tracks`
+                          : `${discoverResults.length} matches${raChartedCount > 0 ? ` — ${raChartedCount} RA charted` : ''} — sorted rarest first`}
                       </div>
+                      {discoverMeta && (
+                        <div style={{ fontSize: '10px', color: s.textDimmer }}>
+                          Compatible with {discoverMeta.targetCamelot} · ~{discoverMeta.targetBpm} BPM
+                        </div>
+                      )}
+                    </div>
+                    {discoverResults.filter((t: any) => !raOnlyFilter || t.ra_charted).map((track: any) => {
+                      const popLabel = track.popularity < 20 ? 'Rare' : track.popularity < 40 ? 'Underground' : track.popularity < 65 ? 'Known' : 'Popular'
+                      const popColor = track.popularity < 20 ? '#9a6a5a' : track.popularity < 40 ? s.gold : track.popularity < 65 ? '#3d6b4a' : s.textDimmer
+                      const alreadyInLib = library.some(t => t.title.toLowerCase() === track.title.toLowerCase() && t.artist.toLowerCase() === track.artist.toLowerCase())
+                      return (
+                        <div key={track.id} style={{ background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 18px', transition: 'border-color 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
+                          {track.album_art
+                            ? <img src={track.album_art} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', flexShrink: 0 }} />
+                            : <div style={{ width: '52px', height: '52px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: s.textDimmer }}>&#9835;</div>}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                            <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
+                            {track.reason && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '3px' }}>{track.reason}</div>}
+                            {track.release_year && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{track.album} · {track.release_year}</div>}
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                            <div style={{ fontSize: '10px', padding: '3px 8px', background: `${popColor}20`, border: `1px solid ${popColor}50`, color: popColor, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{popLabel}</div>
+                            {track.ra_charted && (
+                              <div title={track.ra_charted_by ? `Charted by ${track.ra_charted_by}` : 'RA charted'} style={{
+                                fontSize: '9px', padding: '3px 7px', background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.35)', color: '#dc2626',
+                                letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 600, cursor: 'default', display: 'flex', alignItems: 'center', gap: '4px',
+                              }}>
+                                RA
+                                {track.ra_charted_by && <span style={{ fontWeight: 400, letterSpacing: '0.08em', color: 'rgba(220,38,38,0.8)', fontSize: '8px' }}>{track.ra_charted_by.split(' ')[0]}</span>}
+                              </div>
+                            )}
+                            {track.camelot && <div style={{ fontSize: '11px', color: s.gold, minWidth: '32px', textAlign: 'center' }}>{track.camelot}</div>}
+                            {track.bpm && <div style={{ fontSize: '11px', color: s.textDim, minWidth: '36px', textAlign: 'center' }}>{track.bpm}</div>}
+                            {track.label && <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.08em', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.label}</div>}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                            {track.beatport_url && (
+                              <a href={track.beatport_url} target="_blank" rel="noreferrer"
+                                style={{ fontSize: '10px', color: s.setlab, textDecoration: 'none', letterSpacing: '0.1em', border: `1px solid ${s.setlab}40`, padding: '5px 10px', whiteSpace: 'nowrap' }}>
+                                Beatport ↗
+                              </a>
+                            )}
+                          </div>
+                          <button disabled={alreadyInLib} onClick={async () => {
+                            if (alreadyInLib) return
+                            const t: Track = { id: track.id, title: track.title, artist: track.artist, bpm: track.bpm, key: '', camelot: track.camelot, energy: track.energy || 5,
+                              genre: 'Electronic', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
+                            await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: [t] }) })
+                            setLibrary(prev => [...prev, t])
+                            showToast(`${track.title} added to library`, 'Added')
+                          }} style={{ ...btn(alreadyInLib ? s.textDimmer : s.setlab, 'transparent'), fontSize: '10px', padding: '6px 12px', flexShrink: 0,
+                            opacity: alreadyInLib ? 0.4 : 1, cursor: alreadyInLib ? 'default' : 'pointer' }}>
+                            {alreadyInLib ? '✓ In library' : '+ Add'}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {!discoverLoading && discoverResults.length === 0 && !discoverError && (
+                  <div style={{ textAlign: 'center', padding: '60px 32px', color: s.textDimmer }}>
+                    <div style={{ fontSize: '32px', marginBottom: '16px', opacity: 0.3 }}>&#9678;</div>
+                    <div style={{ fontSize: '12px', letterSpacing: '0.15em', marginBottom: '8px' }}>Set the underground depth and search</div>
+                    <div style={{ fontSize: '11px', color: s.textDimmer }}>Uses your library as seeds · Camelot-compatible only · Sorted rarest first</div>
+                  </div>
+                )}
+              </>
+            )}
 
-                      {/* Tags */}
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-                        <div style={{ fontSize: '10px', padding: '3px 8px', background: `${popColor}20`, border: `1px solid ${popColor}50`, color: popColor, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{popLabel}</div>
-                        {track.ra_charted && (
-                          <div title={track.ra_charted_by ? `Charted by ${track.ra_charted_by}` : 'RA charted'} style={{
-                            fontSize: '9px', padding: '3px 7px',
-                            background: 'rgba(220,38,38,0.12)',
-                            border: '1px solid rgba(220,38,38,0.35)',
-                            color: '#dc2626',
-                            letterSpacing: '0.14em',
-                            textTransform: 'uppercase',
-                            fontWeight: 600,
-                            cursor: 'default',
-                            display: 'flex', alignItems: 'center', gap: '4px',
-                          }}>
-                            RA
-                            {track.ra_charted_by && (
-                              <span style={{ fontWeight: 400, letterSpacing: '0.08em', color: 'rgba(220,38,38,0.8)', fontSize: '8px' }}>
-                                {track.ra_charted_by.split(' ')[0]}
-                              </span>
+            {/* ── CRATE DIG MODE ── */}
+            {discoverMode === 'crate' && (
+              <>
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
+                    <div>
+                      <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, marginBottom: '6px' }}>CRATE DIG</div>
+                      <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
+                        Pick a track from your library and dig through Discogs — by label, artist, style, or credits.
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '10px', color: s.textDimmer, textAlign: 'right', lineHeight: '1.7' }}>
+                      <div>Discogs catalogue</div>
+                      <div>Want/have ranked</div>
+                      <div>Library deduped</div>
+                    </div>
+                  </div>
+
+                  {/* Track selector */}
+                  <div style={{ marginBottom: '20px', position: 'relative' }}>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.textDimmer, marginBottom: '8px' }}>
+                      Dig from track
+                    </div>
+                    {crateDigTrack ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: s.bg, border: `1px solid ${s.setlab}40` }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', color: s.text }}>{crateDigTrack.title}</div>
+                          <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{crateDigTrack.artist}</div>
+                        </div>
+                        <button onClick={() => { setCrateDigTrack(null); setCrateDigResults([]); setCrateDigMeta(null); setCrateDigError('') }}
+                          style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '4px 10px' }}>Change</button>
+                      </div>
+                    ) : (
+                      <div>
+                        <input value={crateTrackSearch} onChange={e => { setCrateTrackSearch(e.target.value); setCrateTrackDropdown(true) }}
+                          onFocus={() => setCrateTrackDropdown(true)}
+                          placeholder="Search your library..."
+                          style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+                        {crateTrackDropdown && (
+                          <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 10, background: s.panel, border: `1px solid ${s.border}`, maxHeight: '240px', overflowY: 'auto' }}>
+                            {library
+                              .filter(t => !crateTrackSearch || `${t.title} ${t.artist}`.toLowerCase().includes(crateTrackSearch.toLowerCase()))
+                              .slice(0, 15)
+                              .map(t => (
+                                <div key={t.id} onClick={() => { setCrateDigTrack(t); setCrateTrackDropdown(false); setCrateTrackSearch(''); setCrateDigResults([]); setCrateDigMeta(null); setCrateDigError('') }}
+                                  style={{ padding: '8px 14px', cursor: 'pointer', borderBottom: `1px solid ${s.border}`, transition: 'background 0.1s' }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                  <div style={{ fontSize: '12px', color: s.text }}>{t.title}</div>
+                                  <div style={{ fontSize: '10px', color: s.textDim, marginTop: '1px' }}>{t.artist}</div>
+                                </div>
+                              ))}
+                            {library.filter(t => !crateTrackSearch || `${t.title} ${t.artist}`.toLowerCase().includes(crateTrackSearch.toLowerCase())).length === 0 && (
+                              <div style={{ padding: '12px 14px', fontSize: '11px', color: s.textDimmer }}>No tracks match</div>
                             )}
                           </div>
                         )}
-                        {track.camelot && <div style={{ fontSize: '11px', color: s.gold, minWidth: '32px', textAlign: 'center' }}>{track.camelot}</div>}
-                        {track.bpm && <div style={{ fontSize: '11px', color: s.textDim, minWidth: '36px', textAlign: 'center' }}>{track.bpm}</div>}
-                        {track.label && <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.08em', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.label}</div>}
                       </div>
+                    )}
+                  </div>
 
-                      {/* Links */}
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                        {track.beatport_url && (
-                          <a href={track.beatport_url} target="_blank" rel="noreferrer"
-                            style={{ fontSize: '10px', color: s.setlab, textDecoration: 'none', letterSpacing: '0.1em', border: `1px solid ${s.setlab}40`, padding: '5px 10px', whiteSpace: 'nowrap' }}>
-                            Beatport ↗
-                          </a>
-                        )}
+                  {/* Dig axis pills */}
+                  {crateDigTrack && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.textDimmer, marginBottom: '8px' }}>
+                        Discovery axis
                       </div>
-
-                      {/* Add to library */}
-                      <button
-                        disabled={alreadyInLib}
-                        onClick={async () => {
-                          if (alreadyInLib) return
-                          const t: Track = {
-                            id: track.id,
-                            title: track.title,
-                            artist: track.artist,
-                            bpm: track.bpm,
-                            key: '',
-                            camelot: track.camelot,
-                            energy: track.energy || 5,
-                            genre: 'Electronic',
-                            duration: '',
-                            notes: '',
-                            analysed: false,
-                            moment_type: '',
-                            position_score: '',
-                            mix_in: '',
-                            mix_out: '',
-                            crowd_reaction: '',
-                            similar_to: '',
-                            producer_style: '',
-                          }
-                          // Save to DB
-                          await fetch('/api/tracks', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ tracks: [t] }),
-                          })
-                          setLibrary(prev => [...prev, t])
-                          showToast(`${track.title} added to library`, 'Added')
-                        }}
-                        style={{
-                          ...btn(alreadyInLib ? s.textDimmer : s.setlab, 'transparent'),
-                          fontSize: '10px', padding: '6px 12px', flexShrink: 0,
-                          opacity: alreadyInLib ? 0.4 : 1, cursor: alreadyInLib ? 'default' : 'pointer',
-                        }}>
-                        {alreadyInLib ? '✓ In library' : '+ Add'}
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {([
+                          { key: 'label' as const, label: 'Label' },
+                          { key: 'artist' as const, label: 'Artist' },
+                          { key: 'style' as const, label: 'Style' },
+                          { key: 'credit' as const, label: 'Credits' },
+                        ]).map(ax => (
+                          <button key={ax.key} onClick={() => setCrateDigAxis(ax.key)}
+                            style={{
+                              fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                              padding: '8px 18px', cursor: 'pointer',
+                              background: crateDigAxis === ax.key ? `${s.setlab}20` : 'transparent',
+                              border: `1px solid ${crateDigAxis === ax.key ? s.setlab : s.border}`,
+                              color: crateDigAxis === ax.key ? s.setlab : s.textDimmer,
+                              transition: 'all 0.15s',
+                            }}>
+                            {ax.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  )
-                })}
-              </div>
+                  )}
+
+                  {/* Dig button */}
+                  {crateDigTrack && (
+                    <button onClick={() => crateDigFrom(crateDigTrack, crateDigAxis)} disabled={crateDigLoading}
+                      style={{ ...btn(s.setlab), justifyContent: 'center', width: '100%', fontSize: '11px', padding: '13px' }}>
+                      {crateDigLoading ? <><ScanPulse size="sm" color={s.setlab} /> Digging...</> : 'Dig deeper →'}
+                    </button>
+                  )}
+
+                  {!crateDigTrack && library.length === 0 && (
+                    <div style={{ padding: '16px', fontSize: '11px', color: s.textDimmer, textAlign: 'center' }}>
+                      Add tracks to your library first to start crate digging.
+                    </div>
+                  )}
+
+                  {crateDigError && (
+                    <div style={{ marginTop: '12px', fontSize: '11px', color: '#9a6a5a', padding: '10px 14px', background: 'rgba(154,106,90,0.1)', border: '1px solid rgba(154,106,90,0.3)' }}>
+                      {crateDigError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Crate Dig results */}
+                {crateDigResults.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {/* Context header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: `1px solid ${s.border}` }}>
+                      <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>
+                        {crateDigAxis === 'label' && crateDigMeta?.label_name && `Other releases on ${crateDigMeta.label_name}`}
+                        {crateDigAxis === 'artist' && crateDigMeta?.artist_name && `${crateDigMeta.artist_name}'s releases`}
+                        {crateDigAxis === 'style' && crateDigMeta?.style && `${crateDigMeta.style} · ${crateDigMeta.year_range}`}
+                        {crateDigAxis === 'credit' && crateDigMeta?.release_title && `Credits from ${crateDigMeta.release_title}`}
+                      </div>
+                      <div style={{ fontSize: '10px', color: s.textDimmer }}>
+                        {crateDigResults.length} releases — sorted by demand
+                      </div>
+                    </div>
+
+                    {crateDigResults.map((release: any, idx: number) => {
+                      const alreadyInLib = library.some(t => t.title.toLowerCase() === (release.title || '').toLowerCase() && t.artist.toLowerCase() === (release.artist || '').toLowerCase())
+                      const alreadyInWantlist = wantlist.some(w => w.discogs_release_id === String(release.id))
+                      const wantHaveLabel = release.want_have_ratio > 2 ? 'High demand' : release.want_have_ratio > 0.5 ? 'Sought after' : ''
+                      const wantHaveColor = release.want_have_ratio > 2 ? s.gold : release.want_have_ratio > 0.5 ? s.textDim : s.textDimmer
+                      const axisLabel = crateDigAxis === 'label' ? 'Same label' : crateDigAxis === 'artist' ? (release.role === 'Main' ? 'Main' : release.role || 'Release') : crateDigAxis === 'style' ? 'Same style' : (release.credit_name || 'Credits')
+
+                      return (
+                        <div key={`${release.id}-${idx}`} style={{ background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 18px', transition: 'border-color 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
+
+                          {/* Thumbnail */}
+                          {release.thumb
+                            ? <img src={release.thumb} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', flexShrink: 0 }} />
+                            : <div style={{ width: '52px', height: '52px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: s.textDimmer }}>&#9835;</div>}
+
+                          {/* Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{release.title}</div>
+                            <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{release.artist}</div>
+                            {release.label_name && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{release.label_name}{release.year ? ` · ${release.year}` : ''}</div>}
+                          </div>
+
+                          {/* Tags */}
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                            <div style={{ fontSize: '9px', padding: '3px 7px', background: `${s.setlab}15`, border: `1px solid ${s.setlab}40`, color: s.setlab, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{axisLabel}</div>
+                            {wantHaveLabel && (
+                              <div style={{ fontSize: '9px', padding: '3px 7px', background: `${wantHaveColor}15`, border: `1px solid ${wantHaveColor}40`, color: wantHaveColor, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{wantHaveLabel}</div>
+                            )}
+                            {release.year && <div style={{ fontSize: '11px', color: s.textDimmer, minWidth: '36px', textAlign: 'center' }}>{release.year}</div>}
+                          </div>
+
+                          {/* Links + Actions */}
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                            {release.discogs_url && (
+                              <a href={release.discogs_url} target="_blank" rel="noreferrer"
+                                style={{ fontSize: '10px', color: s.setlab, textDecoration: 'none', letterSpacing: '0.1em', border: `1px solid ${s.setlab}40`, padding: '5px 10px', whiteSpace: 'nowrap' }}>
+                                Discogs ↗
+                              </a>
+                            )}
+                            <button disabled={alreadyInLib} onClick={async () => {
+                              if (alreadyInLib) return
+                              const t: Track = { id: `discogs-${release.id}`, title: release.title, artist: release.artist, bpm: 0, key: '', camelot: '', energy: 5,
+                                genre: 'Electronic', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
+                              await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ tracks: [{ ...t, source: 'discogs', discovered_via: { discogs_release_id: release.id, dig_type: crateDigAxis, source_track_id: crateDigTrack?.id } }] }) })
+                              setLibrary(prev => [...prev, t])
+                              showToast(`${release.title} added to library`, 'Added')
+                            }} style={{ ...btn(alreadyInLib ? s.textDimmer : s.setlab, 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0,
+                              opacity: alreadyInLib ? 0.4 : 1, cursor: alreadyInLib ? 'default' : 'pointer' }}>
+                              {alreadyInLib ? '✓ Library' : '+ Add'}
+                            </button>
+                            <button disabled={alreadyInWantlist} onClick={() => {
+                              if (alreadyInWantlist) return
+                              addToWantlist(release, crateDigAxis, crateDigTrack?.id || '')
+                            }} style={{ ...btn(alreadyInWantlist ? s.textDimmer : s.gold, 'transparent'), fontSize: '10px', padding: '6px 10px', flexShrink: 0,
+                              opacity: alreadyInWantlist ? 0.4 : 1, cursor: alreadyInWantlist ? 'default' : 'pointer' }}>
+                              {alreadyInWantlist ? '✓ Want' : '+ Want'}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Crate Dig empty state */}
+                {!crateDigLoading && crateDigResults.length === 0 && !crateDigError && crateDigTrack && (
+                  <div style={{ textAlign: 'center', padding: '60px 32px', color: s.textDimmer }}>
+                    <div style={{ fontSize: '32px', marginBottom: '16px', opacity: 0.3 }}>&#9678;</div>
+                    <div style={{ fontSize: '12px', letterSpacing: '0.15em', marginBottom: '8px' }}>Pick an axis and dig</div>
+                    <div style={{ fontSize: '11px', color: s.textDimmer }}>Explore by label, artist, style, or production credits</div>
+                  </div>
+                )}
+                {!crateDigLoading && !crateDigTrack && library.length > 0 && (
+                  <div style={{ textAlign: 'center', padding: '60px 32px', color: s.textDimmer }}>
+                    <div style={{ fontSize: '32px', marginBottom: '16px', opacity: 0.3 }}>&#9678;</div>
+                    <div style={{ fontSize: '12px', letterSpacing: '0.15em', marginBottom: '8px' }}>Select a track to dig from</div>
+                    <div style={{ fontSize: '11px', color: s.textDimmer }}>Search your library above to start crate digging</div>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* Empty state */}
-            {!discoverLoading && discoverResults.length === 0 && !discoverError && (
-              <div style={{ textAlign: 'center', padding: '60px 32px', color: s.textDimmer }}>
-                <div style={{ fontSize: '32px', marginBottom: '16px', opacity: 0.3 }}>◎</div>
-                <div style={{ fontSize: '12px', letterSpacing: '0.15em', marginBottom: '8px' }}>Set the underground depth and search</div>
-                <div style={{ fontSize: '11px', color: s.textDimmer }}>
-                  Uses your library as seeds · Camelot-compatible only · Sorted rarest first
-                </div>
-              </div>
-            )}
           </div>
         )}
 

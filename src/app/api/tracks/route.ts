@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
       rating: t.rating || 0,
       source: t.source || 'manual',
       enriched: t.enriched || false,
+      discovered_via: t.discovered_via || null,
     }))
 
     const { data, error } = await supabase
