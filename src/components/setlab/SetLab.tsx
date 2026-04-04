@@ -2079,7 +2079,41 @@ Return ONLY valid JSON, no markdown.`, 300)
                         {track.moment_type || '—'}
                       </span>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); addToSet(track) }} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px' }}>→ Set</button>
+                    <div style={{ position: 'relative' }}>
+                      <button onClick={(e) => { e.stopPropagation(); setAddToMenu(addToMenu === track.id ? null : track.id) }} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px' }}>+</button>
+                      {addToMenu === track.id && (
+                        <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: '4px', background: 'rgba(20,16,8,0.98)', border: `1px solid ${s.border}`, padding: '6px 0', zIndex: 200, minWidth: '180px', backdropFilter: 'blur(12px)' }}
+                          onClick={e => e.stopPropagation()}>
+                          <div style={{ padding: '8px 14px', fontSize: '11px', cursor: 'pointer', color: s.text, letterSpacing: '0.05em' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            onClick={() => { addToSet(track); setAddToMenu(null) }}>
+                            → Current Set
+                          </div>
+                          {Object.keys(userPlaylists).map(name => (
+                            <div key={name} style={{ padding: '8px 14px', fontSize: '11px', cursor: 'pointer', color: s.text, letterSpacing: '0.05em' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                              onClick={() => {
+                                setUserPlaylists(prev => ({ ...prev, [name]: [...(prev[name] || []), track.id] }))
+                                showToast(`Added to ${name}`, 'Playlist')
+                                setAddToMenu(null)
+                              }}>
+                              → {name}
+                            </div>
+                          ))}
+                          <div style={{ borderTop: `1px solid ${s.border}`, margin: '4px 0' }} />
+                          <div style={{ padding: '6px 14px', display: 'flex', gap: '6px' }}>
+                            <input placeholder="New playlist..." value={newPlaylistName} onChange={e => setNewPlaylistName(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter' && newPlaylistName.trim()) { setUserPlaylists(prev => ({ ...prev, [newPlaylistName.trim()]: [track.id] })); showToast(`Created "${newPlaylistName.trim()}" with ${track.title}`, 'Playlist'); setNewPlaylistName(''); setAddToMenu(null) } }}
+                              style={{ flex: 1, background: s.bg, border: `1px solid ${s.border}`, color: s.text, padding: '5px 8px', fontSize: '11px', outline: 'none' }}
+                              onClick={e => e.stopPropagation()} />
+                            <button onClick={() => { if (newPlaylistName.trim()) { setUserPlaylists(prev => ({ ...prev, [newPlaylistName.trim()]: [track.id] })); showToast(`Created "${newPlaylistName.trim()}"`, 'Playlist'); setNewPlaylistName(''); setAddToMenu(null) } }}
+                              style={{ ...btn(s.gold), fontSize: '10px', padding: '4px 10px' }}>+</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* ── Expanded Track Intelligence Card ── */}
@@ -4015,15 +4049,15 @@ Return ONLY valid JSON, no markdown.`, 300)
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
           background: s.black, borderTop: `1px solid ${s.border}`,
-          display: 'flex', alignItems: 'center', height: '80px',
+          display: 'flex', alignItems: 'center', height: '152px',
         }}>
           <iframe
             src={playingTrack.spotify_url}
             width="100%"
-            height="80"
+            height="152"
             frameBorder="0"
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy"
+            allowFullScreen
             style={{ border: 'none' }}
           />
           <button onClick={() => setPlayingTrack(null)} style={{
