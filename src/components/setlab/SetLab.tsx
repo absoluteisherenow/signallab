@@ -618,62 +618,109 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
     const rawLines = pasteText.split('\n').map(l => l.trim()).filter(Boolean)
     if (rawLines.length === 0) { showToast('Paste a tracklist first', 'Error'); return }
 
-    // Detect format: multi-line (Camelot/Artist/Title blocks) vs single-line (Artist - Title)
-    const camelotPattern = /^(\d{1,2}[ABab]|[ABab])$/
+    // ── Smart format detection ──────────────────────────────────────────
+    // Supports: multi-line blocks (Key/Artist/Title), "Artist - Title", numbered lists, mixed
+    // Normalise Cyrillic А→A, В→B and handle spaced keys like "11 m" → "11m"
+    const normLine = (l: string) => l.replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B')
+    const isCamelot = (l: string) => {
+      const n = normLine(l).replace(/\s+/g, '') // collapse spaces: "11 m" → "11m"
+      return /^(\d{1,2}[ABabMm]|[ABabMm])$/i.test(n)
+    }
+    const parseCamelot = (l: string) => {
+      const n = normLine(l).replace(/\s+/g, '').toUpperCase()
+      return n.replace(/M$/, 'A') // "11M" (minor) → "11A" in Camelot notation... actually keep raw
+    }
+    const hasDash = (l: string) => l.includes(' — ') || l.includes(' - ') || l.includes(' – ')
+    const splitDash = (l: string) => {
+      const sep = l.includes(' — ') ? ' — ' : l.includes(' – ') ? ' – ' : ' - '
+      return [l.split(sep)[0].trim(), l.split(sep).slice(1).join(sep).trim()]
+    }
+
     const parsedTracks: { artist: string; title: string; camelot: string }[] = []
 
-    // Check if this looks like multi-line format (Camelot key lines present)
-    const hasCamelotLines = rawLines.some(l => camelotPattern.test(l.replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B')))
+    // Score format: count how many lines look like camelot keys vs dashed lines
+    const camelotCount = rawLines.filter(l => isCamelot(l)).length
+    const dashCount = rawLines.filter(l => hasDash(l)).length
 
-    if (hasCamelotLines) {
-      // Multi-line format: groups of 2-3 lines
-      // Pattern: [optional camelot key] / Artist / Title
-      let i = 0
-      while (i < rawLines.length) {
-        const line = rawLines[i].replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B') // fix Cyrillic А/В
-        if (camelotPattern.test(line)) {
-          // Camelot + Artist + Title
-          const camelot = line.toUpperCase()
-          const artist = rawLines[i + 1] || ''
-          const title = rawLines[i + 2] || ''
-          if (artist && title) parsedTracks.push({ artist, title, camelot })
-          i += 3
-        } else {
-          // No camelot — try Artist + Title (2 lines) or "Artist - Title" (1 line)
-          const sep = line.includes(' — ') ? ' — ' : line.includes(' - ') ? ' - ' : null
-          if (sep) {
-            const artist = line.split(sep)[0].trim()
-            const title = line.split(sep).slice(1).join(sep).trim()
-            if (title) parsedTracks.push({ artist, title, camelot: '' })
-            i++
-          } else if (i + 1 < rawLines.length && !camelotPattern.test(rawLines[i + 1].replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B'))) {
-            // Two consecutive non-camelot lines = Artist then Title
-            const artist = line
-            const title = rawLines[i + 1]
-            parsedTracks.push({ artist, title, camelot: '' })
-            i += 2
-          } else {
-            i++ // skip orphan line
-          }
+    if (dashCount > camelotCount && dashCount >= rawLines.length * 0.4) {
+      // Predominantly "Artist - Title" format (single-line)
+      for (const line of rawLines) {
+        const cleaned = line.replace(/^\d+[\.\)\-\s]+/, '').trim()
+        if (isCamelot(cleaned)) continue // skip stray key lines
+        if (hasDash(cleaned)) {
+          const [artist, title] = splitDash(cleaned)
+          if (title) parsedTracks.push({ artist, title, camelot: '' })
+        } else if (cleaned) {
+          parsedTracks.push({ artist: '', title: cleaned, camelot: '' })
         }
       }
     } else {
-      // Single-line format: "Artist - Title" per line
-      for (const line of rawLines) {
-        const cleaned = line.replace(/^\d+[\.\)\-\s]+/, '').trim()
-        const sep = cleaned.includes(' — ') ? ' — ' : cleaned.includes(' - ') ? ' - ' : null
-        const artist = sep ? cleaned.split(sep)[0].trim() : ''
-        const title = sep ? cleaned.split(sep).slice(1).join(sep).trim() : cleaned
-        if (title) parsedTracks.push({ artist, title, camelot: '' })
+      // Multi-line format: walk through lines, grouping into tracks
+      let i = 0
+      while (i < rawLines.length) {
+        const line = rawLines[i]
+
+        // Check if current line is a camelot key
+        if (isCamelot(line)) {
+          const camelot = parseCamelot(line)
+          // Next line(s) are artist + title
+          if (i + 2 < rawLines.length && !isCamelot(rawLines[i + 1])) {
+            const artist = rawLines[i + 1]
+            const title = rawLines[i + 2]
+            // But if title looks like a camelot key, artist line was actually the title
+            if (isCamelot(title)) {
+              parsedTracks.push({ artist: '', title: artist, camelot })
+              i += 2
+            } else {
+              parsedTracks.push({ artist, title, camelot })
+              i += 3
+            }
+          } else if (i + 1 < rawLines.length) {
+            // Key + one more line = title only
+            parsedTracks.push({ artist: '', title: rawLines[i + 1], camelot })
+            i += 2
+          } else {
+            i++ // orphan key at end
+          }
+        } else if (hasDash(line)) {
+          // Inline "Artist - Title"
+          const [artist, title] = splitDash(line)
+          if (title) parsedTracks.push({ artist, title, camelot: '' })
+          i++
+        } else {
+          // No key prefix — check if next line is also not a key (artist + title pair)
+          if (i + 1 < rawLines.length && !isCamelot(rawLines[i + 1]) && !hasDash(rawLines[i + 1])) {
+            // Two non-key, non-dash lines = artist then title
+            parsedTracks.push({ artist: line, title: rawLines[i + 1], camelot: '' })
+            i += 2
+          } else if (i + 1 < rawLines.length && isCamelot(rawLines[i + 1])) {
+            // This line followed by a key = this is a standalone title/artist, next block starts
+            parsedTracks.push({ artist: line, title: '', camelot: '' })
+            i++
+          } else {
+            // Single orphan line — treat as title
+            parsedTracks.push({ artist: '', title: line, camelot: '' })
+            i++
+          }
+        }
       }
     }
 
-    if (parsedTracks.length === 0) { showToast('Could not parse any tracks', 'Error'); return }
+    // Clean up: remove entries with no title, trim BPM suffixes like "130" at end
+    const cleaned = parsedTracks
+      .filter(t => t.title || t.artist)
+      .map(t => ({
+        ...t,
+        title: t.title || t.artist, // if only artist, use as title for Spotify search
+        artist: t.title ? t.artist : '',
+      }))
+
+    if (cleaned.length === 0) { showToast('Could not parse any tracks', 'Error'); return }
     setPasteImporting(true)
     let added = 0
-    for (const { artist, title, camelot: pastedCamelot } of parsedTracks) {
+    for (const { artist, title, camelot: pastedCamelot } of cleaned) {
 
-      setPasteProgress(`Looking up ${title} (${added + 1}/${parsedTracks.length})...`)
+      setPasteProgress(`Looking up ${title} (${added + 1}/${cleaned.length})...`)
 
       let spotify: any = null
       try {
@@ -1860,8 +1907,11 @@ Return ONLY valid JSON, no markdown.`, 300)
                     style={{ ...btn(s.gold), padding: '10px 20px', opacity: pasteImporting || !pasteText.trim() ? 0.5 : 1 }}>
                     {pasteImporting ? 'Importing...' : (() => {
                       const pl = pasteText.split('\n').map(l => l.trim()).filter(Boolean)
-                      const hasCamelot = pl.some(l => /^(\d{1,2}[ABab]|[ABab])$/.test(l.replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B')))
-                      const est = hasCamelot ? Math.round(pl.length / 3) : pl.length
+                      const isCam = (l: string) => /^(\d{1,2}\s*[ABabMm]|[ABabMm])$/i.test(l.replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B').replace(/\s+/g, ''))
+                      const hasDsh = (l: string) => l.includes(' - ') || l.includes(' — ') || l.includes(' – ')
+                      const camCount = pl.filter(isCam).length
+                      const dshCount = pl.filter(hasDsh).length
+                      const est = dshCount > camCount ? dshCount || pl.length : Math.round((pl.length - camCount) / 2) + camCount > pl.length ? Math.round(pl.length / 3) : Math.round(pl.length / (camCount > 0 ? 3 : 2))
                       return `Import ~${est} tracks`
                     })()}
                   </button>
