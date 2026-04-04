@@ -167,6 +167,7 @@ export function SetLab() {
   const [wantlistLoading, setWantlistLoading] = useState(false)
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set())
   const [playingTrack, setPlayingTrack] = useState<{ id: string; title: string; artist: string; spotify_url: string; album_art?: string } | null>(null)
+  const [librarySection, setLibrarySection] = useState<'all' | 'discoveries' | 'playlists' | 'wantlist'>('all')
   // libraryMode removed — Library tab now shows all sections
   const audioInputRef = useRef<HTMLInputElement>(null)
   const screenshotInputRef = useRef<HTMLInputElement>(null)
@@ -1692,8 +1693,29 @@ Return ONLY valid JSON, no markdown.`, 300)
         {activeTab === 'library' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-            {/* ── LIBRARY SECTION ── */}
-            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px' }}>
+            {/* ── SUB-TABS ── */}
+            <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${s.border}` }}>
+              {([
+                { key: 'all', label: 'All', count: curatedLibrary.length },
+                { key: 'discoveries', label: 'Discoveries', count: discoveries.length },
+                { key: 'playlists', label: 'Playlists', count: Object.keys(playlistGroups).length },
+                { key: 'wantlist', label: 'Wantlist', count: wantlist.length },
+              ] as const).map(tab => (
+                <button key={tab.key} onClick={() => setLibrarySection(tab.key)} style={{
+                  background: 'none', border: 'none', fontFamily: s.font,
+                  fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                  padding: '10px 20px', cursor: 'pointer',
+                  borderBottom: librarySection === tab.key ? `2px solid ${s.gold}` : '2px solid transparent',
+                  color: librarySection === tab.key ? s.text : s.textDimmer,
+                  marginBottom: '-1px',
+                }}>{tab.label} ({tab.count})</button>
+              ))}
+            </div>
+
+            {/* ── LIBRARY SECTION (visible when 'all' selected) ── */}
+            {librarySection === 'all' && <>
+
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '8px' }}>
               Library ({curatedLibrary.length})
             </div>
 
@@ -1983,8 +2005,11 @@ Return ONLY valid JSON, no markdown.`, 300)
               </div>
             )}
 
+            </>}
+
             {/* ── DISCOVERIES SECTION ── */}
-            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '32px' }}>
+            {(librarySection === 'all' || librarySection === 'discoveries') && <>
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: librarySection === 'all' ? '32px' : '8px' }}>
               Discoveries ({discoveries.length})
             </div>
             {discoveries.length === 0 ? (
@@ -2010,8 +2035,11 @@ Return ONLY valid JSON, no markdown.`, 300)
               </div>
             )}
 
+            </>}
+
             {/* ── PLAYLISTS SECTION ── */}
-            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '32px' }}>
+            {(librarySection === 'all' || librarySection === 'playlists') && <>
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: librarySection === 'all' ? '32px' : '8px' }}>
               Playlists ({Object.keys(playlistGroups).length})
             </div>
             {Object.keys(playlistGroups).length === 0 ? (
@@ -2040,8 +2068,11 @@ Return ONLY valid JSON, no markdown.`, 300)
               ))
             )}
 
+            </>}
+
             {/* ── WANTLIST SECTION ── */}
-            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '32px' }}>
+            {(librarySection === 'all' || librarySection === 'wantlist') && <>
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: librarySection === 'all' ? '32px' : '8px' }}>
               Wantlist ({wantlist.length})
             </div>
             {wantlistLoading && (
@@ -2098,6 +2129,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                 ))}
               </div>
             )}
+            </>}
 
           </div>
         )}
