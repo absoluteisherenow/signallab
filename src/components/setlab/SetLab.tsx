@@ -138,6 +138,10 @@ export function SetLab() {
   const [addingTrack, setAddingTrack] = useState(false)
   const [newTrack, setNewTrack] = useState({ title: '', artist: '' })
   const [analysingTrack, setAnalysingTrack] = useState(false)
+  const [pasteMode, setPasteMode] = useState(false)
+  const [pasteText, setPasteText] = useState('')
+  const [pasteImporting, setPasteImporting] = useState(false)
+  const [pasteProgress, setPasteProgress] = useState('')
   const [expandedTrack, setExpandedTrack] = useState<string | null>(null)
   const [suggestingNext, setSuggestingNext] = useState(false)
   const [suggestions, setSuggestions] = useState<{ id: string; reason: string }[]>([])
@@ -609,9 +613,59 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
   // 1. Pioneer XML — metadata + playlist structure. Rekordbox imports this.
   //    IMPORTANT: Rekordbox links entries to audio by file path. If you haven't
   //    analyzed these tracks in Rekordbox yet, they'll show as File Missing.
-  //    The XML still creates the playlist order correctly for tracks already in your library.
-  // 2. Set sheet TXT — plain reference (artist · title · BPM · key · Camelot)
-  //    Useful even without Rekordbox — print it, paste it in notes, share with promoter.
+  // ── Paste Tracklist Import (free — Spotify only) ──────────────────────
+  async function importFromPaste() {
+    const lines = pasteText.split('\n').map(l => l.trim()).filter(Boolean)
+    if (lines.length === 0) { showToast('Paste a tracklist first', 'Error'); return }
+    setPasteImporting(true)
+    let added = 0
+    for (const line of lines) {
+      // Parse common formats: "Artist - Title", "1. Artist - Title", "Artist — Title"
+      const cleaned = line.replace(/^\d+[\.\)\-\s]+/, '').trim()
+      const sep = cleaned.includes(' — ') ? ' — ' : cleaned.includes(' - ') ? ' - ' : null
+      const artist = sep ? cleaned.split(sep)[0].trim() : ''
+      const title = sep ? cleaned.split(sep).slice(1).join(sep).trim() : cleaned
+      if (!title) continue
+
+      setPasteProgress(`Looking up ${title} (${added + 1}/${lines.length})...`)
+
+      let spotify: any = null
+      try {
+        const spRes = await fetch('/api/spotify/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ artist: artist || title, title: title }),
+        })
+        const spData = await spRes.json()
+        if (spData.found) spotify = spData
+      } catch { /* skip */ }
+
+      const track: Track = {
+        id: Date.now().toString() + Math.random(),
+        title: spotify?.title || title,
+        artist: spotify?.artist || artist || 'Unknown',
+        bpm: spotify?.bpm || 0,
+        key: spotify?.audio_features_available ? (spotify.key || '') : '',
+        camelot: spotify?.audio_features_available ? (spotify.camelot || '') : '',
+        energy: spotify?.audio_features_available ? (spotify.energy || 0) : 0,
+        genre: '', duration: spotify?.duration_ms ? `${Math.floor(spotify.duration_ms / 60000)}:${String(Math.floor((spotify.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
+        notes: '', analysed: !!(spotify?.audio_features_available),
+        moment_type: '', position_score: '', mix_in: '', mix_out: '',
+        crowd_reaction: '', similar_to: '', producer_style: '',
+        spotify_url: spotify?.spotify_url || '', album_art: spotify?.album_art || '',
+      }
+
+      await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: [track] }) })
+      setLibrary(prev => [...prev, track])
+      added++
+    }
+    showToast(`${added} tracks imported`, 'Done')
+    setPasteText('')
+    setPasteMode(false)
+    setPasteImporting(false)
+    setPasteProgress('')
+  }
+
   function exportToRekordbox() {
     const tracks = set.length > 0 ? set : library
     if (tracks.length === 0) { showToast('No tracks to export', 'Error'); return }
@@ -1739,6 +1793,37 @@ Return ONLY valid JSON, no markdown.`, 300)
                   }}>{type}</button>
               ))}
             </div>
+
+            {/* Paste tracklist */}
+            {pasteMode ? (
+              <div style={{ background: s.panel, border: `1px solid ${s.gold}40`, padding: '16px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase' }}>Paste tracklist</div>
+                  <button onClick={() => { setPasteMode(false); setPasteText('') }} style={{ background: 'none', border: 'none', color: s.textDimmer, cursor: 'pointer', fontSize: '14px' }}>✕</button>
+                </div>
+                <textarea
+                  value={pasteText}
+                  onChange={e => setPasteText(e.target.value)}
+                  placeholder={'Artist - Title\nArtist - Title\nArtist - Title\n\nOne track per line. Accepts "Artist - Title" or "Artist — Title" format.'}
+                  autoFocus
+                  style={{ width: '100%', minHeight: '120px', background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '12px', outline: 'none', resize: 'vertical' }}
+                />
+                {pasteImporting && <div style={{ fontSize: '11px', color: s.setlab, marginTop: '8px' }}>{pasteProgress}</div>}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                  <button onClick={importFromPaste} disabled={pasteImporting || !pasteText.trim()}
+                    style={{ ...btn(s.gold), padding: '10px 20px', opacity: pasteImporting || !pasteText.trim() ? 0.5 : 1 }}>
+                    {pasteImporting ? 'Importing...' : `Import ${pasteText.split('\n').filter(l => l.trim()).length} tracks`}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setPasteMode(true)}
+                style={{ width: '100%', background: s.panel, border: `1px dashed ${s.border}`, color: s.textDim, fontFamily: s.font, fontSize: '12px', padding: '14px', cursor: 'pointer', textAlign: 'center', transition: 'border-color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = s.gold)}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
+                Paste a tracklist
+              </button>
+            )}
 
             {/* Audio drop zone — drag MP3/WAV/FLAC to add tracks */}
             <div
