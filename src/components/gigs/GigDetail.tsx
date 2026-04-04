@@ -90,6 +90,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const [toast, setToast] = useState('')
   const [advanceStatus, setAdvanceStatus] = useState<string | null>(null)
   const [sendingAdvance, setSendingAdvance] = useState(false)
+  const [showRiderPicker, setShowRiderPicker] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [artworkTab, setArtworkTab] = useState<'ra' | 'upload'>('upload')
   const [artworkPreview, setArtworkPreview] = useState<string | null>(null)
@@ -170,9 +171,10 @@ export function GigDetail({ gigId }: GigDetailProps) {
     }
   }
 
-  async function handleSendAdvance() {
+  async function handleSendAdvance(riderType: string) {
     if (!gig?.promoter_email) { showToast('Add a promoter email first'); return }
     setSendingAdvance(true)
+    setShowRiderPicker(false)
     try {
       await fetch('/api/advance', {
         method: 'POST',
@@ -183,10 +185,11 @@ export function GigDetail({ gigId }: GigDetailProps) {
           venue: gig.venue,
           date: gig.date,
           promoterEmail: gig.promoter_email,
+          riderType,
         }),
       })
       setAdvanceStatus('sent')
-      showToast('Advance sent to promoter')
+      showToast(`Advance sent (${riderType})`)
     } catch {
       showToast('Failed to send advance')
     } finally {
@@ -497,14 +500,33 @@ export function GigDetail({ gigId }: GigDetailProps) {
             )}
           </div>
           {!advanceStatus ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
-                {gig.promoter_email ? `Send advance form to ${gig.promoter_email}` : 'Add a promoter email above, then send the advance form.'}
-              </div>
-              <button onClick={handleSendAdvance} disabled={sendingAdvance || !gig.promoter_email}
-                style={{ background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: gig.promoter_email ? 'pointer' : 'not-allowed', opacity: sendingAdvance || !gig.promoter_email ? 0.5 : 1 }}>
-                {sendingAdvance ? 'Sending…' : 'Send advance'}
-              </button>
+            <div>
+              {!showRiderPicker ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
+                    {gig.promoter_email ? `Send advance form to ${gig.promoter_email}` : 'Add a promoter email above, then send the advance form.'}
+                  </div>
+                  <button onClick={() => { if (!gig.promoter_email) { showToast('Add a promoter email first'); return } setShowRiderPicker(true) }}
+                    disabled={sendingAdvance || !gig.promoter_email}
+                    style={{ background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: gig.promoter_email ? 'pointer' : 'not-allowed', opacity: sendingAdvance || !gig.promoter_email ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+                    {sendingAdvance ? 'Sending…' : 'Send advance'}
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px' }}>Which rider for this show?</div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => handleSendAdvance('DJ Set')}
+                      style={{ flex: 1, background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '14px 16px', cursor: 'pointer' }}>
+                      DJ Set
+                    </button>
+                    <button onClick={() => handleSendAdvance('Hybrid Live')}
+                      style={{ flex: 1, background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '14px 16px', cursor: 'pointer' }}>
+                      Hybrid Live
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

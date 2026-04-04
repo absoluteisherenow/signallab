@@ -19,13 +19,22 @@ export async function GET(req: NextRequest) {
     let techRider = null
     let hospitalityRider = null
     if (gigId) {
-      const [gigRes, settingsRes] = await Promise.all([
+      const [gigRes, settingsRes, advanceRes] = await Promise.all([
         supabase.from('gigs').select('title, venue, date, location').eq('id', gigId).single(),
-        supabase.from('artist_settings').select('tech_rider, hospitality_rider, profile').single(),
+        supabase.from('artist_settings').select('tech_rider, hospitality_rider, tech_rider_presets, profile').single(),
+        supabase.from('advance_requests').select('rider_type').eq('gig_id', gigId).maybeSingle(),
       ])
       gig = gigRes.data
-      techRider = settingsRes.data?.tech_rider || null
       hospitalityRider = settingsRes.data?.hospitality_rider || null
+
+      // Use the preset matching the rider_type stored on this advance, or fall back to default tech_rider
+      const riderType = advanceRes?.data?.rider_type
+      const presets = settingsRes.data?.tech_rider_presets as Record<string, string> | null
+      if (riderType && presets && presets[riderType]) {
+        techRider = presets[riderType]
+      } else {
+        techRider = settingsRes.data?.tech_rider || null
+      }
     }
 
     return NextResponse.json({ requests: data || [], gig, techRider, hospitalityRider })
@@ -38,8 +47,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY)
-    const { gigId, gigTitle, venue, date, promoterEmail } = await req.json()
+    const { gigId, gigTitle, venue, date, promoterEmail, riderType } = await req.json()
     if (!promoterEmail) return NextResponse.json({ error: 'No promoter email' }, { status: 400 })
+
+    // Store rider type on the advance request so the form shows the right preset
+    if (riderType) {
+      await supabase.from('advance_requests').upsert({ gig_id: gigId, rider_type: riderType, completed: false }, { onConflict: 'gig_id' })
+    }
 
     const formUrl = `https://signal-lab-rebuild.vercel.app/advance/${gigId}`
     await resend.emails.send({
