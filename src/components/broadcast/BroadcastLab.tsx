@@ -182,6 +182,8 @@ export function BroadcastLab() {
   const [trendsSource, setTrendsSource] = useState<{ postsAnalysed?: number; artistsIncluded?: string[] } | null>((_cache.trendsSource as any) || null)
   const [connectedSocials, setConnectedSocials] = useState<string[]>([]) // platform ids with direct connection
   const [publishing, setPublishing] = useState(false)
+  const [syncingIG, setSyncingIG] = useState(false)
+  const [igSyncResult, setIgSyncResult] = useState<{ synced?: number; error?: string; needsTable?: boolean; sql?: string } | null>(null)
 
   useEffect(() => {
     fetch('/api/social/connected')
@@ -403,6 +405,29 @@ export function BroadcastLab() {
       setTrendCaptions(fallback)
     } finally {
       setLoadingTrends(false)
+    }
+  }
+
+  async function syncInstagram() {
+    setSyncingIG(true)
+    setIgSyncResult(null)
+    try {
+      const res = await fetch('/api/instagram/sync', { method: 'POST' })
+      const data = await res.json()
+      if (!data.success && data.sql) {
+        setIgSyncResult({ needsTable: true, sql: data.sql, error: data.error })
+      } else if (!data.success) {
+        setIgSyncResult({ error: data.error })
+        showToast(data.error || 'Sync failed', 'Error')
+      } else {
+        setIgSyncResult({ synced: data.synced })
+        showToast(`${data.synced} posts synced from Instagram`, 'Signal Lab')
+      }
+    } catch (err: any) {
+      setIgSyncResult({ error: err.message })
+      showToast('Instagram sync failed', 'Error')
+    } finally {
+      setSyncingIG(false)
     }
   }
 
@@ -787,7 +812,27 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
       <div className="bg-[#0e0d0b] border border-white/7 p-8 caption-panel">
         <div className="flex items-center gap-2 mb-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
           Caption generator — tuned to your voice<div className="flex-1 h-px bg-white/10" />
+          <button onClick={syncInstagram} disabled={syncingIG}
+            className="flex items-center gap-1.5 text-[9px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex-shrink-0 ml-2">
+            {syncingIG
+              ? <><div className="w-1.5 h-1.5 border border-current border-t-transparent rounded-full animate-spin" />Syncing...</>
+              : igSyncResult?.synced != null
+                ? <><span className="w-1.5 h-1.5 rounded-full bg-[#3d6b4a] inline-block" />{igSyncResult.synced} posts synced</>
+                : igSyncResult?.error
+                  ? <><span className="w-1.5 h-1.5 rounded-full bg-red-500/60 inline-block" />Sync failed</>
+                  : <>Sync Instagram →</>
+            }
+          </button>
         </div>
+        {igSyncResult?.needsTable && (
+          <div className="mb-4 p-4 bg-[#1a1917] border border-[#b08d57]/30 text-[10px] tracking-[.06em] text-[#8a8780]">
+            <div className="text-[#b08d57] mb-2 tracking-[.12em] uppercase text-[9px]">One-time setup required</div>
+            <div className="mb-2">Run this SQL in your Supabase dashboard → SQL Editor:</div>
+            <pre className="text-[9px] text-[#52504c] bg-black/30 p-3 overflow-x-auto whitespace-pre-wrap">{igSyncResult.sql}</pre>
+            <button onClick={() => navigator.clipboard.writeText(igSyncResult.sql || '').then(() => showToast('SQL copied', 'Done'))}
+              className="mt-2 text-[9px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors">Copy SQL →</button>
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div>
             <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">What happened</label>

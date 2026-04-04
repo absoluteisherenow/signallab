@@ -25,6 +25,8 @@ interface ArtistContext {
   postPerformance: any[]
   connectedSocialAccounts: any[]
   releases: any[]
+  instagramPosts: any[]
+  instagramStats: any
 }
 
 /** Stream Claude response — yields text chunks as they arrive */
@@ -294,6 +296,7 @@ export function SignalGenius() {
       fetch('/api/post-performance').then(r => r.json()).catch(() => ({ posts: [] })),
       fetch('/api/social/connected').then(r => r.json()).catch(() => ({ accounts: [] })),
       fetch('/api/releases').then(r => r.json()).catch(() => ({ releases: [] })),
+      fetch('/api/instagram/posts').then(r => r.json()).catch(() => ({ posts: [], synced: false, stats: null })),
     ]).then(results => {
       const gigs = results[0].status === 'fulfilled' ? results[0].value.gigs || [] : []
       const invoices = results[1].status === 'fulfilled' ? results[1].value.invoices || [] : []
@@ -305,6 +308,9 @@ export function SignalGenius() {
       const postPerformance = results[7].status === 'fulfilled' ? results[7].value.posts || [] : []
       const connectedSocialAccounts = results[8].status === 'fulfilled' ? results[8].value.accounts || [] : []
       const releases = results[9].status === 'fulfilled' ? results[9].value.releases || [] : []
+      const igResult = results[10].status === 'fulfilled' ? results[10].value : { posts: [], stats: null }
+      const instagramPosts = igResult.posts || []
+      const instagramStats = igResult.stats || null
 
       const today = new Date()
       const yr = today.getFullYear()
@@ -329,6 +335,8 @@ export function SignalGenius() {
         postPerformance,
         connectedSocialAccounts,
         releases,
+        instagramPosts,
+        instagramStats,
       })
       setContextLoaded(true)
     })
@@ -493,6 +501,34 @@ export function SignalGenius() {
         })
       } else {
         contextBlock += `\n\nConnected social accounts: none connected yet`
+      }
+
+      // ── ALWAYS INCLUDED: Real Instagram post data ──────────────────────────
+      if (c.instagramStats && c.instagramPosts?.length > 0) {
+        const s = c.instagramStats
+        contextBlock += `\n\nYour real Instagram performance (${c.instagramPosts.length} posts synced):`
+        contextBlock += `\n- Avg likes: ${s.avgLikes} · Avg comments: ${s.avgComments} · Avg saves: ${s.avgSaves} · Avg engagement rate: ${s.avgEngagementRate}%`
+        if (s.byFormat?.length > 0) {
+          contextBlock += `\n- By format: ${s.byFormat.map((f: any) => `${f.type} → ${f.avgEngagement}% eng, ${f.avgSaves} saves avg (${f.count} posts)`).join(' | ')}`
+        }
+        if (s.topByEngagement?.length > 0) {
+          contextBlock += `\n- Top posts by engagement:`
+          s.topByEngagement.forEach((p: any) => {
+            contextBlock += `\n  · ${p.media_type} · ${p.engagement_rate}% eng · ${p.likes}L · ${p.saves} saves: "${p.caption || '(no caption)'}"`
+          })
+        }
+        if (s.topBySaves?.length > 0) {
+          contextBlock += `\n- Top posts by saves: ${s.topBySaves.map((p: any) => `"${(p.caption || '').slice(0, 60)}" (${p.saves} saves, ${p.media_type})`).join(' | ')}`
+        }
+
+        // Quarter breakdown from real posts
+        const qStart = new Date(new Date().getFullYear(), Math.floor(new Date().getMonth() / 3) * 3, 1)
+        const qPosts = c.instagramPosts.filter((p: any) => p.posted_at && new Date(p.posted_at) >= qStart)
+        if (qPosts.length > 0) {
+          contextBlock += `\n- This quarter: ${qPosts.length} posts published on Instagram`
+        }
+      } else {
+        contextBlock += `\n\nInstagram post history: not yet synced — user can sync via Broadcast Lab to unlock real engagement analytics`
       }
 
       // ── ALWAYS INCLUDED: Voice profiles ────────────────────────────────────
