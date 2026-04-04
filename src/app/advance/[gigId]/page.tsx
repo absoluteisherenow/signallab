@@ -201,7 +201,7 @@ export default function AdvancePage() {
 
         {/* PROMOTER DETAILS */}
         <div style={{ marginBottom: '40px' }}>
-          <div style={sectionHeader}>Your details</div>
+          <div style={sectionHeader}>Promoter contact</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {PROMOTER_FIELDS.map(field => (
               <div key={field.key}>
