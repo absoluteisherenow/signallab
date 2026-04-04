@@ -879,6 +879,9 @@ Return ONLY valid JSON, no markdown.`, 300)
       const corrections: string[] = []
 
       if (spotify) {
+        // Correct artist and title from Spotify — the authoritative source
+        if (spotify.artist && spotify.artist !== track.artist) { updates.artist = spotify.artist; corrections.push(`Artist → ${spotify.artist}`) }
+        if (spotify.title && spotify.title !== track.title) { updates.title = spotify.title; corrections.push(`Title → ${spotify.title}`) }
         if (spotify.bpm && spotify.bpm !== track.bpm) { updates.bpm = spotify.bpm; corrections.push(`BPM → ${spotify.bpm}`) }
         if (spotify.key && spotify.key !== track.key) { updates.key = spotify.key; corrections.push(`Key → ${spotify.key}`) }
         if (spotify.camelot) updates.camelot = spotify.camelot

@@ -399,7 +399,7 @@ RULES:
 - Venue matching: match loosely — "Pitch" can match "Pitch Music and Arts", "pitch" in venue field, etc.
 - Date matching: "last week" = within the 7 days prior to today; "last night" = yesterday's date or the most recent set.
 - If multiple sets match the time/venue, prefer the most recently created one.
-- Always return the best guess even if confidence is low — never return null for title/artist.
+- If you are confident you know the exact track, return title and artist. If you are NOT confident, return "unknown": true — NEVER guess or fabricate an artist name.
 
 RESPONSE FORMAT — return ONLY valid JSON, no markdown fences, starting with { ending with }:
 
