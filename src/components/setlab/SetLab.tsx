@@ -167,7 +167,7 @@ export function SetLab() {
   const [wantlistLoading, setWantlistLoading] = useState(false)
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set())
   const [playingTrack, setPlayingTrack] = useState<{ id: string; title: string; artist: string; spotify_url: string; album_art?: string } | null>(null)
-  const [librarySection, setLibrarySection] = useState<'all' | 'builder' | 'discoveries' | 'playlists' | 'wantlist'>('all')
+  const [librarySection, setLibrarySection] = useState<'all' | 'discoveries' | 'playlists' | 'wantlist'>('all')
   // libraryMode removed — Library tab now shows all sections
   const audioInputRef = useRef<HTMLInputElement>(null)
   const screenshotInputRef = useRef<HTMLInputElement>(null)
@@ -1697,7 +1697,6 @@ Return ONLY valid JSON, no markdown.`, 300)
             <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${s.border}` }}>
               {([
                 { key: 'all', label: 'All', count: curatedLibrary.length },
-                { key: 'builder', label: 'Builder', count: set.length },
                 { key: 'discoveries', label: 'Discoveries', count: discoveries.length },
                 { key: 'playlists', label: 'Playlists', count: Object.keys(playlistGroups).length },
                 { key: 'wantlist', label: 'Wantlist', count: wantlist.length },
@@ -2006,42 +2005,6 @@ Return ONLY valid JSON, no markdown.`, 300)
               </div>
             )}
 
-            </>}
-
-            {/* ── BUILDER SECTION (inline set view) ── */}
-            {(librarySection === 'all' || librarySection === 'builder') && <>
-            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: librarySection === 'all' ? '32px' : '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Set Builder ({set.length})</span>
-              {set.length > 0 && <button onClick={() => setActiveTab('builder')} style={{ background: 'none', border: `1px solid ${s.gold}40`, color: s.gold, fontFamily: s.font, fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '4px 12px', cursor: 'pointer' }}>Full view →</button>}
-            </div>
-            {set.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '32px 24px' }}>
-                <div style={{ fontSize: '12px', color: s.textDimmer }}>Select tracks and add them to your set</div>
-              </div>
-            ) : (
-              <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
-                {set.map((track, i) => (
-                  <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    <div style={{ fontSize: '11px', color: s.textDimmer, width: '20px', textAlign: 'center' }}>{i + 1}</div>
-                    {track.album_art ? (
-                      <img src={track.album_art} alt="" style={{ width: '28px', height: '28px', objectFit: 'cover', flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: '28px', height: '28px', background: s.border, flexShrink: 0 }} />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', color: s.text }}>{track.title}</div>
-                      <div style={{ fontSize: '11px', color: s.textDim, marginTop: '1px' }}>{track.artist}</div>
-                    </div>
-                    <div style={{ fontSize: '10px', color: s.textDim, flexShrink: 0 }}>{track.bpm || '—'}</div>
-                    <div style={{ fontSize: '10px', color: s.gold, flexShrink: 0 }}>{track.camelot || '—'}</div>
-                    {i > 0 && <div style={{ fontSize: '10px', color: track.compatibility >= 80 ? '#3d6b4a' : track.compatibility >= 50 ? s.gold : '#9a6a5a', flexShrink: 0 }}>{track.compatibility}%</div>}
-                    <button onClick={() => removeFromSet(track.id)} style={{ background: 'none', border: 'none', color: s.textDimmer, cursor: 'pointer', fontSize: '14px', padding: '2px 6px' }}>✕</button>
-                  </div>
-                ))}
-              </div>
-            )}
             </>}
 
             {/* ── DISCOVERIES SECTION ── */}
