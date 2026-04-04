@@ -926,6 +926,24 @@ Return ONLY valid JSON, no markdown.`, 300)
     }
   }
 
+  const [batchAnalysing, setBatchAnalysing] = useState(false)
+
+  async function analyseSelectedTracks() {
+    const ids = Array.from(selectedTracks)
+    const tracks = filteredLibrary.filter(t => ids.includes(t.id))
+    if (tracks.length === 0) return
+    setBatchAnalysing(true)
+    let done = 0
+    for (const track of tracks) {
+      showToast(`Analysing ${track.title} (${done + 1}/${tracks.length})...`, 'Intelligence')
+      await reanalyseTrack(track)
+      done++
+    }
+    showToast(`${done} tracks analysed`, 'Done')
+    setBatchAnalysing(false)
+    setSelectedTracks(new Set())
+  }
+
   async function saveTrackEdit(updated: Track) {
     await fetch('/api/tracks', {
       method: 'PATCH',
@@ -1982,6 +2000,10 @@ Return ONLY valid JSON, no markdown.`, 300)
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button onClick={() => setSelectedTracks(new Set())} style={{ ...btn(s.border), fontSize: '10px', padding: '8px 16px', color: s.textDim }}>Clear</button>
                   <button onClick={deleteSelectedTracks} style={{ ...btn('#ff4444'), fontSize: '10px', padding: '8px 16px' }}>Delete</button>
+                  <button onClick={analyseSelectedTracks} disabled={batchAnalysing}
+                    style={{ ...btn(s.setlab), fontSize: '10px', padding: '8px 16px', opacity: batchAnalysing ? 0.5 : 1 }}>
+                    {batchAnalysing ? 'Analysing...' : 'Get mix tips'}
+                  </button>
                   <button onClick={addSelectedToSet} style={{ ...btn(s.gold), fontSize: '10px', padding: '8px 20px' }}>Add {selectedTracks.size} to Set →</button>
                 </div>
               </div>
