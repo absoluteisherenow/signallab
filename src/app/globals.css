@@ -607,6 +607,13 @@ body.advance-active [class*="command-palette"] {
 }
 body.advance-active .app-main {
   padding-bottom: 0 !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+}
+body.advance-active {
+  overflow-y: auto !important;
+  height: auto !important;
 }
 
 /* ── MOBILE RESPONSIVE ── */
