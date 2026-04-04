@@ -13,8 +13,7 @@ interface GigInfo {
 const PROMOTER_FIELDS = [
   { key: 'local_contact_name', label: 'Contact on the night', placeholder: 'Name' },
   { key: 'local_contact_phone', label: 'Contact phone', placeholder: '+44 7700 000000' },
-  { key: 'set_time', label: 'Set time + length', placeholder: 'e.g. 01:00 – 02:30' },
-  { key: 'doors_time', label: 'Doors', placeholder: 'e.g. 22:00' },
+  { key: 'set_time', label: 'Set time', placeholder: 'e.g. 01:00 – 02:30' },
   { key: 'running_order', label: 'Running order', placeholder: 'e.g. DJ A 22:00–23:30, NM 23:30–01:00, DJ B 01:00–03:00' },
   { key: 'driver', label: 'Driver / transport', placeholder: 'e.g. Car collecting from hotel at 21:00' },
   { key: 'artist_liaison', label: 'Artist liaison', placeholder: 'Name + contact if different from above' },
