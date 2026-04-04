@@ -228,56 +228,68 @@ export function SetLab() {
 
         setAudioProgress(`Enriching ${analysis.title || file.name}...`)
 
-        // Step 2: Claude enriches with key, energy, mix techniques etc
-        const raw = await callClaude(
-          'You are a music intelligence expert for DJs. Return ONLY valid JSON, no markdown.',
-          `I have an audio file with these detected properties:
-Title: ${analysis.title || 'Unknown'}
-Artist: ${analysis.artist || 'Unknown'}
-Detected BPM: ${analysis.bpm} (confidence: ${analysis.confidence})
-Duration: ${analysis.duration}
-Filename: ${analysis.fileName}
+        // Step 2: Spotify lookup for verified key/energy (BPM already from audio)
+        let spotify: any = null
+        if (analysis.title && analysis.artist) {
+          try {
+            const spRes = await fetch('/api/spotify/lookup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ artist: analysis.artist, title: analysis.title }),
+            })
+            const spData = await spRes.json()
+            if (spData.found) spotify = spData
+          } catch (e) { /* Spotify unavailable */ }
+        }
 
-${analysis.confidence === 'low' ? 'BPM detection confidence is low — please verify/correct the BPM based on your knowledge of this track.' : ''}
+        // Step 3: Claude for SUBJECTIVE intelligence only
+        let intelligence: any = {}
+        if (analysis.title && analysis.artist) {
+          try {
+            const intRaw = await callClaude(
+              'You are a DJ music intelligence expert. NEVER guess or fabricate BPM, key, or energy values. Only provide subjective set positioning advice.',
+              `Provide DJ intelligence for this track. Do NOT include bpm, key, camelot, or energy.
 
-Return JSON:
+Track: ${analysis.artist} — ${analysis.title}
+Detected BPM: ${analysis.bpm}
+
+If you genuinely know this track, return JSON:
 {
-  "title": "correct track title",
-  "artist": "correct artist name",
-  "bpm": ${analysis.confidence === 'high' ? analysis.bpm : 'corrected BPM as number'},
-  "key": "musical key (e.g. F minor)",
-  "camelot": "Camelot code (e.g. 4A)",
-  "energy": number 1-10,
-  "genre": "genre",
   "moment_type": "opener|builder|peak|breakdown|closer",
   "position_score": "warm-up|build|peak|cool-down",
-  "mix_in": "specific DJ mix-in technique",
+  "mix_in": "specific DJ mix-in technique for this track",
   "mix_out": "specific mix-out technique",
   "crowd_reaction": "expected crowd response in 5-8 words",
   "producer_style": "one sentence about production style",
   "notes": "when/how to use in a set"
-}`, 400)
+}
 
-        const d = JSON.parse(raw.replace(/```json|```/g, '').trim())
+If you do NOT know this track well enough, return: {"unknown": true}
+Return ONLY valid JSON, no markdown.`, 300)
+            const parsed = JSON.parse(intRaw.replace(/```json|```/g, '').trim())
+            if (!parsed.unknown) intelligence = parsed
+          } catch (e) { /* skip intelligence */ }
+        }
+
         const track: Track = {
           id: Date.now().toString() + Math.random(),
-          title: d.title || analysis.title || 'Unknown',
-          artist: d.artist || analysis.artist || 'Unknown',
-          bpm: d.bpm || analysis.bpm || 128,
-          key: d.key || '',
-          camelot: d.camelot || '',
-          energy: d.energy || 5,
-          genre: d.genre || 'Electronic',
+          title: analysis.title || 'Unknown',
+          artist: analysis.artist || 'Unknown',
+          bpm: analysis.bpm || spotify?.bpm || 0,
+          key: spotify?.key || '',
+          camelot: spotify?.camelot || '',
+          energy: spotify?.energy || 0,
+          genre: '',
           duration: analysis.duration,
-          notes: d.notes || '',
+          notes: intelligence.notes || '',
           analysed: true,
-          moment_type: d.moment_type || 'builder',
-          position_score: d.position_score || 'build',
-          mix_in: d.mix_in || '',
-          mix_out: d.mix_out || '',
-          crowd_reaction: d.crowd_reaction || '',
+          moment_type: intelligence.moment_type || '',
+          position_score: intelligence.position_score || '',
+          mix_in: intelligence.mix_in || '',
+          mix_out: intelligence.mix_out || '',
+          crowd_reaction: intelligence.crowd_reaction || '',
           similar_to: '',
-          producer_style: d.producer_style || '',
+          producer_style: intelligence.producer_style || '',
         }
 
         setLibrary(prev => [...prev, track])
@@ -339,57 +351,69 @@ Return JSON:
       const extracted: { title: string; artist: string; bpm?: number | null; key?: string | null }[] = JSON.parse(jsonMatch[0])
       if (extracted.length === 0) throw new Error('No tracks found')
 
-      setScreenshotImportProgress(`Enriching ${extracted.length} tracks...`)
+      setScreenshotImportProgress(`Looking up ${extracted.length} tracks...`)
       let added = 0
       for (const ext of extracted) {
         try {
-          setScreenshotImportProgress(`Enriching ${ext.title} (${added + 1}/${extracted.length})...`)
-          const enrichRaw = await callClaude(
-            'You are a music intelligence expert for DJs. Return ONLY valid JSON, no markdown.',
-            `Enrich this track for a DJ library:
-Title: ${ext.title}
-Artist: ${ext.artist}
-${ext.bpm ? `BPM from screenshot: ${ext.bpm}` : ''}
-${ext.key ? `Key from screenshot: ${ext.key}` : ''}
+          setScreenshotImportProgress(`Looking up ${ext.title} (${added + 1}/${extracted.length})...`)
 
-Return JSON:
+          // Step 1: Spotify lookup for VERIFIED BPM/key/energy
+          let spotify: any = null
+          try {
+            const spRes = await fetch('/api/spotify/lookup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ artist: ext.artist, title: ext.title }),
+            })
+            const spData = await spRes.json()
+            if (spData.found) spotify = spData
+          } catch (e) { /* Spotify unavailable — leave fields blank */ }
+
+          // Step 2: Claude for SUBJECTIVE intelligence only (no BPM/key/energy guessing)
+          let intelligence: any = {}
+          try {
+            const intRaw = await callClaude(
+              'You are a DJ music intelligence expert. NEVER guess or fabricate BPM, key, or energy values. Only provide subjective set positioning advice.',
+              `Provide DJ intelligence for this track. Do NOT include bpm, key, camelot, or energy — those come from verified sources only.
+
+Track: ${ext.artist} — ${ext.title}
+
+If you genuinely know this track, return JSON:
 {
-  "title": "correct track title",
-  "artist": "correct artist name",
-  "bpm": BPM as number,
-  "key": "musical key (e.g. F minor)",
-  "camelot": "Camelot code (e.g. 4A)",
-  "energy": number 1-10,
-  "genre": "genre",
   "moment_type": "opener|builder|peak|breakdown|closer",
   "position_score": "warm-up|build|peak|cool-down",
-  "mix_in": "specific DJ mix-in technique",
+  "mix_in": "specific DJ mix-in technique for this track",
   "mix_out": "specific mix-out technique",
   "crowd_reaction": "expected crowd response in 5-8 words",
   "producer_style": "one sentence about production style",
   "notes": "when/how to use in a set"
-}`, 400)
+}
 
-          const d = JSON.parse(enrichRaw.replace(/```json|```/g, '').trim())
+If you do NOT know this track well enough, return: {"unknown": true}
+Return ONLY valid JSON, no markdown.`, 300)
+            const parsed = JSON.parse(intRaw.replace(/```json|```/g, '').trim())
+            if (!parsed.unknown) intelligence = parsed
+          } catch (e) { /* Claude unavailable — skip intelligence */ }
+
           const track: Track = {
             id: Date.now().toString() + Math.random(),
-            title: d.title || ext.title,
-            artist: d.artist || ext.artist,
-            bpm: d.bpm || ext.bpm || 128,
-            key: d.key || ext.key || '',
-            camelot: d.camelot || '',
-            energy: d.energy || 5,
-            genre: d.genre || 'Electronic',
-            duration: '',
-            notes: d.notes || '',
-            analysed: true,
-            moment_type: d.moment_type || 'builder',
-            position_score: d.position_score || 'build',
-            mix_in: d.mix_in || '',
-            mix_out: d.mix_out || '',
-            crowd_reaction: d.crowd_reaction || '',
+            title: ext.title,
+            artist: ext.artist,
+            bpm: spotify?.bpm || ext.bpm || 0,
+            key: spotify?.key || (ext.key as string) || '',
+            camelot: spotify?.camelot || '',
+            energy: spotify?.energy || 0,
+            genre: '',
+            duration: spotify?.duration_ms ? `${Math.floor(spotify.duration_ms / 60000)}:${String(Math.floor((spotify.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
+            notes: intelligence.notes || '',
+            analysed: !!spotify,
+            moment_type: intelligence.moment_type || '',
+            position_score: intelligence.position_score || '',
+            mix_in: intelligence.mix_in || '',
+            mix_out: intelligence.mix_out || '',
+            crowd_reaction: intelligence.crowd_reaction || '',
             similar_to: '',
-            producer_style: d.producer_style || '',
+            producer_style: intelligence.producer_style || '',
           }
 
           await fetch('/api/tracks', {
@@ -400,7 +424,7 @@ Return JSON:
           setLibrary(prev => [...prev, track])
           added++
         } catch {
-          showToast(`Could not enrich ${ext.title}`, 'Error')
+          showToast(`Could not import ${ext.title}`, 'Error')
         }
       }
       showToast(`${added} track${added !== 1 ? 's' : ''} imported from screenshot`, 'Done')
@@ -811,43 +835,71 @@ Provide:
   async function reanalyseTrack(track: Track) {
     setReanalysing(track.id)
     try {
-      const raw = await callClaude(
-        'You are a DJ music intelligence expert. Cross-reference this track with your knowledge and correct any errors. Return ONLY valid JSON, no markdown.',
-        `Cross-reference and correct this track data. The BPM and key may be wrong from Rekordbox analysis — use your knowledge to verify.
+      // Step 1: Spotify lookup for verified BPM/key/energy
+      let spotify: any = null
+      try {
+        const spRes = await fetch('/api/spotify/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ artist: track.artist, title: track.title }),
+        })
+        const spData = await spRes.json()
+        if (spData.found) spotify = spData
+      } catch (e) { /* Spotify unavailable */ }
+
+      // Step 2: Claude for subjective intelligence only
+      let intelligence: any = {}
+      try {
+        const intRaw = await callClaude(
+          'You are a DJ music intelligence expert. NEVER guess or fabricate BPM, key, or energy values.',
+          `Provide DJ intelligence for this track. Do NOT include bpm, key, camelot, or energy.
 
 Track: ${track.artist} — ${track.title}
-Rekordbox BPM: ${track.bpm}
-Rekordbox Key: ${track.key} / Camelot: ${track.camelot}
+${spotify ? `Verified BPM: ${spotify.bpm}, Key: ${spotify.key}` : `Current BPM: ${track.bpm}, Key: ${track.key}`}
 
-Return corrected JSON:
+If you genuinely know this track, return JSON:
 {
-  "bpm": corrected BPM as number,
-  "key": "corrected key e.g. F minor",
-  "camelot": "corrected Camelot code e.g. 4A",
-  "energy": number 1-10,
   "moment_type": "opener|builder|peak|breakdown|closer",
   "position_score": "warm-up|build|peak|cool-down",
-  "mix_in": "specific mix-in technique",
+  "mix_in": "specific mix-in technique for this track",
   "mix_out": "specific mix-out technique",
   "crowd_reaction": "expected crowd response in 5-8 words",
   "producer_style": "one sentence about production style",
-  "notes": "when/how to use in a set",
-  "bpm_corrected": true or false,
-  "key_corrected": true or false
-}`, 500)
+  "notes": "when/how to use in a set"
+}
 
-      const d = JSON.parse(raw.replace(/```json|```/g, '').trim())
-      const updated = { ...track, ...d }
+If you do NOT know this track well enough, return: {"unknown": true}
+Return ONLY valid JSON, no markdown.`, 300)
+        const parsed = JSON.parse(intRaw.replace(/```json|```/g, '').trim())
+        if (!parsed.unknown) intelligence = parsed
+      } catch (e) { /* skip intelligence */ }
+
+      const updates: any = { ...intelligence }
+      const corrections: string[] = []
+
+      if (spotify) {
+        if (spotify.bpm && spotify.bpm !== track.bpm) { updates.bpm = spotify.bpm; corrections.push(`BPM → ${spotify.bpm}`) }
+        if (spotify.key && spotify.key !== track.key) { updates.key = spotify.key; corrections.push(`Key → ${spotify.key}`) }
+        if (spotify.camelot) updates.camelot = spotify.camelot
+        if (spotify.energy) updates.energy = spotify.energy
+        updates.enriched = true
+      }
+
+      const updated = { ...track, ...updates }
 
       await fetch('/api/tracks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: track.id, ...d }),
+        body: JSON.stringify({ id: track.id, ...updates }),
       })
 
       setLibrary(prev => prev.map(t => t.id === track.id ? updated : t))
-      const corrections = [d.bpm_corrected && `BPM → ${d.bpm}`, d.key_corrected && `Key → ${d.key}`].filter(Boolean)
-      showToast(corrections.length ? `Corrected: ${corrections.join(', ')}` : 'Analysis verified — no corrections needed', 'Intelligence')
+      showToast(
+        spotify
+          ? corrections.length ? `Verified: ${corrections.join(', ')}` : 'Verified against Spotify — data correct'
+          : 'Track not found on Spotify — could not verify',
+        'Intelligence'
+      )
     } catch (err: any) {
       showToast('Re-analyse failed: ' + err.message, 'Error')
     } finally {
@@ -1554,7 +1606,7 @@ Return corrected JSON:
               cursor: 'pointer',
               transition: 'color 0.15s',
               marginBottom: '-1px',
-            }}>{{ builder: 'set builder', discover: 'discover' }[tab] || tab}</button>
+            }}>{{ builder: 'set builder', discover: 'discover', library: 'library', history: 'history', scanner: 'scanner', intelligence: 'intelligence' }[tab]}</button>
           ))}
         </div>
       </div>
