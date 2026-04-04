@@ -52,7 +52,11 @@ interface Track {
   discovered_via?: any
   spotify_url?: string
   album_art?: string
+  has_local_audio?: boolean
 }
+
+// ── In-memory audio file map (no duplication — holds references to dropped files) ──
+const audioFileMap = new Map<string, File>()
 
 interface SetTrack extends Track {
   position: number
@@ -177,12 +181,15 @@ export function SetLab() {
   const [wantlist, setWantlist] = useState<any[]>([])
   const [wantlistLoading, setWantlistLoading] = useState(false)
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set())
-  const [playingTrack, setPlayingTrack] = useState<{ id: string; title: string; artist: string; spotify_url: string; album_art?: string } | null>(null)
+  const [playingTrack, setPlayingTrack] = useState<{ id: string; title: string; artist: string; album_art?: string } | null>(null)
   const [librarySection, setLibrarySection] = useState<'all' | 'discoveries' | 'playlists' | 'wantlist'>('all')
-  // libraryMode removed — Library tab now shows all sections
   const [userPlaylists, setUserPlaylists] = useState<Record<string, string[]>>({}) // name → track IDs
   const [addToMenu, setAddToMenu] = useState<string | null>(null) // track.id when menu is open
   const [newPlaylistName, setNewPlaylistName] = useState('')
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [audioPlaying, setAudioPlaying] = useState(false)
+  const [audioTime, setAudioTime] = useState(0)
+  const [audioDuration, setAudioDuration] = useState(0)
   const audioInputRef = useRef<HTMLInputElement>(null)
   const screenshotInputRef = useRef<HTMLInputElement>(null)
   const [screenshotImporting, setScreenshotImporting] = useState(false)
@@ -227,6 +234,45 @@ export function SetLab() {
     setToast({ msg, tag })
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), 3400)
+  }
+
+  // ── Audio Playback ─────────────────────────────────────────────────────
+  async function playTrack(track: Track) {
+    // If already playing this track, toggle pause/play
+    if (playingTrack?.id === track.id && audioRef.current) {
+      if (audioPlaying) { audioRef.current.pause(); setAudioPlaying(false) }
+      else { audioRef.current.play(); setAudioPlaying(true) }
+      return
+    }
+
+    // Stop current playback
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+
+    const file = audioFileMap.get(track.id)
+    if (!file) { showToast('No audio file — drop the MP3/WAV to add it', 'Error'); return }
+
+    const url = URL.createObjectURL(file)
+    const audio = new Audio(url)
+    audioRef.current = audio
+    audio.ontimeupdate = () => setAudioTime(audio.currentTime)
+    audio.onloadedmetadata = () => setAudioDuration(audio.duration)
+    audio.onended = () => { setAudioPlaying(false); setAudioTime(0) }
+    audio.play()
+    setPlayingTrack({ id: track.id, title: track.title, artist: track.artist, album_art: track.album_art })
+    setAudioPlaying(true)
+  }
+
+  function stopPlayback() {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+    setPlayingTrack(null)
+    setAudioPlaying(false)
+    setAudioTime(0)
+  }
+
+  function seekAudio(pct: number) {
+    if (audioRef.current && audioDuration) {
+      audioRef.current.currentTime = pct * audioDuration
+    }
   }
 
   // ── Audio File Analysis ─────────────────────────────────────────────────
@@ -286,6 +332,10 @@ export function SetLab() {
           spotify_url: spotify?.spotify_url || '',
           album_art: spotify?.album_art || '',
         }
+
+        // Keep file reference for playback (no duplication)
+        audioFileMap.set(track.id, file)
+        track.has_local_audio = true
 
         setLibrary(prev => [...prev, track])
         processed++
@@ -959,6 +1009,7 @@ Provide:
           discovered_via: t.discovered_via || null,
           spotify_url: t.spotify_url || '',
           album_art: t.album_art || '',
+          has_local_audio: audioFileMap.has(t.id),
         })))
       } else {
         setLibrary([])
@@ -2030,19 +2081,20 @@ Return ONLY valid JSON, no markdown.`, 300)
                     </div>
                     <div className="track-art-cell" style={{ display: 'flex', alignItems: 'center', position: 'relative' }} onClick={e => {
                       e.stopPropagation()
-                      if (track.spotify_url) {
-                        const spotifyId = track.spotify_url.match(/track\/([a-zA-Z0-9]+)/)?.[1]
-                        if (spotifyId) setPlayingTrack(playingTrack?.id === track.id ? null : { id: track.id, title: track.title, artist: track.artist, spotify_url: `https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0`, album_art: track.album_art })
+                      if (track.has_local_audio) {
+                        playTrack(track)
+                      } else if (track.spotify_url) {
+                        window.open(track.spotify_url, '_blank')
                       }
                     }}>
                       {track.album_art ? (
-                        <div style={{ width: '32px', height: '32px', position: 'relative', cursor: track.spotify_url ? 'pointer' : 'default' }}>
+                        <div style={{ width: '32px', height: '32px', position: 'relative', cursor: (track.has_local_audio || track.spotify_url) ? 'pointer' : 'default' }}>
                           <img src={track.album_art} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', opacity: playingTrack?.id === track.id ? 0.4 : 1, transition: 'opacity 0.15s' }} />
-                          {track.spotify_url && <div className="play-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s', background: 'rgba(0,0,0,0.4)' }}>{playingTrack?.id === track.id ? '■' : '▶'}</div>}
+                          {(track.has_local_audio || track.spotify_url) && <div className="play-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s', background: 'rgba(0,0,0,0.4)' }}>{playingTrack?.id === track.id && audioPlaying ? '■' : '▶'}</div>}
                         </div>
                       ) : (
-                        <div style={{ width: '32px', height: '32px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: track.spotify_url ? 'pointer' : 'default' }}>
-                          <span style={{ fontSize: track.spotify_url ? '12px' : '10px', color: track.spotify_url ? s.gold : s.textDimmer }}>{track.spotify_url ? (playingTrack?.id === track.id ? '■' : '▶') : '♪'}</span>
+                        <div style={{ width: '32px', height: '32px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (track.has_local_audio || track.spotify_url) ? 'pointer' : 'default' }}>
+                          <span style={{ fontSize: '12px', color: track.has_local_audio ? s.gold : track.spotify_url ? s.textDim : s.textDimmer }}>{track.has_local_audio ? (playingTrack?.id === track.id && audioPlaying ? '■' : '▶') : track.spotify_url ? '↗' : '♪'}</span>
                         </div>
                       )}
                     </div>
@@ -4044,26 +4096,33 @@ Return ONLY valid JSON, no markdown.`, 300)
         </div>
       )}
 
-      {/* ── SPOTIFY MINI-PLAYER ── */}
+
+      {/* ── AUDIO PLAYER BAR ── */}
       {playingTrack && (
         <div style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-          background: s.black, borderTop: `1px solid ${s.border}`,
-          display: 'flex', alignItems: 'center', height: '152px',
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+          background: 'rgba(12,10,6,0.98)', borderTop: `1px solid ${s.gold}40`,
+          padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '14px',
+          backdropFilter: 'blur(16px)', height: '56px',
         }}>
-          <iframe
-            src={playingTrack.spotify_url}
-            width="100%"
-            height="152"
-            frameBorder="0"
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            allowFullScreen
-            style={{ border: 'none' }}
-          />
-          <button onClick={() => setPlayingTrack(null)} style={{
-            position: 'absolute', top: '8px', right: '12px', background: 'rgba(0,0,0,0.7)',
-            border: 'none', color: s.textDim, fontSize: '16px', cursor: 'pointer', padding: '4px 8px', zIndex: 101,
-          }}>✕</button>
+          {playingTrack.album_art && <img src={playingTrack.album_art} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover' }} />}
+          <button onClick={() => playTrack(library.find(t => t.id === playingTrack.id) || { ...playingTrack } as Track)}
+            style={{ background: 'none', border: 'none', color: s.gold, fontSize: '18px', cursor: 'pointer', padding: '0 4px' }}>
+            {audioPlaying ? '■' : '▶'}
+          </button>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ fontSize: '12px', color: s.text, letterSpacing: '0.05em' }}>
+              {playingTrack.title} <span style={{ color: s.textDimmer }}>— {playingTrack.artist}</span>
+            </div>
+            <div style={{ height: '3px', background: s.border, cursor: 'pointer', position: 'relative' }}
+              onClick={e => { const rect = e.currentTarget.getBoundingClientRect(); seekAudio((e.clientX - rect.left) / rect.width) }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${audioDuration ? (audioTime / audioDuration) * 100 : 0}%`, background: s.gold, transition: 'width 0.1s' }} />
+            </div>
+          </div>
+          <div style={{ fontSize: '10px', color: s.textDimmer, minWidth: '70px', textAlign: 'right' }}>
+            {Math.floor(audioTime / 60)}:{String(Math.floor(audioTime % 60)).padStart(2, '0')} / {Math.floor(audioDuration / 60)}:{String(Math.floor(audioDuration % 60)).padStart(2, '0')}
+          </div>
+          <button onClick={stopPlayback} style={{ background: 'none', border: 'none', color: s.textDim, fontSize: '14px', cursor: 'pointer' }}>✕</button>
         </div>
       )}
 
