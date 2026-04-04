@@ -5,17 +5,24 @@ import { supabase } from '@/lib/supabase'
 import { analyseAudioFile } from '@/lib/audioAnalysis'
 import { ScanPulse } from '@/components/ui/ScanPulse'
 
-async function callClaude(system: string, userPrompt: string, maxTokens = 800): Promise<string> {
+async function callClaude(system: string, userPrompt: string, maxTokens = 800, model = 'claude-haiku-4-5-20251001'): Promise<string> {
   const res = await fetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ system, max_tokens: maxTokens, messages: [{ role: 'user', content: userPrompt }] }),
+    body: JSON.stringify({ model, system, max_tokens: maxTokens, messages: [{ role: 'user', content: userPrompt }] }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `API error ${res.status}`)
+    const msg = err.error || `API error ${res.status}`
+    if (msg.includes('credit') || msg.includes('balance')) throw new Error('API credits depleted — top up at console.anthropic.com')
+    throw new Error(msg)
   }
   const data = await res.json()
+  if (data.error) {
+    const msg = typeof data.error === 'string' ? data.error : data.error?.message || 'Unknown error'
+    if (msg.includes('credit') || msg.includes('balance')) throw new Error('API credits depleted — top up at console.anthropic.com')
+    throw new Error(msg)
+  }
   return data.content?.[0]?.text || ''
 }
 
@@ -338,7 +345,7 @@ Return ONLY valid JSON, no markdown.`, 300)
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
+          model: 'claude-haiku-4-5-20251001',
           max_tokens: 2000,
           system: 'You are a tracklist extraction assistant for DJs. Return ONLY valid JSON, no markdown.',
           messages: [{
@@ -351,9 +358,14 @@ Return ONLY valid JSON, no markdown.`, 300)
         })
       })
       const data = await res.json()
+      if (data.error) {
+        const msg = typeof data.error === 'string' ? data.error : data.error?.message || 'Unknown error'
+        if (msg.includes('credit') || msg.includes('balance')) throw new Error('API credits depleted — top up at console.anthropic.com')
+        throw new Error(msg)
+      }
       const raw = data.content?.[0]?.text || '[]'
       const jsonMatch = raw.match(/\[[\s\S]*\]/)
-      if (!jsonMatch) throw new Error('No tracks found')
+      if (!jsonMatch) throw new Error('No tracks found in image')
       const extracted: { title: string; artist: string; bpm?: number | null; key?: string | null }[] = JSON.parse(jsonMatch[0])
       if (extracted.length === 0) throw new Error('No tracks found')
 
@@ -442,8 +454,8 @@ Return ONLY valid JSON, no markdown.`, 300)
         }
       }
       showToast(`${added} track${added !== 1 ? 's' : ''} imported from screenshot`, 'Done')
-    } catch {
-      showToast('Could not read screenshot — try a clearer image', 'Error')
+    } catch (err: any) {
+      showToast(err?.message || 'Could not read screenshot — try a clearer image', 'Error')
     } finally {
       setScreenshotImporting(false)
       setScreenshotImportProgress('')
