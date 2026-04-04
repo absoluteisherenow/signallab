@@ -967,6 +967,8 @@ Provide:
           crowd_hits: t.crowd_hits || 0,
           source: t.source || 'manual',
           discovered_via: t.discovered_via || null,
+          spotify_url: t.spotify_url || '',
+          album_art: t.album_art || '',
         })))
       } else {
         setLibrary([])
