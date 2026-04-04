@@ -1755,8 +1755,18 @@ Return ONLY valid JSON, no markdown.`, 300)
                       <span style={{ fontSize: '10px', color: s.textDimmer }}>{track.energy}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span style={{ fontSize: '10px', padding: '3px 8px', background: getMomentColor(track.moment_type) + '20', border: `1px solid ${getMomentColor(track.moment_type)}40`, color: getMomentColor(track.moment_type), letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                        {track.moment_type}
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const types = ['opener', 'builder', 'peak', 'breakdown', 'closer']
+                          const idx = types.indexOf(track.moment_type)
+                          const next = types[(idx + 1) % types.length]
+                          setLibrary(prev => prev.map(t => t.id === track.id ? { ...t, moment_type: next } : t))
+                          fetch('/api/tracks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: track.id, moment_type: next }) })
+                        }}
+                        title="Click to change"
+                        style={{ fontSize: '10px', padding: '3px 8px', background: getMomentColor(track.moment_type) + '20', border: `1px solid ${getMomentColor(track.moment_type)}40`, color: getMomentColor(track.moment_type), letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}>
+                        {track.moment_type || '—'}
                       </span>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); addToSet(track) }} style={{ ...btn(s.gold), fontSize: '10px', padding: '6px 12px' }}>Add →</button>
