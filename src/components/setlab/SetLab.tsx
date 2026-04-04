@@ -2168,6 +2168,25 @@ Return ONLY valid JSON, no markdown.`, 300)
                     </div>
                   </div>
 
+                  {/* ── Inline Audio Player ── */}
+                  {playingTrack?.id === track.id && (
+                    <div style={{ background: 'rgba(12,10,6,0.95)', borderBottom: `1px solid ${s.gold}30`, padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}
+                      onClick={e => e.stopPropagation()}>
+                      <button onClick={() => playTrack(track)}
+                        style={{ background: 'none', border: 'none', color: s.gold, fontSize: '16px', cursor: 'pointer', padding: '0 2px', flexShrink: 0 }}>
+                        {audioPlaying ? '■' : '▶'}
+                      </button>
+                      <div style={{ flex: 1, height: '4px', background: s.border, cursor: 'pointer', position: 'relative', borderRadius: '2px' }}
+                        onClick={e => { const rect = e.currentTarget.getBoundingClientRect(); seekAudio((e.clientX - rect.left) / rect.width) }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, height: '4px', width: `${audioDuration ? (audioTime / audioDuration) * 100 : 0}%`, background: s.gold, borderRadius: '2px', transition: 'width 0.1s' }} />
+                      </div>
+                      <div style={{ fontSize: '10px', color: s.textDimmer, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                        {Math.floor(audioTime / 60)}:{String(Math.floor(audioTime % 60)).padStart(2, '0')} / {Math.floor(audioDuration / 60)}:{String(Math.floor(audioDuration % 60)).padStart(2, '0')}
+                      </div>
+                      <button onClick={stopPlayback} style={{ background: 'none', border: 'none', color: s.textDim, fontSize: '12px', cursor: 'pointer', flexShrink: 0 }}>✕</button>
+                    </div>
+                  )}
+
                   {/* ── Expanded Track Intelligence Card ── */}
                   {expandedTrack === track.id && (
                     <div style={{ background: s.bg, borderBottom: `1px solid ${s.border}`, padding: '20px 24px' }}>
@@ -4097,34 +4116,6 @@ Return ONLY valid JSON, no markdown.`, 300)
       )}
 
 
-      {/* ── AUDIO PLAYER BAR ── */}
-      {playingTrack && (
-        <div style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
-          background: 'rgba(12,10,6,0.98)', borderTop: `1px solid ${s.gold}40`,
-          padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '14px',
-          backdropFilter: 'blur(16px)', height: '56px',
-        }}>
-          {playingTrack.album_art && <img src={playingTrack.album_art} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover' }} />}
-          <button onClick={() => playTrack(library.find(t => t.id === playingTrack.id) || { ...playingTrack } as Track)}
-            style={{ background: 'none', border: 'none', color: s.gold, fontSize: '18px', cursor: 'pointer', padding: '0 4px' }}>
-            {audioPlaying ? '■' : '▶'}
-          </button>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ fontSize: '12px', color: s.text, letterSpacing: '0.05em' }}>
-              {playingTrack.title} <span style={{ color: s.textDimmer }}>— {playingTrack.artist}</span>
-            </div>
-            <div style={{ height: '3px', background: s.border, cursor: 'pointer', position: 'relative' }}
-              onClick={e => { const rect = e.currentTarget.getBoundingClientRect(); seekAudio((e.clientX - rect.left) / rect.width) }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${audioDuration ? (audioTime / audioDuration) * 100 : 0}%`, background: s.gold, transition: 'width 0.1s' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: '10px', color: s.textDimmer, minWidth: '70px', textAlign: 'right' }}>
-            {Math.floor(audioTime / 60)}:{String(Math.floor(audioTime % 60)).padStart(2, '0')} / {Math.floor(audioDuration / 60)}:{String(Math.floor(audioDuration % 60)).padStart(2, '0')}
-          </div>
-          <button onClick={stopPlayback} style={{ background: 'none', border: 'none', color: s.textDim, fontSize: '14px', cursor: 'pointer' }}>✕</button>
-        </div>
-      )}
 
       {toast && (
         <div style={{ position: 'fixed', top: '20px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 9999, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)', borderRadius: '4px' }}>
