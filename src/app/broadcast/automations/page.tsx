@@ -32,7 +32,7 @@ interface Lead {
   campaign_name: string | null
 }
 
-const REWARD_TYPES = ['download', 'discount', 'tickets', 'presave', 'other']
+const REWARD_TYPES = ['stream', 'buy', 'download', 'discount', 'tickets', 'presave', 'other']
 
 export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([])

@@ -179,6 +179,8 @@ function buildRewardMessage(automation: any): string {
 function rewardLabel(type: string): string {
   const labels: Record<string, string> = {
     download: 'the free download',
+    stream: 'the stream link',
+    buy: 'the link to buy',
     discount: 'your discount code',
     tickets: 'the ticket link',
     presave: 'the presave link',
