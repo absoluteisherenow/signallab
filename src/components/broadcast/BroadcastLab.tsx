@@ -183,7 +183,7 @@ export function BroadcastLab() {
   const [connectedSocials, setConnectedSocials] = useState<string[]>([]) // platform ids with direct connection
   const [publishing, setPublishing] = useState(false)
   const [syncingIG, setSyncingIG] = useState(false)
-  const [igSyncResult, setIgSyncResult] = useState<{ synced?: number; error?: string; needsTable?: boolean; sql?: string } | null>(null)
+  const [igSyncResult, setIgSyncResult] = useState<{ synced?: number; error?: string } | null>(null)
 
   useEffect(() => {
     fetch('/api/social/connected')
@@ -414,9 +414,7 @@ export function BroadcastLab() {
     try {
       const res = await fetch('/api/instagram/sync', { method: 'POST' })
       const data = await res.json()
-      if (!data.success && data.sql) {
-        setIgSyncResult({ needsTable: true, sql: data.sql, error: data.error })
-      } else if (!data.success) {
+      if (!data.success) {
         setIgSyncResult({ error: data.error })
         showToast(data.error || 'Sync failed', 'Error')
       } else {
@@ -824,15 +822,6 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
             }
           </button>
         </div>
-        {igSyncResult?.needsTable && (
-          <div className="mb-4 p-4 bg-[#1a1917] border border-[#b08d57]/30 text-[10px] tracking-[.06em] text-[#8a8780]">
-            <div className="text-[#b08d57] mb-2 tracking-[.12em] uppercase text-[9px]">One-time setup required</div>
-            <div className="mb-2">Run this SQL in your Supabase dashboard → SQL Editor:</div>
-            <pre className="text-[9px] text-[#52504c] bg-black/30 p-3 overflow-x-auto whitespace-pre-wrap">{igSyncResult.sql}</pre>
-            <button onClick={() => navigator.clipboard.writeText(igSyncResult.sql || '').then(() => showToast('SQL copied', 'Done'))}
-              className="mt-2 text-[9px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors">Copy SQL →</button>
-          </div>
-        )}
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div>
             <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">What happened</label>

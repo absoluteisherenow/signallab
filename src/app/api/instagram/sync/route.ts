@@ -118,34 +118,7 @@ export async function POST() {
       .from('instagram_posts')
       .upsert(toUpsert, { onConflict: 'instagram_post_id' })
 
-    if (upsertErr) {
-      // Table likely doesn't exist yet
-      if (upsertErr.code === '42P01') {
-        return NextResponse.json({
-          success: false,
-          error: 'instagram_posts table not found',
-          sql: `CREATE TABLE instagram_posts (
-  id uuid primary key default gen_random_uuid(),
-  instagram_post_id text unique not null,
-  handle text,
-  caption text,
-  media_type text,
-  posted_at timestamptz,
-  permalink text,
-  likes integer default 0,
-  comments integer default 0,
-  saves integer default 0,
-  reach integer,
-  impressions integer,
-  video_views integer,
-  engagement_rate numeric,
-  synced_at timestamptz default now()
-);
-CREATE INDEX instagram_posts_posted_at_idx ON instagram_posts(posted_at DESC);`,
-        }, { status: 400 })
-      }
-      throw upsertErr
-    }
+    if (upsertErr) throw upsertErr
 
     return NextResponse.json({
       success: true,
