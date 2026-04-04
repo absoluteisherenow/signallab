@@ -58,6 +58,20 @@ export default function MobileScan() {
     }
   }, [])
 
+  async function saveTrackToSupabase(artist: string, title: string, source: string, label?: string) {
+    try {
+      await fetch('/api/tracks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tracks: [{ artist, title, label: label || '', source }],
+        }),
+      })
+    } catch (e) {
+      console.error('Failed to save track:', e)
+    }
+  }
+
   async function startListening() {
     setError('')
     setListenCountdown(10)
@@ -89,15 +103,18 @@ export default function MobileScan() {
           const data = await res.json()
 
           if (data.found) {
-            setIdentified({
+            const track = {
               artist: data.artist || '',
               title: data.title || '',
               album: data.album,
               label: data.label,
               confidence: data.confidence,
               source: data.source,
-            })
-            setPhase('identified')
+            }
+            setIdentified(track)
+            // Auto-save to Supabase — identify = saved
+            await saveTrackToSupabase(track.artist, track.title, 'shazam', track.label)
+            setPhase('id_added')
           } else {
             setPhase('not_found')
           }
@@ -133,23 +150,9 @@ export default function MobileScan() {
     setPhase('choose')
   }
 
-  function addIdentifiedToPlaylist() {
+  async function addIdentifiedToPlaylist() {
     if (!identified) return
-    const playlists = JSON.parse(localStorage.getItem('signallab_playlists') || '[]')
-    // Add to a "Discoveries" playlist, or create it
-    const discIdx = playlists.findIndex((p: any) => p.name === 'Discoveries')
-    const track = { artist: identified.artist, title: identified.title }
-    if (discIdx >= 0) {
-      playlists[discIdx].tracks.unshift(track)
-    } else {
-      playlists.unshift({
-        id: Date.now().toString(),
-        name: 'Discoveries',
-        tracks: [track],
-        created_at: new Date().toISOString(),
-      })
-    }
-    localStorage.setItem('signallab_playlists', JSON.stringify(playlists))
+    await saveTrackToSupabase(identified.artist, identified.title, 'shazam', identified.label)
     setPhase('id_added')
   }
 
@@ -195,8 +198,12 @@ Return ONLY the JSON, no other text.` },
         setTracks(parsed.tracks)
         setPhase('review')
       } else if (parsed.type === 'single' && (parsed.artist || parsed.title)) {
-        setReminder({ artist: parsed.artist || '', title: parsed.title || '', label: parsed.label || '', note: '' })
-        setPhase('reminder_review')
+        const artist = parsed.artist || ''
+        const title = parsed.title || ''
+        setReminder({ artist, title, label: parsed.label || '', note: '' })
+        // Auto-save to Supabase — snap = saved
+        await saveTrackToSupabase(artist, title, 'snap', parsed.label)
+        setPhase('reminder_saved')
       } else {
         throw new Error('Nothing readable in that shot')
       }
@@ -236,34 +243,21 @@ Return ONLY the JSON, no other text.` },
       if (!jsonMatch) throw new Error('Could not read track')
       const parsed = JSON.parse(jsonMatch[0])
       if (!parsed.artist && !parsed.title) throw new Error('No track found')
-      setReminder({ artist: parsed.artist || '', title: parsed.title || '', label: parsed.label || '', note: '' })
-      setPhase('reminder_review')
+      const artist = parsed.artist || ''
+      const title = parsed.title || ''
+      setReminder({ artist, title, label: parsed.label || '', note: '' })
+      // Auto-save to Supabase — snap = saved
+      await saveTrackToSupabase(artist, title, 'snap', parsed.label)
+      setPhase('reminder_saved')
     } catch {
       setError('Could not read the track — try a clearer shot')
       setPhase('choose')
     }
   }
 
-  function saveReminder() {
+  async function saveReminder() {
     if (!reminder) return
-    const playlists = JSON.parse(localStorage.getItem('signallab_playlists') || '[]')
-    const discIdx = playlists.findIndex((p: any) => p.name === 'Discoveries')
-    const track = {
-      artist: reminder.artist,
-      title: reminder.title,
-      ...(reminder.note.trim() ? { note: reminder.note.trim() } : {}),
-    }
-    if (discIdx >= 0) {
-      playlists[discIdx].tracks.unshift(track)
-    } else {
-      playlists.unshift({
-        id: Date.now().toString(),
-        name: 'Discoveries',
-        tracks: [track],
-        created_at: new Date().toISOString(),
-      })
-    }
-    localStorage.setItem('signallab_playlists', JSON.stringify(playlists))
+    await saveTrackToSupabase(reminder.artist, reminder.title, 'snap', reminder.label)
     setPhase('reminder_saved')
   }
 
@@ -344,14 +338,17 @@ Return ONLY the JSON, no other text.` },
   async function savePlaylist() {
     const valid = tracks.filter(t => t.artist.trim() || t.title.trim())
     if (valid.length === 0) return
-    const playlists = JSON.parse(localStorage.getItem('signallab_playlists') || '[]')
-    playlists.unshift({
-      id: Date.now().toString(),
-      name: name.trim() || `Tracklist ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
-      tracks: valid,
-      created_at: new Date().toISOString(),
-    })
-    localStorage.setItem('signallab_playlists', JSON.stringify(playlists))
+    try {
+      await fetch('/api/tracks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tracks: valid.map(t => ({ artist: t.artist, title: t.title, source: 'screenshot' })),
+        }),
+      })
+    } catch (e) {
+      console.error('Failed to save tracklist:', e)
+    }
     setPhase('saved')
   }
 
@@ -636,7 +633,7 @@ Return ONLY the JSON, no other text.` },
       {/* Added to playlist */}
       {phase === 'id_added' && identified && (
         <div style={{ padding: '60px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '15px', color: s.text, marginBottom: '8px' }}>Added to Discoveries</div>
+          <div style={{ fontSize: '15px', color: s.text, marginBottom: '8px' }}>Saved to library</div>
           <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '6px' }}>
             {identified.artist} — {identified.title}
           </div>
@@ -765,7 +762,7 @@ Return ONLY the JSON, no other text.` },
       {/* Reminder saved */}
       {phase === 'reminder_saved' && reminder && (
         <div style={{ padding: '60px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '15px', color: s.text, marginBottom: '8px' }}>Saved to Discoveries</div>
+          <div style={{ fontSize: '15px', color: s.text, marginBottom: '8px' }}>Saved to library</div>
           <div style={{ fontSize: '13px', color: s.dim, marginBottom: '4px' }}>{reminder.title}</div>
           <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '32px' }}>{reminder.artist}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
@@ -900,9 +897,9 @@ Return ONLY the JSON, no other text.` },
       {/* Saved */}
       {phase === 'saved' && (
         <div style={{ padding: '48px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '15px', color: s.text, marginBottom: '12px' }}>Playlist saved</div>
+          <div style={{ fontSize: '15px', color: s.text, marginBottom: '12px' }}>Saved to library</div>
           <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '24px' }}>
-            {tracks.length} tracks — available in Set Lab on desktop
+            {tracks.length} tracks added — available in Set Lab
           </div>
           <button onClick={reset} style={{
             background: s.panel, border: `1px solid ${s.border}`, color: s.dim,
