@@ -98,17 +98,17 @@ export default function AdvancePage() {
 
         {/* Header */}
         <div style={{ marginBottom: '48px' }}>
-          <div style={{ color: '#b08d57', fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '12px' }}>Show advance</div>
+          <div style={{ color: '#c9a46e', fontSize: '12px', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '12px' }}>Show advance</div>
           {gig ? (
             <>
-              <div style={{ fontSize: '22px', fontWeight: 400, marginBottom: '8px', lineHeight: 1.3, color: '#f0ebe2' }}>{gig.title}</div>
-              <div style={{ color: '#8a8780', fontSize: '14px', lineHeight: 1.6 }}>
+              <div style={{ fontSize: '24px', fontWeight: 400, marginBottom: '10px', lineHeight: 1.3, color: '#ffffff' }}>{gig.title}</div>
+              <div style={{ color: '#b0ada6', fontSize: '15px', lineHeight: 1.6 }}>
                 {gig.venue}{gig.location ? `, ${gig.location}` : ''}
               </div>
-              <div style={{ color: '#8a8780', fontSize: '14px' }}>{displayDate}</div>
+              <div style={{ color: '#b0ada6', fontSize: '15px' }}>{displayDate}</div>
             </>
           ) : (
-            <div style={{ fontSize: '22px', fontWeight: 400 }}>Loading...</div>
+            <div style={{ fontSize: '22px', fontWeight: 400, color: '#ffffff' }}>Loading...</div>
           )}
         </div>
 
@@ -118,7 +118,7 @@ export default function AdvancePage() {
             <div style={sectionHeader}>Technical requirements</div>
             <div style={riderBox}>
               {techRider.split('\n').map((line, i) => (
-                <div key={i} style={{ padding: '6px 0', fontSize: '13px', lineHeight: 1.6, color: '#d4d0c8' }}>
+                <div key={i} style={{ padding: '6px 0', fontSize: '14px', lineHeight: 1.7, color: '#e8e4dc' }}>
                   {line}
                 </div>
               ))}
@@ -131,7 +131,7 @@ export default function AdvancePage() {
               }}>
                 {techConfirmed && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
               </div>
-              <span style={{ fontSize: '13px', color: techConfirmed ? '#f0ebe2' : '#8a8780' }}>
+              <span style={{ fontSize: '14px', color: techConfirmed ? '#ffffff' : '#b0ada6' }}>
                 Confirmed — we can provide this
               </span>
             </label>
@@ -144,7 +144,7 @@ export default function AdvancePage() {
             <div style={sectionHeader}>Hospitality</div>
             <div style={riderBox}>
               {hospitalityRider.split('\n').map((line, i) => (
-                <div key={i} style={{ padding: '6px 0', fontSize: '13px', lineHeight: 1.6, color: '#d4d0c8' }}>
+                <div key={i} style={{ padding: '6px 0', fontSize: '14px', lineHeight: 1.7, color: '#e8e4dc' }}>
                   {line}
                 </div>
               ))}
@@ -157,7 +157,7 @@ export default function AdvancePage() {
               }}>
                 {hospoConfirmed && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
               </div>
-              <span style={{ fontSize: '13px', color: hospoConfirmed ? '#f0ebe2' : '#8a8780' }}>
+              <span style={{ fontSize: '14px', color: hospoConfirmed ? '#ffffff' : '#b0ada6' }}>
                 Confirmed — we can provide this
               </span>
             </label>
@@ -170,7 +170,7 @@ export default function AdvancePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {PROMOTER_FIELDS.map(field => (
               <div key={field.key}>
-                <div style={{ fontSize: '11px', letterSpacing: '0.12em', color: '#8a8780', textTransform: 'uppercase', marginBottom: '8px' }}>
+                <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
                   {field.label}
                 </div>
                 <input
@@ -226,18 +226,18 @@ export default function AdvancePage() {
 // ── Styles ──
 
 const sectionHeader: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   letterSpacing: '0.25em',
-  color: '#b08d57',
+  color: '#c9a46e',
   textTransform: 'uppercase',
   marginBottom: '16px',
   paddingBottom: '12px',
-  borderBottom: '1px solid #2e2c29',
+  borderBottom: '1px solid #3a3835',
 }
 
 const riderBox: React.CSSProperties = {
-  background: '#0e0d0b',
-  border: '1px solid #2e2c29',
+  background: '#141310',
+  border: '1px solid #3a3835',
   padding: '20px 24px',
   marginBottom: '16px',
 }
@@ -263,9 +263,9 @@ const checkbox: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  background: '#0e0d0b',
-  border: '1px solid #2e2c29',
-  color: '#f0ebe2',
+  background: '#141310',
+  border: '1px solid #3a3835',
+  color: '#ffffff',
   fontFamily: "'DM Mono', 'Courier New', monospace",
   fontSize: '14px',
   padding: '14px 16px',
