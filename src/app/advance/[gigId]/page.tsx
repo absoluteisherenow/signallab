@@ -73,7 +73,7 @@ export default function AdvancePage() {
   if (submitted) return (
     <div style={{ minHeight: '100vh', background: '#070706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono', 'Courier New', monospace" }}>
       <div style={{ textAlign: 'center', color: '#f0ebe2', padding: '24px' }}>
-        <img src="/nm-logo-bw.png" alt="Night Manoeuvres" style={{ width: '120px', marginBottom: '40px', opacity: 0.9 }} />
+        <img src="/nm-logo-bw.png" alt="Night Manoeuvres" style={{ width: '160px', marginBottom: '40px', opacity: 1, filter: 'brightness(1.4)' }} />
         <div style={{ color: '#b08d57', fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '20px' }}>Advance confirmed</div>
         <div style={{ fontSize: '28px', fontWeight: 300, marginBottom: '16px', lineHeight: 1.3 }}>Thank you</div>
         {gig && (
@@ -93,7 +93,7 @@ export default function AdvancePage() {
 
         {/* NM Logo */}
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <img src="/nm-logo-bw.png" alt="Night Manoeuvres" style={{ width: '140px', opacity: 0.9 }} />
+          <img src="/nm-logo-bw.png" alt="Night Manoeuvres" style={{ width: '180px', opacity: 1, filter: 'brightness(1.4)' }} />
         </div>
 
         {/* Header */}
