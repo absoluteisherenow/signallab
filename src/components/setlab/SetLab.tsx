@@ -615,19 +615,65 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
   //    analyzed these tracks in Rekordbox yet, they'll show as File Missing.
   // ── Paste Tracklist Import (free — Spotify only) ──────────────────────
   async function importFromPaste() {
-    const lines = pasteText.split('\n').map(l => l.trim()).filter(Boolean)
-    if (lines.length === 0) { showToast('Paste a tracklist first', 'Error'); return }
+    const rawLines = pasteText.split('\n').map(l => l.trim()).filter(Boolean)
+    if (rawLines.length === 0) { showToast('Paste a tracklist first', 'Error'); return }
+
+    // Detect format: multi-line (Camelot/Artist/Title blocks) vs single-line (Artist - Title)
+    const camelotPattern = /^(\d{1,2}[ABab]|[ABab])$/
+    const parsedTracks: { artist: string; title: string; camelot: string }[] = []
+
+    // Check if this looks like multi-line format (Camelot key lines present)
+    const hasCamelotLines = rawLines.some(l => camelotPattern.test(l.replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B')))
+
+    if (hasCamelotLines) {
+      // Multi-line format: groups of 2-3 lines
+      // Pattern: [optional camelot key] / Artist / Title
+      let i = 0
+      while (i < rawLines.length) {
+        const line = rawLines[i].replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B') // fix Cyrillic А/В
+        if (camelotPattern.test(line)) {
+          // Camelot + Artist + Title
+          const camelot = line.toUpperCase()
+          const artist = rawLines[i + 1] || ''
+          const title = rawLines[i + 2] || ''
+          if (artist && title) parsedTracks.push({ artist, title, camelot })
+          i += 3
+        } else {
+          // No camelot — try Artist + Title (2 lines) or "Artist - Title" (1 line)
+          const sep = line.includes(' — ') ? ' — ' : line.includes(' - ') ? ' - ' : null
+          if (sep) {
+            const artist = line.split(sep)[0].trim()
+            const title = line.split(sep).slice(1).join(sep).trim()
+            if (title) parsedTracks.push({ artist, title, camelot: '' })
+            i++
+          } else if (i + 1 < rawLines.length && !camelotPattern.test(rawLines[i + 1].replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B'))) {
+            // Two consecutive non-camelot lines = Artist then Title
+            const artist = line
+            const title = rawLines[i + 1]
+            parsedTracks.push({ artist, title, camelot: '' })
+            i += 2
+          } else {
+            i++ // skip orphan line
+          }
+        }
+      }
+    } else {
+      // Single-line format: "Artist - Title" per line
+      for (const line of rawLines) {
+        const cleaned = line.replace(/^\d+[\.\)\-\s]+/, '').trim()
+        const sep = cleaned.includes(' — ') ? ' — ' : cleaned.includes(' - ') ? ' - ' : null
+        const artist = sep ? cleaned.split(sep)[0].trim() : ''
+        const title = sep ? cleaned.split(sep).slice(1).join(sep).trim() : cleaned
+        if (title) parsedTracks.push({ artist, title, camelot: '' })
+      }
+    }
+
+    if (parsedTracks.length === 0) { showToast('Could not parse any tracks', 'Error'); return }
     setPasteImporting(true)
     let added = 0
-    for (const line of lines) {
-      // Parse common formats: "Artist - Title", "1. Artist - Title", "Artist — Title"
-      const cleaned = line.replace(/^\d+[\.\)\-\s]+/, '').trim()
-      const sep = cleaned.includes(' — ') ? ' — ' : cleaned.includes(' - ') ? ' - ' : null
-      const artist = sep ? cleaned.split(sep)[0].trim() : ''
-      const title = sep ? cleaned.split(sep).slice(1).join(sep).trim() : cleaned
-      if (!title) continue
+    for (const { artist, title, camelot: pastedCamelot } of parsedTracks) {
 
-      setPasteProgress(`Looking up ${title} (${added + 1}/${lines.length})...`)
+      setPasteProgress(`Looking up ${title} (${added + 1}/${parsedTracks.length})...`)
 
       let spotify: any = null
       try {
@@ -646,7 +692,7 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
         artist: spotify?.artist || artist || 'Unknown',
         bpm: spotify?.bpm || 0,
         key: spotify?.audio_features_available ? (spotify.key || '') : '',
-        camelot: spotify?.audio_features_available ? (spotify.camelot || '') : '',
+        camelot: pastedCamelot || (spotify?.audio_features_available ? (spotify.camelot || '') : ''),
         energy: spotify?.audio_features_available ? (spotify.energy || 0) : 0,
         genre: '', duration: spotify?.duration_ms ? `${Math.floor(spotify.duration_ms / 60000)}:${String(Math.floor((spotify.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
         notes: '', analysed: !!(spotify?.audio_features_available),
@@ -1812,7 +1858,12 @@ Return ONLY valid JSON, no markdown.`, 300)
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                   <button onClick={importFromPaste} disabled={pasteImporting || !pasteText.trim()}
                     style={{ ...btn(s.gold), padding: '10px 20px', opacity: pasteImporting || !pasteText.trim() ? 0.5 : 1 }}>
-                    {pasteImporting ? 'Importing...' : `Import ${pasteText.split('\n').filter(l => l.trim()).length} tracks`}
+                    {pasteImporting ? 'Importing...' : (() => {
+                      const pl = pasteText.split('\n').map(l => l.trim()).filter(Boolean)
+                      const hasCamelot = pl.some(l => /^(\d{1,2}[ABab]|[ABab])$/.test(l.replace(/[АА]/g, 'A').replace(/[Вв]/g, 'B')))
+                      const est = hasCamelot ? Math.round(pl.length / 3) : pl.length
+                      return `Import ~${est} tracks`
+                    })()}
                   </button>
                 </div>
               </div>
