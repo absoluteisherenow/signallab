@@ -598,7 +598,7 @@ export function SetLab() {
         let spotify: any = null
         if (analysis.title && analysis.artist) {
           try {
-            const spRes = await fetch('/api/spotify/lookup', {
+            const spRes = await fetch(`${apiBase()}/api/spotify/lookup`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ artist: analysis.artist, title: analysis.title }),
@@ -733,7 +733,7 @@ export function SetLab() {
           // Step 1: Spotify lookup for VERIFIED BPM/key/energy
           let spotify: any = null
           try {
-            const spRes = await fetch('/api/spotify/lookup', {
+            const spRes = await fetch(`${apiBase()}/api/spotify/lookup`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ artist: ext.artist, title: ext.title }),
@@ -1183,7 +1183,7 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
         ? { artist: newTrack.artist, title: newTrack.title }
         : { artist: newTrack.title.split(' - ')[0]?.trim() || newTrack.title, title: newTrack.title.split(' - ')[1]?.trim() || newTrack.title }
       try {
-        const spRes = await fetch('/api/spotify/lookup', {
+        const spRes = await fetch(`${apiBase()}/api/spotify/lookup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(query),
@@ -1334,7 +1334,7 @@ Use these IDs: ${top5.map(t => t.id).join(', ')}`, 300)
 
       let spotify: any = null
       try {
-        const spRes = await fetch('/api/spotify/lookup', {
+        const spRes = await fetch(`${apiBase()}/api/spotify/lookup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ artist: artist || title, title: title }),
@@ -1554,8 +1554,9 @@ Provide:
     } catch {}
   }
 
-  async function loadLibrary() {
+  async function loadLibrary(): Promise<Track[]> {
     setLibraryLoading(true)
+    let result: Track[] = []
     try {
       // Try local SQLite first on desktop, fall back to API if empty
       let loaded = false
@@ -1563,7 +1564,7 @@ Provide:
         try {
           const tracks = await tauriGetTracks()
           if (tracks && tracks.length > 0) {
-            setLibrary(tracks.map((t: TauriTrack) => ({
+            result = tracks.map((t: TauriTrack) => ({
               id: t.id, title: t.title, artist: t.artist,
               bpm: t.bpm || 0, key: t.key || '', camelot: t.camelot || '',
               energy: t.energy || 0, genre: t.genre || '', duration: t.duration || '',
@@ -1575,17 +1576,18 @@ Provide:
               source: t.source || 'manual', discovered_via: t.discovered_via || null,
               spotify_url: t.spotify_url || '', album_art: t.album_art || '',
               has_local_audio: !!(t.file_path), file_path: t.file_path || '',
-            })))
+            }))
+            setLibrary(result)
             loaded = true
           }
         } catch { /* SQLite not available — fall through to API */ }
       }
       if (!loaded) {
         // Web or desktop fallback: load from Supabase via API
-        const res = await fetch('/api/tracks')
+        const res = await fetch(`${apiBase()}/api/tracks`)
         const data = await res.json()
         if (data.tracks && data.tracks.length > 0) {
-          setLibrary(data.tracks.map((t: any) => ({
+          result = data.tracks.map((t: any) => ({
             id: t.id, title: t.title, artist: t.artist,
             bpm: t.bpm || 0, key: t.key || '', camelot: t.camelot || '',
             energy: t.energy || 0, genre: t.genre || '', duration: t.duration || '',
@@ -1597,7 +1599,8 @@ Provide:
             source: t.source || 'manual', discovered_via: t.discovered_via || null,
             spotify_url: t.spotify_url || '', album_art: t.album_art || '',
             has_local_audio: audioFileMap.has(t.id),
-          })))
+          }))
+          setLibrary(result)
         } else {
           setLibrary([])
         }
@@ -1607,6 +1610,44 @@ Provide:
     } finally {
       setLibraryLoading(false)
     }
+    return result
+  }
+
+  // Batch Spotify enrichment — backfills album art for tracks missing it
+  async function batchSpotifyEnrich(tracks: Track[]) {
+    const missing = tracks.filter(t => !t.album_art && t.artist && t.title)
+    if (missing.length === 0) return
+    const batchSize = 5
+    let enriched = 0
+    for (let i = 0; i < missing.length; i += batchSize) {
+      const batch = missing.slice(i, i + batchSize)
+      await Promise.all(batch.map(async (track) => {
+        try {
+          const spRes = await fetch(`${apiBase()}/api/spotify/lookup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ artist: track.artist, title: track.title }),
+          })
+          if (!spRes.ok) return
+          const sp = await spRes.json()
+          if (!sp.found) return
+          const updates: Partial<Track> = {}
+          if (sp.album_art) updates.album_art = sp.album_art
+          if (sp.preview_url) updates.preview_url = sp.preview_url
+          if (sp.spotify_url) updates.spotify_url = sp.spotify_url
+          if (sp.bpm && !track.bpm) updates.bpm = sp.bpm
+          if (sp.camelot && !track.camelot) updates.camelot = sp.camelot
+          if (sp.key && !track.key) updates.key = sp.key
+          if (sp.energy) updates.energy = sp.energy
+          if (Object.keys(updates).length > 0) {
+            setLibrary(prev => prev.map(t => t.id === track.id ? { ...t, ...updates } : t))
+            fetch(`${apiBase()}/api/tracks`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: track.id, ...updates }) }).catch(() => {})
+            enriched++
+          }
+        } catch { /* skip failures silently */ }
+      }))
+    }
+    if (enriched > 0) showToast(`${enriched} tracks enriched from Spotify`, 'Done')
   }
 
   async function deleteTrackFromLibrary(id: string) {
@@ -1654,7 +1695,7 @@ Return ONLY valid JSON, no markdown.`
       // Step 1: Spotify lookup (free)
       let spotify: any = null
       try {
-        const spRes = await fetch('/api/spotify/lookup', {
+        const spRes = await fetch(`${apiBase()}/api/spotify/lookup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ artist: track.artist, title: track.title }),
@@ -2361,7 +2402,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
     showToast('Removed from wantlist', 'Removed')
   }
 
-  useEffect(() => { loadLibrary().then(() => reconnectMusicFolder()); loadPastSets(); fetchUpcomingGig(); loadWantlist() }, [])
+  useEffect(() => { loadLibrary().then((tracks) => { reconnectMusicFolder(); batchSpotifyEnrich(tracks) }); loadPastSets(); fetchUpcomingGig(); loadWantlist() }, [])
 
   // ── Playlist persistence (localStorage) ────────────────────────────────
   useEffect(() => {
@@ -3067,7 +3108,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     const batch = mapped.slice(i, i + 5)
                     await Promise.all(batch.map(async (track: any) => {
                       try {
-                        const spRes = await fetch('/api/spotify/lookup', {
+                        const spRes = await fetch(`${apiBase()}/api/spotify/lookup`, {
                           method: 'POST', headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ artist: track.artist, title: track.title }),
                         })
