@@ -981,14 +981,18 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
   function getArtistFindings(a: ArtistProfile): string[] {
     const f: string[] = []
-    if (a.content_performance?.best_type) f.push(`Best format: ${a.content_performance.best_type}`)
-    if (a.content_performance?.engagement_rate) f.push(`Engagement rate: ${a.content_performance.engagement_rate}`)
-    if (a.visual_aesthetic?.mood) f.push(`Visual mood: ${a.visual_aesthetic.mood}`)
-    if (a.lowercase_pct > 65) f.push(`${a.lowercase_pct}% lowercase — raw, detached register`)
-    else if (a.lowercase_pct > 40) f.push(`${a.lowercase_pct}% lowercase — mixed register`)
-    if (a.no_hashtags_pct > 60) f.push(`Skips hashtags ${a.no_hashtags_pct}% of the time`)
+    // Lead with the most interesting / differentiating insights
     if (a.content_performance?.peak_content) f.push(a.content_performance.peak_content)
-    if (a.visual_aesthetic?.signature_visual) f.push(`Signature: ${a.visual_aesthetic.signature_visual}`)
+    if (a.visual_aesthetic?.mood) f.push(`Visual mood: ${a.visual_aesthetic.mood}`)
+    if (a.content_performance?.best_type) f.push(`${a.content_performance.best_type} is their strongest format`)
+    if (a.visual_aesthetic?.signature_visual) f.push(a.visual_aesthetic.signature_visual)
+    if (a.content_performance?.engagement_rate) f.push(`${a.content_performance.engagement_rate} engagement rate`)
+    if (a.content_performance?.posting_frequency) f.push(`Posts ${a.content_performance.posting_frequency}`)
+    if (a.content_performance?.best_subject) f.push(`Top subject: ${a.content_performance.best_subject}`)
+    if (a.visual_aesthetic?.palette) f.push(`Palette: ${a.visual_aesthetic.palette}`)
+    if (a.brand_positioning) f.push(a.brand_positioning.length > 80 ? a.brand_positioning.slice(0, 77) + '…' : a.brand_positioning)
+    if (a.lowercase_pct > 65) f.push(`${a.lowercase_pct}% lowercase — raw, detached register`)
+    if (a.no_hashtags_pct > 60) f.push(`Skips hashtags ${a.no_hashtags_pct}% of the time`)
     return f.slice(0, 4)
   }
 
@@ -1638,7 +1642,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
       />
 
       {toast && (
-        <div className="fixed bottom-7 right-7 bg-[#0e0d0b]/96 border border-white/13 px-5 py-3.5 text-[11px] tracking-[.07em] text-[#f0ebe2] z-50 max-w-xs leading-relaxed backdrop-blur-md">
+        <div className="fixed top-7 right-7 bg-[#0e0d0b]/96 border border-white/13 px-5 py-3.5 text-[11px] tracking-[.07em] text-[#f0ebe2] z-50 max-w-xs leading-relaxed backdrop-blur-md">
           <div className="text-[10px] tracking-[.2em] uppercase text-[#b08d57] mb-1">{toast.tag}</div>
           {toast.msg}
         </div>
