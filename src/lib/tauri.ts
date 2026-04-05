@@ -178,3 +178,39 @@ export async function importRekordbox(path: string): Promise<RekordboxImportResu
   if (!inv) throw new Error('Not in Tauri')
   return inv('import_rekordbox', { path }) as Promise<RekordboxImportResult>
 }
+
+// ── Tag reading commands ──────────────────────────────────────────────────
+
+export interface AudioTags {
+  title: string
+  artist: string
+  album: string
+  genre: string
+  bpm: number
+  key: string
+  camelot: string
+  duration_secs: number
+  file_path: string
+  file_name: string
+}
+
+/** Read ID3/FLAC/Vorbis tags from a single audio file */
+export async function readAudioTags(path: string): Promise<AudioTags> {
+  const inv = await getInvoke()
+  if (!inv) throw new Error('Not in Tauri')
+  return inv('read_audio_tags', { path }) as Promise<AudioTags>
+}
+
+/** Scan a folder recursively, reading tags from all audio files */
+export async function scanFolderTags(folderPath: string): Promise<AudioTags[]> {
+  const inv = await getInvoke()
+  if (!inv) throw new Error('Not in Tauri')
+  return inv('scan_folder_tags', { folderPath }) as Promise<AudioTags[]>
+}
+
+/** Re-read tags for tracks with file paths — picks up MIK key updates */
+export async function rescanTagsForTracks(filePaths: string[]): Promise<AudioTags[]> {
+  const inv = await getInvoke()
+  if (!inv) throw new Error('Not in Tauri')
+  return inv('rescan_tags_for_tracks', { filePaths }) as Promise<AudioTags[]>
+}

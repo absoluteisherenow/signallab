@@ -28,6 +28,8 @@ interface ArtistContext {
   releases: any[]
   instagramPosts: any[]
   instagramStats: any
+  promoBlasts: any[]
+  promoReactions: any[]
 }
 
 /** Stream Claude response — yields text chunks as they arrive */
@@ -298,6 +300,8 @@ export function SignalGenius() {
       fetch('/api/social/connected').then(r => r.json()).catch(() => ({ accounts: [] })),
       fetch('/api/releases').then(r => r.json()).catch(() => ({ releases: [] })),
       fetch('/api/instagram/posts').then(r => r.json()).catch(() => ({ posts: [], synced: false, stats: null })),
+      fetch('/api/promo-stats').then(r => r.json()).catch(() => ({ blasts: [] })),
+      fetch('/api/promo-reactions').then(r => r.json()).catch(() => ({ reactions: [] })),
     ]).then(results => {
       const gigs = results[0].status === 'fulfilled' ? results[0].value.gigs || [] : []
       const invoices = results[1].status === 'fulfilled' ? results[1].value.invoices || [] : []
@@ -312,6 +316,8 @@ export function SignalGenius() {
       const igResult = results[10].status === 'fulfilled' ? results[10].value : { posts: [], stats: null }
       const instagramPosts = igResult.posts || []
       const instagramStats = igResult.stats || null
+      const promoBlasts = results[11].status === 'fulfilled' ? results[11].value.blasts || [] : []
+      const promoReactions = results[12].status === 'fulfilled' ? results[12].value.reactions || [] : []
 
       const today = new Date()
       const yr = today.getFullYear()
@@ -338,6 +344,8 @@ export function SignalGenius() {
         releases,
         instagramPosts,
         instagramStats,
+        promoBlasts,
+        promoReactions,
       })
       setContextLoaded(true)
     })
@@ -485,7 +493,7 @@ export function SignalGenius() {
       const postsNote = c.quarterStats.posts > 0
         ? `${c.quarterStats.posts} posts scheduled via this system`
         : `post history not synced from Instagram (user posts directly on platform — do NOT say they have zero posts)`
-      contextBlock += `\nThis quarter: ${c.quarterStats.gigs} gigs, ${postsNote}, ${c.quarterStats.revenue > 0 ? '£' + c.quarterStats.revenue.toLocaleString() + ' revenue' : 'no revenue logged'}.`
+      contextBlock += `\nThis quarter: ${c.quarterStats.gigs} gigs, ${postsNote}.`
 
       // ── ALWAYS INCLUDED: Connected social accounts ──────────────────────────
       if (c.connectedSocialAccounts?.length > 0) {
@@ -556,6 +564,20 @@ export function SignalGenius() {
             contextBlock += `\n- ${r.title} (${r.type || 'single'}) — ${r.release_date}${r.label ? ` on ${r.label}` : ''}`
           })
         }
+      }
+
+      // ── ALWAYS INCLUDED: Promo blasts & DJ outreach ──────────────────────
+      if (c.promoBlasts?.length > 0) {
+        contextBlock += `\n\nPromo blasts (${c.promoBlasts.length} total):`
+        c.promoBlasts.slice(0, 10).forEach((b: any) => {
+          const clickRate = b.contact_count > 0 ? Math.round((b.unique_opens || 0) / b.contact_count * 100) : 0
+          contextBlock += `\n- "${b.track_title}" by ${b.track_artist || 'Night Manoeuvres'}${b.track_label ? ` on ${b.track_label}` : ''} — sent to ${b.contact_count || b.sent_count || 0} contacts · ${b.unique_opens || 0} opens (${clickRate}%) · Track URL: ${b.track_url || 'n/a'} · ${b.created_at?.slice(0, 10) || ''}`
+        })
+      }
+      if (c.promoReactions?.length > 0) {
+        const willPlay = c.promoReactions.filter((r: any) => r.reaction === 'will_play').length
+        const liked = c.promoReactions.filter((r: any) => r.reaction === 'liked').length
+        contextBlock += `\n\nPromo reactions: ${c.promoReactions.length} total — ${willPlay} "will play", ${liked} "liked"`
       }
 
       // ── ALWAYS INCLUDED: Upcoming gigs ─────────────────────────────────────
@@ -749,8 +771,21 @@ CRITICAL DJ KNOWLEDGE — never get these wrong:
 
 ${contextBlock}
 
-DEEP DIVE DATA — ALREADY LOADED:
-- The context above contains voice profiles, top posts, competitor analysis, connected social accounts, upcoming gigs, and releases — ALL from real data.
+PLATFORM KNOWLEDGE — YOU BUILT THIS:
+You are Signal, the AI assistant embedded in Signal Lab OS. You built and manage ALL features of this platform for the artist. You have complete knowledge of every function, feature, and piece of data in the system. This includes:
+- Gigs, advances, travel logistics, tech riders
+- Invoices, finances, expenses, revenue streams
+- Releases, campaigns, promo blasts, DJ contact outreach
+- Broadcast Lab (content scheduling, voice profiles, post performance)
+- Set Lab (DJ library, set building, track discovery)
+- Drop Lab (promo blasts via Instagram DM and email, tracked links at /go/[code], reaction-gated downloads)
+- Scanner (mix analysis from screenshots)
+- All email integrations (Gmail scanning, invoice requests, advance chasing)
+
+When the artist refers to ANY feature, mailout, promo, link, gig, invoice, or anything else — you know about it because you built it. NEVER say "I don't have access", "that's outside my data", "I can't see that", or "that was in a previous session". ALL data is loaded in the context above. If something seems missing, check the context again before claiming you don't have it.
+
+FULL DATA ACCESS — ALREADY LOADED:
+- The context above contains gigs, invoices, releases, promo blasts, reactions, voice profiles, top posts, competitor analysis, connected social accounts — ALL from real data.
 - You have FULL ACCESS to this data. It is loaded above.
 - NEVER say "I can't access a database", "paste it in", "I don't have a live link", or "that hasn't carried over".
 - NEVER say social accounts are not connected or not populated — check the connected social accounts section above first.
@@ -766,6 +801,7 @@ ${skillBlock}
 Rules:
 - Be concise. Short paragraphs. No lists longer than 5 items.
 - Use the artist's actual data when relevant (upcoming gigs, overdue invoices, etc.)
+- NEVER mention specific financial figures, amounts, totals, or currency values in your responses. Do not say "10,000 AUD" or "£5,000" or any dollar/pound/euro amount. You can reference invoice counts ("3 overdue invoices") or status ("payments outstanding") but NEVER the actual numbers. This is a strict privacy rule.
 - If asked about something outside your data, answer from your deep knowledge of the music industry.
 - Format with line breaks for readability, not markdown headers.
 - Currency: use the same currency as the artist's invoices/gigs.

@@ -1,7 +1,9 @@
 mod commands;
 
 use commands::db;
+use commands::fs;
 use commands::import;
+use commands::tags;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -39,6 +41,13 @@ pub fn run() {
             db::get_playlist_tracks,
             // Import commands
             import::import_rekordbox,
+            // File system commands
+            fs::export_for_mik,
+            fs::open_in_finder,
+            // Tag reading commands
+            tags::read_audio_tags,
+            tags::scan_folder_tags,
+            tags::rescan_tags_for_tracks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Set Lab");

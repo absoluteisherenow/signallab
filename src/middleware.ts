@@ -26,7 +26,9 @@ export function middleware(req: NextRequest) {
     || pathname.startsWith('/api/gmail')    // Gmail cron + OAuth callbacks
     || pathname.startsWith('/api/agents')   // Vercel cron agents (weekly-content, post-gig, etc.)
     || pathname.startsWith('/api/crons')    // Vercel cron jobs (night-before, sync-performance, etc.)
-    || pathname.startsWith('/api/promo-click') // promo landing page API (public for DJs)
+    || pathname.startsWith('/api/promo')       // promo system (blast, click, stats, reactions)
+    || pathname.startsWith('/api/tracks')  // Set Lab tracks API (uses service role key)
+    || pathname.startsWith('/api/sets')    // Set Lab sets API
     || pathname.startsWith('/_next')
     || pathname === '/signal-genius.html'   // M4L jweb — public
     || pathname === '/mockup.html'

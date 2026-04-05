@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { analyseAudioFile } from '@/lib/audioAnalysis'
 import { ScanPulse } from '@/components/ui/ScanPulse'
-import { isTauri, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, getPlaylists as tauriGetPlaylists, readAudioFile, type TauriTrack, type TauriPlaylist } from '@/lib/tauri'
+import { isTauri, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, getPlaylists as tauriGetPlaylists, readAudioFile, rescanTagsForTracks, scanFolderTags, type TauriTrack, type TauriPlaylist, type AudioTags } from '@/lib/tauri'
 import { CollectionSidebar } from '@/components/setlab/CollectionSidebar'
 import { WaveformDisplay, extractPeaks, extractPeaksFromFile } from '@/components/setlab/WaveformDisplay'
 
@@ -133,16 +133,25 @@ interface SetTrack extends Track {
 }
 
 // ── Camelot Wheel ────────────────────────────────────────────────────────
-const CAMELOT_WHEEL: Record<string, string[]> = {
-  '1A': ['1A', '2A', '12A', '1B'], '2A': ['2A', '3A', '1A', '2B'], '3A': ['3A', '4A', '2A', '3B'],
-  '4A': ['4A', '5A', '3A', '4B'], '5A': ['5A', '6A', '4A', '5B'], '6A': ['6A', '7A', '5A', '6B'],
-  '7A': ['7A', '8A', '6A', '7B'], '8A': ['8A', '9A', '7A', '8B'], '9A': ['9A', '10A', '8A', '9B'],
-  '10A': ['10A', '11A', '9A', '10B'], '11A': ['11A', '12A', '10A', '11B'], '12A': ['12A', '1A', '11A', '12B'],
-  '1B': ['1B', '2B', '12B', '1A'], '2B': ['2B', '3B', '1B', '2A'], '3B': ['3B', '4B', '2B', '3A'],
-  '4B': ['4B', '5B', '3B', '4A'], '5B': ['5B', '6B', '4B', '5A'], '6B': ['6B', '7B', '5B', '6A'],
-  '7B': ['7B', '8B', '6B', '7A'], '8B': ['8B', '9B', '7B', '8A'], '9B': ['9B', '10B', '8B', '9A'],
-  '10B': ['10B', '11B', '9B', '10A'], '11B': ['11B', '12B', '10B', '11A'], '12B': ['12B', '1B', '11B', '12A'],
+// Camelot compatibility: same key, ±1, major/minor switch, +7 (energy boost)
+function camelotPlus(num: number, offset: number): number {
+  return ((num - 1 + offset + 12) % 12) + 1
 }
+const CAMELOT_WHEEL: Record<string, string[]> = Object.fromEntries(
+  [1,2,3,4,5,6,7,8,9,10,11,12].flatMap(n =>
+    ['A', 'B'].map(letter => {
+      const key = `${n}${letter}`
+      const other = letter === 'A' ? 'B' : 'A'
+      return [key, [
+        key,                                    // same key
+        `${camelotPlus(n, 1)}${letter}`,       // +1
+        `${camelotPlus(n, -1)}${letter}`,      // -1
+        `${n}${other}`,                         // major/minor switch
+        `${camelotPlus(n, 7)}${letter}`,       // +7 energy boost
+      ]]
+    })
+  )
+)
 
 function getCompatibility(a: string, b: string): number {
   if (a === b) return 100
@@ -407,6 +416,89 @@ export function SetLab() {
     } catch { /* permission not granted yet */ }
   }
 
+  // ── Export missing-key tracks for Mixed In Key ─────────────────────────
+  async function exportForMIK() {
+    const missingKey = library.filter(t => !t.camelot && !t.key && t.file_path)
+    if (missingKey.length === 0) {
+      showToast('No tracks with local files missing key data', 'Info')
+      return
+    }
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      const paths = missingKey.map(t => {
+        let p = t.file_path!
+        if (p.startsWith('file://localhost')) p = p.slice('file://localhost'.length)
+        else if (p.startsWith('file://')) p = p.slice('file://'.length)
+        return decodeURIComponent(p)
+      })
+      const folder = await invoke<string>('export_for_mik', { paths })
+      showToast(`${missingKey.length} tracks ready in ${folder}`, 'Export')
+      // Open the folder in Finder
+      await invoke('open_in_finder', { path: folder })
+    } catch (err: any) {
+      console.error('MIK export error:', err)
+      showToast('Export failed: ' + (err?.message || err), 'Error')
+    }
+  }
+
+  // ── Rescan tags from files (picks up MIK key updates) ──────────────────
+  const [rescanning, setRescanning] = useState(false)
+  async function rescanFromFiles() {
+    if (!isTauri()) return
+    const tracksWithFiles = library.filter(t => t.file_path)
+    if (tracksWithFiles.length === 0) {
+      showToast('No tracks with local file paths to scan', 'Info')
+      return
+    }
+    setRescanning(true)
+    try {
+      const filePaths = tracksWithFiles.map(t => t.file_path!)
+      const tagResults = await rescanTagsForTracks(filePaths)
+
+      // Build lookup by file path
+      const tagMap = new Map<string, AudioTags>()
+      for (const t of tagResults) {
+        tagMap.set(t.file_path, t)
+      }
+
+      let updated = 0
+      setLibrary(prev => prev.map(track => {
+        if (!track.file_path) return track
+        // Clean path for matching
+        let cleanPath = track.file_path
+        if (cleanPath.startsWith('file://localhost')) cleanPath = cleanPath.slice('file://localhost'.length)
+        else if (cleanPath.startsWith('file://')) cleanPath = cleanPath.slice('file://'.length)
+        cleanPath = decodeURIComponent(cleanPath)
+
+        const tags = tagMap.get(cleanPath)
+        if (!tags) return track
+
+        const changes: Partial<Track> = {}
+        // Only update fields where tags have data and track doesn't (or key is from MIK)
+        if (tags.camelot && !track.camelot) { changes.camelot = tags.camelot; changes.key = tags.key }
+        else if (tags.camelot && tags.camelot !== track.camelot) { changes.camelot = tags.camelot; changes.key = tags.key }
+        if (tags.bpm > 0 && !track.bpm) changes.bpm = tags.bpm
+        if (tags.genre && !track.genre) changes.genre = tags.genre
+
+        if (Object.keys(changes).length > 0) {
+          updated++
+          const updatedTrack = { ...track, ...changes }
+          // Persist to Tauri DB
+          tauriUpsertTrack(updatedTrack as any).catch(() => {})
+          return updatedTrack
+        }
+        return track
+      }))
+
+      showToast(`Rescanned ${tracksWithFiles.length} files — ${updated} updated with new tag data`, 'Tags')
+    } catch (err: any) {
+      console.error('Rescan error:', err)
+      showToast('Rescan failed: ' + (err?.message || err), 'Error')
+    } finally {
+      setRescanning(false)
+    }
+  }
+
   // ── Audio Playback ─────────────────────────────────────────────────────
   async function playTrack(track: Track) {
     // If already playing this track, toggle pause/play
@@ -427,7 +519,12 @@ export function SetLab() {
       // Desktop: use Tauri asset protocol for instant streaming
       try {
         const { convertFileSrc } = await import('@tauri-apps/api/core')
-        url = convertFileSrc(track.file_path)
+        // Clean Rekordbox file:// URLs to POSIX paths
+        let cleanPath = track.file_path
+        if (cleanPath.startsWith('file://localhost')) cleanPath = cleanPath.slice('file://localhost'.length)
+        else if (cleanPath.startsWith('file://')) cleanPath = cleanPath.slice('file://'.length)
+        cleanPath = decodeURIComponent(cleanPath)
+        url = convertFileSrc(cleanPath)
       } catch (err: any) {
         console.error('Asset protocol error:', err)
         showToast('Could not load audio file', 'Error')
@@ -706,6 +803,10 @@ export function SetLab() {
       const targetKey = searchQuery.slice(4).toUpperCase()
       const compat = CAMELOT_WHEEL[targetKey] || [targetKey]
       return compat.includes(t.camelot)
+    }
+    // nokey: prefix — show tracks missing key data
+    if (searchQuery === 'nokey:') {
+      return !t.camelot && !t.key
     }
     const q = searchQuery.toLowerCase()
     return t.title.toLowerCase().includes(q) ||
@@ -1524,23 +1625,18 @@ Provide:
   }
 
   const SCAN_PROMPT = (track: Track, extraContext: string) =>
-    `Provide DJ intelligence for this track. Do NOT include bpm, key, camelot, or energy.
+    `Identify this track's genre and the artist's known style. Nothing else.
 
 Track: ${track.artist} — ${track.title}
 ${extraContext}
 
-If you genuinely know this track, return JSON:
+If you genuinely know this artist or track, return JSON:
 {
-  "moment_type": "opener|builder|peak|breakdown|closer",
-  "position_score": "warm-up|build|peak|cool-down",
-  "mix_in": "specific mix-in technique for this track",
-  "mix_out": "specific mix-out technique",
-  "crowd_reaction": "expected crowd response in 5-8 words",
-  "producer_style": "one sentence about production style",
-  "notes": "when/how to use in a set"
+  "genre": "specific subgenre (e.g. melodic techno, deep house, breakbeat)",
+  "similar_to": "1-3 similar artists, comma separated"
 }
 
-If you do NOT know this track well enough, return: {"unknown": true}
+ONLY include fields you are CERTAIN about. If you don't know the artist at all, return: {"unknown": true}
 Return ONLY valid JSON, no markdown.`
 
   // Smart Scan — Haiku first (cheap), flags unknowns for Deep Scan
@@ -1557,7 +1653,7 @@ Return ONLY valid JSON, no markdown.`
         })
         const spData = await spRes.json()
         if (spData.found) spotify = spData
-      } catch (e) { /* Spotify unavailable */ }
+      } catch (e: any) { console.warn('Spotify lookup failed:', e.message) }
 
       // Step 2: Haiku scan (cheap)
       let intelligence: any = {}
@@ -1567,9 +1663,10 @@ Return ONLY valid JSON, no markdown.`
         const intRaw = await callClaude(
           'You are a DJ music intelligence expert. NEVER guess or fabricate.',
           SCAN_PROMPT(track, ctx), 300, 'claude-haiku-4-5-20251001')
+        console.log('Haiku response for', track.title, ':', intRaw)
         const parsed = JSON.parse(intRaw.replace(/```json|```/g, '').trim())
         if (parsed.unknown) { scanUnknown = true } else { intelligence = parsed }
-      } catch (e) { /* skip intelligence */ }
+      } catch (e: any) { console.error('Haiku scan failed:', e.message); showToast(`Scan error: ${e.message}`, 'Error') }
 
       const updates: any = { ...intelligence }
       const corrections: string[] = []
@@ -1588,6 +1685,16 @@ Return ONLY valid JSON, no markdown.`
       }
 
       updates.analysed = true
+
+      // Auto-derive moment type from energy (real data, not AI guessing)
+      const finalEnergy = updates.energy || track.energy || 0
+      if (!track.moment_type && finalEnergy > 0) {
+        if (finalEnergy >= 8) updates.moment_type = 'peak'
+        else if (finalEnergy >= 6) updates.moment_type = 'builder'
+        else if (finalEnergy >= 4) updates.moment_type = 'opener'
+        else updates.moment_type = 'closer'
+      }
+
       const updated = { ...track, ...updates }
 
       await fetch('/api/tracks', {
@@ -1599,7 +1706,7 @@ Return ONLY valid JSON, no markdown.`
       setLibrary(prev => prev.map(t => t.id === track.id ? updated : t))
       showToast(
         scanUnknown
-          ? 'Spotify verified — track not recognised for mix intelligence. Try Deep Scan.'
+          ? 'Spotify verified — artist not recognised'
           : corrections.length ? `Scanned: ${corrections.join(', ')}` : 'Scanned — intelligence added',
         scanUnknown ? 'Unknown' : 'Scanned'
       )
@@ -1617,7 +1724,7 @@ Return ONLY valid JSON, no markdown.`
       const ctx = `BPM: ${track.bpm}, Key: ${track.camelot || track.key}`
       const intRaw = await callClaude(
         'You are a world-class DJ music intelligence expert with deep knowledge of underground electronic music. NEVER fabricate.',
-        SCAN_PROMPT(track, ctx), 400, 'claude-sonnet-4-5-20241022')
+        SCAN_PROMPT(track, ctx), 400, 'claude-sonnet-4-6')
       const parsed = JSON.parse(intRaw.replace(/```json|```/g, '').trim())
       if (parsed.unknown) {
         showToast('Even deep scan couldn\'t identify this track — truly underground', 'Unknown')
@@ -2531,12 +2638,20 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
   const isDesktop = isTauri()
   const [rbPlaylists, setRbPlaylists] = useState<TauriPlaylist[]>([])
-  // Rekordbox XML browser — parsed in-memory, not imported
+  // Rekordbox XML browser — parsed in-memory, persisted to localStorage
   const [rbXmlData, setRbXmlData] = useState<{ tracks: Map<string, any>; playlists: Array<{ name: string; trackIds: string[] }> } | null>(null)
   const [rbActivePlaylist, setRbActivePlaylist] = useState<string | null>(null)
 
   useEffect(() => {
     if (isTauri()) { tauriGetPlaylists().then(setRbPlaylists).catch(() => {}) }
+    // Restore Rekordbox XML from localStorage
+    try {
+      const saved = localStorage.getItem('setlab_rekordbox_xml')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setRbXmlData({ tracks: new Map(Object.entries(parsed.tracks)), playlists: parsed.playlists })
+      }
+    } catch {}
   }, [])
 
   // Parse Rekordbox XML client-side for browsing (no import)
@@ -2608,6 +2723,11 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
       })
 
       setRbXmlData({ tracks: trackMap, playlists })
+      // Persist to localStorage so playlists survive reload
+      try {
+        const serializable = { tracks: Object.fromEntries(trackMap), playlists }
+        localStorage.setItem('setlab_rekordbox_xml', JSON.stringify(serializable))
+      } catch {}
       showToast(`Connected — ${playlists.length} playlists, ${trackMap.size} tracks`, 'Rekordbox')
     } catch (err: any) {
       console.error('XML parse error:', err)
@@ -2642,6 +2762,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
       moment_type: '', position_score: '', mix_in: '', mix_out: '',
       crowd_reaction: '', similar_to: '', producer_style: '',
       source: 'rekordbox',
+      file_path: rbTrack.location || '', has_local_audio: !!(rbTrack.location),
     }
     setLibrary(prev => [...prev, track])
     // Persist
@@ -2902,9 +3023,52 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   <div style={{ fontSize: '16px', color: s.text }}>{rbActivePlaylist}</div>
                   <div style={{ fontSize: '11px', color: s.textDimmer, marginTop: '2px' }}>{rbTracks.length} tracks — drag to add to your library</div>
                 </div>
-                <button onClick={() => {
-                  rbTracks.forEach(t => addRbTrackToLibrary(t))
-                  showToast(`Added ${rbTracks.length} tracks from "${rbActivePlaylist}"`, 'Import')
+                <button onClick={async () => {
+                  const newTracks = rbTracks.filter((t: any) => !library.some(lt => lt.title.toLowerCase() === t.title.toLowerCase() && lt.artist.toLowerCase() === t.artist.toLowerCase()))
+                  if (newTracks.length === 0) { showToast('All tracks already in library', 'Info'); return }
+                  const mapped = newTracks.map((t: any) => ({
+                    id: 'rb-' + t.id + '-' + Date.now() + Math.random().toString(36).slice(2, 6),
+                    title: t.title, artist: t.artist, bpm: t.bpm || 0, key: t.key || '', camelot: t.camelot || '',
+                    energy: 0, genre: t.genre || '', duration: t.duration || '', notes: '',
+                    analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '',
+                    crowd_reaction: '', similar_to: '', producer_style: '', source: 'rekordbox',
+                    file_path: t.location || '', has_local_audio: !!(t.location),
+                  }))
+                  setLibrary(prev => [...prev, ...mapped])
+                  showToast(`Adding ${mapped.length} tracks — enriching via Spotify...`, 'Import')
+                  try {
+                    await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: mapped }) })
+                  } catch {}
+                  // Background Spotify enrichment in batches of 5
+                  let enriched = 0
+                  for (let i = 0; i < mapped.length; i += 5) {
+                    const batch = mapped.slice(i, i + 5)
+                    await Promise.all(batch.map(async (track: any) => {
+                      try {
+                        const spRes = await fetch('/api/spotify/lookup', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ artist: track.artist, title: track.title }),
+                        })
+                        const sp = await spRes.json()
+                        if (sp.found) {
+                          const updates: any = {}
+                          if (sp.album_art) updates.album_art = sp.album_art
+                          if (sp.preview_url) updates.preview_url = sp.preview_url
+                          if (sp.spotify_url) updates.spotify_url = sp.spotify_url
+                          if (sp.bpm && !track.bpm) updates.bpm = sp.bpm
+                          if (sp.camelot && !track.camelot) updates.camelot = sp.camelot
+                          if (sp.energy) updates.energy = sp.energy
+                          if (Object.keys(updates).length > 0) {
+                            updates.analysed = true
+                            setLibrary(prev => prev.map(t => t.id === track.id ? { ...t, ...updates } : t))
+                            fetch('/api/tracks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: track.id, ...updates }) }).catch(() => {})
+                            enriched++
+                          }
+                        }
+                      } catch {}
+                    }))
+                  }
+                  showToast(`Done — ${mapped.length} tracks added, ${enriched} enriched with artwork + previews`, 'Import')
                 }} style={{ ...btn(s.gold), fontSize: '10px', padding: '8px 18px' }}>
                   Add all to library
                 </button>
@@ -3114,9 +3278,41 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
             </div>
             </>}
 
+            {/* Missing key warning */}
+            {(() => {
+              const missingKey = filteredLibrary.filter(t => !t.camelot && !t.key)
+              if (missingKey.length === 0) return null
+              return (
+                <div style={{ padding: '10px 20px', background: 'rgba(255,107,107,0.06)', border: '1px solid rgba(255,107,107,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '11px', color: '#ff6b6b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>?</span>
+                    <span>{missingKey.length} track{missingKey.length !== 1 ? 's' : ''} missing key — run through Mixed In Key</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {isTauri() && (
+                      <button onClick={rescanFromFiles} disabled={rescanning}
+                        style={{ fontSize: '10px', color: s.gold, background: 'rgba(176,141,87,0.08)', border: '1px solid rgba(176,141,87,0.3)', padding: '4px 12px', cursor: rescanning ? 'wait' : 'pointer', fontFamily: s.font, letterSpacing: '0.1em', opacity: rescanning ? 0.6 : 1 }}>
+                        {rescanning ? 'Scanning...' : 'Rescan Tags'}
+                      </button>
+                    )}
+                    {isTauri() && missingKey.some(t => t.file_path) && (
+                      <button onClick={exportForMIK}
+                        style={{ fontSize: '10px', color: s.text, background: 'rgba(176,141,87,0.12)', border: '1px solid rgba(176,141,87,0.3)', padding: '4px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}>
+                        Export for MIK
+                      </button>
+                    )}
+                    <button onClick={() => setSearchQuery('nokey:')}
+                      style={{ fontSize: '10px', color: '#ff6b6b', background: 'none', border: '1px solid rgba(255,107,107,0.3)', padding: '4px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}>
+                      Show
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* Track library with expandable intelligence */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 55px 90px 80px', gap: '0', padding: '12px 20px', borderBottom: `1px solid ${s.border}`, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 55px 90px 80px', gap: '0', padding: '6px 20px', borderBottom: `1px solid ${s.border}`, alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input type="checkbox" checked={selectedTracks.size > 0 && filteredLibrary.every(t => selectedTracks.has(t.id))}
                     onChange={() => {
@@ -3138,13 +3334,11 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                 </div>
               )}
               {/* Virtualized: only render visible rows */}
-              {filteredLibrary.length > 0 && <div style={{ height: visibleRange.start * 48 }} />}
-              {filteredLibrary.slice(visibleRange.start, visibleRange.end).map((track, _vi) => {
-                const trackIdx = visibleRange.start + _vi
+              {filteredLibrary.map((track, trackIdx) => {
                 const isSelected = trackIdx === selectedTrackIdx
                 return (
                 <div key={track.id} data-track-idx={trackIdx}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer', background: isSelected ? `${s.setlab}15` : selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent', borderLeft: isSelected ? `2px solid ${s.setlab}` : '2px solid transparent' }}
+                  <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 55px 90px 80px', gap: '0', padding: '6px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer', background: isSelected ? `${s.setlab}15` : selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent', borderLeft: isSelected ? `2px solid ${s.setlab}` : '2px solid transparent' }}
                     onClick={() => { setSelectedTrackIdx(trackIdx); setExpandedTrack(expandedTrack === track.id ? null : track.id) }}
                     onMouseEnter={e => { if (!isSelected && !selectedTracks.has(track.id)) e.currentTarget.style.background = s.bg }}
                     onMouseLeave={e => { e.currentTarget.style.background = isSelected ? `${s.setlab}15` : selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}>
@@ -3162,12 +3356,12 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       }
                     }}>
                       {track.album_art ? (
-                        <div style={{ width: '32px', height: '32px', position: 'relative', cursor: (track.has_local_audio || track.preview_url || track.spotify_url) ? 'pointer' : 'default' }}>
-                          <img src={track.album_art} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', opacity: playingTrack?.id === track.id ? 0.4 : 1, transition: 'opacity 0.15s' }} />
+                        <div style={{ width: '28px', height: '28px', position: 'relative', cursor: (track.has_local_audio || track.preview_url || track.spotify_url) ? 'pointer' : 'default' }}>
+                          <img src={track.album_art} alt="" style={{ width: '28px', height: '28px', objectFit: 'cover', opacity: playingTrack?.id === track.id ? 0.4 : 1, transition: 'opacity 0.15s' }} />
                           {(track.has_local_audio || track.preview_url || track.spotify_url) && <div className="play-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s', background: 'rgba(0,0,0,0.4)' }}>{playingTrack?.id === track.id && audioPlaying ? '■' : '▶'}</div>}
                         </div>
                       ) : (
-                        <div style={{ width: '32px', height: '32px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (track.has_local_audio || track.preview_url || track.spotify_url) ? 'pointer' : 'default' }}>
+                        <div style={{ width: '28px', height: '28px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (track.has_local_audio || track.preview_url || track.spotify_url) ? 'pointer' : 'default' }}>
                           <span style={{ fontSize: '12px', color: (track.has_local_audio || track.preview_url) ? s.gold : track.spotify_url ? s.textDim : s.textDimmer }}>{(track.has_local_audio || track.preview_url) ? (playingTrack?.id === track.id && audioPlaying ? '■' : '▶') : track.spotify_url ? '↗' : '♪'}</span>
                         </div>
                       )}
@@ -3182,7 +3376,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     </div>
                     <div style={{ fontSize: '12px', color: s.textDim, display: 'flex', alignItems: 'center' }}>{track.artist}</div>
                     <div style={{ fontSize: '12px', color: s.textDim, display: 'flex', alignItems: 'center' }}>{track.bpm}</div>
-                    <div style={{ fontSize: '12px', color: s.gold, fontWeight: 400, display: 'flex', alignItems: 'center' }}>{track.camelot || track.key}</div>
+                    <div style={{ fontSize: '12px', fontWeight: 400, display: 'flex', alignItems: 'center', color: (track.camelot || track.key) ? s.gold : '#ff6b6b' }} title={!(track.camelot || track.key) ? 'Missing key — run through Mixed In Key' : ''}>{track.camelot || track.key || '?'}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <div style={{ flex: 1, height: '3px', background: s.border, position: 'relative' }}>
                         <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : track.energy > 4 ? '#3d6b4a' : '#52504c' }} />
@@ -3356,7 +3550,6 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   )}
                 </div>
               )})}
-              {filteredLibrary.length > 0 && <div style={{ height: Math.max(0, filteredLibrary.length - visibleRange.end) * 48 }} />}
             </div>
 
             {/* ── FLOATING SELECTION BAR ── */}
@@ -3375,7 +3568,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   <button onClick={deleteSelectedTracks} style={{ ...btn('#ff4444'), fontSize: '10px', padding: '8px 16px' }}>Delete</button>
                   <button onClick={analyseSelectedTracks} disabled={batchAnalysing}
                     style={{ ...btn(s.setlab), fontSize: '10px', padding: '8px 16px', opacity: batchAnalysing ? 0.5 : 1 }}>
-                    {batchAnalysing ? 'Analysing...' : 'Get mix tips'}
+                    {batchAnalysing ? 'Scanning...' : 'Smart Scan'}
                   </button>
                   <button onClick={addSelectedToSet} style={{ ...btn(s.gold), fontSize: '10px', padding: '8px 20px' }}>Add {selectedTracks.size} to Set →</button>
                 </div>

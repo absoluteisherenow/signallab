@@ -127,7 +127,7 @@ export function CollectionSidebar({
       {collectionOpen && (
         <div>
           {item('all', 'All Tracks', totalTracks)}
-          {item('discoveries', 'Discoveries', discoveryCount)}
+          {item('discoveries', 'Track IDs', discoveryCount)}
           {item('wantlist', 'Wantlist', wantlistCount)}
         </div>
       )}

@@ -27,3 +27,6 @@ symphonia = { version = "0.5", features = ["mp3", "flac", "wav", "aac", "vorbis"
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["v4"] }
+dirs = "6"
+lofty = "0.22"
+urlencoding = "2"

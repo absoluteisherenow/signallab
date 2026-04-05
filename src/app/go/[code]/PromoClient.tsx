@@ -170,7 +170,7 @@ export default function PromoClient() {
               rel="noopener noreferrer"
               style={styles.downloadButton}
             >
-              Listen / Download
+              Download
             </a>
           </div>
         )}

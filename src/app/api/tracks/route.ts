@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
 // GET — fetch all tracks in the user's library
@@ -52,7 +52,21 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const tracks = Array.isArray(body.tracks) ? body.tracks : [body]
 
+    // Get user_id from auth if available
+    const authHeader = req.headers.get('authorization')
+    let userId: string | null = null
+    if (authHeader) {
+      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+      userId = user?.id || null
+    }
+    // Fallback: get the first user's ID (single-user app)
+    if (!userId) {
+      const { data: users } = await supabase.from('dj_tracks').select('user_id').limit(1)
+      userId = users?.[0]?.user_id || null
+    }
+
     const rows = tracks.map((t: any) => ({
+      ...(userId ? { user_id: userId } : {}),
       title: t.title || t.name || '',
       artist: t.artist || '',
       bpm: t.bpm || 0,
