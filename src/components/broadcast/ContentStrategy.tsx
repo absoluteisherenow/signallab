@@ -525,6 +525,18 @@ export function ContentStrategy() {
                           {regeneratingIndex === i ? <ScanPulse size="sm" /> : null}
                           {regeneratingIndex === i ? 'Regenerating...' : 'Regenerate'}
                         </button>
+                        <a
+                          href={`/broadcast/ads?caption=${encodeURIComponent(post.caption)}`}
+                          style={{
+                            background: 'none', border: '1px solid rgba(255,255,255,0.08)',
+                            color: 'rgba(240,235,226,0.25)', padding: '6px 14px', borderRadius: '2px',
+                            fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' as const,
+                            fontFamily: s.font, cursor: 'pointer', textDecoration: 'none',
+                            display: 'inline-flex', alignItems: 'center',
+                          }}
+                        >
+                          Boost →
+                        </a>
                       </>
                     )}
                   </div>

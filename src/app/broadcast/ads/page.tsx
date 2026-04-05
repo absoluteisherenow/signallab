@@ -13,6 +13,10 @@ interface AdPlan {
   budget_breakdown: string
   red_flags: string[]
   green_flags: string[]
+  meta_compliance: {
+    status: 'compliant' | 'warnings' | 'issues'
+    checks: { rule: string; status: 'pass' | 'warn' | 'fail'; note: string }[]
+  }
 }
 
 export default function AdsPage() {
@@ -41,9 +45,9 @@ export default function AdsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          system: `You are an expert paid media strategist for underground electronic music artists.\n\n${SKILL_ADS_MANAGER}\n\nReturn ONLY valid JSON.`,
-          max_tokens: 1200,
-          messages: [{ role: 'user', content: `Build a paid ad plan.\n\nCampaign type: ${adCampaignType}\nBudget: ${budgetMap[adBudget]}\n${caption ? `Caption/content to boost: ${caption}\n` : ''}Artist: NIGHT manoeuvres (electronic music)\n\nReturn JSON:\n{"campaign_type":"${adCampaignType}","platforms":[{"name":"platform","budget_split":"percentage","why":"reason"}],"audiences":[{"layer":"Warm/Expansion/Cold","targeting":"specific targeting","size":"estimated reach"}],"creative":["creative recommendation 1","2","3"],"schedule":"timeline with phases","budget_breakdown":"how to split the spend","red_flags":["what to watch for"],"green_flags":["signals to scale"]}` }],
+          system: `You are an expert paid media strategist for underground electronic music artists. You have deep knowledge of Meta Ads Manager policies, Instagram promotion rules, and music industry advertising best practices.\n\n${SKILL_ADS_MANAGER}\n\nCRITICAL: Every ad plan MUST be cross-referenced against current Meta advertising policies:\n- Music content: licensed audio only in ads, no copyrighted music without rights\n- Targeting: no discriminatory targeting by race, ethnicity, religion, sexual orientation\n- Special Ad Categories: music events may trigger "entertainment" category in some regions\n- Budget minimums: Meta requires minimum £1/day per ad set\n- Audience size: Meta recommends minimum 1,000 in custom audiences, warns below 100\n- Ad text: primary text max 125 chars for optimal delivery, headline max 40 chars\n- Image/video specs: 1080x1080 or 1080x1920, max 30s for Stories/Reels ads\n- Landing pages: must match ad content, no misleading destinations\n- Alcohol/nightlife: age-gated in most regions (18+ UK, 21+ US)\n- Engagement bait: "like this if..." or "tag a friend" can get ads rejected\n- Before/after claims: can't promise specific follower/stream growth\n\nReturn ONLY valid JSON.`,
+          max_tokens: 1800,
+          messages: [{ role: 'user', content: `Build a paid ad plan and validate it against Meta advertising policies.\n\nCampaign type: ${adCampaignType}\nBudget: ${budgetMap[adBudget]}\n${caption ? `Caption/content to boost: ${caption}\n` : ''}Artist: NIGHT manoeuvres (electronic music, UK)\n\nReturn JSON:\n{"campaign_type":"${adCampaignType}","platforms":[{"name":"platform","budget_split":"percentage","why":"reason"}],"audiences":[{"layer":"Warm/Expansion/Cold","targeting":"specific targeting","size":"estimated reach"}],"creative":["creative recommendation 1","2","3"],"schedule":"timeline with phases","budget_breakdown":"how to split the spend","red_flags":["what to watch for"],"green_flags":["signals to scale"],"meta_compliance":{"status":"compliant|warnings|issues","checks":[{"rule":"Meta policy rule name","status":"pass|warn|fail","note":"explanation of compliance status and any action needed"}]}}` }],
         }),
       })
       const data = await res.json()
@@ -161,6 +165,43 @@ export default function AdsPage() {
                   <div className="text-[11px] text-[#8a8780] leading-relaxed">{adPlan.budget_breakdown}</div>
                 </div>
               </div>
+
+              {/* META COMPLIANCE CHECK */}
+              {adPlan.meta_compliance && (
+                <div className={`bg-[#1a1917] border p-4 ${
+                  adPlan.meta_compliance.status === 'compliant' ? 'border-[#3d6b4a]/30' :
+                  adPlan.meta_compliance.status === 'warnings' ? 'border-[#b08d57]/30' :
+                  'border-red-800/30'
+                }`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className={`w-2 h-2 rounded-full ${
+                      adPlan.meta_compliance.status === 'compliant' ? 'bg-[#3d6b4a]' :
+                      adPlan.meta_compliance.status === 'warnings' ? 'bg-[#b08d57]' :
+                      'bg-red-500'
+                    }`} />
+                    <div className="text-[9px] tracking-[.18em] uppercase text-[#8a8780]">
+                      Meta policy check — {adPlan.meta_compliance.status === 'compliant' ? 'all clear' : adPlan.meta_compliance.status === 'warnings' ? 'review needed' : 'issues found'}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {adPlan.meta_compliance.checks.map((check, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className={`text-[10px] flex-shrink-0 mt-0.5 ${
+                          check.status === 'pass' ? 'text-[#3d6b4a]' :
+                          check.status === 'warn' ? 'text-[#b08d57]' :
+                          'text-red-400'
+                        }`}>
+                          {check.status === 'pass' ? '✓' : check.status === 'warn' ? '⚠' : '✗'}
+                        </span>
+                        <div>
+                          <span className="text-[10px] text-[#f0ebe2]">{check.rule}</span>
+                          <span className="text-[10px] text-[#52504c] ml-2">{check.note}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-[#1a1917] border border-red-900/20 p-4">
