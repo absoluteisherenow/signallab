@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No text provided' }, { status: 400, headers: CORS })
   }
 
-  // Trim to ~500 chars so we don't TTS a wall of text
-  const clipped = text.length > 500 ? text.substring(0, 497) + '…' : text
+  // OpenAI TTS supports up to 4096 chars — allow longer meditation scripts
+  const clipped = text.length > 2000 ? text.substring(0, 1997) + '…' : text
 
   try {
     const resp = await fetch('https://api.openai.com/v1/audio/speech', {
