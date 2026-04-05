@@ -235,7 +235,12 @@ export function SetLab() {
   // RA rich index: key → attribution
   const raRichMapRef = useRef<Map<string, { charted_by: string; chart_title: string }>>(new Map())
   // ── Crate Dig state ────────────────────────────────────────────────────
-  const [discoverMode, setDiscoverMode] = useState<'beatport' | 'crate'>('beatport')
+  const [discoverMode, setDiscoverMode] = useState<'beatport' | 'crate' | 'describe'>('describe')
+  // ── Describe / Natural Language Search state ──────────────────────────
+  const [describeQuery, setDescribeQuery] = useState('')
+  const [describeLoading, setDescribeLoading] = useState(false)
+  const [describeResults, setDescribeResults] = useState<{ library: Track[]; beatport: any[]; bandcamp: any[] }>({ library: [], beatport: [], bandcamp: [] })
+  const [describeError, setDescribeError] = useState('')
   const [discoverSource, setDiscoverSource] = useState<string>('current-set') // 'current-set', 'library', 'playlist:Name', 'set:id'
   const [crateDigTrack, setCrateDigTrack] = useState<Track | null>(null)
   const [crateDigAxis, setCrateDigAxis] = useState<'label' | 'artist' | 'style' | 'credit'>('label')
@@ -1764,6 +1769,122 @@ Return ONLY valid JSON, no markdown.`
       setCrateDigError(err.message)
     } finally {
       setCrateDigLoading(false)
+    }
+  }
+
+  // ── Describe Search — natural language track discovery ───────────────
+  async function describeSearch(query: string) {
+    if (!query.trim()) return
+    setDescribeLoading(true)
+    setDescribeError('')
+    setDescribeResults({ library: [], beatport: [], bandcamp: [] })
+
+    try {
+      // Step 1: Claude interprets the description → structured search criteria
+      const interpretation = await callClaude(
+        `You are a DJ music search assistant. Given a natural language description of the type of track someone wants, extract structured search criteria.
+Return ONLY valid JSON, no explanation:
+{
+  "genres": ["techno", "minimal"],
+  "bpm_low": 124,
+  "bpm_high": 130,
+  "energy_low": 5,
+  "energy_high": 8,
+  "mood_keywords": ["dark", "rolling", "hypnotic"],
+  "camelot_keys": ["8A", "7A", "9A"],
+  "moment_types": ["builder", "peak"],
+  "search_terms": "dark minimal techno"
+}
+All fields optional. Infer what you can. For keys, suggest Camelot keys that match the mood (minor keys for dark, major for uplifting). For BPM, use typical ranges for the genre. "search_terms" is a simplified query for external search APIs.`,
+        query,
+        300
+      )
+
+      let criteria: any = {}
+      try {
+        const jsonMatch = interpretation.match(/\{[\s\S]*\}/)
+        if (jsonMatch) criteria = JSON.parse(jsonMatch[0])
+      } catch { criteria = { search_terms: query } }
+
+      // Step 2: Search library first
+      const libraryMatches = library.filter(t => {
+        let score = 0
+        const q = query.toLowerCase()
+
+        // Direct text match (high weight)
+        if (t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)) score += 10
+        if (t.genre.toLowerCase().includes(q)) score += 5
+
+        // Criteria-based matching
+        if (criteria.genres?.length) {
+          const genre = t.genre.toLowerCase()
+          if (criteria.genres.some((g: string) => genre.includes(g.toLowerCase()))) score += 3
+        }
+        if (criteria.bpm_low && criteria.bpm_high) {
+          if (t.bpm >= criteria.bpm_low && t.bpm <= criteria.bpm_high) score += 2
+        }
+        if (criteria.energy_low && criteria.energy_high) {
+          if (t.energy >= criteria.energy_low && t.energy <= criteria.energy_high) score += 2
+        }
+        if (criteria.camelot_keys?.length) {
+          if (criteria.camelot_keys.includes(t.camelot)) score += 2
+        }
+        if (criteria.moment_types?.length) {
+          if (criteria.moment_types.includes(t.moment_type)) score += 2
+        }
+        if (criteria.mood_keywords?.length) {
+          const text = `${t.notes} ${t.producer_style} ${t.genre} ${t.crowd_reaction}`.toLowerCase()
+          const matchCount = criteria.mood_keywords.filter((k: string) => text.includes(k.toLowerCase())).length
+          score += matchCount
+        }
+
+        return score >= 2
+      }).sort((a, b) => {
+        let scoreA = 0, scoreB = 0
+        if (criteria.bpm_low && criteria.bpm_high) {
+          const midBpm = (criteria.bpm_low + criteria.bpm_high) / 2
+          scoreA -= Math.abs(a.bpm - midBpm)
+          scoreB -= Math.abs(b.bpm - midBpm)
+        }
+        if (criteria.energy_low && criteria.energy_high) {
+          const midE = (criteria.energy_low + criteria.energy_high) / 2
+          scoreA -= Math.abs(a.energy - midE)
+          scoreB -= Math.abs(b.energy - midE)
+        }
+        return scoreB - scoreA
+      }).slice(0, 20)
+
+      // Step 3: Search external sources in parallel
+      const searchTerms = criteria.search_terms || query
+      const [beatportRes, bandcampRes] = await Promise.allSettled([
+        fetch('/api/beatport', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tracks: libraryMatches.length > 0 ? libraryMatches.slice(0, 6) : [{ bpm: criteria.bpm_low || 128, camelot: criteria.camelot_keys?.[0] || '8A', genre: criteria.genres?.[0] || 'techno' }],
+            maxPopularity: maxPopularity,
+            limit: 15,
+          }),
+        }).then(r => r.json()),
+        fetch('/api/bandcamp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: searchTerms, genre: criteria.genres?.[0], limit: 15 }),
+        }).then(r => r.json()),
+      ])
+
+      const beatportTracks = beatportRes.status === 'fulfilled' ? (beatportRes.value.tracks || []) : []
+      const bandcampTracks = bandcampRes.status === 'fulfilled' ? (bandcampRes.value.tracks || []) : []
+
+      setDescribeResults({
+        library: libraryMatches,
+        beatport: beatportTracks,
+        bandcamp: bandcampTracks,
+      })
+    } catch (err: any) {
+      setDescribeError(err.message)
+    } finally {
+      setDescribeLoading(false)
     }
   }
 
@@ -3453,7 +3574,7 @@ Return ONLY valid JSON, no markdown.`
 
             {/* Mode toggle */}
             <div style={{ display: 'flex', gap: '0' }}>
-              {(['beatport', 'crate'] as const).map(mode => (
+              {(['describe', 'beatport', 'crate'] as const).map(mode => (
                 <button key={mode} onClick={() => setDiscoverMode(mode)} style={{
                   fontFamily: s.font, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase',
                   padding: '10px 24px', cursor: 'pointer', border: `1px solid ${s.border}`,
@@ -3461,10 +3582,231 @@ Return ONLY valid JSON, no markdown.`
                   color: discoverMode === mode ? s.text : s.textDimmer,
                   borderBottom: discoverMode === mode ? `2px solid ${s.setlab}` : `1px solid ${s.border}`,
                 }}>
-                  {mode === 'beatport' ? 'Beatport x RA' : 'Crate Dig'}
+                  {mode === 'describe' ? 'Describe' : mode === 'beatport' ? 'Beatport x RA' : 'Crate Dig'}
                 </button>
               ))}
             </div>
+
+            {/* ── DESCRIBE MODE — Natural Language Search ── */}
+            {discoverMode === 'describe' && (
+              <>
+                <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '28px 28px 24px' }}>
+                  <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '15px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, marginBottom: '8px' }}>DESCRIBE</div>
+                  <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6', marginBottom: '20px' }}>
+                    Describe the track you're looking for — searches your library first, then Beatport &amp; Bandcamp.
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+                    <input
+                      value={describeQuery}
+                      onChange={e => setDescribeQuery(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && describeSearch(describeQuery)}
+                      placeholder="e.g. dark rolling techno for a 3am warehouse set, 126-130 BPM, something hypnotic..."
+                      autoFocus={discoverMode === 'describe'}
+                      style={{
+                        flex: 1, background: s.bg, border: `1px solid ${s.border}`, color: s.text,
+                        fontFamily: s.font, fontSize: '14px', padding: '16px 20px', outline: 'none',
+                        letterSpacing: '0.03em',
+                      }}
+                    />
+                    <button
+                      onClick={() => describeSearch(describeQuery)}
+                      disabled={describeLoading || !describeQuery.trim()}
+                      style={{
+                        ...btn(s.setlab), padding: '16px 28px', fontSize: '12px',
+                        opacity: describeLoading || !describeQuery.trim() ? 0.5 : 1,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {describeLoading ? <><ScanPulse size="sm" color={s.setlab} /> Searching...</> : 'Search everywhere'}
+                    </button>
+                  </div>
+
+                  {/* Quick suggestions */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[
+                      'dark minimal techno, 128 BPM, moody',
+                      'uplifting melodic house for sunset',
+                      'raw industrial techno, high energy',
+                      'deep rolling grooves, warm-up pace',
+                      'breakbeat influenced, uk warehouse',
+                    ].map(suggestion => (
+                      <button key={suggestion}
+                        onClick={() => { setDescribeQuery(suggestion); describeSearch(suggestion) }}
+                        style={{
+                          fontFamily: s.font, fontSize: '9px', letterSpacing: '0.08em',
+                          padding: '5px 10px', cursor: 'pointer',
+                          background: 'transparent', border: `1px solid ${s.border}`,
+                          color: s.textDimmer, transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = s.setlab; e.currentTarget.style.color = s.setlab }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = s.border; e.currentTarget.style.color = s.textDimmer }}
+                      >{suggestion}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {describeError && (
+                  <div style={{ padding: '12px 16px', background: 'rgba(154,106,90,0.1)', border: '1px solid rgba(154,106,90,0.3)', fontSize: '11px', color: '#9a6a5a' }}>
+                    {describeError}
+                  </div>
+                )}
+
+                {/* Results — Library first */}
+                {describeResults.library.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginBottom: '8px' }}>
+                      Your Library ({describeResults.library.length} matches)
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {describeResults.library.map(track => (
+                        <div key={track.id} style={{
+                          background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px',
+                          transition: 'border-color 0.15s', cursor: 'pointer',
+                        }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}
+                          onClick={() => playTrack(track)}
+                        >
+                          {track.album_art
+                            ? <img src={track.album_art} alt="" style={{ width: '44px', height: '44px', objectFit: 'cover', flexShrink: 0 }} />
+                            : <div style={{ width: '44px', height: '44px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: s.textDimmer }}>&#9835;</div>}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                            <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                            {track.camelot && <span style={{ fontSize: '11px', color: s.gold }}>{track.camelot}</span>}
+                            {track.bpm > 0 && <span style={{ fontSize: '11px', color: s.textDim }}>{track.bpm}</span>}
+                            {track.energy > 0 && <span style={{ fontSize: '10px', color: track.energy > 7 ? s.gold : s.textDim }}>E{track.energy}</span>}
+                            {track.moment_type && <span style={{ fontSize: '9px', padding: '2px 6px', background: `${s.setlab}15`, border: `1px solid ${s.setlab}40`, color: s.setlab, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{track.moment_type}</span>}
+                          </div>
+                          <button onClick={e => { e.stopPropagation(); addToSet(track) }}
+                            style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '5px 10px', flexShrink: 0 }}>
+                            + Set
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Results — Beatport */}
+                {describeResults.beatport.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#f7a500', textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginBottom: '8px' }}>
+                      Beatport ({describeResults.beatport.length} results)
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {describeResults.beatport.map((track: any) => {
+                        const alreadyInLib = library.some(t => t.title.toLowerCase() === track.title?.toLowerCase() && t.artist.toLowerCase() === track.artist?.toLowerCase())
+                        return (
+                          <div key={track.id} style={{
+                            background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px',
+                            transition: 'border-color 0.15s',
+                          }}
+                            onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
+                            onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}
+                          >
+                            {track.album_art
+                              ? <img src={track.album_art} alt="" style={{ width: '44px', height: '44px', objectFit: 'cover', flexShrink: 0 }} />
+                              : <div style={{ width: '44px', height: '44px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: s.textDimmer }}>&#9835;</div>}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                              <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
+                              {track.label && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{track.label}{track.release_year ? ` · ${track.release_year}` : ''}</div>}
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                              {track.camelot && <span style={{ fontSize: '11px', color: s.gold }}>{track.camelot}</span>}
+                              {track.bpm && <span style={{ fontSize: '11px', color: s.textDim }}>{track.bpm}</span>}
+                              {track.beatport_url && (
+                                <a href={track.beatport_url} target="_blank" rel="noreferrer"
+                                  style={{ fontSize: '9px', color: '#f7a500', textDecoration: 'none', letterSpacing: '0.1em', border: '1px solid rgba(247,165,0,0.4)', padding: '4px 8px', whiteSpace: 'nowrap' }}>
+                                  Beatport ↗
+                                </a>
+                              )}
+                            </div>
+                            <button onClick={async () => {
+                              const t: Track = { id: track.id, title: track.title, artist: track.artist, bpm: track.bpm || 0, key: '', camelot: track.camelot || '', energy: track.energy || 0,
+                                genre: track.genre || '', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
+                              if (!alreadyInLib) {
+                                await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: [t] }) })
+                                setLibrary(prev => [...prev, t])
+                              }
+                              addToSet(t)
+                              showToast(`${track.title} added`, 'Beatport')
+                            }} disabled={alreadyInLib}
+                              style={{ ...btn(alreadyInLib ? s.textDimmer : s.setlab, 'transparent'), fontSize: '10px', padding: '5px 10px', flexShrink: 0, opacity: alreadyInLib ? 0.4 : 1 }}>
+                              {alreadyInLib ? 'In library' : 'Add →'}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Results — Bandcamp */}
+                {describeResults.bandcamp.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#1da0c3', textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginBottom: '8px' }}>
+                      Bandcamp ({describeResults.bandcamp.length} results)
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {describeResults.bandcamp.map((track: any) => (
+                        <div key={track.id} style={{
+                          background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px',
+                          transition: 'border-color 0.15s',
+                        }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}
+                        >
+                          {track.album_art
+                            ? <img src={track.album_art} alt="" style={{ width: '44px', height: '44px', objectFit: 'cover', flexShrink: 0 }} />
+                            : <div style={{ width: '44px', height: '44px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: s.textDimmer }}>&#9835;</div>}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                            <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
+                            {track.album && <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{track.album}</div>}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                            {track.bandcamp_url && (
+                              <a href={track.bandcamp_url} target="_blank" rel="noreferrer"
+                                style={{ fontSize: '9px', color: '#1da0c3', textDecoration: 'none', letterSpacing: '0.1em', border: '1px solid rgba(29,160,195,0.4)', padding: '4px 8px', whiteSpace: 'nowrap' }}>
+                                Bandcamp ↗
+                              </a>
+                            )}
+                          </div>
+                          <button onClick={async () => {
+                            const t: Track = { id: track.id, title: track.title, artist: track.artist, bpm: 0, key: '', camelot: '', energy: 5,
+                              genre: track.genre || '', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '',
+                              source: 'bandcamp' }
+                            await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: [t] }) })
+                            setLibrary(prev => [...prev, t])
+                            showToast(`${track.title} added to library`, 'Bandcamp')
+                          }}
+                            style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '5px 10px', flexShrink: 0 }}>
+                            + Library
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!describeLoading && describeResults.library.length === 0 && describeResults.beatport.length === 0 && describeResults.bandcamp.length === 0 && !describeError && (
+                  <div style={{ textAlign: 'center', padding: '60px 32px', color: s.textDimmer }}>
+                    <div style={{ fontSize: '32px', marginBottom: '16px', opacity: 0.3 }}>&#9906;</div>
+                    <div style={{ fontSize: '13px', letterSpacing: '0.12em', marginBottom: '8px' }}>Describe the track you need</div>
+                    <div style={{ fontSize: '11px', color: s.textDimmer, lineHeight: '1.6' }}>
+                      Searches your library first, then Beatport &amp; Bandcamp<br/>
+                      Try: "dark minimal techno for a 3am warehouse set"
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* ── BEATPORT MODE ── */}
             {discoverMode === 'beatport' && (
