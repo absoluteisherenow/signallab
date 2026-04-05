@@ -5,6 +5,7 @@ import { CommandPalette } from '@/components/ui/CommandPalette'
 import { KeyboardShortcuts } from '@/components/ui/KeyboardShortcuts'
 import { SignalGenius } from '@/components/dashboard/SignalGenius'
 import { FetchProgress } from '@/components/ui/FetchProgress'
+import { DesktopShell } from '@/components/desktop/DesktopShell'
 
 export const metadata: Metadata = {
   title: 'Signal Lab OS',
@@ -38,17 +39,29 @@ export default function RootLayout({
     <html lang="en">
       <body style={{ background: 'var(--bg)', color: 'var(--text)', margin: 0, padding: 0 }}>
         <FetchProgress />
-        <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
-          <Navigation />
-          <main className="app-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: '100vh' }}>
-            <div className="page-enter">
-              {children}
+        <DesktopShell
+          desktopChildren={
+            <div className="app-shell" style={{ minHeight: '100vh', width: '100%' }}>
+              <main className="app-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: '100vh' }}>
+                <div className="page-enter">
+                  {children}
+                </div>
+              </main>
             </div>
-          </main>
-          <SignalGenius />
-          <CommandPalette />
-          <KeyboardShortcuts />
-        </div>
+          }
+        >
+          <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
+            <Navigation />
+            <main className="app-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: '100vh' }}>
+              <div className="page-enter">
+                {children}
+              </div>
+            </main>
+            <SignalGenius />
+            <CommandPalette />
+            <KeyboardShortcuts />
+          </div>
+        </DesktopShell>
         <script dangerouslySetInnerHTML={{ __html: `
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {

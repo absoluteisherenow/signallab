@@ -1,0 +1,37 @@
+{
+  "productName": "SONIX Set Lab",
+  "version": "0.1.0",
+  "identifier": "com.nightmanoeuvres.sonix-setlab",
+  "build": {
+    "frontendDist": "../out",
+    "devUrl": "http://localhost:3100/setlab",
+    "beforeDevCommand": "npm run dev -- -p 3100",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "SONIX Set Lab",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1000,
+        "minHeight": 700,
+        "decorations": true,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "fs": {
+      "requireLiteralLeadingDot": false
+    },
+    "shell": {
+      "open": true
+    }
+  }
+}

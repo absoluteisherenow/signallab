@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { analyseAudioFile } from '@/lib/audioAnalysis'
 import { ScanPulse } from '@/components/ui/ScanPulse'
-import { isTauri, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, type TauriTrack } from '@/lib/tauri'
+import { isTauri, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, getPlaylists as tauriGetPlaylists, type TauriTrack, type TauriPlaylist } from '@/lib/tauri'
 import { CollectionSidebar } from '@/components/setlab/CollectionSidebar'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800, model = 'claude-haiku-4-5-20251001'): Promise<string> {
@@ -55,6 +55,7 @@ interface Track {
   spotify_url?: string
   album_art?: string
   has_local_audio?: boolean
+  file_path?: string
 }
 
 // ── Audio file map — holds references to files (from drops or folder scan) ──
@@ -347,10 +348,26 @@ export function SetLab() {
     // Stop current playback
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
 
+    let url: string | null = null
     const file = audioFileMap.get(track.id)
-    if (!file) { showToast('No audio file — drop the MP3/WAV to add it', 'Error'); return }
-
-    const url = URL.createObjectURL(file)
+    if (file) {
+      url = URL.createObjectURL(file)
+    } else if (isTauri() && track.file_path) {
+      // Desktop: read audio file from disk via Tauri
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const bytes = await invoke('plugin:fs|read_file', { path: track.file_path }) as number[]
+        const ext = track.file_path.split('.').pop()?.toLowerCase() || 'mp3'
+        const mimeMap: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4', aiff: 'audio/aiff', aif: 'audio/aiff', ogg: 'audio/ogg' }
+        const blob = new Blob([new Uint8Array(bytes)], { type: mimeMap[ext] || 'audio/mpeg' })
+        url = URL.createObjectURL(blob)
+      } catch (err: any) {
+        console.error('File read error:', err)
+        showToast('Could not read audio file', 'Error')
+        return
+      }
+    }
+    if (!url) { showToast('No audio file — drop the MP3/WAV to add it', 'Error'); return }
     const audio = new Audio(url)
     audioRef.current = audio
     audio.ontimeupdate = () => setAudioTime(audio.currentTime)
@@ -1101,7 +1118,7 @@ Provide:
           producer_style: t.producer_style || '', crowd_hits: t.crowd_hits || 0,
           source: t.source || 'manual', discovered_via: t.discovered_via || null,
           spotify_url: t.spotify_url || '', album_art: t.album_art || '',
-          has_local_audio: !!(t.file_path),
+          has_local_audio: !!(t.file_path), file_path: t.file_path || '',
         })))
       } else {
         // Web: load from Supabase via API
@@ -1929,10 +1946,19 @@ Return ONLY valid JSON, no markdown.`, 300)
   })
 
   const [isDesktop, setIsDesktop] = useState(false)
-  useEffect(() => { setIsDesktop(isTauri()) }, [])
+  const [rbPlaylists, setRbPlaylists] = useState<TauriPlaylist[]>([])
+  useEffect(() => {
+    setIsDesktop(isTauri())
+    if (isTauri()) { tauriGetPlaylists().then(setRbPlaylists).catch(() => {}) }
+  }, [])
 
   const playlistCounts: Record<string, number> = {}
-  Object.entries(playlistGroups).forEach(([name, tracks]) => { playlistCounts[name] = tracks.length })
+  // On desktop, use Rekordbox playlists from SQLite; on web, use screenshot-sourced groups
+  if (isDesktop) {
+    rbPlaylists.forEach(p => { playlistCounts[p.name] = p.track_count })
+  } else {
+    Object.entries(playlistGroups).forEach(([name, tracks]) => { playlistCounts[name] = tracks.length })
+  }
 
   const sidebarEl = isDesktop ? (
     <CollectionSidebar
@@ -1957,7 +1983,28 @@ Return ONLY valid JSON, no markdown.`, 300)
       }}
       onIntelligence={() => setActiveTab('intelligence')}
       intelligenceActive={activeTab === 'intelligence'}
-      onImportRekordbox={() => { window.location.href = '/setlab/import' }}
+      onImportRekordbox={async () => {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core')
+          const selected = await invoke('plugin:dialog|open', {
+            title: 'Import Rekordbox Library',
+            filters: [{ name: 'Rekordbox XML', extensions: ['xml'] }],
+            multiple: false,
+            directory: false,
+          })
+          if (!selected) return
+          const filePath = typeof selected === 'string' ? selected : (selected as any)?.path || (selected as any)
+          if (!filePath) return
+          setToast({ tag: 'Import', msg: 'Importing Rekordbox library...' })
+          const result = await tauriImportRekordbox(String(filePath))
+          setToast({ tag: 'Import', msg: `Imported ${result.tracks_imported} tracks${result.playlists_found > 0 ? `, ${result.playlists_found} playlists` : ''}` })
+          loadLibrary()
+          tauriGetPlaylists().then(setRbPlaylists).catch(() => {})
+        } catch (err: any) {
+          console.error('Import error:', err)
+          setToast({ tag: 'Error', msg: err?.message || 'Import failed' })
+        }
+      }}
     />
   ) : null
 
