@@ -905,6 +905,30 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
       <div className="flex flex-col gap-5 p-8">
 
+      {/* VOICE HERO — the sell */}
+      {artists.length > 0 && (
+        <div className="bg-[#0e0d0b] border border-white/7 p-6">
+          <div className="flex items-baseline justify-between mb-4">
+            <div>
+              <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] mb-2">Your voice is live</div>
+              <div className="text-[22px] font-light tracking-[-0.01em] text-[#f0ebe2]">
+                Tuned to {artists.length} artist{artists.length !== 1 ? 's' : ''} in your lane
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[28px] font-light text-[#b08d57]">{calcVoiceAlignment(artists).score}%</div>
+              <div className="text-[9px] tracking-[.12em] uppercase text-[#52504c]">voice confidence</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {artists.map(a => (
+              <span key={a.name} className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] border border-[#b08d57]/30 px-3 py-1 bg-[#b08d57]/5">{a.name}</span>
+            ))}
+            <span className="text-[10px] text-[#52504c] ml-1">+ your posts</span>
+          </div>
+        </div>
+      )}
+
       {/* CAPTION GENERATOR — compact */}
       <div className="bg-[#0e0d0b] border border-white/7 p-5 caption-panel">
         {/* Row 1: context input + generate button */}
@@ -955,17 +979,6 @@ Generate a complete ad plan tailored to this specific content and format. Return
             {syncingIG ? 'Syncing...' : igSyncResult?.synced != null ? `${igSyncResult.synced} synced` : 'Sync IG'}
           </button>
         </div>
-
-        {/* Reference artist chips */}
-        {artists.length > 0 && (
-          <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-            <span className="text-[9px] tracking-[.12em] uppercase text-[#8a8780] mr-0.5">Voice tuned to</span>
-            {artists.map(a => (
-              <span key={a.name} className="text-[9px] tracking-[.12em] uppercase text-[#b08d57] border border-[#b08d57]/25 px-2.5 py-0.5">{a.name}</span>
-            ))}
-            <span className="text-[9px] text-[#52504c]">+ your posts</span>
-          </div>
-        )}
 
         {/* Loading indicator */}
         {generatingCaptions && (
