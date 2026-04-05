@@ -88,7 +88,6 @@ function MediaLibraryTab() {
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState('all')
   const [uploading, setUploading] = useState(false)
-  const [uploadCat, setUploadCat] = useState('other')
   const [deleting, setDeleting] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -112,7 +111,6 @@ function MediaLibraryTab() {
     for (const file of Array.from(files)) {
       const form = new FormData()
       form.append('file', file)
-      form.append('category', uploadCat)
       await fetch('/api/media', { method: 'POST', body: form })
     }
     setUploading(false)
@@ -153,15 +151,6 @@ function MediaLibraryTab() {
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '24px', padding: '12px', border: '1px solid rgba(255,255,255,0.07)', background: 'var(--panel)' }}>
         <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }}
           onChange={e => { if (e.target.files?.length) upload(e.target.files) }} />
-        <select value={uploadCat} onChange={e => setUploadCat(e.target.value)}
-          style={{
-            background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-dim)',
-            fontSize: '9px', letterSpacing: '0.1em', padding: '6px 8px', fontFamily: 'var(--font-mono)',
-          }}>
-          {MEDIA_CATEGORIES.filter(c => c.key !== 'all').map(c => (
-            <option key={c.key} value={c.key}>{c.label}</option>
-          ))}
-        </select>
         <button onClick={() => fileRef.current?.click()} disabled={uploading}
           style={{
             fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase',
@@ -169,8 +158,9 @@ function MediaLibraryTab() {
             color: 'var(--text-dim)', background: 'none', cursor: 'pointer',
             fontFamily: 'var(--font-mono)', opacity: uploading ? 0.4 : 1,
           }}>
-          {uploading ? 'Uploading...' : 'Upload files'}
+          {uploading ? 'Auto-sorting...' : 'Upload files'}
         </button>
+        {uploading && <span style={{ fontSize: '8px', color: 'var(--text-dimmer)' }}>Categorising with vision</span>}
         <span style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginLeft: 'auto' }}>{items.length} file{items.length !== 1 ? 's' : ''}</span>
       </div>
 

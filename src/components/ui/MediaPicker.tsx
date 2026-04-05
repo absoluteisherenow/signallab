@@ -34,7 +34,6 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
   const [category, setCategory] = useState('all')
   const [selected, setSelected] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
-  const [uploadCategory, setUploadCategory] = useState('other')
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -63,7 +62,6 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
       for (const file of Array.from(files)) {
         const form = new FormData()
         form.append('file', file)
-        form.append('category', uploadCategory)
         await fetch('/api/media', { method: 'POST', body: form })
       }
       await loadMedia()
@@ -153,16 +151,11 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
           <div className="flex items-center gap-2">
             <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden"
               onChange={e => { if (e.target.files?.length) upload(e.target.files) }} />
-            <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)}
-              className="bg-[#1a1917] border border-white/10 text-[#8a8780] text-[9px] tracking-[.1em] px-2 py-1.5 outline-none">
-              {CATEGORIES.filter(c => c.key !== 'all').map(c => (
-                <option key={c.key} value={c.key}>{c.label}</option>
-              ))}
-            </select>
             <button onClick={() => fileRef.current?.click()} disabled={uploading}
               className="text-[9px] tracking-[.14em] uppercase border border-white/10 text-[#8a8780] px-3 py-1.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40">
-              {uploading ? 'Uploading...' : 'Upload new'}
+              {uploading ? 'Auto-sorting...' : 'Upload new'}
             </button>
+            {uploading && <span className="text-[8px] text-[#52504c]">Categorising with vision</span>}
           </div>
           <div className="flex items-center gap-3">
             {selected.length > 0 && (

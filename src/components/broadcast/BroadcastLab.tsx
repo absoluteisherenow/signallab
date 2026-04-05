@@ -957,12 +957,12 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
         {/* Reference artist chips */}
         {artists.length > 0 && (
-          <div className="flex items-center gap-1.5 mt-3">
-            <span className="text-[8px] tracking-[.12em] uppercase text-[#2e2c29] mr-0.5">Voice tuned to</span>
+          <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+            <span className="text-[9px] tracking-[.12em] uppercase text-[#8a8780] mr-0.5">Voice tuned to</span>
             {artists.map(a => (
-              <span key={a.name} className="text-[8px] tracking-[.12em] uppercase text-[#52504c] border border-white/8 px-2 py-0.5">{a.name}</span>
+              <span key={a.name} className="text-[9px] tracking-[.12em] uppercase text-[#b08d57] border border-[#b08d57]/25 px-2.5 py-0.5">{a.name}</span>
             ))}
-            <span className="text-[8px] text-[#2e2c29]">+ your posts</span>
+            <span className="text-[9px] text-[#52504c]">+ your posts</span>
           </div>
         )}
 
