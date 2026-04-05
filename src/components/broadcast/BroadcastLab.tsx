@@ -977,7 +977,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
       <SignalLabHeader />
 
-      <div className="flex flex-col gap-5 p-8">
+      <div className="flex flex-col gap-4 p-6">
 
       {/* CONTENT INTELLIGENCE — hero section, first thing you see */}
       {(() => {
@@ -990,74 +990,70 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
         return (
         <div className="bg-[#0e0d0b] border border-white/7">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-white/5">
-            <div>
-              <div className="text-[14px] tracking-[.22em] uppercase text-[#b08d57]">Content Intelligence</div>
-              {artists.length > 0 && (
-                <div className="text-[11px] text-[#52504c] mt-1">{artists.length} artist{artists.length !== 1 ? 's' : ''} profiled · {totalPosts} posts analysed</div>
-              )}
+          {/* Header — compact */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <div className="text-[12px] tracking-[.22em] uppercase text-[#b08d57]">Content Intelligence</div>
+              {artists.length > 0 && <div className="text-[10px] text-[#52504c]">· {artists.length} artists · {totalPosts} posts</div>}
             </div>
             {va && va.score > 0 && (
-              <div className="flex items-center gap-3">
-                <div className="text-[28px] font-light text-[#b08d57]">{va.score}%</div>
-                <div className="text-[10px] tracking-[.12em] uppercase text-[#52504c] leading-tight">voice<br/>confidence</div>
+              <div className="flex items-center gap-2">
+                <div className="text-[22px] font-light text-[#b08d57]">{va.score}%</div>
+                <div className="text-[8px] tracking-[.12em] uppercase text-[#52504c] leading-tight">confidence</div>
               </div>
             )}
           </div>
 
-          {/* Top 2 artists — full detail */}
+          {/* Top 2 artists — compact but rich */}
           {topArtists.length > 0 && (
             <div className="grid grid-cols-2 gap-px bg-white/5">
               {topArtists.map(artist => (
-                <div key={artist.name} className="bg-[#0e0d0b] p-5 relative group">
+                <div key={artist.name} className="bg-[#0e0d0b] p-4 relative group">
                   <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
-                    className="absolute top-3 right-3 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-sm leading-none">x</button>
-                  {/* Name + handle */}
-                  <div className="flex items-center gap-3 mb-4">
+                    className="absolute top-2 right-2 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-sm leading-none">x</button>
+                  {/* Name row */}
+                  <div className="flex items-center gap-2.5 mb-3">
                     {artist.profile_pic_url ? (
-                      <img src={artist.profile_pic_url} alt="" className="w-10 h-10 rounded-full object-cover border border-[#b08d57]/30 flex-shrink-0" />
+                      <img src={artist.profile_pic_url} alt="" className="w-8 h-8 rounded-full object-cover border border-[#b08d57]/30 flex-shrink-0" />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/30 flex items-center justify-center text-[12px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
+                      <div className="w-8 h-8 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/30 flex items-center justify-center text-[11px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
                     )}
-                    <div>
-                      <div className="text-[15px] tracking-[.06em] text-[#f0ebe2]">{artist.name}</div>
-                      <div className="text-[10px] text-[#52504c]">{artist.handle} · {artist.genre}</div>
-                    </div>
-                    {artist.follower_count ? (
-                      <span className="ml-auto text-[11px] text-[#b08d57]">{artist.follower_count > 1000000 ? `${(artist.follower_count/1000000).toFixed(1)}M` : artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}</span>
-                    ) : null}
-                  </div>
-                  {/* Stats row */}
-                  <div className="grid grid-cols-4 gap-px bg-white/5 mb-4 border border-white/5">
-                    <div className="bg-[#0e0d0b] p-2.5 text-center">
-                      <div className="text-[16px] font-light text-[#f0ebe2]">{artist.lowercase_pct}%</div>
-                      <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-0.5">Lowercase</div>
-                    </div>
-                    <div className="bg-[#0e0d0b] p-2.5 text-center">
-                      <div className="text-[16px] font-light text-[#f0ebe2]">{artist.short_caption_pct}%</div>
-                      <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-0.5">Short</div>
-                    </div>
-                    <div className="bg-[#0e0d0b] p-2.5 text-center">
-                      <div className="text-[16px] font-light text-[#f0ebe2]">{artist.no_hashtags_pct}%</div>
-                      <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-0.5">No tags</div>
-                    </div>
-                    <div className="bg-[#0e0d0b] p-2.5 text-center">
-                      <div className="text-[16px] font-light text-[#b08d57]">{artist.content_performance?.engagement_rate || `${artist.post_count_analysed}`}</div>
-                      <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-0.5">{artist.content_performance?.engagement_rate ? 'Eng. rate' : 'Posts'}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] tracking-[.06em] text-[#f0ebe2]">{artist.name}</div>
+                      <div className="text-[9px] text-[#52504c]">{artist.handle} · {artist.genre}{artist.follower_count ? ` · ${artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}` : ''}</div>
                     </div>
                   </div>
-                  {/* Voice rules — trimmed to 3 lines */}
+                  {/* Stats row — tighter */}
+                  <div className="grid grid-cols-4 gap-px bg-white/5 mb-3 border border-white/5">
+                    <div className="bg-[#0e0d0b] py-1.5 px-1 text-center">
+                      <div className="text-[14px] font-light text-[#f0ebe2]">{artist.lowercase_pct}%</div>
+                      <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Lowercase</div>
+                    </div>
+                    <div className="bg-[#0e0d0b] py-1.5 px-1 text-center">
+                      <div className="text-[14px] font-light text-[#f0ebe2]">{artist.short_caption_pct}%</div>
+                      <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Short</div>
+                    </div>
+                    <div className="bg-[#0e0d0b] py-1.5 px-1 text-center">
+                      <div className="text-[14px] font-light text-[#f0ebe2]">{artist.no_hashtags_pct}%</div>
+                      <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">No tags</div>
+                    </div>
+                    <div className="bg-[#0e0d0b] py-1.5 px-1 text-center">
+                      <div className="text-[14px] font-light text-[#b08d57]">{artist.content_performance?.engagement_rate || `${artist.post_count_analysed}`}</div>
+                      <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">{artist.content_performance?.engagement_rate ? 'Eng. rate' : 'Posts'}</div>
+                    </div>
+                  </div>
+                  {/* Voice rules — 2 lines max */}
                   {artist.style_rules && (
-                    <div className="text-[11px] leading-[1.7] text-[#8a8780] mb-4 border-l-2 border-[#b08d57]/25 pl-3 line-clamp-3">
+                    <div className="text-[10px] leading-[1.6] text-[#8a8780] mb-3 border-l-2 border-[#b08d57]/25 pl-2.5 line-clamp-2">
                       {artist.style_rules}
                     </div>
                   )}
-                  {/* Chips */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {artist.chips.map((chip, i) => (
-                      <span key={chip} className={`text-[9px] tracking-[.1em] uppercase px-2 py-0.5 border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/40 text-[#b08d57] bg-[#b08d57]/5' : 'border-white/10 text-[#52504c]'}`}>{chip}</span>
+                  {/* Chips — single row */}
+                  <div className="flex flex-wrap gap-1">
+                    {artist.chips.slice(0, 5).map((chip, i) => (
+                      <span key={chip} className={`text-[8px] tracking-[.1em] uppercase px-1.5 py-px border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/40 text-[#b08d57] bg-[#b08d57]/5' : 'border-white/10 text-[#52504c]'}`}>{chip}</span>
                     ))}
+                    {artist.chips.length > 5 && <span className="text-[8px] text-[#52504c]">+{artist.chips.length - 5}</span>}
                   </div>
                 </div>
               ))}
