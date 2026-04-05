@@ -6,6 +6,7 @@ import { analyseAudioFile } from '@/lib/audioAnalysis'
 import { ScanPulse } from '@/components/ui/ScanPulse'
 import { isTauri, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, getPlaylists as tauriGetPlaylists, readAudioFile, type TauriTrack, type TauriPlaylist } from '@/lib/tauri'
 import { CollectionSidebar } from '@/components/setlab/CollectionSidebar'
+import { WaveformDisplay, extractPeaks, extractPeaksFromFile } from '@/components/setlab/WaveformDisplay'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800, model = 'claude-haiku-4-5-20251001'): Promise<string> {
   const res = await fetch('/api/claude', {
@@ -260,6 +261,31 @@ export function SetLab() {
   const [userPlaylists, setUserPlaylists] = useState<Record<string, string[]>>({}) // name → track IDs
   const [addToMenu, setAddToMenu] = useState<string | null>(null) // track.id when menu is open
   const [newPlaylistName, setNewPlaylistName] = useState('')
+  // ── Smart Playlists ────────────────────────────────────────────────────
+  interface SmartPlaylistRule {
+    genre?: string
+    bpm_low?: number
+    bpm_high?: number
+    energy_low?: number
+    energy_high?: number
+    camelot_keys?: string[]
+    moment_types?: string[]
+    keyword?: string // searches title, artist, notes, producer_style
+  }
+  interface SmartPlaylist {
+    id: string
+    name: string
+    rules: SmartPlaylistRule
+    created_at: string
+  }
+  const [smartPlaylists, setSmartPlaylists] = useState<SmartPlaylist[]>([])
+  const [editingSmartPlaylist, setEditingSmartPlaylist] = useState<SmartPlaylist | null>(null)
+  const [showSmartPlaylistEditor, setShowSmartPlaylistEditor] = useState(false)
+  // ── Transition Intelligence ────────────────────────────────────────────
+  const [transitionAdvice, setTransitionAdvice] = useState<Record<string, string>>({}) // "trackA_id::trackB_id" → advice
+  const [loadingTransition, setLoadingTransition] = useState<string | null>(null)
+  // ── Waveform peaks cache ───────────────────────────────────────────────
+  const waveformCache = useRef<Map<string, number[]>>(new Map())
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [audioPlaying, setAudioPlaying] = useState(false)
   const [audioTime, setAudioTime] = useState(0)
@@ -387,6 +413,18 @@ export function SetLab() {
     audio.play()
     setPlayingTrack({ id: track.id, title: track.title, artist: track.artist, album_art: track.album_art })
     setAudioPlaying(true)
+
+    // Extract waveform peaks in background (if not cached)
+    if (!waveformCache.current.has(track.id)) {
+      try {
+        const file = audioFileMap.get(track.id)
+        if (file) {
+          extractPeaksFromFile(file, 200).then(peaks => waveformCache.current.set(track.id, peaks))
+        } else if (url && !isPreview) {
+          extractPeaks(url, 200).then(peaks => waveformCache.current.set(track.id, peaks))
+        }
+      } catch { /* waveform extraction is best-effort */ }
+    }
   }
 
   function stopPlayback() {
@@ -632,7 +670,78 @@ export function SetLab() {
     t.moment_type.toLowerCase().includes(searchQuery.toLowerCase())
 
   const depthFiltered = depthFilter >= 100 ? curatedLibrary : curatedLibrary.filter(t => (t.energy || 5) <= Math.ceil(depthFilter / 10))
-  const filteredLibrary = depthFiltered.filter(searchFn)
+  const activeSmartPlaylist = searchQuery.startsWith('smart:')
+    ? smartPlaylists.find(sp => sp.name === searchQuery.slice(6))
+    : null
+  const filteredLibrary = activeSmartPlaylist
+    ? depthFiltered.filter(t => matchSmartPlaylist(activeSmartPlaylist.rules, t))
+    : depthFiltered.filter(searchFn)
+
+  // ── Smart Playlist matcher ────────────────────────────────────────────
+  function matchSmartPlaylist(rules: SmartPlaylistRule, track: Track): boolean {
+    if (rules.genre && !track.genre.toLowerCase().includes(rules.genre.toLowerCase())) return false
+    if (rules.bpm_low && track.bpm < rules.bpm_low) return false
+    if (rules.bpm_high && track.bpm > rules.bpm_high) return false
+    if (rules.energy_low && track.energy < rules.energy_low) return false
+    if (rules.energy_high && track.energy > rules.energy_high) return false
+    if (rules.camelot_keys?.length && !rules.camelot_keys.includes(track.camelot)) return false
+    if (rules.moment_types?.length && !rules.moment_types.includes(track.moment_type)) return false
+    if (rules.keyword) {
+      const kw = rules.keyword.toLowerCase()
+      const text = `${track.title} ${track.artist} ${track.notes} ${track.producer_style} ${track.genre}`.toLowerCase()
+      if (!text.includes(kw)) return false
+    }
+    return true
+  }
+
+  function getSmartPlaylistTracks(sp: SmartPlaylist): Track[] {
+    return curatedLibrary.filter(t => matchSmartPlaylist(sp.rules, t))
+  }
+
+  function saveSmartPlaylist(sp: SmartPlaylist) {
+    setSmartPlaylists(prev => {
+      const existing = prev.findIndex(p => p.id === sp.id)
+      if (existing >= 0) { const next = [...prev]; next[existing] = sp; return next }
+      return [...prev, sp]
+    })
+    setShowSmartPlaylistEditor(false)
+    setEditingSmartPlaylist(null)
+  }
+
+  function deleteSmartPlaylist(id: string) {
+    setSmartPlaylists(prev => prev.filter(p => p.id !== id))
+  }
+
+  // ── Transition Intelligence ────────────────────────────────────────────
+  async function getTransitionAdvice(trackA: SetTrack, trackB: SetTrack) {
+    const key = `${trackA.id}::${trackB.id}`
+    if (transitionAdvice[key]) return // already have it
+    setLoadingTransition(key)
+    try {
+      const advice = await callClaude(
+        `You are an expert DJ mixing advisor. Given two adjacent tracks in a set, provide specific, actionable mixing advice for the transition between them. Be concise (2-3 sentences max). Include specific techniques: EQ moves, filter sweeps, loop points, phrase matching tips. Reference the BPM gap and key relationship.`,
+        `Track A (outgoing): "${trackA.artist} - ${trackA.title}" | BPM: ${trackA.bpm} | Key: ${trackA.camelot} | Energy: ${trackA.energy}/10 | Type: ${trackA.moment_type}${trackA.mix_out ? ` | Mix out: ${trackA.mix_out}` : ''}
+Track B (incoming): "${trackB.artist} - ${trackB.title}" | BPM: ${trackB.bpm} | Key: ${trackB.camelot} | Energy: ${trackB.energy}/10 | Type: ${trackB.moment_type}${trackB.mix_in ? ` | Mix in: ${trackB.mix_in}` : ''}
+BPM gap: ${Math.abs(trackA.bpm - trackB.bpm)} | Key compatibility: ${trackA.camelot} → ${trackB.camelot}
+Give specific mixing advice for this transition.`,
+        200
+      )
+      setTransitionAdvice(prev => ({ ...prev, [key]: advice }))
+    } catch (err: any) {
+      setTransitionAdvice(prev => ({ ...prev, [key]: `Could not analyse: ${err.message}` }))
+    } finally {
+      setLoadingTransition(null)
+    }
+  }
+
+  async function analyseAllTransitions() {
+    for (let i = 0; i < set.length - 1; i++) {
+      const key = `${set[i].id}::${set[i + 1].id}`
+      if (!transitionAdvice[key]) {
+        await getTransitionAdvice(set[i], set[i + 1])
+      }
+    }
+  }
 
   function addToSet(track: Track, switchTab = false) {
     const prev = set[set.length - 1]
@@ -1931,6 +2040,88 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
   useEffect(() => { loadLibrary().then(() => reconnectMusicFolder()); loadPastSets(); fetchUpcomingGig(); loadWantlist() }, [])
 
+  // ── Keyboard Shortcuts ─────────────────────────────────────────────────
+  const [selectedTrackIdx, setSelectedTrackIdx] = useState(-1)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+
+      // Cmd/Ctrl+F → focus search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        if (activeTab !== 'library') setActiveTab('library')
+        return
+      }
+
+      // Tab switching: Cmd+1-6
+      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '6') {
+        e.preventDefault()
+        const tabs: Array<typeof activeTab> = ['library', 'builder', 'history', 'discover', 'scanner', 'intelligence']
+        const idx = parseInt(e.key) - 1
+        if (tabs[idx]) setActiveTab(tabs[idx])
+        return
+      }
+
+      // Don't handle other shortcuts when typing in inputs
+      if (isInput) return
+
+      // Space → play/pause
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault()
+        if (audioRef.current && playingTrack) {
+          if (audioPlaying) { audioRef.current.pause(); setAudioPlaying(false) }
+          else { audioRef.current.play(); setAudioPlaying(true) }
+        } else if (selectedTrackIdx >= 0 && filteredLibrary[selectedTrackIdx]) {
+          playTrack(filteredLibrary[selectedTrackIdx])
+        }
+        return
+      }
+
+      // Arrow Up/Down → navigate library
+      if (activeTab === 'library' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault()
+        setSelectedTrackIdx(prev => {
+          const next = e.key === 'ArrowDown'
+            ? Math.min(prev + 1, filteredLibrary.length - 1)
+            : Math.max(prev - 1, 0)
+          // Scroll into view
+          const row = trackListRef.current?.querySelector(`[data-track-idx="${next}"]`) as HTMLElement
+          row?.scrollIntoView({ block: 'nearest' })
+          return next
+        })
+        return
+      }
+
+      // Enter → play selected track
+      if (e.key === 'Enter' && selectedTrackIdx >= 0 && filteredLibrary[selectedTrackIdx]) {
+        e.preventDefault()
+        playTrack(filteredLibrary[selectedTrackIdx])
+        return
+      }
+
+      // A → add selected track to set
+      if (e.key === 'a' && selectedTrackIdx >= 0 && filteredLibrary[selectedTrackIdx]) {
+        addToSet(filteredLibrary[selectedTrackIdx])
+        showToast(`Added to set`, 'Set')
+        return
+      }
+
+      // Escape → stop playback / clear search
+      if (e.key === 'Escape') {
+        if (searchQuery) { setSearchQuery(''); setSelectedTrackIdx(-1) }
+        else if (audioPlaying) stopPlayback()
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  })
+
   // ── Persist scanner state across navigation ──────────────────────────────
   const SCANNER_KEY = 'setlab_scanner_v1'
 
@@ -2295,6 +2486,11 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
       rekordboxConnected={!!rbXmlData}
       rekordboxPlaylists={rbXmlData?.playlists.map(p => ({ name: p.name, trackCount: p.trackIds.length })) || []}
       onConnectRekordbox={connectRekordboxXml}
+      smartPlaylists={smartPlaylists.map(sp => ({ id: sp.id, name: sp.name, trackCount: getSmartPlaylistTracks(sp).length }))}
+      onCreateSmartPlaylist={() => {
+        setEditingSmartPlaylist({ id: crypto.randomUUID(), name: '', rules: {}, created_at: new Date().toISOString() })
+        setShowSmartPlaylistEditor(true)
+      }}
       onSectionChange={(section) => {
         if (section === 'all' || section === 'discoveries' || section === 'playlists' || section === 'wantlist') {
           setLibrarySection(section as any)
@@ -2304,6 +2500,17 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
           setLibrarySection('playlists')
           setRbActivePlaylist(null)
           setActiveTab('library')
+        } else if (section.startsWith('smart:')) {
+          const spId = section.slice(6)
+          const sp = smartPlaylists.find(p => p.id === spId)
+          if (sp) {
+            setSearchQuery('')
+            setLibrarySection('all')
+            setRbActivePlaylist(null)
+            setActiveTab('library')
+            // Set search to filter by smart playlist criteria
+            setSearchQuery(`smart:${sp.name}`)
+          }
         } else if (section.startsWith('rb:')) {
           setRbActivePlaylist(section.slice(3))
           setActiveTab('library')
@@ -2437,8 +2644,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                 </>
               ) : (
                 <>
-                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search tracks, artists, genres, moment types..."
+                  <input ref={searchInputRef} value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSelectedTrackIdx(-1) }}
+                    placeholder="Search tracks, artists, genres, moment types...  (⌘F)"
                     style={{ flex: 1, background: s.black, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '12px 16px', outline: 'none' }} />
                   <button onClick={() => setAddingTrack(true)}
                     style={{ ...btn(s.gold), padding: '12px 20px', whiteSpace: 'nowrap' }}>+ Add track</button>
@@ -2724,12 +2931,15 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
               )}
               {/* Virtualized: only render visible rows */}
               {filteredLibrary.length > 0 && <div style={{ height: visibleRange.start * 48 }} />}
-              {filteredLibrary.slice(visibleRange.start, visibleRange.end).map(track => (
-                <div key={track.id}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer', background: selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}
-                    onClick={() => setExpandedTrack(expandedTrack === track.id ? null : track.id)}
-                    onMouseEnter={e => { if (!selectedTracks.has(track.id)) e.currentTarget.style.background = s.bg }}
-                    onMouseLeave={e => { e.currentTarget.style.background = selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}>
+              {filteredLibrary.slice(visibleRange.start, visibleRange.end).map((track, _vi) => {
+                const trackIdx = visibleRange.start + _vi
+                const isSelected = trackIdx === selectedTrackIdx
+                return (
+                <div key={track.id} data-track-idx={trackIdx}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer', background: isSelected ? `${s.setlab}15` : selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent', borderLeft: isSelected ? `2px solid ${s.setlab}` : '2px solid transparent' }}
+                    onClick={() => { setSelectedTrackIdx(trackIdx); setExpandedTrack(expandedTrack === track.id ? null : track.id) }}
+                    onMouseEnter={e => { if (!isSelected && !selectedTracks.has(track.id)) e.currentTarget.style.background = s.bg }}
+                    onMouseLeave={e => { e.currentTarget.style.background = isSelected ? `${s.setlab}15` : selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); toggleTrackSelection(track.id) }}>
                       <input type="checkbox" checked={selectedTracks.has(track.id)} readOnly
                         style={{ cursor: 'pointer', accentColor: s.gold }} />
@@ -2823,7 +3033,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     </div>
                   </div>
 
-                  {/* ── Inline Audio Player ── */}
+                  {/* ── Inline Audio Player with Waveform ── */}
                   {playingTrack?.id === track.id && (
                     <div style={{ background: 'rgba(12,10,6,0.95)', borderBottom: `1px solid ${s.gold}30`, padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}
                       onClick={e => e.stopPropagation()}>
@@ -2831,9 +3041,17 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                         style={{ background: 'none', border: 'none', color: s.gold, fontSize: '16px', cursor: 'pointer', padding: '0 2px', flexShrink: 0 }}>
                         {audioPlaying ? '■' : '▶'}
                       </button>
-                      <div style={{ flex: 1, height: '4px', background: s.border, cursor: 'pointer', position: 'relative', borderRadius: '2px' }}
-                        onClick={e => { const rect = e.currentTarget.getBoundingClientRect(); seekAudio((e.clientX - rect.left) / rect.width) }}>
-                        <div style={{ position: 'absolute', top: 0, left: 0, height: '4px', width: `${audioDuration ? (audioTime / audioDuration) * 100 : 0}%`, background: s.gold, borderRadius: '2px', transition: 'width 0.1s' }} />
+                      <div style={{ flex: 1, position: 'relative' }}>
+                        <WaveformDisplay
+                          peaks={waveformCache.current.get(track.id) || null}
+                          progress={audioDuration ? audioTime / audioDuration : 0}
+                          onSeek={seekAudio}
+                          height={36}
+                          barWidth={2}
+                          barGap={1}
+                          color="rgba(176, 141, 87, 0.25)"
+                          progressColor="rgba(176, 141, 87, 0.85)"
+                        />
                       </div>
                       <div style={{ fontSize: '10px', color: s.textDimmer, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
                         {Math.floor(audioTime / 60)}:{String(Math.floor(audioTime % 60)).padStart(2, '0')} / {Math.floor(audioDuration / 60)}:{String(Math.floor(audioDuration % 60)).padStart(2, '0')}
@@ -2929,7 +3147,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     </div>
                   )}
                 </div>
-              ))}
+              )})}
               {filteredLibrary.length > 0 && <div style={{ height: Math.max(0, filteredLibrary.length - visibleRange.end) * 48 }} />}
             </div>
 
@@ -3250,27 +3468,56 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                             <button onClick={() => removeFromSet(track.id)} style={{ background: 'none', border: 'none', color: s.textDimmer, cursor: 'pointer', fontSize: '14px', padding: '0 4px' }}>×</button>
                           </div>
                         </div>
-                        {/* Flow warning */}
-                        {nextFlow !== null && nextFlow < 65 && (
-                          <div style={{ padding: '6px 16px 6px 44px', background: 'rgba(154,106,90,0.1)', borderBottom: `1px solid ${s.border}`, fontSize: '10px', color: '#9a6a5a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span>⚠</span>
-                            {track.title} → {next?.title}: {nextFlow}% flow ({track.camelot}→{next?.camelot}, {Math.abs(track.bpm - next!.bpm)}BPM gap, energy {track.energy}→{next!.energy})
-                            {nextFlow < 45 && ' — consider reordering or adding a bridge track'}
-                          </div>
-                        )}
+                        {/* Transition Intelligence */}
+                        {next && (() => {
+                          const tKey = `${track.id}::${next.id}`
+                          const advice = transitionAdvice[tKey]
+                          const isLoading = loadingTransition === tKey
+                          const flowColor = nextFlow !== null && nextFlow < 45 ? '#9a6a5a' : nextFlow !== null && nextFlow < 65 ? '#b08d57' : '#3d6b4a'
+                          return (
+                            <div style={{ padding: '8px 16px 8px 44px', background: advice ? 'rgba(61,107,74,0.06)' : nextFlow !== null && nextFlow < 65 ? 'rgba(154,106,90,0.08)' : 'transparent', borderBottom: `1px solid ${s.border}`, borderLeft: `2px solid ${flowColor}` }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                                <span style={{ color: flowColor, fontVariantNumeric: 'tabular-nums', minWidth: '32px' }}>{nextFlow}%</span>
+                                <span style={{ color: s.textDimmer }}>{track.camelot} → {next.camelot}</span>
+                                {Math.abs(track.bpm - next.bpm) > 0 && <span style={{ color: s.textDimmer }}>{Math.abs(track.bpm - next.bpm) > 4 ? '⚠ ' : ''}{Math.abs(track.bpm - next.bpm)} BPM gap</span>}
+                                <span style={{ color: s.textDimmer }}>E{track.energy}→{next.energy}</span>
+                                {!advice && !isLoading && (
+                                  <button onClick={() => getTransitionAdvice(track, next)}
+                                    style={{ background: 'none', border: `1px solid ${s.setlab}40`, color: s.setlab, fontFamily: s.font, fontSize: '9px', padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.08em', marginLeft: 'auto' }}>
+                                    Mix advice
+                                  </button>
+                                )}
+                                {isLoading && <ScanPulse size="sm" color={s.setlab} />}
+                              </div>
+                              {advice && (
+                                <div style={{ marginTop: '6px', fontSize: '11px', color: s.textDim, lineHeight: '1.5', paddingLeft: '40px' }}>
+                                  {advice}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )
                   })
                 )}
               </div>
 
-              {/* Suggest Next button */}
+              {/* Action buttons */}
               {set.length > 0 && (
                 <div>
-                  <button onClick={suggestNextTrack} disabled={suggestingNext} style={{ ...btn(s.setlab), width: '100%', justifyContent: 'center' }}>
-                    {suggestingNext && <ScanPulse size="sm" color={s.setlab} />}
-                    {suggestingNext ? 'Finding best next track...' : 'Suggest next track →'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={suggestNextTrack} disabled={suggestingNext} style={{ ...btn(s.setlab), flex: 1, justifyContent: 'center' }}>
+                      {suggestingNext && <ScanPulse size="sm" color={s.setlab} />}
+                      {suggestingNext ? 'Finding best next track...' : 'Suggest next track →'}
+                    </button>
+                    {set.length > 1 && (
+                      <button onClick={analyseAllTransitions} disabled={!!loadingTransition}
+                        style={{ ...btn(s.gold, 'transparent'), justifyContent: 'center', whiteSpace: 'nowrap', padding: '10px 16px' }}>
+                        {loadingTransition ? <><ScanPulse size="sm" color={s.gold} /> Analysing...</> : 'Mix advice for all'}
+                      </button>
+                    )}
+                  </div>
 
                   {/* Suggestions */}
                   {suggestions.length > 0 && (
@@ -5001,6 +5248,113 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
       )}
 
 
+
+      {/* ── Smart Playlist Editor Modal ── */}
+      {showSmartPlaylistEditor && editingSmartPlaylist && (() => {
+        const sp = editingSmartPlaylist
+        const update = (patch: Partial<SmartPlaylist>) => setEditingSmartPlaylist({ ...sp, ...patch })
+        const updateRules = (patch: Partial<SmartPlaylistRule>) => update({ rules: { ...sp.rules, ...patch } })
+        const matchCount = curatedLibrary.filter(t => matchSmartPlaylist(sp.rules, t)).length
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setShowSmartPlaylistEditor(false)}>
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '28px 32px', width: '520px', maxHeight: '80vh', overflowY: 'auto' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', marginBottom: '20px' }}>
+                {sp.name ? 'Edit Smart Crate' : 'New Smart Crate'}
+              </div>
+
+              {/* Name */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Name</div>
+                <input value={sp.name} onChange={e => update({ name: e.target.value })} placeholder="e.g. Peak Hour Techno"
+                  autoFocus
+                  style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '13px', padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              {/* Genre */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Genre contains</div>
+                <input value={sp.rules.genre || ''} onChange={e => updateRules({ genre: e.target.value || undefined })} placeholder="e.g. techno, house, minimal"
+                  style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              {/* BPM range */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>BPM min</div>
+                  <input type="number" value={sp.rules.bpm_low || ''} onChange={e => updateRules({ bpm_low: e.target.value ? Number(e.target.value) : undefined })} placeholder="120"
+                    style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>BPM max</div>
+                  <input type="number" value={sp.rules.bpm_high || ''} onChange={e => updateRules({ bpm_high: e.target.value ? Number(e.target.value) : undefined })} placeholder="134"
+                    style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+
+              {/* Energy range */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Energy min (1-10)</div>
+                  <input type="number" min={1} max={10} value={sp.rules.energy_low || ''} onChange={e => updateRules({ energy_low: e.target.value ? Number(e.target.value) : undefined })} placeholder="5"
+                    style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Energy max (1-10)</div>
+                  <input type="number" min={1} max={10} value={sp.rules.energy_high || ''} onChange={e => updateRules({ energy_high: e.target.value ? Number(e.target.value) : undefined })} placeholder="9"
+                    style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+
+              {/* Moment types */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Moment types</div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {['opener', 'builder', 'peak', 'breakdown', 'closer'].map(mt => {
+                    const active = sp.rules.moment_types?.includes(mt)
+                    return (
+                      <button key={mt} onClick={() => {
+                        const current = sp.rules.moment_types || []
+                        updateRules({ moment_types: active ? current.filter(m => m !== mt) : [...current, mt] })
+                      }} style={{
+                        fontFamily: s.font, fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase',
+                        padding: '5px 12px', cursor: 'pointer',
+                        background: active ? `${s.setlab}25` : 'transparent',
+                        border: `1px solid ${active ? s.setlab : s.border}`,
+                        color: active ? s.setlab : s.textDimmer,
+                      }}>{mt}</button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Keyword */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.textDimmer, textTransform: 'uppercase', marginBottom: '6px' }}>Keyword (title, artist, notes)</div>
+                <input value={sp.rules.keyword || ''} onChange={e => updateRules({ keyword: e.target.value || undefined })} placeholder="e.g. warehouse, ambient, tribal"
+                  style={{ width: '100%', background: s.bg, border: `1px solid ${s.border}`, color: s.text, fontFamily: s.font, fontSize: '12px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              {/* Live match count */}
+              <div style={{ padding: '12px 16px', background: s.bg, border: `1px solid ${s.border}`, marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', color: s.textDim }}>Matching tracks</span>
+                <span style={{ fontSize: '14px', color: matchCount > 0 ? s.gold : s.textDimmer, fontVariantNumeric: 'tabular-nums' }}>{matchCount}</span>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button onClick={() => { setShowSmartPlaylistEditor(false); setEditingSmartPlaylist(null) }}
+                  style={{ ...btn(s.textDim, 'transparent'), fontSize: '11px', padding: '10px 20px' }}>Cancel</button>
+                <button onClick={() => { if (sp.name.trim()) saveSmartPlaylist(sp); else showToast('Give your smart crate a name', 'Error') }}
+                  style={{ ...btn(s.setlab), fontSize: '11px', padding: '10px 24px' }}>
+                  {smartPlaylists.some(p => p.id === sp.id) ? 'Update' : 'Create'} Smart Crate
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {toast && (
         <div style={{ position: 'fixed', top: '20px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 9999, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)', borderRadius: '4px' }}>

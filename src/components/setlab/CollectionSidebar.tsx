@@ -24,6 +24,9 @@ interface SidebarProps {
   rekordboxPlaylists?: RekordboxPlaylist[]
   onConnectRekordbox?: () => void
   rekordboxConnected?: boolean
+  // Smart playlists
+  smartPlaylists?: Array<{ id: string; name: string; trackCount: number }>
+  onCreateSmartPlaylist?: () => void
 }
 
 export function CollectionSidebar({
@@ -33,9 +36,11 @@ export function CollectionSidebar({
   onIntelligence, intelligenceActive,
   onImportRekordbox, onAddFolder,
   rekordboxPlaylists, onConnectRekordbox, rekordboxConnected,
+  smartPlaylists, onCreateSmartPlaylist,
 }: SidebarProps) {
   const [collectionOpen, setCollectionOpen] = useState(true)
   const [playlistsOpen, setPlaylistsOpen] = useState(true)
+  const [smartOpen, setSmartOpen] = useState(true)
   const [setsOpen, setSetsOpen] = useState(false)
   const [foldersOpen, setFoldersOpen] = useState(false)
   const [rekordboxOpen, setRekordboxOpen] = useState(true)
@@ -138,6 +143,31 @@ export function CollectionSidebar({
           ) : (
             Object.entries(playlists).map(([name, count]) =>
               item('playlist:' + name, name, count, 1)
+            )
+          )}
+        </div>
+      )}
+
+      {/* Smart Playlists */}
+      {sectionHeader('Smart Crates', smartOpen, () => setSmartOpen(v => !v),
+        onCreateSmartPlaylist ? { label: 'New smart playlist', onClick: onCreateSmartPlaylist } : undefined
+      )}
+      {smartOpen && (
+        <div>
+          {(!smartPlaylists || smartPlaylists.length === 0) ? (
+            <div style={{ padding: '6px 16px 6px 32px', fontSize: '10px', color: s.textDimmer, fontStyle: 'italic' }}>
+              {onCreateSmartPlaylist ? (
+                <button
+                  onClick={onCreateSmartPlaylist}
+                  style={{ background: 'none', border: 'none', color: s.textDimmer, fontFamily: s.font, fontSize: '10px', cursor: 'pointer', padding: 0, fontStyle: 'italic' }}
+                >
+                  + Create smart crate...
+                </button>
+              ) : 'No smart crates'}
+            </div>
+          ) : (
+            smartPlaylists.map(sp =>
+              item('smart:' + sp.id, sp.name, sp.trackCount, 1)
             )
           )}
         </div>
