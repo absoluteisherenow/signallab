@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { aiCache } from '@/lib/aiCache'
 import { SignalLabHeader } from './SignalLabHeader'
 import { SocialsMastermind } from './SocialsMastermind'
-import { SKILLS_CAPTION_GEN } from '@/lib/skillPromptsClient'
+import { SKILLS_CAPTION_GEN, SKILL_ADS_MANAGER } from '@/lib/skillPromptsClient'
 
 interface ArtistProfile {
   name: string
@@ -33,6 +33,17 @@ interface Captions {
   safe: CaptionVariant
   loose: CaptionVariant
   raw: CaptionVariant
+}
+
+interface AdPlan {
+  campaign_type: string
+  platforms: { name: string; budget_split: string; why: string }[]
+  audiences: { layer: string; targeting: string; size: string }[]
+  creative: string[]
+  schedule: string
+  budget_breakdown: string
+  red_flags: string[]
+  green_flags: string[]
 }
 
 interface Trend {
@@ -181,6 +192,10 @@ export function BroadcastLab() {
   const [generatingOverlay, setGeneratingOverlay] = useState(false)
   const [repurposed, setRepurposed] = useState<{ reel_script: string; carousel_slides: string[]; static_post: string } | null>(null)
   const [generatingRepurpose, setGeneratingRepurpose] = useState(false)
+  const [adPlan, setAdPlan] = useState<AdPlan | null>(null)
+  const [generatingAdPlan, setGeneratingAdPlan] = useState(false)
+  const [adCampaignType, setAdCampaignType] = useState<'release' | 'gig' | 'always-on'>('release')
+  const [adBudget, setAdBudget] = useState<'low' | 'mid' | 'high'>('low')
   const [trends, setTrends] = useState<Trend[]>((_cache.trends as Trend[]) || [])
   const [refreshingInsights, setRefreshingInsights] = useState(false)
   const [trendsSource, setTrendsSource] = useState<{ postsAnalysed?: number; artistsIncluded?: string[] } | null>((_cache.trendsSource as any) || null)
@@ -810,6 +825,51 @@ Respond ONLY with valid JSON, no markdown.`,
     }
   }
 
+  async function generateAdPlan(boostCaption?: string) {
+    setGeneratingAdPlan(true)
+    try {
+      const budgetMap = { low: '£100-300/month', mid: '£300-800/month', high: '£800+/month' }
+      const caption = boostCaption || captions?.[selectedVariant]?.text || ''
+
+      let gigContext = ''
+      try {
+        const [gigsRes, releasesRes] = await Promise.allSettled([
+          fetch('/api/gigs').then(r => r.json()),
+          fetch('/api/releases').then(r => r.json()),
+        ])
+        const gigs = (gigsRes.status === 'fulfilled' ? gigsRes.value.gigs || [] : []).slice(0, 5)
+        const releases = (releasesRes.status === 'fulfilled' ? releasesRes.value.releases || [] : []).slice(0, 3)
+        if (gigs.length) gigContext += '\nUPCOMING GIGS:\n' + gigs.map((g: any) => `${g.date}: ${g.venue}, ${g.location}`).join('\n')
+        if (releases.length) gigContext += '\nUPCOMING RELEASES:\n' + releases.map((r: any) => `${r.release_date}: "${r.title}" on ${r.label || 'TBC'}`).join('\n')
+      } catch {}
+
+      const raw = await callClaude(
+        `You are a paid advertising strategist for underground electronic music artists. You build ad campaigns that feel organic — never salesy.
+
+${SKILL_ADS_MANAGER}
+
+Respond ONLY with valid JSON, no markdown.`,
+        `Artist: ${artistName}
+Campaign type: ${adCampaignType}
+Budget tier: ${budgetMap[adBudget]}
+${caption ? `Content to promote: "${caption}"` : ''}
+${context ? `Context: ${context}` : ''}
+${gigContext}
+
+Generate a complete ad plan. Return:
+{"campaign_type":"${adCampaignType}","platforms":[{"name":"platform","budget_split":"percentage","why":"reason"}],"audiences":[{"layer":"Warm/Expansion/Cold","targeting":"specific targeting","size":"estimated reach"}],"creative":["creative recommendation 1","2","3"],"schedule":"timeline with phases","budget_breakdown":"how to split the spend","red_flags":["what to watch for"],"green_flags":["signals to scale"]}`,
+        900
+      )
+      const d = JSON.parse(raw.replace(/```json|```/g, '').trim())
+      setAdPlan(d)
+      showToast('Ad plan generated', 'Broadcast Lab')
+    } catch (err: any) {
+      showToast('Ad plan failed: ' + err.message, 'Error')
+    } finally {
+      setGeneratingAdPlan(false)
+    }
+  }
+
   function useTrend(trendContext: string) {
     setContext(trendContext)
     setTimeout(generateCaptions, 300)
@@ -1007,10 +1067,17 @@ Respond ONLY with valid JSON, no markdown.`,
                     </div>
                     <div className="text-[10px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{}}>{v?.reasoning||''}</div>
                     <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
-                      <button onClick={e=>{e.stopPropagation();publish(v?.text||'',platform,mediaUrls)}}
-                        className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">
-                        {hasDirectConnection(platform) ? 'Publish →' : 'Schedule →'}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button onClick={e=>{e.stopPropagation();publish(v?.text||'',platform,mediaUrls)}}
+                          className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">
+                          {hasDirectConnection(platform) ? 'Publish →' : 'Schedule →'}
+                        </button>
+                        <button onClick={e=>{e.stopPropagation();generateAdPlan(v?.text||'')}}
+                          disabled={generatingAdPlan}
+                          className="text-[10px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors disabled:opacity-40">
+                          Boost →
+                        </button>
+                      </div>
                       <div className="text-[10px] text-[#8a8780]">Est. <span className={v&&v.score>1600?'text-[#3d6b4a]':v&&v.score>1200?'text-[#b08d57]':'text-[#8a8780]'}>{v?formatScore(v.score):'...'}</span></div>
                     </div>
                   </>
@@ -1342,6 +1409,134 @@ Respond ONLY with valid JSON, no markdown.`,
             <div className="bg-[#1a1917] border border-dashed border-white/13 flex flex-col items-center justify-center gap-2 min-h-[160px]">
               <button onClick={() => { setLoadingTrends(true); loadTrends().then(loaded => { if (loaded.length > 0) loadTrendCaptions(loaded) }).finally(() => setLoadingTrends(false)) }} className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-3 py-1.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">Refresh trends</button>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* AD AMPLIFIER */}
+      <div className="bg-[#0e0d0b] border border-white/7 p-7">
+        <div className="flex items-center gap-2 mb-2 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+          Ad amplifier — paid strategy<div className="flex-1 h-px bg-white/10" />
+        </div>
+        <div className="text-[10px] tracking-[.07em] text-[#8a8780] mb-5 italic">Underground-calibrated paid campaigns. Every ad feels organic — never salesy.</div>
+
+        <div className="flex gap-3 mb-4">
+          <div className="flex-1">
+            <div className="text-[9px] tracking-[.15em] uppercase text-[#52504c] mb-2">Campaign type</div>
+            <div className="flex gap-2">
+              {(['release', 'gig', 'always-on'] as const).map(t => (
+                <button key={t} onClick={() => setAdCampaignType(t)}
+                  className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${adCampaignType === t ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1">
+            <div className="text-[9px] tracking-[.15em] uppercase text-[#52504c] mb-2">Monthly budget</div>
+            <div className="flex gap-2">
+              {([['low', '£100-300'], ['mid', '£300-800'], ['high', '£800+']] as const).map(([k, label]) => (
+                <button key={k} onClick={() => setAdBudget(k)}
+                  className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${adBudget === k ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <button onClick={() => generateAdPlan()} disabled={generatingAdPlan}
+          className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50 flex items-center gap-2 mb-5">
+          {generatingAdPlan && <div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />}
+          {generatingAdPlan ? 'Building plan...' : 'Generate ad plan →'}
+        </button>
+
+        {adPlan && (
+          <div className="space-y-4">
+            {/* Platforms */}
+            <div>
+              <div className="text-[9px] tracking-[.18em] uppercase text-[#52504c] mb-2">Platform split</div>
+              <div className="grid grid-cols-3 gap-2">
+                {adPlan.platforms.map((p, i) => (
+                  <div key={i} className="bg-[#1a1917] border border-white/7 p-3">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="text-[11px] tracking-[.08em] text-[#f0ebe2]">{p.name}</span>
+                      <span className="text-[11px] text-[#b08d57]">{p.budget_split}</span>
+                    </div>
+                    <div className="text-[10px] text-[#8a8780] leading-relaxed">{p.why}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Audiences */}
+            <div>
+              <div className="text-[9px] tracking-[.18em] uppercase text-[#52504c] mb-2">Audience layers</div>
+              <div className="space-y-2">
+                {adPlan.audiences.map((a, i) => (
+                  <div key={i} className="flex items-start gap-3 bg-[#1a1917] border border-white/7 p-3">
+                    <span className={`text-[10px] tracking-[.12em] uppercase flex-shrink-0 px-2 py-0.5 border ${
+                      a.layer.toLowerCase().includes('warm') ? 'border-[#b08d57]/30 text-[#b08d57]' :
+                      a.layer.toLowerCase().includes('expansion') ? 'border-[#3d6b4a]/30 text-[#3d6b4a]' :
+                      'border-white/13 text-[#8a8780]'
+                    }`}>{a.layer}</span>
+                    <div className="flex-1">
+                      <div className="text-[11px] text-[#f0ebe2] leading-relaxed">{a.targeting}</div>
+                      <div className="text-[10px] text-[#52504c] mt-1">{a.size}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Creative + Schedule */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#1a1917] border border-white/7 p-4">
+                <div className="text-[9px] tracking-[.18em] uppercase text-[#52504c] mb-2">Creative recommendations</div>
+                {adPlan.creative.map((c, i) => (
+                  <div key={i} className="flex gap-2 mb-1.5 last:mb-0">
+                    <span className="text-[#b08d57] opacity-50 flex-shrink-0 text-[10px]">→</span>
+                    <span className="text-[11px] text-[#8a8780] leading-relaxed">{c}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-[#1a1917] border border-white/7 p-4">
+                <div className="text-[9px] tracking-[.18em] uppercase text-[#52504c] mb-2">Schedule</div>
+                <div className="text-[11px] text-[#8a8780] leading-relaxed mb-3">{adPlan.schedule}</div>
+                <div className="text-[9px] tracking-[.18em] uppercase text-[#52504c] mb-2">Budget breakdown</div>
+                <div className="text-[11px] text-[#8a8780] leading-relaxed">{adPlan.budget_breakdown}</div>
+              </div>
+            </div>
+
+            {/* Red/Green flags */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#1a1917] border border-red-900/20 p-4">
+                <div className="text-[9px] tracking-[.18em] uppercase text-red-400/60 mb-2">Pause if</div>
+                {adPlan.red_flags.map((f, i) => (
+                  <div key={i} className="text-[10px] text-[#8a8780] leading-relaxed mb-1">{f}</div>
+                ))}
+              </div>
+              <div className="bg-[#1a1917] border border-[#3d6b4a]/20 p-4">
+                <div className="text-[9px] tracking-[.18em] uppercase text-[#3d6b4a]/60 mb-2">Scale if</div>
+                {adPlan.green_flags.map((f, i) => (
+                  <div key={i} className="text-[10px] text-[#8a8780] leading-relaxed mb-1">{f}</div>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={() => {
+              const text = `AD PLAN — ${adPlan.campaign_type.toUpperCase()}\n\nPLATFORMS:\n${adPlan.platforms.map(p => `${p.name} (${p.budget_split}): ${p.why}`).join('\n')}\n\nAUDIENCES:\n${adPlan.audiences.map(a => `[${a.layer}] ${a.targeting} — ${a.size}`).join('\n')}\n\nCREATIVE:\n${adPlan.creative.map(c => `→ ${c}`).join('\n')}\n\nSCHEDULE: ${adPlan.schedule}\nBUDGET: ${adPlan.budget_breakdown}\n\nPAUSE IF:\n${adPlan.red_flags.join('\n')}\n\nSCALE IF:\n${adPlan.green_flags.join('\n')}`
+              navigator.clipboard.writeText(text).then(() => showToast('Full ad plan copied', 'Copied'))
+            }} className="text-[10px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors">
+              Copy full plan →
+            </button>
+          </div>
+        )}
+
+        {!adPlan && !generatingAdPlan && (
+          <div className="border border-dashed border-white/13 p-6 text-center">
+            <div className="text-[11px] tracking-[.1em] text-[#8a8780] mb-1">Select campaign type and budget, then generate</div>
+            <div className="text-[10px] tracking-[.07em] text-[#2e2c29]">Or hit "Boost" on any caption above to build a plan around that content</div>
           </div>
         )}
       </div>

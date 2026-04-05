@@ -14,7 +14,7 @@ const C = {
 }
 
 const MODULES = [
-  { num: '01', name: 'TOUR LAB', desc: 'From the first offer to the final settlement — every gig, planned, tracked, and paid. Less spreadsheets, more soundchecks.' },
+  { num: '01', name: 'TOUR LAB', desc: 'Offers, advancing, rider management, travel logistics, invoicing, settlement — the full lifecycle of every show, in one place. Less admin, more soundchecks.' },
   { num: '02', name: 'BROADCAST LAB', desc: 'A content strategist that knows your voice. Writes captions that sound like you, schedules across platforms, spots trends worth using — and ignores the ones that aren\'t.' },
   { num: '03', name: 'SONIX LAB', desc: 'Hear what the numbers say. Frequency analysis, mix diagnostics, stem-level feedback — technical insight that sharpens your ear and your output.' },
   { num: '04', name: 'SET LAB', desc: 'Desktop app and web. Your full DJ library with Rekordbox import, set history, and underground discovery built in. The more you use it, the deeper it digs.' },
