@@ -980,48 +980,91 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
       <div className="flex flex-col gap-5 p-8">
 
-      {/* VOICE HERO — the sell */}
-      {artists.length > 0 && (
-        <div className="bg-[#0e0d0b] border border-white/7 p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] mb-2">Your voice is live</div>
-              <div className="text-[22px] font-light tracking-[-0.01em] text-[#f0ebe2]">
-                Tuned to {artists.length} artist{artists.length !== 1 ? 's' : ''} in your lane
-              </div>
-              {/* Lane summary from deep analysis */}
-              {artists.some(a => a.visual_aesthetic) && (
-                <div className="text-[11px] text-[#8a8780] mt-2 leading-relaxed max-w-lg">
-                  {artists.find(a => a.visual_aesthetic)?.visual_aesthetic?.mood} aesthetic · {calcToneRegister(artists).value} tone · {artists.find(a => a.content_performance)?.content_performance?.best_type || 'photo'}-led
-                </div>
-              )}
+      {/* CONTENT INTELLIGENCE — the sell */}
+      {artists.length > 0 && (() => {
+        const tr = calcToneRegister(artists)
+        const va = calcVoiceAlignment(artists)
+        const totalPosts = artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)
+        const hasDeepDive = artists.some(a => a.visual_aesthetic)
+        const visualArtist = artists.find(a => a.visual_aesthetic)
+        const perfArtist = artists.find(a => a.content_performance)
+        const lower = Math.round(artists.reduce((s, a) => s + a.lowercase_pct, 0) / artists.length)
+        const short = Math.round(artists.reduce((s, a) => s + a.short_caption_pct, 0) / artists.length)
+        const noHash = Math.round(artists.reduce((s, a) => s + a.no_hashtags_pct, 0) / artists.length)
+        // Build style descriptor
+        const styleWords = [lower > 55 ? 'lowercase' : null, short > 45 ? 'punchy' : 'long-form', noHash > 55 ? 'no hashtags' : null].filter(Boolean)
+        // Collect all chips
+        const allChips = [...new Set(artists.flatMap(a => a.chips || []))].slice(0, 8)
+
+        return (
+        <div className="bg-[#0e0d0b] border border-white/7">
+          {/* Top bar — confidence + artists */}
+          <div className="flex items-center justify-between p-5 border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57]">Content Intelligence</div>
+              <div className="text-[10px] text-[#52504c]">·</div>
+              <div className="text-[10px] text-[#52504c]">{artists.length} artists · {totalPosts} posts analysed</div>
             </div>
-            <div className="text-right">
-              <div className="text-[28px] font-light text-[#b08d57]">{calcVoiceAlignment(artists).score}%</div>
-              <div className="text-[9px] tracking-[.12em] uppercase text-[#52504c]">voice confidence</div>
+            <div className="flex items-center gap-3">
+              <div className="text-[20px] font-light text-[#b08d57]">{va.score}%</div>
+              <div className="text-[9px] tracking-[.1em] uppercase text-[#52504c]">confidence</div>
             </div>
           </div>
-          {/* Artist profile pics + names */}
-          <div className="flex items-center gap-3 flex-wrap">
-            {artists.map(a => (
-              <div key={a.name} className="flex items-center gap-2 border border-[#b08d57]/20 bg-[#b08d57]/5 px-3 py-1.5 group relative">
-                {a.profile_pic_url ? (
-                  <img src={a.profile_pic_url} alt="" className="w-6 h-6 rounded-full object-cover border border-[#b08d57]/30" />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-[#b08d57]/15 border border-[#b08d57]/30 flex items-center justify-center text-[8px] text-[#b08d57]">{a.name.charAt(0)}</div>
-                )}
-                <div>
-                  <span className="text-[10px] tracking-[.12em] uppercase text-[#b08d57]">{a.name}</span>
-                  {a.follower_count && (
-                    <span className="text-[8px] text-[#52504c] ml-1.5">{a.follower_count > 1000000 ? `${(a.follower_count/1000000).toFixed(1)}M` : a.follower_count > 1000 ? `${(a.follower_count/1000).toFixed(0)}K` : a.follower_count}</span>
-                  )}
-                </div>
+
+          {/* Intelligence grid */}
+          <div className="grid grid-cols-4 gap-px bg-white/5">
+            {/* Voice */}
+            <div className="bg-[#0e0d0b] p-5">
+              <div className="text-[8px] tracking-[.2em] uppercase text-[#52504c] mb-2">Voice</div>
+              <div className="text-[16px] font-light text-[#f0ebe2] mb-1">{tr.value}</div>
+              <div className="text-[10px] text-[#8a8780] leading-relaxed">{styleWords.join(', ')}</div>
+            </div>
+            {/* Visual */}
+            <div className="bg-[#0e0d0b] p-5">
+              <div className="text-[8px] tracking-[.2em] uppercase text-[#52504c] mb-2">Visual</div>
+              <div className="text-[16px] font-light text-[#f0ebe2] mb-1">{visualArtist?.visual_aesthetic?.mood || 'Scan to reveal'}</div>
+              <div className="text-[10px] text-[#8a8780] leading-relaxed">{visualArtist?.visual_aesthetic?.palette || 'Run a Signal Scan with images'}</div>
+            </div>
+            {/* Best format */}
+            <div className="bg-[#0e0d0b] p-5">
+              <div className="text-[8px] tracking-[.2em] uppercase text-[#52504c] mb-2">Best format</div>
+              <div className="text-[16px] font-light text-[#f0ebe2] mb-1">{perfArtist?.content_performance?.best_type || 'Photo'}</div>
+              <div className="text-[10px] text-[#8a8780] leading-relaxed">{perfArtist?.content_performance?.peak_content || 'Based on lane engagement patterns'}</div>
+            </div>
+            {/* What gets saved */}
+            <div className="bg-[#0e0d0b] p-5">
+              <div className="text-[8px] tracking-[.2em] uppercase text-[#52504c] mb-2">What gets saved</div>
+              <div className="text-[16px] font-light text-[#f0ebe2] mb-1">{short > 55 ? 'Short fragments' : 'Longer captions'}</div>
+              <div className="text-[10px] text-[#8a8780] leading-relaxed">{lower > 60 && noHash > 60 ? 'Lowercase, no hashtags — let the image do the work' : `${lower}% lowercase · ${noHash}% skip hashtags`}</div>
+            </div>
+          </div>
+
+          {/* Lane DNA chips + artists */}
+          <div className="p-5 border-t border-white/5">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {allChips.map(chip => (
+                  <span key={chip} className="text-[9px] tracking-[.1em] uppercase text-[#b08d57] border border-[#b08d57]/25 px-2 py-0.5 bg-[#b08d57]/5">{chip}</span>
+                ))}
               </div>
-            ))}
-            <span className="text-[10px] text-[#52504c]">+ your posts</span>
+              <div className="w-px h-4 bg-white/10" />
+              <div className="flex items-center gap-2 flex-wrap">
+                {artists.map(a => (
+                  <div key={a.name} className="flex items-center gap-1.5">
+                    {a.profile_pic_url ? (
+                      <img src={a.profile_pic_url} alt="" className="w-5 h-5 rounded-full object-cover border border-white/10" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-[#b08d57]/10 border border-white/10 flex items-center justify-center text-[7px] text-[#b08d57]">{a.name.charAt(0)}</div>
+                    )}
+                    <span className="text-[9px] text-[#52504c]">{a.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* CAPTION GENERATOR — compact */}
       <div className="bg-[#0e0d0b] border border-white/7 p-5 caption-panel">
