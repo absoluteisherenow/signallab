@@ -177,6 +177,10 @@ export function BroadcastLab() {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [laneInsights, setLaneInsights] = useState<string[]>((_cache.laneInsights as string[]) || [])
+  const [reelsOverlay, setReelsOverlay] = useState<{ lines: { text: string; timing: string }[]; style: string } | null>(null)
+  const [generatingOverlay, setGeneratingOverlay] = useState(false)
+  const [repurposed, setRepurposed] = useState<{ reel_script: string; carousel_slides: string[]; static_post: string } | null>(null)
+  const [generatingRepurpose, setGeneratingRepurpose] = useState(false)
   const [trends, setTrends] = useState<Trend[]>((_cache.trends as Trend[]) || [])
   const [refreshingInsights, setRefreshingInsights] = useState(false)
   const [trendsSource, setTrendsSource] = useState<{ postsAnalysed?: number; artistsIncluded?: string[] } | null>((_cache.trendsSource as any) || null)
@@ -731,6 +735,81 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
     }
   }
 
+  async function generateReelsOverlay() {
+    const caption = captions?.[selectedVariant]?.text
+    if (!caption && !context) { showToast('Add context or generate a caption first', 'Error'); return }
+    setGeneratingOverlay(true)
+    try {
+      const profilesText = artists.filter(a => a.style_rules).map(a => `${a.name}: ${a.style_rules}`).join('\n\n')
+      const raw = await callClaude(
+        `You create on-screen text overlays for Instagram Reels and TikTok videos for electronic music artists.
+
+STYLE: Kinetic typography — one word or short phrase appears at a time as the viewer watches. Each line is timed to land with impact.
+
+RULES:
+- All lowercase unless a specific word needs emphasis (then ALL CAPS for that one word)
+- Maximum 5-7 lines. Each line is 1-4 words maximum
+- Lines should build tension or tell a micro-story
+- The sequence should hold attention and create a reason to rewatch
+- Never generic ("check this out", "new music"). Every word earns its place
+- Underground electronic music tone — cryptic > obvious, evocative > descriptive
+- Think: text that makes someone screenshot or send to a friend
+
+REFERENCE VOICE:
+${profilesText || 'Underground electronic music artist — minimal, dark, evocative'}
+
+Respond ONLY with valid JSON, no markdown.`,
+        `Context: ${context || ''}\nCaption (for tone reference): ${caption || ''}\nPlatform: ${platform}\nFormat: Reel / short-form video\n\nGenerate on-screen text overlay lines. Return: {"lines":[{"text":"word or phrase","timing":"0-2s"},{"text":"next","timing":"2-4s"}],"style":"description of visual treatment e.g. centre-screen, fade in/out, white on dark"}`,
+        400
+      )
+      const d = JSON.parse(raw.replace(/```json|```/g, '').trim())
+      setReelsOverlay(d)
+      showToast('Overlay generated', 'Broadcast Lab')
+    } catch (err: any) {
+      showToast('Overlay generation failed: ' + err.message, 'Error')
+    } finally {
+      setGeneratingOverlay(false)
+    }
+  }
+
+  async function generateRepurpose() {
+    const caption = captions?.[selectedVariant]?.text
+    if (!caption && !context) { showToast('Add context or generate a caption first', 'Error'); return }
+    setGeneratingRepurpose(true)
+    try {
+      const profilesText = artists.filter(a => a.style_rules).map(a => `${a.name}: ${a.style_rules}`).join('\n\n')
+      const raw = await callClaude(
+        `You repurpose content for electronic music artists across three formats. One input becomes three pieces of content — each native to its format.
+
+VOICE:
+${profilesText || 'Underground electronic music artist — minimal, dark, evocative'}
+
+FORMAT RULES:
+1. REEL SCRIPT (15-30s): Hook in first 0.5s. 3-part structure: hook → story → payoff. Include on-screen text cues and timing. No "hey guys" energy. Dark, cinematic, minimal.
+2. CAROUSEL (5 slides): Slide 1 = scroll-stop hook. Slides 2-4 = substance (one idea per slide, short sentences). Slide 5 = payoff or quiet CTA. Underground aesthetic — no bullet-point-guru energy. Each slide is 1-2 short sentences max.
+3. STATIC POST: One powerful caption — could be cryptic, reflective, or direct. 1-15 words. The kind that gets screenshotted.
+
+RULES:
+- All lowercase
+- No exclamation marks, no emojis
+- No engagement bait
+- Each format should feel native, not adapted
+- Underground electronic music tone throughout
+
+Respond ONLY with valid JSON, no markdown.`,
+        `Context: ${context || ''}\nExisting caption: ${caption || ''}\nPlatform: ${platform}\n\nRepurpose this into three formats. Return: {"reel_script":"full script with timing and text overlay cues","carousel_slides":["slide 1 text","slide 2","slide 3","slide 4","slide 5"],"static_post":"caption text"}`,
+        800
+      )
+      const d = JSON.parse(raw.replace(/```json|```/g, '').trim())
+      setRepurposed(d)
+      showToast('Content repurposed into 3 formats', 'Broadcast Lab')
+    } catch (err: any) {
+      showToast('Repurpose failed: ' + err.message, 'Error')
+    } finally {
+      setGeneratingRepurpose(false)
+    }
+  }
+
   function useTrend(trendContext: string) {
     setContext(trendContext)
     setTimeout(generateCaptions, 300)
@@ -941,6 +1020,90 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
           })}
         </div>
         {captionError && <div className="bg-red-900/20 border border-red-800/40 text-red-300 text-[10px] px-4 py-3 mb-4">{captionError}</div>}
+
+        {/* REELS TEXT OVERLAY + REPURPOSE ACTIONS */}
+        {captions && (
+          <div className="flex gap-2 mb-5">
+            <button onClick={generateReelsOverlay} disabled={generatingOverlay}
+              className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-4 py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex items-center gap-2">
+              {generatingOverlay && <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
+              {generatingOverlay ? 'Generating...' : 'Reels text overlay'}
+            </button>
+            <button onClick={generateRepurpose} disabled={generatingRepurpose}
+              className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-4 py-2 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex items-center gap-2">
+              {generatingRepurpose && <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
+              {generatingRepurpose ? 'Repurposing...' : 'Repurpose → 3 formats'}
+            </button>
+          </div>
+        )}
+
+        {/* REELS TEXT OVERLAY OUTPUT */}
+        {reelsOverlay && (
+          <div className="mb-5 bg-[#0e0d0b] border border-white/7 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57]">Reels text overlay — word by word</div>
+              <button onClick={() => {
+                const text = reelsOverlay.lines.map(l => `[${l.timing}] ${l.text}`).join('\n')
+                navigator.clipboard.writeText(text).then(() => showToast('Overlay copied', 'Copied'))
+              }} className="text-[10px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors">Copy all</button>
+            </div>
+            <div className="flex flex-col gap-2 mb-4">
+              {reelsOverlay.lines.map((line, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="text-[9px] tracking-[.1em] text-[#52504c] w-12 flex-shrink-0 text-right">{line.timing}</div>
+                  <div className="text-[14px] tracking-[.06em] text-[#f0ebe2] font-light">{line.text}</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-[10px] text-[#52504c] italic">{reelsOverlay.style}</div>
+          </div>
+        )}
+
+        {/* REPURPOSE OUTPUT */}
+        {repurposed && (
+          <div className="mb-5 bg-[#0e0d0b] border border-white/7 p-5">
+            <div className="flex items-center gap-2 mb-4 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+              Repurposed — 3 formats<div className="flex-1 h-px bg-white/10" />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {/* Reel script */}
+              <div className="bg-[#1a1917] border border-white/7 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[10px] tracking-[.18em] uppercase text-[#8a8780]">Reel script</div>
+                  <button onClick={() => navigator.clipboard.writeText(repurposed.reel_script).then(() => showToast('Reel script copied', 'Copied'))}
+                    className="text-[10px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors">Copy</button>
+                </div>
+                <div className="text-[11px] leading-relaxed text-[#f0ebe2] whitespace-pre-wrap">{repurposed.reel_script}</div>
+              </div>
+              {/* Carousel */}
+              <div className="bg-[#1a1917] border border-white/7 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[10px] tracking-[.18em] uppercase text-[#8a8780]">Carousel — {repurposed.carousel_slides.length} slides</div>
+                  <button onClick={() => navigator.clipboard.writeText(repurposed.carousel_slides.map((s, i) => `[${i+1}] ${s}`).join('\n')).then(() => showToast('Carousel copied', 'Copied'))}
+                    className="text-[10px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors">Copy</button>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {repurposed.carousel_slides.map((slide, i) => (
+                    <div key={i} className="flex gap-2">
+                      <span className="text-[10px] text-[#52504c] flex-shrink-0 mt-0.5">{i+1}.</span>
+                      <span className="text-[11px] leading-relaxed text-[#f0ebe2]">{slide}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Static post */}
+              <div className="bg-[#1a1917] border border-white/7 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[10px] tracking-[.18em] uppercase text-[#8a8780]">Static post</div>
+                  <button onClick={() => navigator.clipboard.writeText(repurposed.static_post).then(() => showToast('Static post copied', 'Copied'))}
+                    className="text-[10px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors">Copy</button>
+                </div>
+                <div className="text-[13px] leading-relaxed text-[#f0ebe2] min-h-[60px] flex items-center">{repurposed.static_post}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-4 border-t border-white/7">
           <div className="text-[9.5px] text-[#8a8780] italic flex-1 mr-4" style={{}}>
             Tuned to: {getArtistNames().join(' · ')} · your past posts

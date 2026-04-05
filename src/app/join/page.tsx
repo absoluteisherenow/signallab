@@ -15,11 +15,10 @@ const C = {
 
 const MODULES = [
   { num: '01', name: 'TOUR LAB', desc: 'Every show from offer to settlement. Gig planning, logistics, invoicing — the full cycle, closed.' },
-  { num: '02', name: 'BROADCAST LAB', desc: 'Scheduling, channels, and publishing workflow. Your content calendar, organised.' },
+  { num: '02', name: 'BROADCAST LAB', desc: 'Your personal content strategist. Captions in your voice, scheduling across platforms, campaign calendars, trend intelligence — all from one place.' },
   { num: '03', name: 'SONIX LAB', desc: 'Technical analysis for mixes and productions. Frequency, structure, level data — so you can hear what the numbers say.' },
-  { num: '04', name: 'SET LAB', desc: 'Tracks what you play, how you play it, and what works. The more you use it, the better it knows your sound — so you can evolve faster as yourself.' },
-  { num: '05', name: 'DROP LAB', desc: 'Phase-by-phase release planning and campaign management. Every release coordinated, nothing missed.' },
-  { num: '06', name: 'DJ PROMO', desc: 'Personal promo blasts direct to your DJ network. Branded listening pages, tracked opens, reaction capture — know exactly who played your record.' },
+  { num: '04', name: 'SET LAB', desc: 'Desktop and web. Tracks what you play, how you play it, and what works. Rekordbox integration, crate digging, set history — your full DJ library, organised.' },
+  { num: '05', name: 'DROP LAB', desc: 'Release planning and campaign management. Phase-by-phase from seeding to long tail — promo blasts, listening pages, tracked opens, nothing missed.' },
 ]
 
 const ROLES = ['Artist', 'Manager / Agent', 'Label', 'Promoter / Booker']
@@ -65,7 +64,7 @@ export default function JoinPage() {
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         background: 'rgba(7,7,6,0.94)', borderBottom: `1px solid ${C.border}`,
-        padding: '18px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         backdropFilter: 'blur(12px)',
       }}>
         <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '11px', fontWeight: 300, letterSpacing: '0.2em', color: C.gold }}>
@@ -83,7 +82,7 @@ export default function JoinPage() {
       <section style={{
         minHeight: '100vh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: '120px 48px 80px', textAlign: 'center',
+        padding: '120px 24px 80px', textAlign: 'center',
         borderBottom: `1px solid ${C.border}`,
       }}>
         <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: C.gold, textTransform: 'uppercase', marginBottom: '8px', whiteSpace: 'nowrap' }}>
@@ -116,14 +115,14 @@ export default function JoinPage() {
       </section>
 
       {/* SYSTEM STATEMENT */}
-      <section style={{ padding: '80px 48px', borderBottom: `1px solid ${C.border}`, textAlign: 'center' }}>
+      <section style={{ padding: '80px 24px', borderBottom: `1px solid ${C.border}`, textAlign: 'center' }}>
         <h2 style={{
           fontFamily: "'Unbounded', sans-serif",
           fontSize: 'clamp(20px, 3vw, 36px)',
           fontWeight: 300, letterSpacing: '0.04em',
           color: C.text, marginBottom: '20px',
         }}>
-          Six modules. One system. Career infrastructure.
+          Five modules. One system. Career infrastructure.
         </h2>
         <p style={{ fontSize: '13px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8' }}>
           Everything is connected. A confirmed gig feeds your schedule. A release syncs your campaign. A tour updates your logistics. The system handles the infrastructure so you can focus on the work.
@@ -134,22 +133,22 @@ export default function JoinPage() {
       <section id="modules" style={{ borderBottom: `1px solid ${C.border}` }}>
         {MODULES.map((mod, i) => (
           <div key={mod.name} style={{
-            display: 'flex', alignItems: 'baseline', gap: '32px',
-            padding: '36px 48px',
+            display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '12px 32px',
+            padding: '36px 24px',
             borderBottom: i < MODULES.length - 1 ? `1px solid ${C.border}` : 'none',
           }}>
-            <div style={{ fontSize: '10px', color: C.dimmer, letterSpacing: '0.08em', minWidth: '24px', flexShrink: 0 }}>
+            <div style={{ fontSize: '10px', color: C.dimmer, letterSpacing: '0.08em', flexShrink: 0 }}>
               {mod.num}
             </div>
             <div style={{
               fontFamily: "'Unbounded', sans-serif",
               fontSize: '12px', fontWeight: 300,
               letterSpacing: '0.18em', color: C.text,
-              textTransform: 'uppercase', minWidth: '180px', flexShrink: 0,
+              textTransform: 'uppercase', flexShrink: 0,
             }}>
               {mod.name}
             </div>
-            <div style={{ fontSize: '12px', color: C.dim, letterSpacing: '0.03em', lineHeight: '1.7' }}>
+            <div style={{ fontSize: '12px', color: C.dim, letterSpacing: '0.03em', lineHeight: '1.7', width: '100%', paddingLeft: '0' }}>
               {mod.desc}
             </div>
           </div>
@@ -157,7 +156,7 @@ export default function JoinPage() {
       </section>
 
       {/* INTERSTITIAL — CONNECTED SYSTEM */}
-      <section style={{ padding: '72px 48px', borderBottom: `1px solid ${C.border}`, textAlign: 'center' }}>
+      <section style={{ padding: '72px 24px', borderBottom: `1px solid ${C.border}`, textAlign: 'center' }}>
         <h2 style={{
           fontFamily: "'Unbounded', sans-serif",
           fontSize: 'clamp(18px, 2.5vw, 28px)',
@@ -172,7 +171,7 @@ export default function JoinPage() {
       </section>
 
       {/* PROOF STATEMENT */}
-      <section style={{ padding: '80px 48px', borderBottom: `1px solid ${C.border}`, textAlign: 'center' }}>
+      <section style={{ padding: '80px 24px', borderBottom: `1px solid ${C.border}`, textAlign: 'center' }}>
         <div style={{ width: '80px', height: '1px', background: C.gold, opacity: 0.4, margin: '0 auto 40px' }} />
         <h2 style={{
           fontFamily: "'Unbounded', sans-serif",
@@ -189,7 +188,7 @@ export default function JoinPage() {
       </section>
 
       {/* APPLY FORM */}
-      <section id="apply" style={{ background: C.panel, padding: '80px 48px', borderBottom: `1px solid ${C.border}` }}>
+      <section id="apply" style={{ background: C.panel, padding: '80px 24px', borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: '480px', margin: '0 auto' }}>
           <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: C.gold, textTransform: 'uppercase', marginBottom: '20px' }}>
             Early Access
@@ -264,7 +263,7 @@ export default function JoinPage() {
 
       {/* FOOTER */}
       <footer style={{
-        padding: '32px 48px', borderTop: `1px solid ${C.border}`,
+        padding: '32px 24px', borderTop: `1px solid ${C.border}`,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         fontSize: '10px', color: C.dimmer, letterSpacing: '0.08em',
       }}>
