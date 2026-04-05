@@ -852,11 +852,14 @@ Respond ONLY with valid JSON, no markdown.`,
         `Artist: ${artistName}
 Campaign type: ${adCampaignType}
 Budget tier: ${budgetMap[adBudget]}
-${caption ? `Content to promote: "${caption}"` : ''}
+${caption ? `Caption: "${caption}"` : ''}
 ${context ? `Context: ${context}` : ''}
+Content format: ${postFormat} (${media})
+${mediaUrls.length > 0 ? `Media attached: ${mediaUrls.length} file(s) — plan ad creative around this existing content` : 'No media attached — recommend what content to create for the ad'}
+Platform selected: ${platform}
 ${gigContext}
 
-Generate a complete ad plan. Return:
+Generate a complete ad plan tailored to this specific content and format. Return:
 {"campaign_type":"${adCampaignType}","platforms":[{"name":"platform","budget_split":"percentage","why":"reason"}],"audiences":[{"layer":"Warm/Expansion/Cold","targeting":"specific targeting","size":"estimated reach"}],"creative":["creative recommendation 1","2","3"],"schedule":"timeline with phases","budget_breakdown":"how to split the spend","red_flags":["what to watch for"],"green_flags":["signals to scale"]}`,
         900
       )
