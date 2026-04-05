@@ -569,7 +569,11 @@ Return JSON exactly:
               <div>
                 <div style={{ fontSize: '32px', color: s.textDimmer, marginBottom: '12px' }}>⬆</div>
                 <div style={{ fontSize: '14px', color: s.textDim, marginBottom: '8px' }}>Drop videos and photos here</div>
-                <div style={{ fontSize: '11px', color: s.textDimmer }}>MP4, MOV, JPG, PNG · Up to {tierLimits.batchLimit} files per batch</div>
+                <div style={{ fontSize: '11px', color: s.textDimmer, marginBottom: '12px' }}>MP4, MOV, JPG, PNG · Up to {tierLimits.batchLimit} files per batch</div>
+                <div style={{ fontSize: '10px', color: s.textDimmer, lineHeight: '1.6', maxWidth: '320px', margin: '0 auto' }}>
+                  Finds your most engaging moments and scores each on<br />
+                  <span style={{ color: s.textDim }}>Reach · Authenticity · Culture · Visual Identity</span>
+                </div>
               </div>
             ) : (
               <div>
