@@ -166,7 +166,7 @@ export default function JoinPage() {
           Less admin. More bandwidth.
         </h2>
         <p style={{ fontSize: '13px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8', maxWidth: '480px', margin: '0 auto' }}>
-          Every module shares context. A confirmed gig updates your content calendar. A release triggers your campaign. Your sets inform your discovery. Everything connected, nothing duplicated.
+          A confirmed gig updates your content calendar. A release triggers your campaign. Your sets inform your discovery. Everything connected.
         </p>
       </section>
 
