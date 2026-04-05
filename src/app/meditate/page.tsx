@@ -166,9 +166,9 @@ export default function MeditatePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          system: `You are Signal, guiding a meditation for an electronic music artist. Generate a short 3-4 sentence guided opening. Context: ${m.promptContext}. Speak naturally, warmly. No bullet points. Just flowing spoken guidance. Never mention AI.`,
-          max_tokens: 200,
-          messages: [{ role: 'user', content: `Begin the ${m.subtitle.toLowerCase()} meditation.` }],
+          system: `You are Signal, guiding a 5-minute meditation for an electronic music artist. Context: ${m.promptContext}. Write a full guided meditation script that takes about 5 minutes to read aloud (~700 words). Include breathing cues woven naturally into the narration (e.g. "breathe in slowly... hold... and release"). Build through phases: grounding, deepening, the core visualisation, then gently returning. Speak naturally, warmly, with pauses indicated by "..." — no bullet points, no headings, just flowing spoken guidance. Never mention AI.`,
+          max_tokens: 1200,
+          messages: [{ role: 'user', content: `Guide me through the full ${m.subtitle.toLowerCase()} meditation.` }],
         }),
       })
 
