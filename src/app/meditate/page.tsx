@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-
+import { useMobile } from '@/hooks/useMobile'
 
 const s = {
   bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
@@ -81,6 +81,7 @@ function formatTime(totalSec: number): string {
 }
 
 export default function MeditatePage() {
+  const mobile = useMobile()
   const [mounted, setMounted] = useState(false)
   const [activeMode, setActiveMode] = useState<ModeConfig | null>(null)
   const [screen, setScreen] = useState<'choose' | 'session' | 'complete'>('choose')
@@ -280,6 +281,13 @@ export default function MeditatePage() {
   if (!mounted) return (
     <div style={{ minHeight: '100vh', background: '#070706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: '#52504c', textTransform: 'uppercase' }}>Mind</div>
+    </div>
+  )
+
+  if (!mobile) return (
+    <div style={{ minHeight: '100vh', background: '#070706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px', fontFamily: s.font }}>
+      <div style={{ fontSize: '13px', letterSpacing: '0.12em', color: s.dim, textTransform: 'uppercase' }}>Mind</div>
+      <div style={{ fontSize: '11px', color: s.dimmer, maxWidth: '280px', textAlign: 'center', lineHeight: 1.6 }}>Open this on your phone for the full guided meditation experience.</div>
     </div>
   )
 
