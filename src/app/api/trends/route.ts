@@ -15,58 +15,89 @@ export async function GET() {
 
     if (error || !rows || rows.length === 0) {
       return NextResponse.json({
-        topPosts: [],
-        byPlatform: { instagram: { avg_engagement: 0, post_count: 0 }, tiktok: { avg_engagement: 0, post_count: 0 } },
-        totalScanned: 0,
-        lastScanned: null,
+        source: 'no_data',
+        trends: [],
+        postsAnalysed: 0,
+        artistsIncluded: [],
       })
     }
 
-    // Top 5 by engagement_score
-    const topPosts = rows.slice(0, 5).map(p => ({
-      artist_name: p.artist_name,
-      caption: (p.caption || '').slice(0, 60),
-      likes: p.likes ?? 0,
-      comments: p.comments ?? 0,
-      engagement_score: p.engagement_score ?? 0,
-      media_type: p.media_type,
-      taken_at: p.taken_at,
-    }))
+    const artistNames = [...new Set(rows.map(r => r.artist_name).filter(Boolean))]
+    const avgScore = rows.reduce((s, p) => s + (p.engagement_score ?? 0), 0) / rows.length
 
-    // By platform — infer from media_type or artist_name if no platform field
-    // post_performance uses artist_name; we treat all as instagram unless media_type hints tiktok
-    const instagramRows = rows.filter(p => !String(p.media_type || '').toLowerCase().includes('tiktok'))
-    const tiktokRows = rows.filter(p => String(p.media_type || '').toLowerCase().includes('tiktok'))
+    // Build a summary of the real post data for Claude to analyse
+    const postSummary = rows.slice(0, 80).map((p, i) => {
+      const score = p.engagement_score ?? 0
+      const aboveAvg = score > avgScore * 1.3
+      return `${i + 1}. [${p.artist_name}] ${p.media_type || 'photo'} | ${p.likes ?? 0} likes, ${p.comments ?? 0} comments | score: ${score}${aboveAvg ? ' ★HIGH' : ''} | "${(p.caption || '').slice(0, 120)}"`
+    }).join('\n')
 
-    const avg = (arr: typeof rows) =>
-      arr.length === 0
-        ? 0
-        : Math.round(arr.reduce((s, p) => s + (p.engagement_score ?? 0), 0) / arr.length)
-
-    const byPlatform = {
-      instagram: { avg_engagement: avg(instagramRows), post_count: instagramRows.length },
-      tiktok: { avg_engagement: avg(tiktokRows), post_count: tiktokRows.length },
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) {
+      return NextResponse.json({ source: 'no_data', trends: [], postsAnalysed: rows.length, artistsIncluded: artistNames })
     }
 
-    // Most recent scan timestamp
-    const lastScanned = rows.reduce((latest: string | null, p) => {
-      if (!p.scanned_at) return latest
-      if (!latest) return p.scanned_at
-      return p.scanned_at > latest ? p.scanned_at : latest
-    }, null)
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        system: 'You are a content trend analyst for electronic music artists. You identify REAL patterns from REAL engagement data. NEVER fabricate or guess — only report patterns you can see in the data. Respond ONLY with valid JSON, no markdown.',
+        messages: [{
+          role: 'user',
+          content: `Analyse these ${rows.length} real Instagram posts from electronic music artists (${artistNames.join(', ')}) and identify 4-6 content trends/patterns.
+
+Average engagement score: ${Math.round(avgScore)}
+Posts marked ★HIGH significantly outperform the average.
+
+POSTS:
+${postSummary}
+
+For each trend, identify a real pattern you can see in the data — what type of content, caption style, or format performs above average?
+
+Return this exact JSON array:
+[
+  {
+    "platform": "instagram",
+    "name": "short descriptive trend name (3-5 words)",
+    "fit": number 0-100 (how well this fits an electronic music artist's lane),
+    "hot": boolean (true if this pattern shows strong engagement),
+    "context": "1-2 sentences explaining the pattern with specific evidence from the data",
+    "evidence": "specific examples or numbers backing this up",
+    "posts_supporting": number (how many posts in the dataset follow this pattern)
+  }
+]
+
+Only include trends you can actually see in the data. Do not invent patterns.`,
+        }],
+      }),
+    })
+
+    const data = await res.json()
+    const text = data.content?.[0]?.text || '[]'
+    const trends = JSON.parse(text.replace(/```json|```/g, '').trim())
+
+    // Add IDs
+    const trendsWithIds = trends.map((t: any, i: number) => ({ ...t, id: i + 1 }))
 
     return NextResponse.json({
-      topPosts,
-      byPlatform,
-      totalScanned: rows.length,
-      lastScanned,
+      source: 'real_data',
+      trends: trendsWithIds,
+      postsAnalysed: rows.length,
+      artistsIncluded: artistNames,
     })
-  } catch {
+  } catch (err: any) {
     return NextResponse.json({
-      topPosts: [],
-      byPlatform: { instagram: { avg_engagement: 0, post_count: 0 }, tiktok: { avg_engagement: 0, post_count: 0 } },
-      totalScanned: 0,
-      lastScanned: null,
+      source: 'error',
+      trends: [],
+      postsAnalysed: 0,
+      artistsIncluded: [],
+      error: err.message,
     })
   }
 }
