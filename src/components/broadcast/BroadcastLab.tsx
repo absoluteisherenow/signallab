@@ -217,7 +217,7 @@ export function BroadcastLab() {
   const [adCampaignType, setAdCampaignType] = useState<'release' | 'gig' | 'always-on'>('release')
   const [adBudget, setAdBudget] = useState<'low' | 'mid' | 'high'>('low')
   const [trends, setTrends] = useState<Trend[]>((_cache.trends as Trend[]) || [])
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ artists: true })
   const toggleSection = (key: string) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }))
   const [activeTab, setActiveTab] = useState<'content' | 'ads'>('content')
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false)
@@ -402,8 +402,7 @@ export function BroadcastLab() {
       showToast(`${name} — ${sourceMsg}`, 'Signal Scan')
       setPastingFor(null)
       setPastedCaptions('')
-      // Auto-expand artists section to show the result
-      setExpandedSections(prev => ({ ...prev, artists: true }))
+      // Artists section is now always visible
     } catch (err: any) {
       clearInterval(stageInterval)
       showToast(`Could not scan ${name} — ${err.message || 'try again'}`, 'Error')
@@ -980,91 +979,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
       <div className="flex flex-col gap-5 p-8">
 
-      {/* CONTENT INTELLIGENCE — the sell */}
-      {artists.length > 0 && (() => {
-        const tr = calcToneRegister(artists)
-        const va = calcVoiceAlignment(artists)
-        const totalPosts = artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)
-        const hasDeepDive = artists.some(a => a.visual_aesthetic)
-        const visualArtist = artists.find(a => a.visual_aesthetic)
-        const perfArtist = artists.find(a => a.content_performance)
-        const lower = Math.round(artists.reduce((s, a) => s + a.lowercase_pct, 0) / artists.length)
-        const short = Math.round(artists.reduce((s, a) => s + a.short_caption_pct, 0) / artists.length)
-        const noHash = Math.round(artists.reduce((s, a) => s + a.no_hashtags_pct, 0) / artists.length)
-        // Build style descriptor
-        const styleWords = [lower > 55 ? 'lowercase' : null, short > 45 ? 'punchy' : 'long-form', noHash > 55 ? 'no hashtags' : null].filter(Boolean)
-        // Collect all chips
-        const allChips = [...new Set(artists.flatMap(a => a.chips || []))].slice(0, 8)
-
-        return (
-        <div className="bg-[#0e0d0b] border border-white/7">
-          {/* Top bar — confidence + artists */}
-          <div className="flex items-center justify-between p-5 border-b border-white/5">
-            <div className="flex items-center gap-2">
-              <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57]">Content Intelligence</div>
-              <div className="text-[10px] text-[#52504c]">·</div>
-              <div className="text-[10px] text-[#52504c]">{artists.length} artists · {totalPosts} posts analysed</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-[20px] font-light text-[#b08d57]">{va.score}%</div>
-              <div className="text-[9px] tracking-[.1em] uppercase text-[#52504c]">confidence</div>
-            </div>
-          </div>
-
-          {/* Intelligence grid */}
-          <div className="grid grid-cols-4 gap-px bg-white/5">
-            {/* Voice */}
-            <div className="bg-[#0e0d0b] p-5">
-              <div className="text-[8px] tracking-[.2em] uppercase text-[#52504c] mb-2">Voice</div>
-              <div className="text-[16px] font-light text-[#f0ebe2] mb-1">{tr.value}</div>
-              <div className="text-[10px] text-[#8a8780] leading-relaxed">{styleWords.join(', ')}</div>
-            </div>
-            {/* Visual */}
-            <div className="bg-[#0e0d0b] p-5">
-              <div className="text-[8px] tracking-[.2em] uppercase text-[#52504c] mb-2">Visual</div>
-              <div className="text-[16px] font-light text-[#f0ebe2] mb-1">{visualArtist?.visual_aesthetic?.mood || 'Scan to reveal'}</div>
-              <div className="text-[10px] text-[#8a8780] leading-relaxed">{visualArtist?.visual_aesthetic?.palette || 'Run a Signal Scan with images'}</div>
-            </div>
-            {/* Best format */}
-            <div className="bg-[#0e0d0b] p-5">
-              <div className="text-[8px] tracking-[.2em] uppercase text-[#52504c] mb-2">Best format</div>
-              <div className="text-[16px] font-light text-[#f0ebe2] mb-1">{perfArtist?.content_performance?.best_type || 'Photo'}</div>
-              <div className="text-[10px] text-[#8a8780] leading-relaxed">{perfArtist?.content_performance?.peak_content || 'Based on lane engagement patterns'}</div>
-            </div>
-            {/* What gets saved */}
-            <div className="bg-[#0e0d0b] p-5">
-              <div className="text-[8px] tracking-[.2em] uppercase text-[#52504c] mb-2">What gets saved</div>
-              <div className="text-[16px] font-light text-[#f0ebe2] mb-1">{short > 55 ? 'Short fragments' : 'Longer captions'}</div>
-              <div className="text-[10px] text-[#8a8780] leading-relaxed">{lower > 60 && noHash > 60 ? 'Lowercase, no hashtags — let the image do the work' : `${lower}% lowercase · ${noHash}% skip hashtags`}</div>
-            </div>
-          </div>
-
-          {/* Lane DNA chips + artists */}
-          <div className="p-5 border-t border-white/5">
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {allChips.map(chip => (
-                  <span key={chip} className="text-[9px] tracking-[.1em] uppercase text-[#b08d57] border border-[#b08d57]/25 px-2 py-0.5 bg-[#b08d57]/5">{chip}</span>
-                ))}
-              </div>
-              <div className="w-px h-4 bg-white/10" />
-              <div className="flex items-center gap-2 flex-wrap">
-                {artists.map(a => (
-                  <div key={a.name} className="flex items-center gap-1.5">
-                    {a.profile_pic_url ? (
-                      <img src={a.profile_pic_url} alt="" className="w-5 h-5 rounded-full object-cover border border-white/10" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-[#b08d57]/10 border border-white/10 flex items-center justify-center text-[7px] text-[#b08d57]">{a.name.charAt(0)}</div>
-                    )}
-                    <span className="text-[9px] text-[#52504c]">{a.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-        )
-      })()}
+      {/* Spacer — Content Intelligence section is now combined below with artist cards */}
 
       {/* CAPTION GENERATOR — compact */}
       <div className="bg-[#0e0d0b] border border-white/7 p-5 caption-panel">
@@ -1265,36 +1180,87 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
       </div>
 
-      {/* SIGNAL SCAN PROGRESS */}
-      {scanningArtist && scanStage && (
-        <div className="bg-[#0e0d0b] border border-[#b08d57]/30 p-6 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#b08d57]/20">
-            <div className="h-full bg-[#b08d57] animate-pulse" style={{ width: '100%' }} />
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full border-2 border-[#b08d57]/40 flex items-center justify-center flex-shrink-0">
-              <div className="w-6 h-6 border-2 border-[#b08d57] border-t-transparent rounded-full animate-spin" />
-            </div>
-            <div>
-              <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] mb-1">Signal Scan — {scanningArtist}</div>
-              <div className="text-[13px] text-[#f0ebe2] font-light">{scanStage}</div>
-              <div className="text-[9px] text-[#52504c] mt-1">Building your Content Intelligence Report</div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* CONTENT INTELLIGENCE — combined intelligence + artist cards */}
+      {(() => {
+        const tr = artists.length > 0 ? calcToneRegister(artists) : null
+        const va = artists.length > 0 ? calcVoiceAlignment(artists) : null
+        const totalPosts = artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)
+        const visualArtist = artists.find(a => a.visual_aesthetic)
+        const perfArtist = artists.find(a => a.content_performance)
+        const lower = artists.length > 0 ? Math.round(artists.reduce((s, a) => s + a.lowercase_pct, 0) / artists.length) : 0
+        const short = artists.length > 0 ? Math.round(artists.reduce((s, a) => s + a.short_caption_pct, 0) / artists.length) : 0
+        const noHash = artists.length > 0 ? Math.round(artists.reduce((s, a) => s + a.no_hashtags_pct, 0) / artists.length) : 0
+        const styleWords = [lower > 55 ? 'lowercase' : null, short > 45 ? 'punchy' : 'long-form', noHash > 55 ? 'no hashtags' : null].filter(Boolean)
+        const allChips = [...new Set(artists.flatMap(a => a.chips || []))].slice(0, 10)
 
-      {/* REFERENCE ARTISTS */}
-      <div className="bg-[#0e0d0b] border border-white/7">
-        <button onClick={() => toggleSection('artists')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
-          Signal Scan — your lane
-          <div className="flex-1 h-px bg-white/10" />
-          {!expandedSections.artists && artists.length > 0 && (
-            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{artists.length} artist{artists.length !== 1 ? 's' : ''} profiled</span>
+        return (
+        <div className="bg-[#0e0d0b] border border-white/7">
+          {/* Header — bigger, always visible */}
+          <div className="flex items-center justify-between p-6 border-b border-white/5">
+            <div>
+              <div className="text-[13px] tracking-[.22em] uppercase text-[#b08d57]">Content Intelligence</div>
+              {artists.length > 0 && (
+                <div className="text-[11px] text-[#52504c] mt-1">{artists.length} artist{artists.length !== 1 ? 's' : ''} profiled · {totalPosts} posts analysed</div>
+              )}
+            </div>
+            {va && va.score > 0 && (
+              <div className="flex items-center gap-3">
+                <div className="text-[26px] font-light text-[#b08d57]">{va.score}%</div>
+                <div className="text-[10px] tracking-[.12em] uppercase text-[#52504c]">voice<br/>confidence</div>
+              </div>
+            )}
+          </div>
+
+          {/* Summary intelligence row — WITH attribution */}
+          {artists.length > 0 && (
+            <div className="grid grid-cols-4 gap-px bg-white/5">
+              <div className="bg-[#0e0d0b] p-5">
+                <div className="text-[10px] tracking-[.18em] uppercase text-[#52504c] mb-2">Voice</div>
+                <div className="text-[18px] font-light text-[#f0ebe2] mb-1">{tr?.value || '—'}</div>
+                <div className="text-[10px] text-[#8a8780] leading-relaxed">{styleWords.join(', ') || 'Mixed'}</div>
+                <div className="text-[9px] text-[#52504c] mt-1">across {artists.length} artists</div>
+              </div>
+              <div className="bg-[#0e0d0b] p-5">
+                <div className="text-[10px] tracking-[.18em] uppercase text-[#52504c] mb-2">Visual</div>
+                <div className="text-[18px] font-light text-[#f0ebe2] mb-1">{visualArtist?.visual_aesthetic?.mood || 'Scan to reveal'}</div>
+                <div className="text-[10px] text-[#8a8780] leading-relaxed">{visualArtist?.visual_aesthetic?.palette || 'Run a deep dive scan'}</div>
+                {visualArtist && <div className="text-[9px] text-[#52504c] mt-1">via {visualArtist.name}</div>}
+              </div>
+              <div className="bg-[#0e0d0b] p-5">
+                <div className="text-[10px] tracking-[.18em] uppercase text-[#52504c] mb-2">Best format</div>
+                <div className="text-[18px] font-light text-[#f0ebe2] mb-1">{perfArtist?.content_performance?.best_type || 'Photo'}</div>
+                <div className="text-[10px] text-[#8a8780] leading-relaxed">{perfArtist?.content_performance?.peak_content ? (perfArtist.content_performance.peak_content.length > 50 ? perfArtist.content_performance.peak_content.slice(0, 50) + '...' : perfArtist.content_performance.peak_content) : 'Based on lane patterns'}</div>
+                {perfArtist && <div className="text-[9px] text-[#52504c] mt-1">via {perfArtist.name}</div>}
+              </div>
+              <div className="bg-[#0e0d0b] p-5">
+                <div className="text-[10px] tracking-[.18em] uppercase text-[#52504c] mb-2">What gets saved</div>
+                <div className="text-[18px] font-light text-[#f0ebe2] mb-1">{short > 55 ? 'Short fragments' : 'Longer captions'}</div>
+                <div className="text-[10px] text-[#8a8780] leading-relaxed">{lower}% lowercase · {noHash}% skip hashtags</div>
+                <div className="text-[9px] text-[#52504c] mt-1">lane average</div>
+              </div>
+            </div>
           )}
-          <span className="text-[#52504c] text-xs ml-1">{expandedSections.artists ? '▾' : '▸'}</span>
-        </button>
-        {expandedSections.artists && <div className="grid grid-cols-2 gap-3 px-5 pb-5">
+
+          {/* Scanning progress — inline */}
+          {scanningArtist && scanStage && (
+            <div className="border-t border-[#b08d57]/30 p-5 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#b08d57]/20">
+                <div className="h-full bg-[#b08d57] animate-pulse" style={{ width: '100%' }} />
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full border-2 border-[#b08d57]/40 flex items-center justify-center flex-shrink-0">
+                  <div className="w-5 h-5 border-2 border-[#b08d57] border-t-transparent rounded-full animate-spin" />
+                </div>
+                <div>
+                  <div className="text-[10px] tracking-[.18em] uppercase text-[#b08d57] mb-0.5">Signal Scan — {scanningArtist}</div>
+                  <div className="text-[13px] text-[#f0ebe2] font-light">{scanStage}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Artist cards — ALWAYS VISIBLE */}
+          <div className="grid grid-cols-2 gap-3 p-5">
           {artists.map(artist => (
             <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 relative group hover:border-white/13 transition-colors">
               {scanningArtist === artist.name && <div className="absolute top-0 left-0 right-0 h-px bg-[#b08d57] animate-pulse" />}
@@ -1416,8 +1382,21 @@ Generate a complete ad plan tailored to this specific content and format. Return
               </div>
             )}
           </div>
-        </div>}
-      </div>
+
+          {/* Lane DNA chips */}
+          {allChips.length > 0 && (
+            <div className="px-5 pb-5 pt-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {allChips.map(chip => (
+                  <span key={chip} className="text-[9px] tracking-[.1em] uppercase text-[#b08d57] border border-[#b08d57]/25 px-2 py-0.5 bg-[#b08d57]/5">{chip}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        </div>
+        )
+      })()}
 
       {/* TONE PROFILE */}
       <div className="bg-[#0e0d0b] border border-white/7">
