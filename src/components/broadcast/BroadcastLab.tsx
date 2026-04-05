@@ -199,6 +199,7 @@ export function BroadcastLab() {
   const [trends, setTrends] = useState<Trend[]>((_cache.trends as Trend[]) || [])
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   const toggleSection = (key: string) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }))
+  const [activeTab, setActiveTab] = useState<'content' | 'ads'>('content')
   const [refreshingInsights, setRefreshingInsights] = useState(false)
   const [trendsSource, setTrendsSource] = useState<{ postsAnalysed?: number; artistsIncluded?: string[] } | null>((_cache.trendsSource as any) || null)
   const [connectedSocials, setConnectedSocials] = useState<string[]>([]) // platform ids with direct connection
@@ -928,8 +929,19 @@ Generate a complete ad plan tailored to this specific content and format. Return
         </div>
       } />
 
+      {/* TAB BAR */}
+      <div className="flex gap-0 border-b border-white/7 px-8">
+        {([['content', 'Content Studio'], ['ads', 'Ad Amplifier']] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            className={`text-[10px] tracking-[.18em] uppercase px-5 py-3.5 border-b-2 transition-colors ${activeTab === key ? 'border-[#b08d57] text-[#b08d57]' : 'border-transparent text-[#52504c] hover:text-[#8a8780]'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-col gap-7 p-8">
 
+      {activeTab === 'content' && <>
       {/* POST NOW — reactive quick triggers */}
       <div className="bg-[#0e0d0b] border border-white/7 p-7">
         <div className="flex items-center gap-2 mb-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
@@ -1077,7 +1089,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
                           className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">
                           {hasDirectConnection(platform) ? 'Publish →' : 'Schedule →'}
                         </button>
-                        <button onClick={e=>{e.stopPropagation();setExpandedSections(prev=>({...prev,ads:true}));generateAdPlan(v?.text||'')}}
+                        <button onClick={e=>{e.stopPropagation();setActiveTab('ads');generateAdPlan(v?.text||'')}}
                           disabled={generatingAdPlan}
                           className="text-[10px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors disabled:opacity-40">
                           Boost →
@@ -1433,17 +1445,14 @@ Generate a complete ad plan tailored to this specific content and format. Return
         )}
         </div>}
       </div>
+      </>}
 
+      {activeTab === 'ads' && <>
       {/* AD AMPLIFIER */}
-      <div className="bg-[#0e0d0b] border border-white/7">
-        <button onClick={() => toggleSection('ads')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
+      <div className="bg-[#0e0d0b] border border-white/7 p-7">
+        <div className="flex items-center gap-2 mb-2 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
           Ad amplifier — paid strategy<div className="flex-1 h-px bg-white/10" />
-          {!expandedSections.ads && adPlan && (
-            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{adPlan.campaign_type} plan active</span>
-          )}
-          <span className="text-[#52504c] text-xs ml-1">{expandedSections.ads ? '▾' : '▸'}</span>
-        </button>
-        {expandedSections.ads && <div className="px-5 pb-5">
+        </div>
         <div className="text-[10px] tracking-[.07em] text-[#8a8780] mb-5 italic">Underground-calibrated paid campaigns. Every ad feels organic — never salesy.</div>
 
         <div className="flex gap-3 mb-4">
@@ -1565,8 +1574,8 @@ Generate a complete ad plan tailored to this specific content and format. Return
             <div className="text-[10px] tracking-[.07em] text-[#2e2c29]">Or hit &quot;Boost&quot; on any caption above to build a plan around that content</div>
           </div>
         )}
-        </div>}
       </div>
+      </>}
 
       {/* SIGNAL PANEL */}
       {signalData && signalData.posts.length > 0 && (() => {
