@@ -979,10 +979,213 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
       <div className="flex flex-col gap-5 p-8">
 
-      {/* Spacer — Content Intelligence section is now combined below with artist cards */}
+      {/* CONTENT INTELLIGENCE — hero section, first thing you see */}
+      {(() => {
+        const tr = artists.length > 0 ? calcToneRegister(artists) : null
+        const va = artists.length > 0 ? calcVoiceAlignment(artists) : null
+        const totalPosts = artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)
+        const allChips = [...new Set(artists.flatMap(a => a.chips || []))].slice(0, 10)
+        const topArtists = artists.slice(0, 2)
+        const restArtists = artists.slice(2)
 
-      {/* CAPTION GENERATOR — compact */}
-      <div className="bg-[#0e0d0b] border border-white/7 p-5 caption-panel">
+        return (
+        <div className="bg-[#0e0d0b] border border-white/7">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-white/5">
+            <div>
+              <div className="text-[14px] tracking-[.22em] uppercase text-[#b08d57]">Content Intelligence</div>
+              {artists.length > 0 && (
+                <div className="text-[11px] text-[#52504c] mt-1">{artists.length} artist{artists.length !== 1 ? 's' : ''} profiled · {totalPosts} posts analysed</div>
+              )}
+            </div>
+            {va && va.score > 0 && (
+              <div className="flex items-center gap-3">
+                <div className="text-[28px] font-light text-[#b08d57]">{va.score}%</div>
+                <div className="text-[10px] tracking-[.12em] uppercase text-[#52504c] leading-tight">voice<br/>confidence</div>
+              </div>
+            )}
+          </div>
+
+          {/* Top 2 artists — full detail */}
+          {topArtists.length > 0 && (
+            <div className="grid grid-cols-2 gap-px bg-white/5">
+              {topArtists.map(artist => (
+                <div key={artist.name} className="bg-[#0e0d0b] p-5 relative group">
+                  <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
+                    className="absolute top-3 right-3 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-sm leading-none">x</button>
+                  {/* Name + handle */}
+                  <div className="flex items-center gap-3 mb-4">
+                    {artist.profile_pic_url ? (
+                      <img src={artist.profile_pic_url} alt="" className="w-10 h-10 rounded-full object-cover border border-[#b08d57]/30 flex-shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/30 flex items-center justify-center text-[12px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
+                    )}
+                    <div>
+                      <div className="text-[15px] tracking-[.06em] text-[#f0ebe2]">{artist.name}</div>
+                      <div className="text-[10px] text-[#52504c]">{artist.handle} · {artist.genre}</div>
+                    </div>
+                    {artist.follower_count ? (
+                      <span className="ml-auto text-[11px] text-[#b08d57]">{artist.follower_count > 1000000 ? `${(artist.follower_count/1000000).toFixed(1)}M` : artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}</span>
+                    ) : null}
+                  </div>
+                  {/* Stats row */}
+                  <div className="grid grid-cols-4 gap-px bg-white/5 mb-4 border border-white/5">
+                    <div className="bg-[#0e0d0b] p-2.5 text-center">
+                      <div className="text-[16px] font-light text-[#f0ebe2]">{artist.lowercase_pct}%</div>
+                      <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-0.5">Lowercase</div>
+                    </div>
+                    <div className="bg-[#0e0d0b] p-2.5 text-center">
+                      <div className="text-[16px] font-light text-[#f0ebe2]">{artist.short_caption_pct}%</div>
+                      <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-0.5">Short</div>
+                    </div>
+                    <div className="bg-[#0e0d0b] p-2.5 text-center">
+                      <div className="text-[16px] font-light text-[#f0ebe2]">{artist.no_hashtags_pct}%</div>
+                      <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-0.5">No tags</div>
+                    </div>
+                    <div className="bg-[#0e0d0b] p-2.5 text-center">
+                      <div className="text-[16px] font-light text-[#b08d57]">{artist.content_performance?.engagement_rate || `${artist.post_count_analysed}`}</div>
+                      <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-0.5">{artist.content_performance?.engagement_rate ? 'Eng. rate' : 'Posts'}</div>
+                    </div>
+                  </div>
+                  {/* Full voice rules — NOT truncated for top 2 */}
+                  {artist.style_rules && (
+                    <div className="text-[11px] leading-[1.7] text-[#8a8780] mb-4 border-l-2 border-[#b08d57]/25 pl-3">
+                      {artist.style_rules}
+                    </div>
+                  )}
+                  {/* Chips */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {artist.chips.map((chip, i) => (
+                      <span key={chip} className={`text-[9px] tracking-[.1em] uppercase px-2 py-0.5 border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/40 text-[#b08d57] bg-[#b08d57]/5' : 'border-white/10 text-[#52504c]'}`}>{chip}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* More artists — compact row */}
+          {restArtists.length > 0 && (
+            <div className="border-t border-white/5 px-5 py-3">
+              <button onClick={() => toggleSection('moreArtists')} className="flex items-center gap-2 w-full text-left">
+                <span className="text-[10px] tracking-[.16em] uppercase text-[#52504c]">+{restArtists.length} more artist{restArtists.length !== 1 ? 's' : ''}</span>
+                <div className="flex items-center gap-1.5 ml-2">
+                  {restArtists.map(a => (
+                    <div key={a.name} className="flex items-center gap-1">
+                      {a.profile_pic_url ? (
+                        <img src={a.profile_pic_url} alt="" className="w-4 h-4 rounded-full object-cover border border-white/10" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full bg-[#b08d57]/10 border border-white/10 flex items-center justify-center text-[6px] text-[#b08d57]">{a.name.charAt(0)}</div>
+                      )}
+                      <span className="text-[9px] text-[#3a3830]">{a.name}</span>
+                    </div>
+                  ))}
+                </div>
+                <span className="text-[#52504c] text-xs ml-auto">{expandedSections.moreArtists ? '▾' : '▸'}</span>
+              </button>
+              {expandedSections.moreArtists && (
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  {restArtists.map(artist => (
+                    <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-4 relative group">
+                      <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name) }}
+                        className="absolute top-2 right-2 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-sm leading-none">x</button>
+                      <div className="flex items-center gap-2 mb-2">
+                        {artist.profile_pic_url ? (
+                          <img src={artist.profile_pic_url} alt="" className="w-7 h-7 rounded-full object-cover border border-white/10 flex-shrink-0" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-[#b08d57]/10 border border-white/10 flex items-center justify-center text-[9px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
+                        )}
+                        <div className="text-[12px] text-[#f0ebe2]">{artist.name}</div>
+                        <span className="ml-auto text-[10px] text-[#52504c]">{artist.post_count_analysed} posts</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1 mb-2">
+                        <div className="text-center"><span className="text-[13px] text-[#f0ebe2]">{artist.lowercase_pct}%</span><div className="text-[7px] text-[#52504c]">lower</div></div>
+                        <div className="text-center"><span className="text-[13px] text-[#f0ebe2]">{artist.short_caption_pct}%</span><div className="text-[7px] text-[#52504c]">short</div></div>
+                        <div className="text-center"><span className="text-[13px] text-[#f0ebe2]">{artist.no_hashtags_pct}%</span><div className="text-[7px] text-[#52504c]">no tags</div></div>
+                        <div className="text-center"><span className="text-[13px] text-[#b08d57]">{artist.content_performance?.engagement_rate || artist.post_count_analysed}</span><div className="text-[7px] text-[#52504c]">{artist.content_performance?.engagement_rate ? 'eng' : 'posts'}</div></div>
+                      </div>
+                      {artist.style_rules && <div className="text-[10px] text-[#8a8780] line-clamp-2 leading-relaxed">{artist.style_rules}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Scanning progress */}
+          {scanningArtist && scanStage && (
+            <div className="border-t border-[#b08d57]/30 p-5 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#b08d57]/20"><div className="h-full bg-[#b08d57] animate-pulse" style={{ width: '100%' }} /></div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full border-2 border-[#b08d57]/40 flex items-center justify-center flex-shrink-0">
+                  <div className="w-5 h-5 border-2 border-[#b08d57] border-t-transparent rounded-full animate-spin" />
+                </div>
+                <div>
+                  <div className="text-[10px] tracking-[.18em] uppercase text-[#b08d57] mb-0.5">Signal Scan — {scanningArtist}</div>
+                  <div className="text-[13px] text-[#f0ebe2] font-light">{scanStage}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add artist + paste panel */}
+          <div className="border-t border-white/5 p-5">
+            {pastingFor ? (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div><div className="text-[11px] tracking-[.1em] text-[#b08d57] uppercase mb-0.5">Paste captions — {pastingFor}</div><div className="text-[10px] text-[#8a8780]">One per line</div></div>
+                  <button onClick={() => { setPastingFor(null); setPastedCaptions('') }} className="text-[#8a8780] hover:text-[#f0ebe2] text-lg leading-none">×</button>
+                </div>
+                <textarea autoFocus value={pastedCaptions} onChange={e => setPastedCaptions(e.target.value)} placeholder={"caption one\ncaption two\ncaption three"} rows={5}
+                  className="w-full bg-[#1a1917] border border-white/10 text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29] resize-none focus:border-[#b08d57]/50" />
+                <div className="flex items-center gap-3">
+                  <button onClick={() => submitManualCaptions(pastingFor)} disabled={!!scanningArtist}
+                    className="text-[10px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] disabled:opacity-50 flex items-center gap-2">
+                    {scanningArtist ? <><div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />Analysing...</> : 'Analyse captions'}
+                  </button>
+                  <span className="text-[10px] text-[#2e2c29]">{pastedCaptions.split('\n').filter(l => l.trim().length > 5).length} captions ready</span>
+                </div>
+              </div>
+            ) : !addingArtist ? (
+              <button onClick={() => setAddingArtist(true)} className="flex items-center gap-2 text-[10px] tracking-[.16em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors">
+                <span className="text-lg leading-none">+</span> Run Signal Scan
+              </button>
+            ) : (
+              <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                <input ref={addInputRef} value={newArtistName} onChange={e => setNewArtistName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newArtistName.trim()) { scanArtist(newArtistName.trim()); setNewArtistName(''); setAddingArtist(false) }
+                    if (e.key === 'Escape') { setAddingArtist(false); setNewArtistName('') }
+                  }}
+                  placeholder="Artist name or @handle — Enter to scan"
+                  className="flex-1 bg-[#1a1917] border border-[#b08d57] text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29]" />
+                <button onClick={() => { setAddingArtist(false); setNewArtistName('') }} className="text-[10px] text-[#52504c] hover:text-[#f0ebe2]">Cancel</button>
+              </div>
+            )}
+          </div>
+
+          {/* Lane DNA chips */}
+          {allChips.length > 0 && (
+            <div className="border-t border-white/5 px-5 py-4">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {allChips.map(chip => (
+                  <span key={chip} className="text-[9px] tracking-[.1em] uppercase text-[#b08d57] border border-[#b08d57]/25 px-2 py-0.5 bg-[#b08d57]/5">{chip}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        )
+      })()}
+
+      {/* CAPTION GENERATOR — collapsible, intelligence is the hero */}
+      <div className="bg-[#0e0d0b] border border-white/7 caption-panel">
+        <button onClick={() => toggleSection('captions')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
+          Caption generator<div className="flex-1 h-px bg-white/10" />
+          {captions && !expandedSections.captions && <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">3 variants ready</span>}
+          <span className="text-[#52504c] text-xs ml-1">{expandedSections.captions ? '▾' : '▸'}</span>
+        </button>
+        {expandedSections.captions && <div className="px-5 pb-5">
         {/* Row 1: context input + generate button */}
         <div className="flex gap-2 mb-3">
           <div className="flex-1 relative">
@@ -1069,7 +1272,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
                     </div>
                     <div className="text-[13px] tracking-[.03em] leading-relaxed text-[#f0ebe2] mb-3">{v?.text||''}</div>
                     {v?.reasoning && (
-                      <div className="text-[9px] tracking-[.05em] text-[#52504c] leading-relaxed mb-3 italic">{v.reasoning}</div>
+                      <div className="text-[10px] tracking-[.05em] text-[#8a8780] leading-relaxed mb-3 italic">{v.reasoning}</div>
                     )}
                     <div className="flex items-center gap-2 pt-2 border-t border-white/5">
                       <button onClick={e => { e.stopPropagation(); copyToClipboard(v?.text||'', label) }}
@@ -1178,225 +1381,10 @@ Generate a complete ad plan tailored to this specific content and format. Return
           </div>
         )}
 
+      </div>}
       </div>
 
-      {/* CONTENT INTELLIGENCE — combined intelligence + artist cards */}
-      {(() => {
-        const tr = artists.length > 0 ? calcToneRegister(artists) : null
-        const va = artists.length > 0 ? calcVoiceAlignment(artists) : null
-        const totalPosts = artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)
-        const visualArtist = artists.find(a => a.visual_aesthetic)
-        const perfArtist = artists.find(a => a.content_performance)
-        const lower = artists.length > 0 ? Math.round(artists.reduce((s, a) => s + a.lowercase_pct, 0) / artists.length) : 0
-        const short = artists.length > 0 ? Math.round(artists.reduce((s, a) => s + a.short_caption_pct, 0) / artists.length) : 0
-        const noHash = artists.length > 0 ? Math.round(artists.reduce((s, a) => s + a.no_hashtags_pct, 0) / artists.length) : 0
-        const styleWords = [lower > 55 ? 'lowercase' : null, short > 45 ? 'punchy' : 'long-form', noHash > 55 ? 'no hashtags' : null].filter(Boolean)
-        const allChips = [...new Set(artists.flatMap(a => a.chips || []))].slice(0, 10)
-
-        return (
-        <div className="bg-[#0e0d0b] border border-white/7">
-          {/* Header — bigger, always visible */}
-          <div className="flex items-center justify-between p-6 border-b border-white/5">
-            <div>
-              <div className="text-[13px] tracking-[.22em] uppercase text-[#b08d57]">Content Intelligence</div>
-              {artists.length > 0 && (
-                <div className="text-[11px] text-[#52504c] mt-1">{artists.length} artist{artists.length !== 1 ? 's' : ''} profiled · {totalPosts} posts analysed</div>
-              )}
-            </div>
-            {va && va.score > 0 && (
-              <div className="flex items-center gap-3">
-                <div className="text-[26px] font-light text-[#b08d57]">{va.score}%</div>
-                <div className="text-[10px] tracking-[.12em] uppercase text-[#52504c]">voice<br/>confidence</div>
-              </div>
-            )}
-          </div>
-
-          {/* Summary intelligence row — WITH attribution */}
-          {artists.length > 0 && (
-            <div className="grid grid-cols-4 gap-px bg-white/5">
-              <div className="bg-[#0e0d0b] p-5">
-                <div className="text-[10px] tracking-[.18em] uppercase text-[#52504c] mb-2">Voice</div>
-                <div className="text-[18px] font-light text-[#f0ebe2] mb-1">{tr?.value || '—'}</div>
-                <div className="text-[10px] text-[#8a8780] leading-relaxed">{styleWords.join(', ') || 'Mixed'}</div>
-                <div className="text-[9px] text-[#52504c] mt-1">across {artists.length} artists</div>
-              </div>
-              <div className="bg-[#0e0d0b] p-5">
-                <div className="text-[10px] tracking-[.18em] uppercase text-[#52504c] mb-2">Visual</div>
-                <div className="text-[18px] font-light text-[#f0ebe2] mb-1">{visualArtist?.visual_aesthetic?.mood || 'Scan to reveal'}</div>
-                <div className="text-[10px] text-[#8a8780] leading-relaxed">{visualArtist?.visual_aesthetic?.palette || 'Run a deep dive scan'}</div>
-                {visualArtist && <div className="text-[9px] text-[#52504c] mt-1">via {visualArtist.name}</div>}
-              </div>
-              <div className="bg-[#0e0d0b] p-5">
-                <div className="text-[10px] tracking-[.18em] uppercase text-[#52504c] mb-2">Best format</div>
-                <div className="text-[18px] font-light text-[#f0ebe2] mb-1">{perfArtist?.content_performance?.best_type || 'Photo'}</div>
-                <div className="text-[10px] text-[#8a8780] leading-relaxed">{perfArtist?.content_performance?.peak_content ? (perfArtist.content_performance.peak_content.length > 50 ? perfArtist.content_performance.peak_content.slice(0, 50) + '...' : perfArtist.content_performance.peak_content) : 'Based on lane patterns'}</div>
-                {perfArtist && <div className="text-[9px] text-[#52504c] mt-1">via {perfArtist.name}</div>}
-              </div>
-              <div className="bg-[#0e0d0b] p-5">
-                <div className="text-[10px] tracking-[.18em] uppercase text-[#52504c] mb-2">What gets saved</div>
-                <div className="text-[18px] font-light text-[#f0ebe2] mb-1">{short > 55 ? 'Short fragments' : 'Longer captions'}</div>
-                <div className="text-[10px] text-[#8a8780] leading-relaxed">{lower}% lowercase · {noHash}% skip hashtags</div>
-                <div className="text-[9px] text-[#52504c] mt-1">lane average</div>
-              </div>
-            </div>
-          )}
-
-          {/* Scanning progress — inline */}
-          {scanningArtist && scanStage && (
-            <div className="border-t border-[#b08d57]/30 p-5 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#b08d57]/20">
-                <div className="h-full bg-[#b08d57] animate-pulse" style={{ width: '100%' }} />
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full border-2 border-[#b08d57]/40 flex items-center justify-center flex-shrink-0">
-                  <div className="w-5 h-5 border-2 border-[#b08d57] border-t-transparent rounded-full animate-spin" />
-                </div>
-                <div>
-                  <div className="text-[10px] tracking-[.18em] uppercase text-[#b08d57] mb-0.5">Signal Scan — {scanningArtist}</div>
-                  <div className="text-[13px] text-[#f0ebe2] font-light">{scanStage}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Artist cards — ALWAYS VISIBLE */}
-          <div className="grid grid-cols-2 gap-3 p-5">
-          {artists.map(artist => (
-            <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 relative group hover:border-white/13 transition-colors">
-              {scanningArtist === artist.name && <div className="absolute top-0 left-0 right-0 h-px bg-[#b08d57] animate-pulse" />}
-              <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
-                className="absolute top-3 right-3 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none z-10">x</button>
-              {/* Header — pic + name + follower count */}
-              <div className="flex items-center gap-3 p-4 pb-3">
-                {artist.profile_pic_url ? (
-                  <img src={artist.profile_pic_url} alt="" className="w-9 h-9 rounded-full object-cover border border-[#b08d57]/30 flex-shrink-0" />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/30 flex items-center justify-center text-[11px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between">
-                    <div className="text-[13px] tracking-[.06em]">{artist.name}</div>
-                    {artist.follower_count ? (
-                      <span className="text-[10px] text-[#b08d57]">{artist.follower_count > 1000000 ? `${(artist.follower_count/1000000).toFixed(1)}M` : artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count} followers</span>
-                    ) : null}
-                  </div>
-                  <div className="text-[10px] text-[#52504c]">{artist.handle} · {artist.genre}</div>
-                </div>
-              </div>
-              {/* Stats grid */}
-              <div className="grid grid-cols-4 gap-px bg-white/5 mx-4 mb-3 border border-white/5">
-                <div className="bg-[#0e0d0b] p-2.5 text-center">
-                  <div className="text-[15px] font-light text-[#f0ebe2]">{artist.lowercase_pct}%</div>
-                  <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mt-0.5">Lowercase</div>
-                </div>
-                <div className="bg-[#0e0d0b] p-2.5 text-center">
-                  <div className="text-[15px] font-light text-[#f0ebe2]">{artist.short_caption_pct}%</div>
-                  <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mt-0.5">Short</div>
-                </div>
-                <div className="bg-[#0e0d0b] p-2.5 text-center">
-                  <div className="text-[15px] font-light text-[#f0ebe2]">{artist.no_hashtags_pct}%</div>
-                  <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mt-0.5">No tags</div>
-                </div>
-                <div className="bg-[#0e0d0b] p-2.5 text-center">
-                  <div className="text-[15px] font-light text-[#b08d57]">{artist.content_performance?.engagement_rate || `${artist.post_count_analysed}`}</div>
-                  <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mt-0.5">{artist.content_performance?.engagement_rate ? 'Eng. rate' : 'Posts'}</div>
-                </div>
-              </div>
-              {/* Deep dive row — visual + best format + peak content */}
-              {artist.visual_aesthetic && (
-                <div className="grid grid-cols-3 gap-3 mx-4 mb-3">
-                  <div>
-                    <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mb-1">Visual mood</div>
-                    <div className="text-[11px] text-[#b08d57] leading-snug">{artist.visual_aesthetic.mood}</div>
-                  </div>
-                  <div>
-                    <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mb-1">Best format</div>
-                    <div className="text-[11px] text-[#f0ebe2] leading-snug">{artist.content_performance?.best_type || '—'}</div>
-                  </div>
-                  <div>
-                    <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mb-1">Peak content</div>
-                    <div className="text-[11px] text-[#f0ebe2] leading-snug">{artist.content_performance?.peak_content ? (artist.content_performance.peak_content.length > 60 ? artist.content_performance.peak_content.slice(0, 60) + '...' : artist.content_performance.peak_content) : '—'}</div>
-                  </div>
-                </div>
-              )}
-              {/* Voice summary — trimmed to 2 lines */}
-              {artist.style_rules && (
-                <div className="mx-4 mb-3 text-[10px] leading-relaxed text-[#8a8780] border-l-2 border-[#b08d57]/20 pl-3 line-clamp-2">
-                  {artist.style_rules}
-                </div>
-              )}
-              {/* Chips */}
-              <div className="flex flex-wrap gap-1 px-4 pb-4">
-                {artist.chips.map((chip, i) => (
-                  <span key={chip} className={`text-[8px] tracking-[.1em] uppercase px-1.5 py-0.5 border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/35 text-[#b08d57]' : 'border-white/10 text-[#52504c]'}`}>{chip}</span>
-                ))}
-              </div>
-            </div>
-          ))}
-          {/* Paste panel — shown when scan is blocked */}
-          {pastingFor && (
-            <div className="bg-[#0e0d0b] border border-[#b08d57]/40 p-5 flex flex-col gap-3 col-span-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[11px] tracking-[.1em] text-[#b08d57] uppercase mb-0.5">Paste captions — {pastingFor}</div>
-                  <div className="text-[10px] text-[#8a8780]">Go to their Instagram, copy captions one per line</div>
-                </div>
-                <button onClick={() => { setPastingFor(null); setPastedCaptions('') }}
-                  className="text-[#8a8780] hover:text-[#f0ebe2] text-lg leading-none transition-colors">×</button>
-              </div>
-              <textarea
-                autoFocus
-                value={pastedCaptions}
-                onChange={e => setPastedCaptions(e.target.value)}
-                placeholder={"caption one\ncaption two\ncaption three\n..."}
-                rows={6}
-                className="w-full bg-[#1a1917] border border-white/10 text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29] resize-none focus:border-[#b08d57]/50 transition-colors"
-              />
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => submitManualCaptions(pastingFor)}
-                  disabled={!!scanningArtist}
-                  className="text-[10px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50 flex items-center gap-2"
-                >
-                  {scanningArtist ? <><div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />Analysing...</> : 'Analyse captions'}
-                </button>
-                <span className="text-[10px] text-[#2e2c29]">{pastedCaptions.split('\n').filter(l => l.trim().length > 5).length} captions ready</span>
-              </div>
-            </div>
-          )}
-
-          <div onClick={() => !addingArtist && !pastingFor && setAddingArtist(true)}
-            className={`bg-[#0e0d0b] border border-dashed border-white/13 p-5 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-[#b08d57] hover:bg-[#141310] transition-colors min-h-[176px] ${pastingFor ? 'opacity-40 pointer-events-none' : ''}`}>
-            {!addingArtist ? (
-              <><div className="text-2xl text-[#2e2c29]">+</div><div className="text-[10px] tracking-[.15em] uppercase text-[#b08d57]">Run Signal Scan</div><div className="text-[9px] text-[#52504c] mt-1">Add an artist to your lane</div></>
-            ) : (
-              <div className="w-full flex flex-col gap-2" onClick={e => e.stopPropagation()}>
-                <input ref={addInputRef} value={newArtistName} onChange={e => setNewArtistName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && newArtistName.trim()) { scanArtist(newArtistName.trim()); setNewArtistName(''); setAddingArtist(false) }
-                    if (e.key === 'Escape') { setAddingArtist(false); setNewArtistName('') }
-                  }}
-                  placeholder="Artist name or @handle — press Enter to scan"
-                  className="w-full bg-[#1a1917] border border-[#b08d57] text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29]" />
-                <div className="text-[10px] tracking-[.1em] text-[#52504c] text-center">Enter to run Signal Scan · Escape to cancel</div>
-              </div>
-            )}
-          </div>
-
-          {/* Lane DNA chips */}
-          {allChips.length > 0 && (
-            <div className="px-5 pb-5 pt-2">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {allChips.map(chip => (
-                  <span key={chip} className="text-[9px] tracking-[.1em] uppercase text-[#b08d57] border border-[#b08d57]/25 px-2 py-0.5 bg-[#b08d57]/5">{chip}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        </div>
-        )
-      })()}
+      {/* (intelligence section is at top of page now) */}
 
       {/* TONE PROFILE */}
       <div className="bg-[#0e0d0b] border border-white/7">
