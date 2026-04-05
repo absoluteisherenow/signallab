@@ -20,6 +20,7 @@ interface ArtistProfile {
   data_source?: 'apify' | 'hikerapi' | 'manual' | 'claude'
   post_count_analysed?: number
   last_scanned?: string
+  profile_pic_url?: string
 }
 
 interface CaptionVariant {
@@ -908,7 +909,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
       {/* VOICE HERO — the sell */}
       {artists.length > 0 && (
         <div className="bg-[#0e0d0b] border border-white/7 p-6">
-          <div className="flex items-baseline justify-between mb-4">
+          <div className="flex items-center justify-between mb-5">
             <div>
               <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] mb-2">Your voice is live</div>
               <div className="text-[22px] font-light tracking-[-0.01em] text-[#f0ebe2]">
@@ -920,11 +921,19 @@ Generate a complete ad plan tailored to this specific content and format. Return
               <div className="text-[9px] tracking-[.12em] uppercase text-[#52504c]">voice confidence</div>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Artist profile pics + names */}
+          <div className="flex items-center gap-3 flex-wrap">
             {artists.map(a => (
-              <span key={a.name} className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] border border-[#b08d57]/30 px-3 py-1 bg-[#b08d57]/5">{a.name}</span>
+              <div key={a.name} className="flex items-center gap-2 border border-[#b08d57]/20 bg-[#b08d57]/5 px-3 py-1.5">
+                {a.profile_pic_url ? (
+                  <img src={a.profile_pic_url} alt="" className="w-6 h-6 rounded-full object-cover border border-[#b08d57]/30" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-[#b08d57]/15 border border-[#b08d57]/30 flex items-center justify-center text-[8px] text-[#b08d57]">{a.name.charAt(0)}</div>
+                )}
+                <span className="text-[10px] tracking-[.12em] uppercase text-[#b08d57]">{a.name}</span>
+              </div>
             ))}
-            <span className="text-[10px] text-[#52504c] ml-1">+ your posts</span>
+            <span className="text-[10px] text-[#52504c]">+ your posts</span>
           </div>
         </div>
       )}

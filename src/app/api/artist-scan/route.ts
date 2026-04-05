@@ -11,6 +11,7 @@ interface PostData {
 interface ScrapeResult {
   posts: PostData[]
   captions: string[]
+  profilePicUrl?: string
 }
 
 // ── HikerAPI scraper ─────────────────────────────────────────────────────────
@@ -51,7 +52,8 @@ async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
       }
     }).filter(p => p.caption.length > 3).slice(0, 30)
 
-    return { posts, captions: posts.map(p => p.caption) }
+    const profilePicUrl = user?.profile_pic_url || user?.profile_pic_url_hd || undefined
+    return { posts, captions: posts.map(p => p.caption), profilePicUrl }
   } catch {
     return { posts: [], captions: [] }
   }
@@ -201,6 +203,7 @@ export async function POST(req: NextRequest) {
         data_source: dataSource,
         post_count_analysed: result.captions.length,
         last_scanned: new Date().toISOString().split('T')[0],
+        ...(result.profilePicUrl ? { profile_pic_url: result.profilePicUrl } : {}),
       },
     })
   } catch (err: any) {
