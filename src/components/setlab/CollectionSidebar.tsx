@@ -2,23 +2,28 @@
 
 import { useState } from 'react'
 
+export interface RekordboxPlaylist {
+  name: string
+  trackCount: number
+}
+
 interface SidebarProps {
-  // Counts
   totalTracks: number
   discoveryCount: number
   wantlistCount: number
-  playlists: Record<string, number> // name → track count
+  playlists: Record<string, number>
   pastSets: Array<{ id: string; name: string; tracks?: string; created_at: string }>
   folders: Array<{ id: string; name: string; path: string; track_count: number }>
-  // Current selection
   activeSection: string
   onSectionChange: (section: string) => void
-  // Intelligence tab
   onIntelligence?: () => void
   intelligenceActive?: boolean
-  // Actions
   onImportRekordbox?: () => void
   onAddFolder?: () => void
+  // Rekordbox browser
+  rekordboxPlaylists?: RekordboxPlaylist[]
+  onConnectRekordbox?: () => void
+  rekordboxConnected?: boolean
 }
 
 export function CollectionSidebar({
@@ -27,11 +32,13 @@ export function CollectionSidebar({
   activeSection, onSectionChange,
   onIntelligence, intelligenceActive,
   onImportRekordbox, onAddFolder,
+  rekordboxPlaylists, onConnectRekordbox, rekordboxConnected,
 }: SidebarProps) {
   const [collectionOpen, setCollectionOpen] = useState(true)
   const [playlistsOpen, setPlaylistsOpen] = useState(true)
   const [setsOpen, setSetsOpen] = useState(false)
   const [foldersOpen, setFoldersOpen] = useState(false)
+  const [rekordboxOpen, setRekordboxOpen] = useState(true)
 
   const s = {
     bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
@@ -136,6 +143,46 @@ export function CollectionSidebar({
         </div>
       )}
 
+      {/* Rekordbox Browser */}
+      {sectionHeader('Rekordbox', rekordboxOpen, () => setRekordboxOpen(v => !v),
+        onConnectRekordbox ? { label: 'Connect XML', onClick: onConnectRekordbox } : undefined
+      )}
+      {rekordboxOpen && (
+        <div>
+          {!rekordboxConnected ? (
+            <div style={{ padding: '8px 16px 8px 32px' }}>
+              <div style={{ fontSize: '10px', color: s.textDimmer, marginBottom: '8px', lineHeight: 1.4 }}>
+                Connect your Rekordbox XML to browse playlists
+              </div>
+              {onConnectRekordbox && (
+                <button
+                  onClick={onConnectRekordbox}
+                  style={{
+                    width: '100%', padding: '7px 10px',
+                    background: 'transparent', border: '1px solid ' + s.setlab,
+                    color: s.setlab, fontFamily: s.font, fontSize: '9px',
+                    letterSpacing: '0.12em', textTransform: 'uppercase',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(154,106,90,0.1)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  Connect XML
+                </button>
+              )}
+            </div>
+          ) : rekordboxPlaylists && rekordboxPlaylists.length > 0 ? (
+            rekordboxPlaylists.map(pl =>
+              item('rb:' + pl.name, pl.name, pl.trackCount, 1)
+            )
+          ) : (
+            <div style={{ padding: '6px 16px 6px 32px', fontSize: '10px', color: s.textDimmer, fontStyle: 'italic' }}>
+              No playlists found
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Past Sets */}
       {sectionHeader('Sets', setsOpen, () => setSetsOpen(v => !v))}
       {setsOpen && (
@@ -192,28 +239,7 @@ export function CollectionSidebar({
         </div>
       )}
 
-      {/* Spacer */}
       <div style={{ flex: 1 }} />
-
-      {/* Import button */}
-      {onImportRekordbox && (
-        <div style={{ padding: '12px 16px', borderTop: '1px solid ' + s.border }}>
-          <button
-            onClick={onImportRekordbox}
-            style={{
-              width: '100%', padding: '9px 14px',
-              background: 'transparent', border: '1px solid ' + s.setlab,
-              color: s.setlab, fontFamily: s.font, fontSize: '10px',
-              letterSpacing: '0.14em', textTransform: 'uppercase',
-              cursor: 'pointer', transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(154,106,90,0.1)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-          >
-            Import library
-          </button>
-        </div>
-      )}
     </div>
   )
 }

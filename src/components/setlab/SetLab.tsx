@@ -54,6 +54,7 @@ interface Track {
   discovered_via?: any
   spotify_url?: string
   album_art?: string
+  preview_url?: string    // Spotify 30s preview
   has_local_audio?: boolean
   file_path?: string
 }
@@ -212,6 +213,8 @@ export function SetLab() {
   const [pasteImporting, setPasteImporting] = useState(false)
   const [pasteProgress, setPasteProgress] = useState('')
   const [expandedTrack, setExpandedTrack] = useState<string | null>(null)
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 80 })
+  const trackListRef = useRef<HTMLDivElement>(null)
   const [suggestingNext, setSuggestingNext] = useState(false)
   const [suggestions, setSuggestions] = useState<{ id: string; reason: string }[]>([])
   const [toast, setToast] = useState<{ msg: string; tag: string } | null>(null)
@@ -353,20 +356,24 @@ export function SetLab() {
     if (file) {
       url = URL.createObjectURL(file)
     } else if (isTauri() && track.file_path) {
-      // Desktop: read audio file from disk via Rust command
+      // Desktop: use Tauri asset protocol for instant streaming
       try {
-        const bytes = await readAudioFile(track.file_path)
-        const ext = track.file_path.split('.').pop()?.toLowerCase() || 'mp3'
-        const mimeMap: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4', aiff: 'audio/aiff', aif: 'audio/aiff', ogg: 'audio/ogg' }
-        const blob = new Blob([bytes.buffer as ArrayBuffer], { type: mimeMap[ext] || 'audio/mpeg' })
-        url = URL.createObjectURL(blob)
+        const { convertFileSrc } = await import('@tauri-apps/api/core')
+        url = convertFileSrc(track.file_path)
       } catch (err: any) {
-        console.error('File read error:', err)
-        showToast('Could not read audio file', 'Error')
+        console.error('Asset protocol error:', err)
+        showToast('Could not load audio file', 'Error')
         return
       }
     }
+    // Fallback: Spotify 30-second preview ("Flash Reminder")
+    let isPreview = false
+    if (!url && track.preview_url) {
+      url = track.preview_url
+      isPreview = true
+    }
     if (!url) { showToast('No audio file — drop the MP3/WAV to add it', 'Error'); return }
+    if (isPreview) showToast('Flash reminder — 30s preview', 'Preview')
     const audio = new Audio(url)
     audioRef.current = audio
     audio.ontimeupdate = () => setAudioTime(audio.currentTime)
@@ -423,7 +430,7 @@ export function SetLab() {
           } catch (e) { /* Spotify unavailable */ }
         }
 
-        // Intelligence skipped on import — use "Verify & correct" per track to get mix tips (saves API credits)
+        // Intelligence skipped on import — use Smart Scan per track for mix intelligence (saves API credits)
 
         const track: Track = {
           id: Date.now().toString() + Math.random(),
@@ -446,6 +453,7 @@ export function SetLab() {
           producer_style: '',
           spotify_url: spotify?.spotify_url || '',
           album_art: spotify?.album_art || '',
+          preview_url: spotify?.preview_url || '',
         }
 
         // Keep file reference for playback (no duplication)
@@ -466,10 +474,32 @@ export function SetLab() {
     if (processed > 1) showToast(`${processed} tracks analysed and added to library`, 'Done')
   }
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
     setDragOver(false)
-    if (e.dataTransfer.files.length > 0) handleAudioFiles(e.dataTransfer.files)
+    if (e.dataTransfer.files.length === 0) return
+    const file = e.dataTransfer.files[0]
+    // Rekordbox XML drop — auto-import playlists + tracks
+    if (file.name.endsWith('.xml')) {
+      if (isTauri()) {
+        // Desktop: pass file path to Rust importer
+        const path = (file as any).path || file.name
+        try {
+          showToast('Importing Rekordbox library...', 'Import')
+          const result = await tauriImportRekordbox(path)
+          showToast(`Imported ${result.tracks_imported} tracks, ${result.playlists_found} playlists`, 'Import')
+          loadLibrary()
+          tauriGetPlaylists().then(setRbPlaylists).catch(() => {})
+        } catch (err: any) {
+          showToast(err?.message || 'Import failed', 'Error')
+        }
+      } else {
+        // Web: read XML content and parse client-side
+        showToast('Rekordbox XML import — use the desktop app for full playlist import', 'Info')
+      }
+      return
+    }
+    handleAudioFiles(e.dataTransfer.files)
   }, [])
 
   // ── Screenshot Import → Extract tracks via vision → Add to library ─────
@@ -534,7 +564,7 @@ export function SetLab() {
             if (spData.found) spotify = spData
           } catch (e) { /* Spotify unavailable — leave fields blank */ }
 
-          // Intelligence skipped on import — use "Verify & correct" per track for mix tips (saves API credits)
+          // Intelligence skipped on import — use Smart Scan per track for mix intelligence (saves API credits)
 
           const track: Track = {
             id: Date.now().toString() + Math.random(),
@@ -1171,30 +1201,11 @@ Provide:
     setSelectedTracks(new Set())
   }
 
-  async function reanalyseTrack(track: Track) {
-    setReanalysing(track.id)
-    try {
-      // Step 1: Spotify lookup for verified BPM/key/energy
-      let spotify: any = null
-      try {
-        const spRes = await fetch('/api/spotify/lookup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ artist: track.artist, title: track.title }),
-        })
-        const spData = await spRes.json()
-        if (spData.found) spotify = spData
-      } catch (e) { /* Spotify unavailable */ }
-
-      // Step 2: Claude for subjective intelligence only
-      let intelligence: any = {}
-      try {
-        const intRaw = await callClaude(
-          'You are a DJ music intelligence expert. NEVER guess or fabricate BPM, key, or energy values.',
-          `Provide DJ intelligence for this track. Do NOT include bpm, key, camelot, or energy.
+  const SCAN_PROMPT = (track: Track, extraContext: string) =>
+    `Provide DJ intelligence for this track. Do NOT include bpm, key, camelot, or energy.
 
 Track: ${track.artist} — ${track.title}
-${spotify ? `Verified BPM: ${spotify.bpm}, Key: ${spotify.key}` : `Current BPM: ${track.bpm}, Key: ${track.key}`}
+${extraContext}
 
 If you genuinely know this track, return JSON:
 {
@@ -1208,16 +1219,40 @@ If you genuinely know this track, return JSON:
 }
 
 If you do NOT know this track well enough, return: {"unknown": true}
-Return ONLY valid JSON, no markdown.`, 300)
+Return ONLY valid JSON, no markdown.`
+
+  // Smart Scan — Haiku first (cheap), flags unknowns for Deep Scan
+  async function reanalyseTrack(track: Track) {
+    setReanalysing(track.id)
+    try {
+      // Step 1: Spotify lookup (free)
+      let spotify: any = null
+      try {
+        const spRes = await fetch('/api/spotify/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ artist: track.artist, title: track.title }),
+        })
+        const spData = await spRes.json()
+        if (spData.found) spotify = spData
+      } catch (e) { /* Spotify unavailable */ }
+
+      // Step 2: Haiku scan (cheap)
+      let intelligence: any = {}
+      let scanUnknown = false
+      try {
+        const ctx = spotify ? `Verified BPM: ${spotify.bpm}, Key: ${spotify.key}` : `Current BPM: ${track.bpm}, Key: ${track.key}`
+        const intRaw = await callClaude(
+          'You are a DJ music intelligence expert. NEVER guess or fabricate.',
+          SCAN_PROMPT(track, ctx), 300, 'claude-haiku-4-5-20251001')
         const parsed = JSON.parse(intRaw.replace(/```json|```/g, '').trim())
-        if (!parsed.unknown) intelligence = parsed
+        if (parsed.unknown) { scanUnknown = true } else { intelligence = parsed }
       } catch (e) { /* skip intelligence */ }
 
       const updates: any = { ...intelligence }
       const corrections: string[] = []
 
       if (spotify) {
-        // Correct artist and title from Spotify — the authoritative source
         if (spotify.artist && spotify.artist !== track.artist) { updates.artist = spotify.artist; corrections.push(`Artist → ${spotify.artist}`) }
         if (spotify.title && spotify.title !== track.title) { updates.title = spotify.title; corrections.push(`Title → ${spotify.title}`) }
         if (spotify.bpm && spotify.bpm !== track.bpm) { updates.bpm = spotify.bpm; corrections.push(`BPM → ${spotify.bpm}`) }
@@ -1226,9 +1261,11 @@ Return ONLY valid JSON, no markdown.`, 300)
         if (spotify.energy) updates.energy = spotify.energy
         if (spotify.spotify_url) updates.spotify_url = spotify.spotify_url
         if (spotify.album_art) updates.album_art = spotify.album_art
+        if (spotify.preview_url) updates.preview_url = spotify.preview_url
         updates.enriched = true
       }
 
+      updates.analysed = true
       const updated = { ...track, ...updates }
 
       await fetch('/api/tracks', {
@@ -1239,13 +1276,41 @@ Return ONLY valid JSON, no markdown.`, 300)
 
       setLibrary(prev => prev.map(t => t.id === track.id ? updated : t))
       showToast(
-        spotify
-          ? corrections.length ? `Verified: ${corrections.join(', ')}` : 'Verified against Spotify — data correct'
-          : 'Track not found on Spotify — could not verify',
-        'Intelligence'
+        scanUnknown
+          ? 'Spotify verified — track not recognised for mix intelligence. Try Deep Scan.'
+          : corrections.length ? `Scanned: ${corrections.join(', ')}` : 'Scanned — intelligence added',
+        scanUnknown ? 'Unknown' : 'Scanned'
       )
     } catch (err: any) {
-      showToast('Re-analyse failed: ' + err.message, 'Error')
+      showToast('Scan failed: ' + err.message, 'Error')
+    } finally {
+      setReanalysing(null)
+    }
+  }
+
+  // Deep Scan — Sonnet (more capable, costs more) for tracks Haiku couldn't recognise
+  async function deepScanTrack(track: Track) {
+    setReanalysing(track.id)
+    try {
+      const ctx = `BPM: ${track.bpm}, Key: ${track.camelot || track.key}`
+      const intRaw = await callClaude(
+        'You are a world-class DJ music intelligence expert with deep knowledge of underground electronic music. NEVER fabricate.',
+        SCAN_PROMPT(track, ctx), 400, 'claude-sonnet-4-5-20241022')
+      const parsed = JSON.parse(intRaw.replace(/```json|```/g, '').trim())
+      if (parsed.unknown) {
+        showToast('Even deep scan couldn\'t identify this track — truly underground', 'Unknown')
+      } else {
+        const updated = { ...track, ...parsed, analysed: true }
+        setLibrary(prev => prev.map(t => t.id === track.id ? updated : t))
+        await fetch('/api/tracks', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: track.id, ...parsed }),
+        })
+        showToast('Deep scan complete — intelligence added', 'Scanned')
+      }
+    } catch (err: any) {
+      showToast('Deep scan failed: ' + err.message, 'Error')
     } finally {
       setReanalysing(null)
     }
@@ -1944,12 +2009,150 @@ Return ONLY valid JSON, no markdown.`, 300)
     display: 'flex', alignItems: 'center', gap: '8px',
   })
 
-  const [isDesktop, setIsDesktop] = useState(false)
+  const isDesktop = isTauri()
   const [rbPlaylists, setRbPlaylists] = useState<TauriPlaylist[]>([])
+  // Rekordbox XML browser — parsed in-memory, not imported
+  const [rbXmlData, setRbXmlData] = useState<{ tracks: Map<string, any>; playlists: Array<{ name: string; trackIds: string[] }> } | null>(null)
+  const [rbActivePlaylist, setRbActivePlaylist] = useState<string | null>(null)
+
   useEffect(() => {
-    setIsDesktop(isTauri())
     if (isTauri()) { tauriGetPlaylists().then(setRbPlaylists).catch(() => {}) }
   }, [])
+
+  // Parse Rekordbox XML client-side for browsing (no import)
+  async function connectRekordboxXml() {
+    try {
+      let xmlText = ''
+      // Always use browser file picker — works in both web and Tauri webview
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.xml'
+      const file = await new Promise<File | null>(resolve => {
+        input.onchange = () => resolve(input.files?.[0] || null)
+        input.click()
+      })
+      if (!file) return
+      showToast('Reading XML...', 'Rekordbox')
+      xmlText = await file.text()
+
+      showToast('Parsing playlists...', 'Rekordbox')
+
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(xmlText, 'text/xml')
+
+      // Check for parse errors
+      const parseError = doc.querySelector('parsererror')
+      if (parseError) throw new Error('Invalid XML format')
+
+      // Camelot conversion for keys from XML
+      const camelotMap: Record<string, string> = {
+        'Am': '8A', 'Em': '9A', 'Bm': '10A', 'F#m': '11A', 'Dbm': '12A', 'C#m': '12A',
+        'Abm': '1A', 'G#m': '1A', 'Ebm': '2A', 'D#m': '2A', 'Bbm': '3A', 'A#m': '3A',
+        'Fm': '4A', 'Cm': '5A', 'Gm': '6A', 'Dm': '7A',
+        'C': '8B', 'G': '9B', 'D': '10B', 'A': '11B', 'E': '12B', 'B': '1B',
+        'F#': '2B', 'Db': '3B', 'C#': '3B', 'Ab': '4B', 'G#': '4B',
+        'Eb': '5B', 'D#': '5B', 'Bb': '6B', 'A#': '6B', 'F': '7B',
+      }
+
+      // Extract tracks
+      const trackMap = new Map<string, any>()
+      doc.querySelectorAll('TRACK').forEach(el => {
+        const id = el.getAttribute('TrackID') || ''
+        const name = el.getAttribute('Name') || ''
+        if (!id || !name) return
+        const tonality = el.getAttribute('Tonality') || ''
+        trackMap.set(id, {
+          id,
+          title: name,
+          artist: el.getAttribute('Artist') || '',
+          bpm: parseFloat(el.getAttribute('AverageBpm') || el.getAttribute('BPM') || '0'),
+          key: tonality,
+          camelot: camelotMap[tonality] || '',
+          genre: el.getAttribute('Genre') || '',
+          duration: (() => { const t = parseInt(el.getAttribute('TotalTime') || '0'); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}` })(),
+          location: el.getAttribute('Location') || '',
+        })
+      })
+
+      // Extract playlists — NODE elements with Type="1" inside PLAYLISTS
+      const playlists: Array<{ name: string; trackIds: string[] }> = []
+      doc.querySelectorAll('NODE[Type="1"]').forEach(node => {
+        const name = node.getAttribute('Name') || ''
+        if (!name || name === 'ROOT') return
+        const trackIds: string[] = []
+        node.querySelectorAll(':scope > TRACK').forEach(t => {
+          const key = t.getAttribute('Key') || ''
+          if (key) trackIds.push(key)
+        })
+        if (trackIds.length > 0) playlists.push({ name, trackIds })
+      })
+
+      setRbXmlData({ tracks: trackMap, playlists })
+      showToast(`Connected — ${playlists.length} playlists, ${trackMap.size} tracks`, 'Rekordbox')
+    } catch (err: any) {
+      console.error('XML parse error:', err)
+      showToast(err?.message || 'Failed to parse XML', 'Error')
+    }
+  }
+
+  // Get tracks for a Rekordbox playlist (from parsed XML)
+  function getRbPlaylistTracks(playlistName: string): any[] {
+    if (!rbXmlData) return []
+    const pl = rbXmlData.playlists.find(p => p.name === playlistName)
+    if (!pl) return []
+    return pl.trackIds.map(id => rbXmlData.tracks.get(id)).filter(Boolean)
+  }
+
+  // Add a Rekordbox track to Set Lab library + auto Spotify enrichment
+  async function addRbTrackToLibrary(rbTrack: any) {
+    const exists = library.some(t => t.title.toLowerCase() === rbTrack.title.toLowerCase() && t.artist.toLowerCase() === rbTrack.artist.toLowerCase())
+    if (exists) { showToast(`"${rbTrack.title}" already in library`, 'Info'); return }
+    const track: Track = {
+      id: 'rb-' + rbTrack.id + '-' + Date.now(),
+      title: rbTrack.title,
+      artist: rbTrack.artist,
+      bpm: rbTrack.bpm || 0,
+      key: rbTrack.key || '',
+      camelot: rbTrack.camelot || '',
+      energy: 0,
+      genre: rbTrack.genre || '',
+      duration: rbTrack.duration || '',
+      notes: '',
+      analysed: false,
+      moment_type: '', position_score: '', mix_in: '', mix_out: '',
+      crowd_reaction: '', similar_to: '', producer_style: '',
+      source: 'rekordbox',
+    }
+    setLibrary(prev => [...prev, track])
+    // Persist
+    fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(track) }).catch(() => {})
+    if (isTauri()) { tauriUpsertTrack(track as any).catch(() => {}) }
+
+    // Auto Spotify enrichment (free) — artwork, preview, verified BPM/key
+    try {
+      const spRes = await fetch('/api/spotify/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artist: rbTrack.artist, title: rbTrack.title }),
+      })
+      const sp = await spRes.json()
+      if (sp.found) {
+        const updates: Partial<Track> = {}
+        if (sp.album_art) updates.album_art = sp.album_art
+        if (sp.preview_url) updates.preview_url = sp.preview_url
+        if (sp.spotify_url) updates.spotify_url = sp.spotify_url
+        if (sp.bpm && !track.bpm) updates.bpm = sp.bpm
+        if (sp.camelot && !track.camelot) updates.camelot = sp.camelot
+        if (sp.key && !track.key) updates.key = sp.key
+        if (sp.energy) updates.energy = sp.energy
+        if (Object.keys(updates).length > 0) {
+          updates.analysed = true
+          setLibrary(prev => prev.map(t => t.id === track.id ? { ...t, ...updates } : t))
+          fetch('/api/tracks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: track.id, ...updates }) }).catch(() => {})
+        }
+      }
+    } catch { /* Spotify unavailable — track still added with Rekordbox data */ }
+  }
 
   const playlistCounts: Record<string, number> = {}
   // On desktop, use Rekordbox playlists from SQLite; on web, use screenshot-sourced groups
@@ -1968,12 +2171,20 @@ Return ONLY valid JSON, no markdown.`, 300)
       pastSets={pastSets}
       folders={[]}
       activeSection={librarySection}
+      rekordboxConnected={!!rbXmlData}
+      rekordboxPlaylists={rbXmlData?.playlists.map(p => ({ name: p.name, trackCount: p.trackIds.length })) || []}
+      onConnectRekordbox={connectRekordboxXml}
       onSectionChange={(section) => {
         if (section === 'all' || section === 'discoveries' || section === 'playlists' || section === 'wantlist') {
           setLibrarySection(section as any)
+          setRbActivePlaylist(null)
           setActiveTab('library')
         } else if (section.startsWith('playlist:')) {
           setLibrarySection('playlists')
+          setRbActivePlaylist(null)
+          setActiveTab('library')
+        } else if (section.startsWith('rb:')) {
+          setRbActivePlaylist(section.slice(3))
           setActiveTab('library')
         } else if (section.startsWith('set:')) {
           const ps = pastSets.find((p: any) => p.id === section.slice(4))
@@ -2008,7 +2219,9 @@ Return ONLY valid JSON, no markdown.`, 300)
   ) : null
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: s.bg, color: s.text, fontFamily: s.font }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: s.bg, color: s.text, fontFamily: s.font }}
+      onDragOver={e => e.preventDefault()}
+      onDrop={handleDrop}>
       {sidebarEl}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
 
@@ -2132,10 +2345,82 @@ Return ONLY valid JSON, no markdown.`, 300)
         <div style={{ height: '1px', background: s.border }} />
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: isDesktop ? '16px 28px' : '24px 48px' }}>
+      <div ref={trackListRef} onScroll={e => {
+        const el = e.currentTarget
+        const rowH = 48
+        const scrollTop = el.scrollTop
+        const viewH = el.clientHeight
+        const start = Math.max(0, Math.floor(scrollTop / rowH) - 10)
+        const end = Math.min(filteredLibrary.length, Math.ceil((scrollTop + viewH) / rowH) + 10)
+        if (start !== visibleRange.start || end !== visibleRange.end) setVisibleRange({ start, end })
+      }} style={{ flex: 1, overflow: 'auto', padding: isDesktop ? '16px 28px' : '24px 48px' }}>
+
+        {/* ═══ REKORDBOX PLAYLIST BROWSER ═══ */}
+        {activeTab === 'library' && rbActivePlaylist && rbXmlData && (() => {
+          const rbTracks = getRbPlaylistTracks(rbActivePlaylist)
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '4px' }}>Rekordbox</div>
+                  <div style={{ fontSize: '16px', color: s.text }}>{rbActivePlaylist}</div>
+                  <div style={{ fontSize: '11px', color: s.textDimmer, marginTop: '2px' }}>{rbTracks.length} tracks — drag to add to your library</div>
+                </div>
+                <button onClick={() => {
+                  rbTracks.forEach(t => addRbTrackToLibrary(t))
+                  showToast(`Added ${rbTracks.length} tracks from "${rbActivePlaylist}"`, 'Import')
+                }} style={{ ...btn(s.gold), fontSize: '10px', padding: '8px 18px' }}>
+                  Add all to library
+                </button>
+              </div>
+
+              <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 65px 65px 60px 80px', gap: '0', padding: '10px 20px', borderBottom: `1px solid ${s.border}` }}>
+                  {['Track', 'Artist', 'BPM', 'Key', 'Duration', ''].map(h => (
+                    <div key={h} style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase' }}>{h}</div>
+                  ))}
+                </div>
+                {rbTracks.map((t: any, i: number) => {
+                  const alreadyIn = library.some(lt => lt.title.toLowerCase() === t.title.toLowerCase() && lt.artist.toLowerCase() === t.artist.toLowerCase())
+                  return (
+                    <div key={t.id + '-' + i}
+                      draggable
+                      onDragStart={e => {
+                        e.dataTransfer.setData('application/json', JSON.stringify(t))
+                        e.dataTransfer.effectAllowed = 'copy'
+                      }}
+                      style={{
+                        display: 'grid', gridTemplateColumns: '2fr 1.2fr 65px 65px 60px 80px',
+                        gap: '0', padding: '10px 20px', borderBottom: `1px solid ${s.border}`,
+                        cursor: 'grab', opacity: alreadyIn ? 0.4 : 1,
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div style={{ fontSize: '13px', color: s.text }}>{t.title}</div>
+                      <div style={{ fontSize: '12px', color: s.textDim }}>{t.artist}</div>
+                      <div style={{ fontSize: '12px', color: s.textDim }}>{t.bpm ? Math.round(t.bpm) : '—'}</div>
+                      <div style={{ fontSize: '11px', color: s.textDim }}>{t.key || '—'}</div>
+                      <div style={{ fontSize: '11px', color: s.textDimmer }}>{t.duration}</div>
+                      <div>
+                        {alreadyIn ? (
+                          <span style={{ fontSize: '10px', color: s.textDimmer }}>In library</span>
+                        ) : (
+                          <button onClick={() => addRbTrackToLibrary(t)}
+                            style={{ ...btn(s.gold), fontSize: '10px', padding: '4px 12px' }}>+ Add</button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* ═══ LIBRARY TAB ═══ */}
-        {activeTab === 'library' && (
+        {activeTab === 'library' && !rbActivePlaylist && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
             {/* ── SUB-TABS (web only — desktop uses sidebar) ── */}
@@ -2295,7 +2580,7 @@ Return ONLY valid JSON, no markdown.`, 300)
 
             {/* Track library with expandable intelligence */}
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '12px 20px', borderBottom: `1px solid ${s.border}`, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 55px 90px 80px', gap: '0', padding: '12px 20px', borderBottom: `1px solid ${s.border}`, alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input type="checkbox" checked={selectedTracks.size > 0 && filteredLibrary.every(t => selectedTracks.has(t.id))}
                     onChange={() => {
@@ -2305,7 +2590,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                     style={{ cursor: 'pointer', accentColor: s.gold }} />
                 </div>
                 <div />
-                {['Track', 'Artist', 'BPM', 'Key', 'Camelot', 'Energy', 'Moment', ''].map(h => (
+                {['Track', 'Artist', 'BPM', 'Key', 'Energy', 'Moment', ''].map(h => (
                   <div key={h} style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.textDimmer, textTransform: 'uppercase' }}>{h}</div>
                 ))}
               </div>
@@ -2316,9 +2601,11 @@ Return ONLY valid JSON, no markdown.`, 300)
                   <div style={{ fontSize: '12px', color: s.textDimmer }}>Type a track name in the search above, or use the Track Lookup tab in Sonix Lab.</div>
                 </div>
               )}
-              {filteredLibrary.map(track => (
+              {/* Virtualized: only render visible rows */}
+              {filteredLibrary.length > 0 && <div style={{ height: visibleRange.start * 48 }} />}
+              {filteredLibrary.slice(visibleRange.start, visibleRange.end).map(track => (
                 <div key={track.id}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer', background: selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}
+                  <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 55px 90px 80px', gap: '0', padding: '14px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s', cursor: 'pointer', background: selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}
                     onClick={() => setExpandedTrack(expandedTrack === track.id ? null : track.id)}
                     onMouseEnter={e => { if (!selectedTracks.has(track.id)) e.currentTarget.style.background = s.bg }}
                     onMouseLeave={e => { e.currentTarget.style.background = selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}>
@@ -2328,20 +2615,21 @@ Return ONLY valid JSON, no markdown.`, 300)
                     </div>
                     <div className="track-art-cell" style={{ display: 'flex', alignItems: 'center', position: 'relative' }} onClick={e => {
                       e.stopPropagation()
-                      if (track.has_local_audio) {
+                      const canPlay = track.has_local_audio || track.file_path || track.preview_url
+                      if (canPlay) {
                         playTrack(track)
                       } else if (track.spotify_url) {
                         window.open(track.spotify_url, '_blank')
                       }
                     }}>
                       {track.album_art ? (
-                        <div style={{ width: '32px', height: '32px', position: 'relative', cursor: (track.has_local_audio || track.spotify_url) ? 'pointer' : 'default' }}>
+                        <div style={{ width: '32px', height: '32px', position: 'relative', cursor: (track.has_local_audio || track.preview_url || track.spotify_url) ? 'pointer' : 'default' }}>
                           <img src={track.album_art} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', opacity: playingTrack?.id === track.id ? 0.4 : 1, transition: 'opacity 0.15s' }} />
-                          {(track.has_local_audio || track.spotify_url) && <div className="play-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s', background: 'rgba(0,0,0,0.4)' }}>{playingTrack?.id === track.id && audioPlaying ? '■' : '▶'}</div>}
+                          {(track.has_local_audio || track.preview_url || track.spotify_url) && <div className="play-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s', background: 'rgba(0,0,0,0.4)' }}>{playingTrack?.id === track.id && audioPlaying ? '■' : '▶'}</div>}
                         </div>
                       ) : (
-                        <div style={{ width: '32px', height: '32px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (track.has_local_audio || track.spotify_url) ? 'pointer' : 'default' }}>
-                          <span style={{ fontSize: '12px', color: track.has_local_audio ? s.gold : track.spotify_url ? s.textDim : s.textDimmer }}>{track.has_local_audio ? (playingTrack?.id === track.id && audioPlaying ? '■' : '▶') : track.spotify_url ? '↗' : '♪'}</span>
+                        <div style={{ width: '32px', height: '32px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (track.has_local_audio || track.preview_url || track.spotify_url) ? 'pointer' : 'default' }}>
+                          <span style={{ fontSize: '12px', color: (track.has_local_audio || track.preview_url) ? s.gold : track.spotify_url ? s.textDim : s.textDimmer }}>{(track.has_local_audio || track.preview_url) ? (playingTrack?.id === track.id && audioPlaying ? '■' : '▶') : track.spotify_url ? '↗' : '♪'}</span>
                         </div>
                       )}
                     </div>
@@ -2355,8 +2643,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                     </div>
                     <div style={{ fontSize: '12px', color: s.textDim, display: 'flex', alignItems: 'center' }}>{track.artist}</div>
                     <div style={{ fontSize: '12px', color: s.textDim, display: 'flex', alignItems: 'center' }}>{track.bpm}</div>
-                    <div style={{ fontSize: '11px', color: s.textDim, display: 'flex', alignItems: 'center' }}>{track.key}</div>
-                    <div style={{ fontSize: '12px', color: s.gold, fontWeight: 400, display: 'flex', alignItems: 'center' }}>{track.camelot}</div>
+                    <div style={{ fontSize: '12px', color: s.gold, fontWeight: 400, display: 'flex', alignItems: 'center' }}>{track.camelot || track.key}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <div style={{ flex: 1, height: '3px', background: s.border, position: 'relative' }}>
                         <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : track.energy > 4 ? '#3d6b4a' : '#52504c' }} />
@@ -2497,8 +2784,16 @@ Return ONLY valid JSON, no markdown.`, 300)
                           onClick={() => reanalyseTrack(track)}
                           disabled={reanalysing === track.id}
                           style={{ ...btn(s.gold, 'transparent'), fontSize: '10px', padding: '6px 14px', opacity: reanalysing === track.id ? 0.5 : 1 }}>
-                          {reanalysing === track.id ? 'Cross-referencing...' : '↻ Verify & correct'}
+                          {reanalysing === track.id ? 'Scanning...' : '↻ Smart Scan'}
                         </button>
+                        {!track.moment_type && track.analysed && (
+                          <button
+                            onClick={() => deepScanTrack(track)}
+                            disabled={reanalysing === track.id}
+                            style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '6px 14px', opacity: reanalysing === track.id ? 0.5 : 1 }}>
+                            {reanalysing === track.id ? 'Scanning...' : '◈ Deep Scan'}
+                          </button>
+                        )}
                         <button
                           onClick={() => setEditingTrack({ ...track })}
                           style={{ ...btn(s.textDim, 'transparent'), fontSize: '10px', padding: '6px 14px' }}>
@@ -2514,6 +2809,7 @@ Return ONLY valid JSON, no markdown.`, 300)
                   )}
                 </div>
               ))}
+              {filteredLibrary.length > 0 && <div style={{ height: Math.max(0, filteredLibrary.length - visibleRange.end) * 48 }} />}
             </div>
 
             {/* ── FLOATING SELECTION BAR ── */}
