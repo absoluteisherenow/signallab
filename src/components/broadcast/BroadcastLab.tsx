@@ -1047,9 +1047,9 @@ Generate a complete ad plan tailored to this specific content and format. Return
                       <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-0.5">{artist.content_performance?.engagement_rate ? 'Eng. rate' : 'Posts'}</div>
                     </div>
                   </div>
-                  {/* Full voice rules — NOT truncated for top 2 */}
+                  {/* Voice rules — trimmed to 3 lines */}
                   {artist.style_rules && (
-                    <div className="text-[11px] leading-[1.7] text-[#8a8780] mb-4 border-l-2 border-[#b08d57]/25 pl-3">
+                    <div className="text-[11px] leading-[1.7] text-[#8a8780] mb-4 border-l-2 border-[#b08d57]/25 pl-3 line-clamp-3">
                       {artist.style_rules}
                     </div>
                   )}
@@ -1064,24 +1064,24 @@ Generate a complete ad plan tailored to this specific content and format. Return
             </div>
           )}
 
-          {/* More artists — compact row */}
+          {/* More artists — readable row */}
           {restArtists.length > 0 && (
-            <div className="border-t border-white/5 px-5 py-3">
-              <button onClick={() => toggleSection('moreArtists')} className="flex items-center gap-2 w-full text-left">
-                <span className="text-[10px] tracking-[.16em] uppercase text-[#52504c]">+{restArtists.length} more artist{restArtists.length !== 1 ? 's' : ''}</span>
-                <div className="flex items-center gap-1.5 ml-2">
+            <div className="border-t border-white/5 px-5 py-4">
+              <button onClick={() => toggleSection('moreArtists')} className="flex items-center gap-3 w-full text-left">
+                <span className="text-[11px] tracking-[.14em] uppercase text-[#8a8780]">+{restArtists.length} more</span>
+                <div className="flex items-center gap-3 ml-1 flex-wrap">
                   {restArtists.map(a => (
-                    <div key={a.name} className="flex items-center gap-1">
+                    <div key={a.name} className="flex items-center gap-1.5">
                       {a.profile_pic_url ? (
-                        <img src={a.profile_pic_url} alt="" className="w-4 h-4 rounded-full object-cover border border-white/10" />
+                        <img src={a.profile_pic_url} alt="" className="w-5 h-5 rounded-full object-cover border border-white/10" />
                       ) : (
-                        <div className="w-4 h-4 rounded-full bg-[#b08d57]/10 border border-white/10 flex items-center justify-center text-[6px] text-[#b08d57]">{a.name.charAt(0)}</div>
+                        <div className="w-5 h-5 rounded-full bg-[#b08d57]/10 border border-white/10 flex items-center justify-center text-[8px] text-[#b08d57]">{a.name.charAt(0)}</div>
                       )}
-                      <span className="text-[9px] text-[#3a3830]">{a.name}</span>
+                      <span className="text-[10px] text-[#8a8780]">{a.name}</span>
                     </div>
                   ))}
                 </div>
-                <span className="text-[#52504c] text-xs ml-auto">{expandedSections.moreArtists ? '▾' : '▸'}</span>
+                <span className="text-[#8a8780] text-xs ml-auto">{expandedSections.moreArtists ? '▾' : '▸'}</span>
               </button>
               {expandedSections.moreArtists && (
                 <div className="grid grid-cols-2 gap-3 mt-3">
