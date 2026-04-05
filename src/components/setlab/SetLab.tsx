@@ -2865,6 +2865,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
   } else {
     Object.entries(playlistGroups).forEach(([name, tracks]) => { playlistCounts[name] = tracks.length })
   }
+  // Always include user-created playlists
+  Object.entries(userPlaylists).forEach(([name, ids]) => { playlistCounts[name] = ids.length })
 
   const sidebarEl = isDesktop ? (
     <CollectionSidebar
