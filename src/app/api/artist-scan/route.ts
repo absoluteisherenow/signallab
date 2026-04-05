@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 interface PostData {
   caption: string
@@ -459,19 +465,24 @@ export async function POST(req: NextRequest) {
       if (realBestFormat) profile.content_performance.best_type = realBestFormat
     }
 
-    return NextResponse.json({
-      success: true,
-      profile: {
-        name, ...profile,
-        ...realStats,
-        data_source: dataSource,
-        post_count_analysed: result.captions.length,
-        last_scanned: new Date().toISOString().split('T')[0],
-        profile_pic_url: result.userProfile?.profilePicUrl || undefined,
-        follower_count: result.userProfile?.followerCount || undefined,
-        biography: result.userProfile?.biography || undefined,
-      },
+    const fullProfile = {
+      name, ...profile,
+      ...realStats,
+      data_source: dataSource,
+      post_count_analysed: result.captions.length,
+      last_scanned: new Date().toISOString().split('T')[0],
+      profile_pic_url: result.userProfile?.profilePicUrl || undefined,
+      follower_count: result.userProfile?.followerCount || undefined,
+      biography: result.userProfile?.biography || undefined,
+    }
+
+    // Auto-save to artist_profiles so scan data is never lost
+    supabase.from('artist_profiles').upsert(fullProfile, { onConflict: 'name' }).then(({ error }) => {
+      if (error) console.error(`[artist-scan] Failed to save ${name}:`, error.message)
+      else console.log(`[artist-scan] Saved ${name} to artist_profiles`)
     })
+
+    return NextResponse.json({ success: true, profile: fullProfile })
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
