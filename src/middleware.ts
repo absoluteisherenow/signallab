@@ -29,6 +29,8 @@ export function middleware(req: NextRequest) {
     || pathname.startsWith('/api/promo')       // promo system (blast, click, stats, reactions)
     || pathname.startsWith('/api/tracks')  // Set Lab tracks API (uses service role key)
     || pathname.startsWith('/api/sets')    // Set Lab sets API
+    || pathname.startsWith('/api/artist-scan') // artist scan API
+    || pathname.startsWith('/api/instagram')   // instagram sync API
     || pathname.startsWith('/_next')
     || pathname === '/signal-genius.html'   // M4L jweb — public
     || pathname === '/mockup.html'
