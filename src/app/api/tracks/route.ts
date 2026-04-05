@@ -18,7 +18,7 @@ export async function GET() {
     if (error) throw error
     return NextResponse.json({ tracks: data || [] })
   } catch (err: any) {
-    return NextResponse.json({ tracks: [], error: err.message }, { status: 200 })
+    return NextResponse.json({ tracks: [], error: err.message }, { status: 500 })
   }
 }
 
