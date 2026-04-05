@@ -2166,6 +2166,9 @@ Return ONLY valid JSON, no markdown.`
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'resolve', artist: track.artist, title: track.title }),
         })
+        if (!resolveRes.ok) throw new Error(`Discogs lookup failed (${resolveRes.status})`)
+        const contentType = resolveRes.headers.get('content-type') || ''
+        if (!contentType.includes('json')) throw new Error('Discogs API returned an unexpected response — try again')
         resolved = await resolveRes.json()
         if (resolved.error) throw new Error(resolved.error)
         crateDigResolveCache.current.set(resolveKey, resolved)
@@ -2177,54 +2180,41 @@ Return ONLY valid JSON, no markdown.`
         return
       }
 
+      // Helper to safely fetch from Discogs API
+      async function digFetch(body: Record<string, unknown>) {
+        const res = await fetch('/api/discogs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        if (!res.ok) throw new Error(`Discogs lookup failed (${res.status})`)
+        const ct = res.headers.get('content-type') || ''
+        if (!ct.includes('json')) throw new Error('Discogs returned an unexpected response — try again')
+        const data = await res.json()
+        if (data.error) throw new Error(data.error)
+        return data
+      }
+
       // Step 2: Dig based on axis
       let digResult: any
       switch (axis) {
         case 'label': {
           if (!resolved.label_id) { setCrateDigError('No label found for this release'); setCrateDigLoading(false); return }
-          const res = await fetch('/api/discogs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'label-dig', label_id: resolved.label_id, label_name: resolved.label_name }),
-          })
-          digResult = await res.json()
-          if (digResult.error) throw new Error(digResult.error)
+          digResult = await digFetch({ action: 'label-dig', label_id: resolved.label_id, label_name: resolved.label_name })
           setCrateDigMeta({ label_name: digResult.label_name })
           break
         }
         case 'artist': {
-          const res = await fetch('/api/discogs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'artist-dig', artist: track.artist }),
-          })
-          digResult = await res.json()
-          if (digResult.error) throw new Error(digResult.error)
+          digResult = await digFetch({ action: 'artist-dig', artist: track.artist })
           setCrateDigMeta({ artist_name: digResult.artist_name })
           break
         }
         case 'style': {
           const style = resolved.styles?.[0]
           if (!style) { setCrateDigError('No style data found for this release'); setCrateDigLoading(false); return }
-          const res = await fetch('/api/discogs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'style-dig', style, year: resolved.year || 2020 }),
-          })
-          digResult = await res.json()
-          if (digResult.error) throw new Error(digResult.error)
+          digResult = await digFetch({ action: 'style-dig', style, year: resolved.year || 2020 })
           setCrateDigMeta({ style: digResult.style, year_range: digResult.year_range })
           break
         }
         case 'credit': {
           if (!resolved.release_id) { setCrateDigError('No release found to search credits'); setCrateDigLoading(false); return }
-          const res = await fetch('/api/discogs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'credit-dig', release_id: resolved.release_id }),
-          })
-          digResult = await res.json()
-          if (digResult.error) throw new Error(digResult.error)
+          digResult = await digFetch({ action: 'credit-dig', release_id: resolved.release_id })
           setCrateDigMeta({ credits: digResult.credits, release_title: digResult.release_title })
           break
         }
