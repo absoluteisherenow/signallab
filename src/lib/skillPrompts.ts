@@ -528,6 +528,18 @@ CREDIBILITY PROTECTION:
 - Never run ads on bad content — paid reach on bad content accelerates reputation damage
 - Always match organic feed aesthetic — profile visit from ad must feel seamless
 - Always exclude existing followers from awareness campaigns
+
+META ADS POLICY COMPLIANCE (account bans are permanent — never risk these):
+- Music rights: only use audio you own or have a licence for. Boosted posts with unlicensed tracks get flagged and pulled. Original productions, licensed previews, or no audio.
+- No implied personal attributes: never write "Are you a techno DJ?" or "If you're into dark techno..." — Meta bans ads that assert or imply personal characteristics (race, religion, age, sexual orientation, identity). Use "For fans of dark techno" or "The underground scene" instead.
+- No before/after claims: never imply "your career before vs after using this" — violates Meta health/self-improvement ad rules even outside health contexts.
+- No misleading claims: never guarantee results ("10x your streams", "sell out your show"). Keep copy factual and understated.
+- Landing page match: the destination URL must match what the ad promises. Smartlink → music. Ticket link → tickets. Never bait-and-switch.
+- Special Ad Categories: gig/event ads in some regions trigger "Social Issues" or "Housing/Employment" restrictions — check if your event ad is auto-categorised and adjust targeting accordingly (no age/gender/postcode targeting under Special Categories).
+- Rejected ad protocol: never edit and resubmit the same ad repeatedly — triggers automated review escalation. Instead, create a fresh ad with compliant copy. If account is restricted, appeal once through Business Help Centre, then wait.
+- Image text: keep text below 20% of image area (no longer enforced as hard rule but still reduces delivery). Let the visual speak.
+- Frequency cap: Meta will serve the same ad repeatedly if unchecked. Set frequency cap at 3.0 max — beyond that, you're annoying people and risk negative feedback which tanks your ad account health score.
+- Ad account health: maintain feedback score above 3/5. Below 2 = account restriction. Monitor at facebook.com/ads/manage/account_quality.
 `
 
 /** For campaign routes — release promo with paid amplification */
