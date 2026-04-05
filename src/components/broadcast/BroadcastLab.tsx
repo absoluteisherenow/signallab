@@ -173,6 +173,7 @@ export function BroadcastLab() {
   const [addingArtist, setAddingArtist] = useState(false)
   const [newArtistName, setNewArtistName] = useState('')
   const [scanningArtist, setScanningArtist] = useState<string | null>(null)
+  const [scanStage, setScanStage] = useState<string | null>(null)
   const [pastingFor, setPastingFor] = useState<string | null>(null)
   const [pastedCaptions, setPastedCaptions] = useState('')
   const [platform, setPlatform] = useState('Instagram')
@@ -353,7 +354,18 @@ export function BroadcastLab() {
       }
     }
     setScanningArtist(name)
-    showToast(manualCaptionList ? `Analysing ${name} captions...` : `Scanning ${name}...`, 'Research')
+    setScanStage('Connecting to Instagram...')
+
+    // Progress theatre — timed stages that reflect what's actually happening
+    const stages = manualCaptionList
+      ? ['Analysing captions...', 'Building voice profile...', 'Generating report...']
+      : ['Scraping recent posts...', 'Analysing visual aesthetic...', 'Reading engagement patterns...', 'Mapping voice + tone...', 'Building Content Intelligence Report...']
+    let stageIdx = 0
+    const stageInterval = setInterval(() => {
+      stageIdx++
+      if (stageIdx < stages.length) setScanStage(stages[stageIdx])
+    }, manualCaptionList ? 3000 : 4000)
+
     try {
       const body: Record<string, unknown> = { name }
       if (manualCaptionList) body.manualCaptions = manualCaptionList
@@ -362,34 +374,42 @@ export function BroadcastLab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
+      clearInterval(stageInterval)
       const data = await res.json()
       if (!data.success) {
         if (data.canPaste) {
           setScanningArtist(null)
+          setScanStage(null)
           setPastingFor(name)
           setPastedCaptions('')
           return
         }
         throw new Error(data.error)
       }
+      setScanStage('Signal Scan complete')
       const artist = data.profile as ArtistProfile
       setArtists(prev => {
         const filtered = prev.filter(a => a.name.toLowerCase() !== name.toLowerCase())
         return [...filtered, artist]
       })
       saveArtist(artist)
-      const sourceMsg = artist.data_source === 'apify'
-        ? `${artist.post_count_analysed} real posts analysed`
+      const hasDeepDive = !!artist.visual_aesthetic
+      const sourceMsg = hasDeepDive
+        ? `Content Intelligence Report ready — ${artist.post_count_analysed} posts, images + engagement analysed`
         : artist.data_source === 'manual'
         ? `${artist.post_count_analysed} captions analysed`
-        : 'Voice profile built'
-      showToast(`${name} — ${sourceMsg}`, 'Done')
+        : `${artist.post_count_analysed} posts analysed`
+      showToast(`${name} — ${sourceMsg}`, 'Signal Scan')
       setPastingFor(null)
       setPastedCaptions('')
+      // Auto-expand artists section to show the result
+      setExpandedSections(prev => ({ ...prev, artists: true }))
     } catch (err: any) {
+      clearInterval(stageInterval)
       showToast(`Could not scan ${name} — ${err.message || 'try again'}`, 'Error')
     } finally {
       setScanningArtist(null)
+      setTimeout(() => setScanStage(null), 2000)
     }
   }
 
@@ -1202,10 +1222,29 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
       </div>
 
+      {/* SIGNAL SCAN PROGRESS */}
+      {scanningArtist && scanStage && (
+        <div className="bg-[#0e0d0b] border border-[#b08d57]/30 p-6 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#b08d57]/20">
+            <div className="h-full bg-[#b08d57] animate-pulse" style={{ width: '100%' }} />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full border-2 border-[#b08d57]/40 flex items-center justify-center flex-shrink-0">
+              <div className="w-6 h-6 border-2 border-[#b08d57] border-t-transparent rounded-full animate-spin" />
+            </div>
+            <div>
+              <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] mb-1">Signal Scan — {scanningArtist}</div>
+              <div className="text-[13px] text-[#f0ebe2] font-light">{scanStage}</div>
+              <div className="text-[9px] text-[#52504c] mt-1">Building your Content Intelligence Report</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* REFERENCE ARTISTS */}
       <div className="bg-[#0e0d0b] border border-white/7">
         <button onClick={() => toggleSection('artists')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
-          Reference artists — your lane
+          Signal Scan — your lane
           <div className="flex-1 h-px bg-white/10" />
           {!expandedSections.artists && artists.length > 0 && (
             <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{artists.length} artist{artists.length !== 1 ? 's' : ''} profiled</span>
@@ -1321,7 +1360,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
           <div onClick={() => !addingArtist && !pastingFor && setAddingArtist(true)}
             className={`bg-[#0e0d0b] border border-dashed border-white/13 p-5 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-[#b08d57] hover:bg-[#141310] transition-colors min-h-[176px] ${pastingFor ? 'opacity-40 pointer-events-none' : ''}`}>
             {!addingArtist ? (
-              <><div className="text-2xl text-[#2e2c29]">+</div><div className="text-[10px] tracking-[.15em] uppercase text-[#8a8780]">Add reference artist</div></>
+              <><div className="text-2xl text-[#2e2c29]">+</div><div className="text-[10px] tracking-[.15em] uppercase text-[#b08d57]">Run Signal Scan</div><div className="text-[9px] text-[#52504c] mt-1">Add an artist to your lane</div></>
             ) : (
               <div className="w-full flex flex-col gap-2" onClick={e => e.stopPropagation()}>
                 <input ref={addInputRef} value={newArtistName} onChange={e => setNewArtistName(e.target.value)}
@@ -1329,9 +1368,9 @@ Generate a complete ad plan tailored to this specific content and format. Return
                     if (e.key === 'Enter' && newArtistName.trim()) { scanArtist(newArtistName.trim()); setNewArtistName(''); setAddingArtist(false) }
                     if (e.key === 'Escape') { setAddingArtist(false); setNewArtistName('') }
                   }}
-                  placeholder="Artist name — press Enter"
+                  placeholder="Artist name or @handle — press Enter to scan"
                   className="w-full bg-[#1a1917] border border-[#b08d57] text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29]" />
-                <div className="text-[10px] tracking-[.1em] text-[#2e2c29] text-center">Enter to scan · Escape to cancel</div>
+                <div className="text-[10px] tracking-[.1em] text-[#52504c] text-center">Enter to run Signal Scan · Escape to cancel</div>
               </div>
             )}
           </div>
