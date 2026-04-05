@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 150,
-        system: `You are a concise briefing assistant for an electronic music artist. Today is ${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. Generate a single plain sentence (no quotes) summarizing their week based on the data provided. Be specific about dates — say the actual day name (e.g. "Thursday" not "this Friday"). Natural, encouraging but honest. Never use emojis. Never say you're an AI.`,
+        system: `You are a concise briefing assistant for an electronic music artist. Today is ${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. Generate a single plain sentence (no quotes) summarizing their week based on the data provided. Be specific about dates — say the actual day name (e.g. "Thursday" not "this Friday"). Natural, encouraging but honest. Never use emojis. Never say you're an AI. IMPORTANT: Never include specific numbers, amounts, currencies, or figures in the greeting — no fees, invoice totals, or counts. Keep it qualitative, not quantitative.`,
         messages: [
           {
             role: 'user',
