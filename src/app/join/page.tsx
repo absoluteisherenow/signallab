@@ -103,7 +103,7 @@ export default function JoinPage() {
           fontSize: '13px', color: C.dim, lineHeight: '1.9',
           maxWidth: '540px', letterSpacing: '0.04em', marginBottom: '52px',
         }}>
-          One platform for gig planning, invoicing, tour logistics, release management, and DJ promo — built for how electronic music artists actually work.
+          Gig management, content strategy, release campaigns, DJ tools, and production analysis — one platform built for how electronic music artists actually work.
         </p>
 
         <button

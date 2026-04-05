@@ -489,57 +489,275 @@ PAID ADVERTISING INTELLIGENCE (PRO)
 
 CORE RULE: Underground artists can't advertise like pop acts. Every ad must feel like organic content that happens to be boosted. The moment it looks like an ad, it's dead.
 
-PLATFORM SELECTION:
-- Meta (IG + FB): Best for release promo, gig awareness, audience building. £5-25/day independents.
-- TikTok: Best for discovery, new audiences. £10-30/day (needs more spend to exit learning).
-- YouTube: Best for music videos, DJ mixes. £5-15/day.
-- Spotify Ad Studio: Best for streaming growth. £250-500/campaign minimum.
+═══════════════════════════════════════════
+1. PLATFORM SELECTION & SETUP
+═══════════════════════════════════════════
 
-AUDIENCE ARCHITECTURE (3 layers):
-Layer 1 WARM: IG engagers (30/60/90d), website visitors, email list, video viewers (25/50/75/95% completion)
-Layer 2 EXPANSION: 1% lookalike of engagers (strongest), 1% of website visitors. Never above 3% for underground.
-Layer 3 COLD: Target specific — Resident Advisor, Boiler Room, fabric, specific labels. Stack interests for higher intent. NEVER target "electronic music" (too broad). Exclude existing followers. Exclude mainstream EDM interests.
+META (IG + FB):
+- Best for: release promo, gig awareness, audience building, retargeting
+- Budget: £5-25/day for independents
+- Setup required: Meta Business Suite → Ad Account → Meta Pixel on website/smartlink → Conversions API if possible
+- Use Advantage+ placements for most campaigns (Meta's AI distributes spend across IG Feed, Stories, Reels, FB Feed, Audience Network) — but EXCLUDE Audience Network for brand-sensitive campaigns
+- Campaign objectives: Engagement (seeding phase), Traffic (release week, smartlinks), Reach (gig awareness, geo-targeted), Video Views (cheap awareness with retarget funnel)
+- NEVER use "Boost Post" button from IG — always build in Ads Manager for proper targeting and tracking
 
-CAMPAIGN FRAMEWORKS:
-Release (4 weeks): Seeding 20% (engagement ads, teaser) → Release week 50% (traffic to smartlink, retarget) → Sustain 30% (retarget engagers, playlist push)
-Gig (2 weeks): Awareness 40% (reach, 25km radius) → Conversion 60% (retarget, ticket link)
-Always-on: £3-5/day boosting top organic posts, rotate every 7-10d, exclude followers
+TIKTOK:
+- Best for: discovery, reaching new audiences outside your bubble
+- Budget: £10-30/day minimum (needs more spend to exit learning phase — under £10/day won't optimise)
+- Learning phase: 50 conversions in 7 days to exit. Until then, don't judge performance
+- Use Spark Ads (boosting organic TikTok posts) over standard in-feed — 142% higher completion rate
+- TikTok Pixel on landing pages for retargeting
+
+YOUTUBE:
+- Best for: music videos, DJ mixes, long-form content
+- Budget: £5-15/day
+- Skippable in-stream for music videos (pay only if watched 30s+), Discovery ads for mixes
+- Target by YouTube channels (Boiler Room, HÖR, etc.) and topics, not just keywords
+
+SPOTIFY AD STUDIO:
+- Best for: streaming growth, playlist push
+- Budget: £250-500/campaign minimum
+- Audio ads 30s with companion banner, or video 15-30s
+- Target by genre, playlist, artist fans (competitors/peers), mood
+- Best for release week amplification alongside Meta
+
+═══════════════════════════════════════════
+2. AUDIENCE ARCHITECTURE (3 layers)
+═══════════════════════════════════════════
+
+Layer 1 — WARM (highest ROAS, smallest pool):
+- IG engagers (30/60/90d windows — 30d most valuable, 90d largest pool)
+- Website visitors (via Meta Pixel — 30/60/180d)
+- Email list (upload as Custom Audience — hash-matched)
+- Video viewers by completion: 25% (interested), 50% (engaged), 75% (hot), 95% (superfan)
+- Facebook Page engagers, Event RSVPs
+- App activity audiences (if applicable)
+Best for: conversion campaigns, release week, ticket sales
+
+Layer 2 — EXPANSION (moderate ROAS, discovery):
+- 1% Lookalike of IG engagers (strongest — these people behave like your fans)
+- 1% Lookalike of website visitors
+- 1% Lookalike of email list
+- NEVER above 3% for underground artists — beyond 3% dilutes into mainstream
+- Stack lookalikes: create from EACH warm source, let Meta find overlap
+- In EU/UK: Lookalikes deprecated, use Advantage+ Audience with warm audiences as "suggestions"
+Best for: seeding phase, always-on audience building
+
+Layer 3 — COLD (lowest ROAS, broadest reach):
+- Interest stacking: Resident Advisor AND Boiler Room AND [specific label/artist]
+- Behaviour: concert-goers, vinyl buyers, music festival attendees
+- NEVER target "electronic music" alone (too broad — 50M+ people)
+- Exclude: existing followers, existing website visitors, existing custom audiences
+- Exclude: mainstream EDM interests (Marshmello, David Guetta, etc.) to protect niche
+- Geo-target for gig campaigns: 25-50km radius of venue
+Best for: gig awareness in new cities, festival audience building
+
+RETARGETING FUNNELS (critical for efficiency):
+- Video viewer → link click → landing page → conversion
+- 75% video viewers (7d) → Traffic campaign to smartlink
+- Landing page visitors who didn't convert (3d) → Conversion campaign with urgency
+- Engaged but not followed → Reach campaign (cheap, builds familiarity)
+- Window sizes: 3d for urgency, 7d for consideration, 14d for releases, 30d for always-on
+
+═══════════════════════════════════════════
+3. CAMPAIGN FRAMEWORKS
+═══════════════════════════════════════════
+
+RELEASE CAMPAIGN (4-6 weeks):
+Phase 1 — Seeding (weeks 1-2): 20% budget
+  Objective: Engagement or Video Views
+  Audience: Layer 2 (expansion) + Layer 3 (cold)
+  Creative: 15s audio teaser, studio clip, mood video — NO release info yet
+  Goal: build retargeting pool of video viewers for Phase 2
+
+Phase 2 — Announcement (week 3): 15% budget
+  Objective: Engagement
+  Audience: Layer 1 (warm) + Phase 1 video viewers (75%+)
+  Creative: artwork reveal, release date, pre-save link in Stories
+  Goal: pre-saves, anticipation
+
+Phase 3 — Release Week (week 4): 50% budget
+  Objective: Traffic (to smartlink/Spotify)
+  Audience: ALL layers — warm gets most spend, cold gets least
+  Creative: best 15s clip + smartlink, carousel with artwork + BTS + press quotes
+  Retarget: Phase 1+2 video viewers who haven't clicked → high-intent
+
+Phase 4 — Sustain (weeks 5-6): 15% budget
+  Objective: Traffic + Engagement
+  Audience: Layer 1 (retarget engagers) + new warm audiences from Phase 3
+  Creative: DJ playing the track live, fan reactions, playlist additions, press coverage
+  Goal: long tail streams, playlist sustainability
+
+GIG CAMPAIGN (2-3 weeks):
+Phase 1 — Awareness (week 1-2): 40% budget
+  Objective: Reach
+  Audience: 25-50km radius of venue + interest stacking (local scene, venue followers)
+  Creative: video clip from previous gig at same/similar venue, dark atmospheric
+  Exclude: people who already bought tickets (if pixel on ticket page)
+
+Phase 2 — Conversion (week 2-3): 60% budget
+  Objective: Traffic (to ticket link)
+  Audience: Phase 1 video viewers (50%+) + IG engagers (14d) + geo-warm
+  Creative: lineup graphic, 7s Reel hook, countdown urgency (but subtle — never desperate)
+  Retarget: ticket page visitors who didn't purchase → 3d window
+
+ALWAYS-ON (ongoing):
+  Budget: £3-5/day
+  Objective: Engagement (post boost)
+  Audience: Layer 2 expansion + exclude existing followers
+  Creative: boost top-performing organic posts only (top 10% by saves/shares)
+  Rotate: fresh post every 7-10 days, never let frequency exceed 2.5
+  Purpose: steady new follower acquisition, keeps warm audiences growing
+
+═══════════════════════════════════════════
+4. CREATIVE RULES
+═══════════════════════════════════════════
+
+FORMAT HIERARCHY (by performance):
+1. Reels/short-form video (9:16, under 30s) — highest reach, lowest CPM
+2. Video (1:1 or 4:5, 15-60s) — strong engagement
+3. Carousel (1:1 or 4:5) — highest save rate, strong for releases
+4. Static image (1:1 or 4:5) — lowest reach but can work for atmospheric shots
+5. Stories-only (9:16) — cheap reach, good for retargeting
+
+CREATIVE REQUIREMENTS:
+- Use existing organic content that performed well — boost what's already proven
+- Video > static, always. 15s clips from sets, studio, visuals
+- 9:16 for Stories/Reels placements (allocate 70%+ spend here)
+- 1:1 or 4:5 for feed placements
+- Caption must match organic voice exactly — no ad-speak
+- Dark moody aesthetic — match the music and artist brand
+- No "BUY TICKETS" or "STREAM NOW" as primary text — lead with the art, CTA in button
+- No stock imagery, no templates, no Canva graphics
+- Hook in first 0.5 seconds — movement, visual intrigue, bass hit
+- No logo watermarks overlaid — let the content breathe
+- Subtitles/text overlays: centre-safe zone, minimal, kinetic if possible
+
+A/B TESTING:
+- Always run 2-3 creative variants per ad set
+- Test: different hooks (first 3 seconds), different crops (9:16 vs 1:1), different captions
+- Winner criteria: highest ThruPlay rate (video) or CTR (traffic) after 1000 impressions minimum
+- Kill underperformers after 48h if clearly behind — don't waste budget on losing creative
+- Never A/B test audiences AND creative simultaneously — isolate one variable
+
+═══════════════════════════════════════════
+5. BUDGET & BIDDING
+═══════════════════════════════════════════
 
 BUDGET TIERS:
-£100-300/mo: ONE platform only, release weeks + gig windows only, £3/day evergreen boost
-£300-800/mo: Meta primary + TikTok secondary, always-on £5/day, 60% releases / 25% gigs / 15% audience
-£800+/mo: Full multi-platform, add Spotify Ad Studio + YouTube, A/B test 3+ variants
+£100-300/mo: ONE platform only (Meta). Release weeks + gig windows only. £3/day evergreen boost.
+£300-800/mo: Meta primary + TikTok secondary. Always-on £5/day. 60% releases / 25% gigs / 15% audience.
+£800+/mo: Full multi-platform. Add Spotify Ad Studio + YouTube. A/B test 3+ variants per campaign.
 
-CREATIVE RULES:
-- Use existing organic content that performed well — boost top posts
-- Video > static, always. 15s clips from sets, studio, visuals
-- 9:16 for Stories/Reels (70%+ spend), 1:1 for feed
-- Caption must match organic voice exactly
-- Dark moody aesthetic — match the music
-- No "BUY TICKETS" or "STREAM NOW" as primary text — lead with the art
-- No stock imagery, no templates
+BIDDING:
+- Start with "Lowest cost" (auto-bid) — let Meta optimise
+- Switch to "Cost cap" once you know your target CPA (e.g. £0.50/link click)
+- Never use "Bid cap" unless experienced — too restrictive, kills delivery
+- Campaign Budget Optimisation (CBO): ON for 3+ ad sets, lets Meta shift spend to winners
+- Ad set budgets: use for A/B testing when you need equal spend across variants
 
-RED FLAGS (pause immediately): CTR < 0.5% after 48h, CPM > £15, frequency > 3.0, negative comments, CPC > £1
-GREEN FLAGS (scale spend): CTR > 2% → +20% budget, engagement > 5% → expand to lookalike, video completion > 25%, cost/stream < £0.03
+SPEND PACING:
+- Never launch at full budget — start at 50%, scale up after 48h if metrics are green
+- Scaling: increase budget by max 20% per day (larger jumps reset learning phase)
+- Don't pause and restart campaigns — kills momentum. Reduce budget to £1/day if pausing
+- Weekend effect: CPMs often lower Sat-Sun for music content — shift budget toward weekends
 
-CREDIBILITY PROTECTION:
-- Never use influencer language in ads
-- Never boost content mentioning ticket prices or "limited availability"
+═══════════════════════════════════════════
+6. TRACKING & OPTIMISATION
+═══════════════════════════════════════════
+
+RED FLAGS (pause immediately):
+- CTR < 0.5% after 48h and 1000+ impressions
+- CPM > £15 (indicates audience fatigue or policy issues)
+- Frequency > 3.0 (same people seeing ad too many times)
+- Negative comments or hide/report feedback
+- CPC > £1 for traffic campaigns
+- Hook rate < 25% on video (first 3s viewed / impressions)
+- Video ThruPlay rate < 15%
+
+GREEN FLAGS (scale spend +20%):
+- CTR > 2%
+- Engagement rate > 5%
+- Video completion > 25%
+- Cost per ThruPlay < £0.02
+- Cost per stream < £0.03
+- Positive comment sentiment
+- Landing page conversion rate > 10%
+
+WEEKLY REVIEW CHECKLIST:
+1. Frequency check — any ad set above 2.5? Refresh creative or expand audience
+2. Top performing creative — duplicate winner into new ad sets
+3. Audience overlap — check in Ads Manager, merge overlapping audiences
+4. Budget reallocation — shift from underperforming to overperforming
+5. New warm audiences — create retarget audiences from new video viewers
+6. Account quality check — facebook.com/ads/manage/account_quality
+
+═══════════════════════════════════════════
+7. META ADS POLICY COMPLIANCE
+═══════════════════════════════════════════
+Account bans are permanent and appeals rarely succeed. Never risk these.
+
+MUSIC & COPYRIGHT:
+- Only use audio you own, produced, or have a sync licence for
+- Boosted posts with unlicensed tracks get flagged and pulled — original productions or no audio
+- Cover versions need mechanical licence proof
+- DJ mixes with unlicensed tracks CANNOT be boosted — use original productions only
+- If in doubt, run the ad with no audio or original music only
+
+PROHIBITED CONTENT (instant rejection or ban):
+- No implied personal attributes: NEVER write "Are you a techno DJ?" or "If you're into dark techno..." — Meta bans ads asserting personal characteristics. Use "For fans of dark techno" or "The underground scene" instead
+- No before/after claims of any kind — even implied ("transform your career")
+- No misleading claims or guarantees ("10x your streams", "sell out your show")
+- No sensational or shocking content (graphic crowd footage, excessive strobe)
+- No third-party IP without permission (brand logos, venue trademarks in ad copy)
+- No discriminatory content or exclusionary language
+- No profanity in ad copy (even mild — Meta auto-rejects)
+
+LANDING PAGES:
+- Destination URL must match what the ad promises — smartlink → music, ticket link → tickets
+- Landing page must be functional (no broken links, no 404s, no slow loads)
+- No pop-ups or auto-playing audio on landing pages
+- Privacy policy must be accessible from landing page
+
+SPECIAL AD CATEGORIES:
+- Gig/event ads in some EU/UK regions trigger "Social Issues" or "Employment" restrictions
+- Under Special Categories: no age, gender, or postcode targeting — only broad geo + interests
+- If your event ad gets auto-categorised, don't fight it — adjust targeting to comply
+- Political/social issue events (protests, activism): require disclaimer and "Paid for by" label
+
+ACCOUNT PROTECTION:
+- Rejected ad protocol: NEVER edit and resubmit the same ad repeatedly — triggers automated review escalation and potential account restriction. Create a fresh ad with compliant copy instead
+- If account restricted: appeal ONCE through Business Help Centre. Do not create new ad accounts — Meta links them by payment method, IP, device, and bans those too
+- Image text: keep below 20% of image area — not a hard reject but significantly reduces delivery
+- Frequency cap: set at 3.0 max. Beyond that = negative feedback = tanked ad account health score
+- Ad account health: maintain feedback score above 3/5. Below 2 = restriction. Monitor weekly
+- Two-factor auth on Business Manager — non-negotiable. Hacked ad accounts = thousands in fraud spend
+- Payment method: use a credit card with fraud protection, not debit. Set daily spend limits in Business Manager as a safety net
+- Business verification: complete Meta Business Verification for higher spend limits and faster ad review
+
+TIKTOK ADS POLICY (key differences):
+- More lenient on music — Spark Ads (boosted organic) can use commercial sounds from TikTok's library
+- No alcohol/nightlife restrictions on TikTok (unlike Meta which restricts in some regions)
+- Stricter on "misleading" — TikTok rejects ads faster for exaggerated claims
+- Landing pages must load within 4 seconds or ad is auto-paused
+
+YOUTUBE ADS POLICY:
+- Music content generally fine if you own it — YouTube's Content ID handles rights
+- Age restrictions: content with drug references, excessive darkness, or mature themes may be limited to 18+
+- Sensitive categories: some music content gets flagged as "sensitive" — reduces available placements
+- Companion banners required for audio ads
+
+═══════════════════════════════════════════
+8. CREDIBILITY PROTECTION
+═══════════════════════════════════════════
+- Never use influencer language in ads ("don't miss this", "you won't believe", "game-changer")
+- Never boost content mentioning ticket prices or "limited availability" (desperate energy)
 - Never run ads on bad content — paid reach on bad content accelerates reputation damage
 - Always match organic feed aesthetic — profile visit from ad must feel seamless
-- Always exclude existing followers from awareness campaigns
-
-META ADS POLICY COMPLIANCE (account bans are permanent — never risk these):
-- Music rights: only use audio you own or have a licence for. Boosted posts with unlicensed tracks get flagged and pulled. Original productions, licensed previews, or no audio.
-- No implied personal attributes: never write "Are you a techno DJ?" or "If you're into dark techno..." — Meta bans ads that assert or imply personal characteristics (race, religion, age, sexual orientation, identity). Use "For fans of dark techno" or "The underground scene" instead.
-- No before/after claims: never imply "your career before vs after using this" — violates Meta health/self-improvement ad rules even outside health contexts.
-- No misleading claims: never guarantee results ("10x your streams", "sell out your show"). Keep copy factual and understated.
-- Landing page match: the destination URL must match what the ad promises. Smartlink → music. Ticket link → tickets. Never bait-and-switch.
-- Special Ad Categories: gig/event ads in some regions trigger "Social Issues" or "Housing/Employment" restrictions — check if your event ad is auto-categorised and adjust targeting accordingly (no age/gender/postcode targeting under Special Categories).
-- Rejected ad protocol: never edit and resubmit the same ad repeatedly — triggers automated review escalation. Instead, create a fresh ad with compliant copy. If account is restricted, appeal once through Business Help Centre, then wait.
-- Image text: keep text below 20% of image area (no longer enforced as hard rule but still reduces delivery). Let the visual speak.
-- Frequency cap: Meta will serve the same ad repeatedly if unchecked. Set frequency cap at 3.0 max — beyond that, you're annoying people and risk negative feedback which tanks your ad account health score.
-- Ad account health: maintain feedback score above 3/5. Below 2 = account restriction. Monitor at facebook.com/ads/manage/account_quality.
+- Always exclude existing followers from awareness campaigns (they already follow you)
+- If organic engagement is low, fix the content first — ads amplify what's already there
+- Monitor comments on ads closely — one negative thread visible to thousands
+- Dark posts (ads not on your feed): use for testing creative without cluttering grid
 `
 
 /** For campaign routes — release promo with paid amplification */
