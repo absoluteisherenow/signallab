@@ -7,7 +7,6 @@ const TABS = [
   { label: 'Artist Voice', href: '/broadcast' },
   { label: 'Calendar', href: '/broadcast/calendar' },
   { label: 'Content Intelligence', href: '/broadcast/scanner' },
-  { label: 'Media Library', href: '/broadcast/media' },
   { label: 'Content Strategy', href: '/broadcast/strategy' },
   { label: 'Insta DM Campaign', href: '/broadcast/automations' },
   { label: 'Ad Amplifier', href: '/broadcast/ads' },
