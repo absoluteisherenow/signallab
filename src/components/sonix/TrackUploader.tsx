@@ -76,6 +76,7 @@ Return JSON:
       const d = JSON.parse(raw.replace(/```json|```/g, '').trim())
       setAnalysis(d)
     } catch (err: any) {
+      console.error('TrackUploader error:', err?.message || err)
       setError('Could not get track data — check the track name')
     } finally {
       setAnalysing(false)

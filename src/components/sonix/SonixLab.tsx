@@ -207,7 +207,6 @@ export function SonixLab() {
   const [measuringAudio, setMeasuringAudio] = useState(false)
   const [showQuestions, setShowQuestions] = useState(false)
   const [ctxGoal, setCtxGoal] = useState<string>('')           // what's this for
-  const [ctxStage, setCtxStage] = useState<string>('')         // what stage is it at
   const [ctxFocus, setCtxFocus] = useState<string>('')         // specific focus / problem
   const [ctxFocusCustom, setCtxFocusCustom] = useState('')     // free-text focus
 
@@ -364,8 +363,12 @@ Be specific. Real BPM and key. Real techniques with actual settings.`,
         parsed = JSON.parse(jsonMatch[0]) as ReferenceIntel
       } catch {
         // Truncated — try closing it
-        const attempt = jsonMatch[0] + '"}}'
-        parsed = JSON.parse(attempt) as ReferenceIntel
+        try {
+          const attempt = jsonMatch[0] + '"}}'
+          parsed = JSON.parse(attempt) as ReferenceIntel
+        } catch {
+          throw new Error('Response too malformed to repair')
+        }
       }
       if (!parsed.techniques) parsed.techniques = []
       if (!parsed.key_sounds) parsed.key_sounds = []
@@ -535,7 +538,7 @@ Give:
     setNextStepsResult(null)
     setNextStepsMeasurements(null)
     setShowQuestions(false)
-    setCtxGoal(''); setCtxStage(''); setCtxFocus(''); setCtxFocusCustom('')
+    setCtxGoal(''); setCtxFocus(''); setCtxFocusCustom('')
     try {
       if (!audioCtxRef.current) audioCtxRef.current = new AudioContext()
       const arrayBuf = await file.arrayBuffer()
@@ -969,7 +972,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <button onClick={() => { setNextStepsResult(null); setNextStepsFile(null); setNextStepsMeasurements(null); setShowQuestions(false); setCtxGoal(''); setCtxStage(''); setCtxFocus(''); setCtxFocusCustom('') }} style={btn(false, false, 'dim')}>
+                  <button onClick={() => { setNextStepsResult(null); setNextStepsFile(null); setNextStepsMeasurements(null); setShowQuestions(false); setCtxGoal(''); setCtxFocus(''); setCtxFocusCustom('') }} style={btn(false, false, 'dim')}>
                     Analyse another →
                   </button>
                   <button onClick={() => {

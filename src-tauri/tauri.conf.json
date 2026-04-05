@@ -6,7 +6,7 @@
     "frontendDist": "../out",
     "devUrl": "http://localhost:3100/setlab?desktop=1",
     "beforeDevCommand": "npm run dev -- -p 3100",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "bash scripts/tauri-build.sh"
   },
   "app": {
     "withGlobalTauri": true,

@@ -305,6 +305,7 @@ ${trackList}
 Return as JSON array: [{...}, {...}, ...]` }],
             }),
           })
+          if (!res.ok) throw new Error(`Claude API error ${res.status}`)
           const data = await res.json()
           const raw = data.content?.[0]?.text || '[]'
           const enriched = JSON.parse(raw.replace(/```json|```/g, '').trim())
@@ -326,11 +327,12 @@ Return as JSON array: [{...}, {...}, ...]` }],
               enriched: e.known !== false,
               needs_audio: e.known === false,
             }))
-            await fetch('/api/tracks', {
+            const saveRes = await fetch('/api/tracks', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ tracks: enrichedTracks }),
             })
+            if (!saveRes.ok) console.error('Failed to save enriched tracks:', saveRes.status)
           }
         } catch {
           // Continue on enrichment failure — raw data is already saved

@@ -61,7 +61,7 @@ export function CollectionSidebar({
         width: '100%', padding: '7px 16px 7px ' + (16 + indent * 16) + 'px',
         background: activeSection === key ? 'rgba(176, 141, 87, 0.08)' : 'transparent',
         border: 'none', borderLeft: activeSection === key ? '2px solid ' + s.setlab : '2px solid transparent',
-        color: activeSection === key ? s.text : s.textDim,
+        color: activeSection === key ? s.text : s.text,
         fontFamily: s.font, fontSize: '11px', letterSpacing: '0.04em',
         cursor: 'pointer', textAlign: 'left',
         transition: 'all 0.12s',
@@ -70,7 +70,7 @@ export function CollectionSidebar({
       onMouseLeave={e => { if (activeSection !== key) (e.currentTarget.style.background = 'transparent') }}
     >
       <span>{label}</span>
-      <span style={{ fontSize: '10px', color: s.textDimmer, fontVariantNumeric: 'tabular-nums' }}>{count}</span>
+      <span style={{ fontSize: '10px', color: s.textDim, fontVariantNumeric: 'tabular-nums' }}>{count}</span>
     </button>
   )
 
@@ -81,10 +81,10 @@ export function CollectionSidebar({
     }}>
       <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
         <span style={{
-          fontSize: '8px', color: s.textDimmer, transition: 'transform 0.15s',
+          fontSize: '8px', color: s.text, transition: 'transform 0.15s',
           transform: open ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block',
         }}>&#9654;</span>
-        <span style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: s.textDimmer, fontFamily: s.font }}>
+        <span style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: s.text, fontFamily: s.font }}>
           {label}
         </span>
       </div>
@@ -92,7 +92,7 @@ export function CollectionSidebar({
         <button
           onClick={e => { e.stopPropagation(); action.onClick() }}
           style={{
-            background: 'none', border: 'none', color: s.textDimmer, fontFamily: s.font,
+            background: 'none', border: 'none', color: s.textDim, fontFamily: s.font,
             fontSize: '14px', cursor: 'pointer', padding: '0 2px', lineHeight: 1,
           }}
           title={action.label}
@@ -255,7 +255,7 @@ export function CollectionSidebar({
               width: '100%', padding: '8px 16px',
               background: intelligenceActive ? 'rgba(176, 141, 87, 0.08)' : 'transparent',
               border: 'none', borderLeft: intelligenceActive ? '2px solid ' + s.gold : '2px solid transparent',
-              color: intelligenceActive ? s.text : s.textDim,
+              color: intelligenceActive ? s.text : s.text,
               fontFamily: s.font, fontSize: '11px', letterSpacing: '0.04em',
               cursor: 'pointer', textAlign: 'left',
               transition: 'all 0.12s',

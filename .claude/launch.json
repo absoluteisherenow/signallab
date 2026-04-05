@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "signallab",
-      "runtimeExecutable": "/bin/bash",
-      "runtimeArgs": ["/Users/anthonymcginley/CLAUDE/signallab/.claude/dev.sh"],
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": ["-c", "cd /Users/anthonymcginley/CLAUDE/signallab && PATH=/opt/homebrew/bin:$PATH npm run dev"],
       "port": 3000
     },
     {

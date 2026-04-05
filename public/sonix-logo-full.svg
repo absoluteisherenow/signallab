@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 48" fill="none">
+  <!-- SONIX — Full Logo Lockup (icon + wordmark) -->
+  <g transform="translate(18, 0)">
+    <!-- Icon -->
+    <rect x="4" y="4" width="40" height="40" rx="10" fill="none" stroke="#6a7a9a" stroke-width="1.2" opacity="0.25"/>
+    <rect x="9.4" y="19" width="3.2" height="12.8" rx="0.8" fill="#6a7a9a"/>
+    <rect x="15.4" y="14.4" width="3.2" height="17.6" rx="0.8" fill="#6a7a9a"/>
+    <rect x="21.4" y="9.6" width="3.2" height="22.4" rx="0.8" fill="#6a7a9a"/>
+    <rect x="27.4" y="16" width="3.2" height="16" rx="0.8" fill="#6a7a9a"/>
+    <rect x="33.4" y="20.8" width="3.2" height="11.2" rx="0.8" fill="#6a7a9a"/>
+    <!-- Wordmark -->
+    <text x="56" y="30" font-family="Unbounded, sans-serif" font-weight="200" font-size="22" fill="#f0ebe2" letter-spacing="2.5">SONIX</text>
+  </g>
+</svg>

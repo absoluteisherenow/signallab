@@ -159,6 +159,7 @@ function getCompatibility(a: string, b: string): number {
   if (compatible.includes(b)) return 85
   const aNum = parseInt(a), bNum = parseInt(b)
   if (!isNaN(aNum) && !isNaN(bNum) && Math.abs(aNum - bNum) <= 2) return 60
+  if (isNaN(aNum) || isNaN(bNum)) return 0
   return 30
 }
 
@@ -1556,24 +1557,31 @@ Provide:
   async function loadLibrary() {
     setLibraryLoading(true)
     try {
+      // Try local SQLite first on desktop, fall back to API if empty
+      let loaded = false
       if (isTauri()) {
-        // Desktop: load from local SQLite
-        const tracks = await tauriGetTracks()
-        setLibrary(tracks.map((t: TauriTrack) => ({
-          id: t.id, title: t.title, artist: t.artist,
-          bpm: t.bpm || 0, key: t.key || '', camelot: t.camelot || '',
-          energy: t.energy || 0, genre: t.genre || '', duration: t.duration || '',
-          notes: t.notes || '', analysed: t.analysed || false,
-          moment_type: t.moment_type || '', position_score: t.position_score || '',
-          mix_in: t.mix_in || '', mix_out: t.mix_out || '',
-          crowd_reaction: t.crowd_reaction || '', similar_to: t.similar_to || '',
-          producer_style: t.producer_style || '', crowd_hits: t.crowd_hits || 0,
-          source: t.source || 'manual', discovered_via: t.discovered_via || null,
-          spotify_url: t.spotify_url || '', album_art: t.album_art || '',
-          has_local_audio: !!(t.file_path), file_path: t.file_path || '',
-        })))
-      } else {
-        // Web: load from Supabase via API
+        try {
+          const tracks = await tauriGetTracks()
+          if (tracks && tracks.length > 0) {
+            setLibrary(tracks.map((t: TauriTrack) => ({
+              id: t.id, title: t.title, artist: t.artist,
+              bpm: t.bpm || 0, key: t.key || '', camelot: t.camelot || '',
+              energy: t.energy || 0, genre: t.genre || '', duration: t.duration || '',
+              notes: t.notes || '', analysed: t.analysed || false,
+              moment_type: t.moment_type || '', position_score: t.position_score || '',
+              mix_in: t.mix_in || '', mix_out: t.mix_out || '',
+              crowd_reaction: t.crowd_reaction || '', similar_to: t.similar_to || '',
+              producer_style: t.producer_style || '', crowd_hits: t.crowd_hits || 0,
+              source: t.source || 'manual', discovered_via: t.discovered_via || null,
+              spotify_url: t.spotify_url || '', album_art: t.album_art || '',
+              has_local_audio: !!(t.file_path), file_path: t.file_path || '',
+            })))
+            loaded = true
+          }
+        } catch { /* SQLite not available — fall through to API */ }
+      }
+      if (!loaded) {
+        // Web or desktop fallback: load from Supabase via API
         const res = await fetch('/api/tracks')
         const data = await res.json()
         if (data.tracks && data.tracks.length > 0) {
@@ -2355,6 +2363,20 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
   useEffect(() => { loadLibrary().then(() => reconnectMusicFolder()); loadPastSets(); fetchUpcomingGig(); loadWantlist() }, [])
 
+  // ── Playlist persistence (localStorage) ────────────────────────────────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('setlab_user_playlists')
+      if (saved) setUserPlaylists(JSON.parse(saved))
+    } catch { /* ignore corrupt data */ }
+  }, [])
+
+  const playlistsInitialised = useRef(false)
+  useEffect(() => {
+    if (!playlistsInitialised.current) { playlistsInitialised.current = true; return }
+    try { localStorage.setItem('setlab_user_playlists', JSON.stringify(userPlaylists)) } catch {}
+  }, [userPlaylists])
+
   // ── Keyboard Shortcuts ─────────────────────────────────────────────────
   const [selectedTrackIdx, setSelectedTrackIdx] = useState(-1)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -2892,7 +2914,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '4px' }}>
-            <div style={{ fontSize: '12px', color: s.textDimmer, marginRight: '8px' }}>
+            <div style={{ fontSize: '12px', color: s.textDim, marginRight: '8px' }}>
               {library.length} tracks · {set.length} in set · {setLength}min
             </div>
             <button onClick={saveSet} className="btn-secondary" style={{ fontSize: '10px', height: '36px', padding: '0 18px' }}>Save set</button>
@@ -2912,7 +2934,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
               background: 'none',
               border: 'none',
               borderBottom: activeTab === tab ? `2px solid ${s.gold}` : '2px solid transparent',
-              color: activeTab === tab ? s.text : s.textDimmer,
+              color: activeTab === tab ? s.text : s.textDim,
               fontFamily: s.font,
               fontSize: '11px',
               letterSpacing: '0.14em',

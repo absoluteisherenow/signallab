@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SONIX Logo Preview</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@200;300&family=DM+Mono:wght@300;400&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: #070706;
+      color: #f0ebe2;
+      padding: 48px;
+    }
+
+    h1 {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 200;
+      font-size: 28px;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #6a6862;
+      font-size: 13px;
+      margin-bottom: 48px;
+    }
+
+    .section {
+      margin-bottom: 56px;
+    }
+
+    .section-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 300;
+      font-size: 13px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #8a8780;
+      margin-bottom: 24px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1a1917;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      margin-bottom: 24px;
+    }
+
+    .icon-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-box img {
+      display: block;
+    }
+
+    .icon-box .label {
+      font-size: 11px;
+      color: #4a4845;
+    }
+
+    .comparison {
+      display: flex;
+      gap: 48px;
+      align-items: flex-start;
+    }
+
+    .compare-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .compare-col .col-title {
+      font-size: 12px;
+      color: #6a6862;
+      letter-spacing: 1px;
+    }
+
+    .lockup-row {
+      display: flex;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .light-bg {
+      background: #f0ebe2;
+      border-radius: 12px;
+      padding: 24px 32px;
+      display: inline-flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .dark-bg {
+      background: #0e0d0b;
+      border-radius: 12px;
+      padding: 24px 32px;
+      border: 1px solid #2e2c29;
+      display: inline-flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .swatch {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .swatch-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+    }
+
+    .swatch-label {
+      font-size: 12px;
+      color: #8a8780;
+    }
+  </style>
+</head>
+<body>
+  <h1>SONIX</h1>
+  <p class="subtitle">Logo preview — Five Bar Spectrum mark</p>
+
+  <!-- Colour reference -->
+  <div class="section">
+    <div class="section-title">Colour</div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background: #6a7a9a;"></div>
+      <span class="swatch-label">SONIX Blue-Grey #6a7a9a</span>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background: #b08d57;"></div>
+      <span class="swatch-label">Signal Lab Gold #b08d57 (for comparison)</span>
+    </div>
+  </div>
+
+  <!-- Scale comparison -->
+  <div class="section">
+    <div class="section-title">Icon at multiple scales</div>
+    <div class="row">
+      <div class="icon-box">
+        <img src="sonix-icon.svg" width="128" height="128">
+        <span class="label">128px</span>
+      </div>
+      <div class="icon-box">
+        <img src="sonix-icon.svg" width="64" height="64">
+        <span class="label">64px</span>
+      </div>
+      <div class="icon-box">
+        <img src="sonix-icon.svg" width="32" height="32">
+        <span class="label">32px</span>
+      </div>
+      <div class="icon-box">
+        <img src="sonix-icon.svg" width="16" height="16">
+        <span class="label">16px</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Side-by-side with Signal Lab -->
+  <div class="section">
+    <div class="section-title">Side by side — SONIX vs Signal Lab</div>
+    <div class="comparison">
+      <div class="compare-col">
+        <span class="col-title">SONIX</span>
+        <img src="sonix-icon.svg" width="64" height="64">
+      </div>
+      <div class="compare-col">
+        <span class="col-title">Signal Lab</span>
+        <img src="logo-icon.svg" width="64" height="64">
+      </div>
+    </div>
+  </div>
+
+  <!-- Full lockup on dark -->
+  <div class="section">
+    <div class="section-title">Full lockup — dark background</div>
+    <div class="dark-bg">
+      <object data="sonix-logo-full.svg" type="image/svg+xml" width="300" height="48"></object>
+    </div>
+    <div style="height: 16px;"></div>
+    <div class="dark-bg">
+      <object data="logo-full.svg" type="image/svg+xml" width="300" height="48"></object>
+    </div>
+  </div>
+
+  <!-- Inline lockup (font-safe) -->
+  <div class="section">
+    <div class="section-title">Inline lockup — rendered with page fonts</div>
+    <div class="dark-bg" style="gap: 16px;">
+      <img src="sonix-icon.svg" width="40" height="40">
+      <span style="font-family: Unbounded, sans-serif; font-weight: 200; font-size: 22px; letter-spacing: 2.5px; color: #f0ebe2;">SONIX</span>
+    </div>
+    <div style="height: 16px;"></div>
+    <div class="dark-bg" style="gap: 16px;">
+      <img src="logo-icon.svg" width="40" height="40">
+      <span style="font-family: Unbounded, sans-serif; font-weight: 200; font-size: 22px; letter-spacing: 1px; color: #f0ebe2;">Signal Lab <span style="color: #8a8780; font-family: DM Mono, monospace; font-weight: 300; font-size: 14px; letter-spacing: 2px;">OS</span></span>
+    </div>
+  </div>
+
+  <!-- Light background variant -->
+  <div class="section">
+    <div class="section-title">Light background variant</div>
+    <div class="light-bg">
+      <div class="icon-box">
+        <img src="sonix-icon-light.svg" width="64" height="64">
+        <span class="label" style="color: #4a4845;">SONIX</span>
+      </div>
+      <div class="icon-box">
+        <img src="logo-icon-light.svg" width="64" height="64">
+        <span class="label" style="color: #4a4845;">Signal Lab</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
