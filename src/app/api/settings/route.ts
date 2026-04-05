@@ -17,7 +17,7 @@ export async function GET() {
     
     // Return default settings if none exist
     const settings = data || {
-      profile: { name: 'NIGHT manoeuvres', genre: 'Electronic', country: 'Australia', bio: '' },
+      profile: { name: 'NIGHT manoeuvres', genre: 'Electronic', country: 'United Kingdom', bio: '', profile_pic_url: '' },
       team: [],
       advance: { sender_name: 'NIGHT manoeuvres Management', reply_email: 'bookings@nightmanoeuvres.com' },
       aliases: [],

@@ -1296,74 +1296,73 @@ Generate a complete ad plan tailored to this specific content and format. Return
         </button>
         {expandedSections.artists && <div className="grid grid-cols-2 gap-3 px-5 pb-5">
           {artists.map(artist => (
-            <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-5 relative group hover:border-white/13 transition-colors">
+            <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 relative group hover:border-white/13 transition-colors">
               {scanningArtist === artist.name && <div className="absolute top-0 left-0 right-0 h-px bg-[#b08d57] animate-pulse" />}
               <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
-                className="absolute top-3 right-3 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none">x</button>
-              {/* Header — pic + name + stats */}
-              <div className="flex items-start gap-3 mb-4">
+                className="absolute top-3 right-3 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none z-10">x</button>
+              {/* Header — pic + name + follower count */}
+              <div className="flex items-center gap-3 p-4 pb-3">
                 {artist.profile_pic_url ? (
-                  <img src={artist.profile_pic_url} alt="" className="w-10 h-10 rounded-full object-cover border border-[#b08d57]/30 flex-shrink-0" />
+                  <img src={artist.profile_pic_url} alt="" className="w-9 h-9 rounded-full object-cover border border-[#b08d57]/30 flex-shrink-0" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/30 flex items-center justify-center text-[11px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
+                  <div className="w-9 h-9 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/30 flex items-center justify-center text-[11px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between">
-                    <div className="text-sm tracking-[.08em]">{artist.name}</div>
-                    {artist.follower_count && (
-                      <span className="text-[10px] text-[#b08d57]">{artist.follower_count > 1000000 ? `${(artist.follower_count/1000000).toFixed(1)}M` : artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}</span>
-                    )}
+                    <div className="text-[13px] tracking-[.06em]">{artist.name}</div>
+                    {artist.follower_count ? (
+                      <span className="text-[10px] text-[#b08d57]">{artist.follower_count > 1000000 ? `${(artist.follower_count/1000000).toFixed(1)}M` : artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count} followers</span>
+                    ) : null}
                   </div>
-                  <div className="text-[10px] tracking-[.1em] text-[#52504c] mt-0.5">{artist.handle} · {artist.genre}</div>
-                  <div className="flex items-center gap-2 mt-1">
-                    {(artist.data_source === 'hikerapi' || artist.data_source === 'apify') && artist.post_count_analysed ? (
-                      <span className="text-[9px] tracking-[.1em] text-[#3d6b4a] flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-[#3d6b4a] inline-block" />{artist.post_count_analysed} posts · {artist.visual_aesthetic ? 'deep dive' : 'caption scan'}</span>
-                    ) : artist.data_source === 'manual' ? (
-                      <span className="text-[9px] tracking-[.1em] text-[#b08d57]">{artist.post_count_analysed} manual captions</span>
-                    ) : (
-                      <span className="text-[9px] tracking-[.1em] text-[#9a6a5a]">not verified</span>
-                    )}
-                  </div>
+                  <div className="text-[10px] text-[#52504c]">{artist.handle} · {artist.genre}</div>
                 </div>
               </div>
-              {/* Deep dive intel — visual + performance */}
+              {/* Stats grid */}
+              <div className="grid grid-cols-4 gap-px bg-white/5 mx-4 mb-3 border border-white/5">
+                <div className="bg-[#0e0d0b] p-2.5 text-center">
+                  <div className="text-[15px] font-light text-[#f0ebe2]">{artist.lowercase_pct}%</div>
+                  <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mt-0.5">Lowercase</div>
+                </div>
+                <div className="bg-[#0e0d0b] p-2.5 text-center">
+                  <div className="text-[15px] font-light text-[#f0ebe2]">{artist.short_caption_pct}%</div>
+                  <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mt-0.5">Short</div>
+                </div>
+                <div className="bg-[#0e0d0b] p-2.5 text-center">
+                  <div className="text-[15px] font-light text-[#f0ebe2]">{artist.no_hashtags_pct}%</div>
+                  <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mt-0.5">No tags</div>
+                </div>
+                <div className="bg-[#0e0d0b] p-2.5 text-center">
+                  <div className="text-[15px] font-light text-[#b08d57]">{artist.content_performance?.engagement_rate || `${artist.post_count_analysed}`}</div>
+                  <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mt-0.5">{artist.content_performance?.engagement_rate ? 'Eng. rate' : 'Posts'}</div>
+                </div>
+              </div>
+              {/* Deep dive row — visual + best format + peak content */}
               {artist.visual_aesthetic && (
-                <div className="mb-4 p-3 bg-[#b08d57]/5 border border-[#b08d57]/15">
-                  <div className="flex items-center gap-4 mb-2">
-                    <div>
-                      <div className="text-[8px] tracking-[.16em] uppercase text-[#52504c]">Visual</div>
-                      <div className="text-[11px] text-[#b08d57]">{artist.visual_aesthetic.mood}</div>
-                    </div>
-                    <div>
-                      <div className="text-[8px] tracking-[.16em] uppercase text-[#52504c]">Best format</div>
-                      <div className="text-[11px] text-[#f0ebe2]">{artist.content_performance?.best_type || '—'}</div>
-                    </div>
-                    <div>
-                      <div className="text-[8px] tracking-[.16em] uppercase text-[#52504c]">Engagement</div>
-                      <div className="text-[11px] text-[#f0ebe2]">{artist.content_performance?.engagement_rate || '—'}</div>
-                    </div>
+                <div className="grid grid-cols-3 gap-3 mx-4 mb-3">
+                  <div>
+                    <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mb-1">Visual mood</div>
+                    <div className="text-[11px] text-[#b08d57] leading-snug">{artist.visual_aesthetic.mood}</div>
                   </div>
-                  {artist.content_performance?.peak_content && (
-                    <div className="text-[10px] text-[#8a8780] leading-relaxed">{artist.content_performance.peak_content}</div>
-                  )}
+                  <div>
+                    <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mb-1">Best format</div>
+                    <div className="text-[11px] text-[#f0ebe2] leading-snug">{artist.content_performance?.best_type || '—'}</div>
+                  </div>
+                  <div>
+                    <div className="text-[7px] tracking-[.16em] uppercase text-[#52504c] mb-1">Peak content</div>
+                    <div className="text-[11px] text-[#f0ebe2] leading-snug">{artist.content_performance?.peak_content ? (artist.content_performance.peak_content.length > 60 ? artist.content_performance.peak_content.slice(0, 60) + '...' : artist.content_performance.peak_content) : '—'}</div>
+                  </div>
                 </div>
               )}
-              {/* Voice rules */}
+              {/* Voice summary — trimmed to 2 lines */}
               {artist.style_rules && (
-                <div className="text-[10px] leading-relaxed text-[#8a8780] mb-3 border-l-2 border-[#b08d57]/30 pl-3">
+                <div className="mx-4 mb-3 text-[10px] leading-relaxed text-[#8a8780] border-l-2 border-[#b08d57]/20 pl-3 line-clamp-2">
                   {artist.style_rules}
                 </div>
               )}
-              {/* Brand positioning */}
-              {artist.brand_positioning && (
-                <div className="text-[10px] leading-relaxed text-[#52504c] mb-3 italic">
-                  {artist.brand_positioning}
-                </div>
-              )}
               {/* Chips */}
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 px-4 pb-4">
                 {artist.chips.map((chip, i) => (
-                  <span key={chip} className={`text-[9px] tracking-[.1em] uppercase px-2 py-0.5 border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/35 text-[#b08d57]' : 'border-white/10 text-[#52504c]'}`}>{chip}</span>
+                  <span key={chip} className={`text-[8px] tracking-[.1em] uppercase px-1.5 py-0.5 border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/35 text-[#b08d57]' : 'border-white/10 text-[#52504c]'}`}>{chip}</span>
                 ))}
               </div>
             </div>

@@ -205,7 +205,7 @@ function MediaLibraryTab() {
 }
 
 export default function Settings() {
-  const [profile, setProfile] = useState({ name: '', genre: '', country: '', bio: '' })
+  const [profile, setProfile] = useState({ name: '', genre: '', country: '', bio: '', profile_pic_url: '' })
   const [team, setTeam] = useState([
     { id: '1', role: 'Manager', name: '', email: '', phone: '' },
     { id: '2', role: 'Agent', name: '', email: '', phone: '' },
@@ -368,6 +368,7 @@ export default function Settings() {
         bio: data.bio || p.bio,
         genre: (data.genres?.length ? data.genres.join(', ') : '') || p.genre,
         country: data.country || p.country,
+        profile_pic_url: data.imageUrl || p.profile_pic_url,
       }))
       setRaSuccess(true)
       setTimeout(() => setRaSuccess(false), 3000)
@@ -427,9 +428,13 @@ export default function Settings() {
       if (data.success) {
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
+      } else {
+        console.error('Settings save failed:', data.error)
+        alert('Save failed — ' + (data.error || 'unknown error'))
       }
-    } catch {
-      // Save failed silently
+    } catch (err: any) {
+      console.error('Settings save error:', err)
+      alert('Save failed — ' + (err.message || 'network error'))
     } finally {
       setIsSaving(false)
     }
@@ -465,12 +470,24 @@ export default function Settings() {
       {/* PROFILE TAB */}
       {activeTab === 'profile' && (
         <div className="card" style={{ maxWidth: '640px' }}>
-          <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '28px' }}>Artist profile</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '28px' }}>
+            {profile.profile_pic_url ? (
+              <img src={profile.profile_pic_url} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
+            ) : (
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--bg-light, #1a1917)', border: '2px solid var(--border-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>
+                {profile.name ? profile.name.charAt(0).toUpperCase() : '?'}
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Artist profile</div>
+              {profile.profile_pic_url && <div style={{ fontSize: '9px', color: 'var(--text-dimmer)', marginTop: '4px' }}>Photo from Resident Advisor</div>}
+            </div>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {[
               { label: 'Artist / act name', key: 'name', placeholder: 'NIGHT manoeuvres' },
               { label: 'Genre', key: 'genre', placeholder: 'Electronic' },
-              { label: 'Country', key: 'country', placeholder: 'Australia' },
+              { label: 'Country', key: 'country', placeholder: 'United Kingdom' },
             ].map(f => (
               <div key={f.key}>
                 <label style={labelStyle}>{f.label}</label>
