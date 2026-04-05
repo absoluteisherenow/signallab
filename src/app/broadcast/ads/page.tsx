@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { SignalLabHeader } from '@/components/broadcast/SignalLabHeader'
 import { SKILL_ADS_MANAGER } from '@/lib/skillPromptsClient'
 
@@ -62,34 +61,7 @@ export default function AdsPage() {
 
   return (
     <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono flex flex-col">
-      <SignalLabHeader right={
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Link href="/broadcast" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            height: '32px', padding: '0 16px',
-            background: 'rgba(176,141,87,0.08)', color: '#8a8780',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '2px',
-            fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
-            fontFamily: "'DM Mono', monospace", fontWeight: 400,
-            textDecoration: 'none', whiteSpace: 'nowrap',
-          }}>
-            Content Studio
-          </Link>
-          <Link href="/broadcast/strategy" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            height: '32px', padding: '0 16px',
-            background: 'rgba(176,141,87,0.08)', color: '#8a8780',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '2px',
-            fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
-            fontFamily: "'DM Mono', monospace", fontWeight: 400,
-            textDecoration: 'none', whiteSpace: 'nowrap',
-          }}>
-            Content Strategy
-          </Link>
-        </div>
-      } />
+      <SignalLabHeader />
 
       <div className="flex flex-col gap-7 p-8">
         <div className="bg-[#0e0d0b] border border-white/7 p-7">

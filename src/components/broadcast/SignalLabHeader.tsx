@@ -9,6 +9,8 @@ const TABS = [
   { label: 'Content Intelligence', href: '/broadcast/scanner' },
   { label: 'Media Library', href: '/broadcast/media' },
   { label: 'Content Strategy', href: '/broadcast/strategy' },
+  { label: 'Insta DM Campaign', href: '/broadcast/automations' },
+  { label: 'Ad Amplifier', href: '/broadcast/ads' },
 ]
 
 interface SignalLabHeaderProps {

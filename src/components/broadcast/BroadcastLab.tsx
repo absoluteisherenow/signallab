@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { aiCache } from '@/lib/aiCache'
 import { SignalLabHeader } from './SignalLabHeader'
@@ -902,46 +901,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
   return (
     <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono flex flex-col">
 
-      <SignalLabHeader right={
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Link href="/broadcast/automations" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            height: '32px', padding: '0 16px',
-            background: 'rgba(176,141,87,0.08)', color: '#8a8780',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '2px',
-            fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
-            fontFamily: "'DM Mono', monospace", fontWeight: 400,
-            textDecoration: 'none', whiteSpace: 'nowrap',
-          }}>
-            Insta DM Campaign
-          </Link>
-          <Link href="/broadcast/strategy" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            height: '32px', padding: '0 16px',
-            background: 'rgba(176,141,87,0.15)', color: '#d4a843',
-            border: '1px solid rgba(176,141,87,0.35)',
-            borderRadius: '2px',
-            fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
-            fontFamily: "'DM Mono', monospace", fontWeight: 400,
-            textDecoration: 'none', whiteSpace: 'nowrap',
-          }}>
-            Content Strategy
-          </Link>
-          <Link href="/broadcast/ads" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            height: '32px', padding: '0 16px',
-            background: 'rgba(176,141,87,0.08)', color: '#8a8780',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '2px',
-            fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
-            fontFamily: "'DM Mono', monospace", fontWeight: 400,
-            textDecoration: 'none', whiteSpace: 'nowrap',
-          }}>
-            Ad Amplifier
-          </Link>
-        </div>
-      } />
+      <SignalLabHeader />
 
       <div className="flex flex-col gap-7 p-8">
 
