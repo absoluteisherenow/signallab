@@ -1012,7 +1012,26 @@ Generate a complete ad plan tailored to this specific content and format. Return
         .marquee-track:hover { animation-play-state: paused; }
       ` }} />
 
-      <SignalLabHeader />
+      <SignalLabHeader right={
+        !scanningArtist && !pastingFor && (
+          !addingArtist ? (
+            <button onClick={() => setAddingArtist(true)} className="flex items-center gap-1.5 text-[10px] tracking-[.14em] uppercase text-[#3a3830] hover:text-[#b08d57] transition-colors font-mono">
+              <span className="text-sm leading-none">+</span> Signal Scan
+            </button>
+          ) : (
+            <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+              <input ref={addInputRef} value={newArtistName} onChange={e => setNewArtistName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newArtistName.trim()) { scanArtist(newArtistName.trim()); setNewArtistName(''); setAddingArtist(false) }
+                  if (e.key === 'Escape') { setAddingArtist(false); setNewArtistName('') }
+                }}
+                placeholder="Artist name or @handle"
+                className="bg-[#1a1917] border border-[#b08d57] text-[#f0ebe2] font-mono text-[11px] px-3 py-1.5 outline-none placeholder-[#2e2c29] w-[220px]" />
+              <button onClick={() => { setAddingArtist(false); setNewArtistName('') }} className="text-[9px] text-[#52504c] hover:text-[#f0ebe2] font-mono">Esc</button>
+            </div>
+          )
+        )
+      } />
 
       <div className="flex flex-col gap-4 p-6">
 
@@ -1046,26 +1065,26 @@ Generate a complete ad plan tailored to this specific content and format. Return
             {/* Deep dive grid */}
             <div className="grid grid-cols-3 gap-4">
               <div className="border-l-2 border-[#b08d57]/30 pl-3">
-                <div className="text-[8px] tracking-[.18em] uppercase text-[#52504c] mb-2">Voice</div>
+                <div className="text-[8px] tracking-[.18em] uppercase text-[#b08d57] mb-2">Voice</div>
                 {ownArtist.style_rules ? (
                   <div className="text-[11px] leading-[1.7] text-[#8a8780] line-clamp-4">{ownArtist.style_rules}</div>
                 ) : (
-                  <div className="text-[11px] text-[#2e2c29] italic">Sync your Instagram to build your voice profile</div>
+                  <div className="text-[11px] text-[#52504c] italic">Sync your Instagram to build your voice profile</div>
                 )}
               </div>
               <div className="border-l-2 border-[#b08d57]/30 pl-3">
-                <div className="text-[8px] tracking-[.18em] uppercase text-[#52504c] mb-2">Visual aesthetic</div>
+                <div className="text-[8px] tracking-[.18em] uppercase text-[#b08d57] mb-2">Visual aesthetic</div>
                 {ownArtist.visual_aesthetic ? (
                   <div className="text-[11px] leading-[1.7] text-[#8a8780]">
                     {ownArtist.visual_aesthetic.mood}
                     {ownArtist.visual_aesthetic.signature_visual && <span className="block mt-1 text-[#52504c]">{ownArtist.visual_aesthetic.signature_visual}</span>}
                   </div>
                 ) : (
-                  <div className="text-[11px] text-[#2e2c29] italic">Deep dive scan needed</div>
+                  <div className="text-[11px] text-[#52504c] italic">Deep dive scan needed</div>
                 )}
               </div>
               <div className="border-l-2 border-[#b08d57]/30 pl-3">
-                <div className="text-[8px] tracking-[.18em] uppercase text-[#52504c] mb-2">Performance</div>
+                <div className="text-[8px] tracking-[.18em] uppercase text-[#b08d57] mb-2">Performance</div>
                 {ownArtist.content_performance ? (
                   <div className="text-[11px] leading-[1.7] text-[#8a8780]">
                     <span className="text-[#f0ebe2]">{ownArtist.content_performance.best_type}</span> is your strongest format
@@ -1073,28 +1092,24 @@ Generate a complete ad plan tailored to this specific content and format. Return
                     {ownArtist.content_performance.posting_frequency && <span className="block text-[#52504c]">{ownArtist.content_performance.posting_frequency}</span>}
                   </div>
                 ) : (
-                  <div className="text-[11px] text-[#2e2c29] italic">Post data needed</div>
+                  <div className="text-[11px] text-[#52504c] italic">Post data needed</div>
                 )}
               </div>
             </div>
 
-            {/* Stats bar */}
-            <div className="grid grid-cols-4 gap-px bg-white/5 mt-5 border border-white/5">
+            {/* Stats bar — real data only */}
+            <div className="grid grid-cols-3 gap-px bg-white/5 mt-5 border border-white/5">
               <div className="bg-[#0e0d0b] py-2 px-2 text-center">
-                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.lowercase_pct}%</div>
-                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Lowercase</div>
+                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.content_performance?.engagement_rate || '—'}</div>
+                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Engagement rate</div>
               </div>
               <div className="bg-[#0e0d0b] py-2 px-2 text-center">
-                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.short_caption_pct}%</div>
-                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Short</div>
+                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.content_performance?.best_type || '—'}</div>
+                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Best format</div>
               </div>
               <div className="bg-[#0e0d0b] py-2 px-2 text-center">
-                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.no_hashtags_pct}%</div>
-                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">No tags</div>
-              </div>
-              <div className="bg-[#0e0d0b] py-2 px-2 text-center">
-                <div className="text-[16px] font-light text-[#b08d57]">{ownArtist.post_count_analysed || 0}</div>
-                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Posts analysed</div>
+                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.follower_count ? (ownArtist.follower_count >= 1000 ? `${(ownArtist.follower_count / 1000).toFixed(1).replace(/\.0$/, '')}K` : ownArtist.follower_count) : '—'}</div>
+                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Followers</div>
               </div>
             </div>
 
@@ -1155,10 +1170,14 @@ Generate a complete ad plan tailored to this specific content and format. Return
                   </div>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-1">
-                {artist.chips.slice(0, 4).map((chip, i) => (
-                  <span key={chip} className={`text-[7px] tracking-[.1em] uppercase px-1.5 py-px border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/30 text-[#b08d57]' : 'border-white/8 text-[#3a3830]'}`}>{chip}</span>
-                ))}
+              <div className="overflow-hidden relative h-5 mt-1">
+                <div className="absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-[#0e0d0b] to-transparent z-10" />
+                <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-[#0e0d0b] to-transparent z-10" />
+                <div className="marquee-track" style={{ animationDuration: `${Math.max(12, artist.chips.length * 4)}s` }}>
+                  {[...artist.chips, ...artist.chips].map((chip, i) => (
+                    <span key={i} className={`text-[7px] tracking-[.1em] uppercase px-1.5 py-px border mx-1 inline-block flex-shrink-0 ${artist.highlight_chips.includes(i % artist.chips.length) ? 'border-[#b08d57]/30 text-[#b08d57]' : 'border-white/8 text-[#3a3830]'}`}>{chip}</span>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
@@ -1200,8 +1219,8 @@ Generate a complete ad plan tailored to this specific content and format. Return
         </div>
       )}
 
-      {/* Add artist / paste captions */}
-      {pastingFor ? (
+      {/* Paste captions modal */}
+      {pastingFor && (
         <div className="bg-[#0e0d0b] border border-white/7 p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="text-[10px] tracking-[.1em] text-[#b08d57] uppercase">Paste captions — {pastingFor}</div>
@@ -1213,25 +1232,6 @@ Generate a complete ad plan tailored to this specific content and format. Return
             className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-4 py-2 hover:bg-[#c9a46e] disabled:opacity-50">
             {scanningArtist ? 'Analysing...' : 'Analyse'}
           </button>
-        </div>
-      ) : !scanningArtist && (
-        <div className="flex items-center">
-          {!addingArtist ? (
-            <button onClick={() => setAddingArtist(true)} className="flex items-center gap-1.5 text-[10px] tracking-[.14em] uppercase text-[#3a3830] hover:text-[#b08d57] transition-colors">
-              <span className="text-sm leading-none">+</span> Run Signal Scan
-            </button>
-          ) : (
-            <div className="flex gap-2 flex-1" onClick={e => e.stopPropagation()}>
-              <input ref={addInputRef} value={newArtistName} onChange={e => setNewArtistName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && newArtistName.trim()) { scanArtist(newArtistName.trim()); setNewArtistName(''); setAddingArtist(false) }
-                  if (e.key === 'Escape') { setAddingArtist(false); setNewArtistName('') }
-                }}
-                placeholder="Artist name or @handle — Enter to scan"
-                className="flex-1 bg-[#1a1917] border border-[#b08d57] text-[#f0ebe2] font-mono text-[11px] px-3 py-1.5 outline-none placeholder-[#2e2c29]" />
-              <button onClick={() => { setAddingArtist(false); setNewArtistName('') }} className="text-[9px] text-[#52504c] hover:text-[#f0ebe2]">Esc</button>
-            </div>
-          )}
         </div>
       )}
 

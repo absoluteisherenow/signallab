@@ -30,6 +30,58 @@ interface ScrapeResult {
   userProfile?: UserProfile
 }
 
+// ── Calculate real engagement + caption stats from actual data ────────────────
+function calcEngagementRate(posts: PostData[], followerCount?: number): string | undefined {
+  if (!followerCount || followerCount === 0 || posts.length === 0) return undefined
+  const totalEngagement = posts.reduce((sum, p) => sum + (p.likes || 0) + (p.comments || 0), 0)
+  const avgEngagement = totalEngagement / posts.length
+  const rate = (avgEngagement / followerCount) * 100
+  return `${rate.toFixed(1)}%`
+}
+
+function calcBestFormat(posts: PostData[]): string | undefined {
+  if (posts.length === 0) return undefined
+  const counts: Record<string, number> = {}
+  for (const p of posts) {
+    counts[p.mediaType] = (counts[p.mediaType] || 0) + 1
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])
+  if (sorted.length === 0) return undefined
+  const best = sorted[0][0]
+  return best.charAt(0).toUpperCase() + best.slice(1)
+}
+
+function calcCaptionStats(captions: string[]) {
+  if (captions.length === 0) return { lowercase_pct: 0, short_caption_pct: 0, no_hashtags_pct: 0 }
+
+  let lowercaseCount = 0
+  let shortCount = 0
+  let noHashtagCount = 0
+
+  for (const cap of captions) {
+    const trimmed = cap.trim()
+    if (!trimmed) continue
+
+    // Lowercase: caption has no uppercase letters (ignoring emojis/numbers/symbols)
+    const letters = trimmed.replace(/[^a-zA-Z]/g, '')
+    if (letters.length === 0 || letters === letters.toLowerCase()) lowercaseCount++
+
+    // Short: under 10 words
+    const wordCount = trimmed.split(/\s+/).filter(w => w.length > 0).length
+    if (wordCount < 10) shortCount++
+
+    // No hashtags
+    if (!trimmed.includes('#')) noHashtagCount++
+  }
+
+  const total = captions.length
+  return {
+    lowercase_pct: Math.round((lowercaseCount / total) * 100),
+    short_caption_pct: Math.round((shortCount / total) * 100),
+    no_hashtags_pct: Math.round((noHashtagCount / total) * 100),
+  }
+}
+
 // ── HikerAPI scraper — extract EVERYTHING ────────────────────────────────────
 async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
   const key = process.env.HIKER_API_KEY
@@ -334,10 +386,12 @@ export async function POST(req: NextRequest) {
     // Manual caption paste — text-only analysis (no images)
     if (manualCaptions && Array.isArray(manualCaptions) && manualCaptions.length > 0) {
       const profile = await analyseTextOnly(name, manualCaptions)
+      const realStats = calcCaptionStats(manualCaptions)
       return NextResponse.json({
         success: true,
         profile: {
           name, ...profile,
+          ...realStats, // override Claude's guesses with real calculated stats
           data_source: 'manual',
           post_count_analysed: manualCaptions.length,
           last_scanned: new Date().toISOString().split('T')[0],
@@ -371,11 +425,21 @@ export async function POST(req: NextRequest) {
 
     // Deep analysis — Opus with images + captions + engagement + profile
     const profile = await deepAnalyse(name, result.posts, result.userProfile)
+    const realStats = calcCaptionStats(result.captions)
+    const realEngagement = calcEngagementRate(result.posts, result.userProfile?.followerCount)
+    const realBestFormat = calcBestFormat(result.posts)
+
+    // Override Claude's guesses with real calculated values
+    if (profile.content_performance) {
+      if (realEngagement) profile.content_performance.engagement_rate = realEngagement
+      if (realBestFormat) profile.content_performance.best_type = realBestFormat
+    }
 
     return NextResponse.json({
       success: true,
       profile: {
         name, ...profile,
+        ...realStats,
         data_source: dataSource,
         post_count_analysed: result.captions.length,
         last_scanned: new Date().toISOString().split('T')[0],
