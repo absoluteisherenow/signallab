@@ -256,7 +256,7 @@ export function SetLab() {
   const [wantlist, setWantlist] = useState<any[]>([])
   const [wantlistLoading, setWantlistLoading] = useState(false)
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set())
-  const [playingTrack, setPlayingTrack] = useState<{ id: string; title: string; artist: string; album_art?: string } | null>(null)
+  const [playingTrack, setPlayingTrack] = useState<{ id: string; title: string; artist: string; album_art?: string; bpm: number; camelot: string; energy: number } | null>(null)
   const [librarySection, setLibrarySection] = useState<'all' | 'discoveries' | 'playlists' | 'wantlist'>('all')
   const [userPlaylists, setUserPlaylists] = useState<Record<string, string[]>>({}) // name → track IDs
   const [addToMenu, setAddToMenu] = useState<string | null>(null) // track.id when menu is open
@@ -331,6 +331,43 @@ export function SetLab() {
   const [currentSetGigId, setCurrentSetGigId] = useState<string | null>(null)
   const [gigBannerOpen, setGigBannerOpen] = useState(true)
   const [linkingGig, setLinkingGig] = useState(false)
+  // ── Set Templates ──────────────────────────────────────────────────────
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false)
+  const [templateCurve, setTemplateCurve] = useState<number[]>([3, 5, 7, 9, 8, 6, 4]) // energy curve points
+  const [templateSlotType, setTemplateSlotType] = useState<string>('club-peak')
+  const TEMPLATE_PRESETS: Record<string, { label: string; curve: number[] }> = {
+    'warm-up': { label: 'Warm-Up', curve: [2, 3, 4, 5, 5, 6, 6] },
+    'club-peak': { label: 'Club Peak', curve: [5, 6, 7, 8, 9, 9, 8] },
+    'closing': { label: 'Closing', curve: [8, 7, 6, 5, 4, 3, 2] },
+    'festival-main': { label: 'Festival Main', curve: [6, 7, 8, 9, 10, 9, 7] },
+    'festival-opening': { label: 'Festival Opening', curve: [3, 4, 5, 6, 7, 8, 8] },
+    'after-hours': { label: 'After Hours', curve: [6, 5, 5, 6, 7, 6, 4] },
+    'b2b': { label: 'B2B', curve: [5, 7, 6, 8, 7, 9, 7] },
+    'livestream': { label: 'Livestream', curve: [4, 5, 6, 7, 7, 6, 5] },
+  }
+  // ── Post-Gig Debrief ──────────────────────────────────────────────────
+  interface TrackDebrief { trackId: string; rating: 'peaked' | 'kept' | 'dropped' | 'missed'; notes: string }
+  const [showDebrief, setShowDebrief] = useState(false)
+  const [debriefSetId, setDebriefSetId] = useState<string | null>(null)
+  const [debriefRatings, setDebriefRatings] = useState<Record<string, TrackDebrief>>({})
+  const [debriefAiSummary, setDebriefAiSummary] = useState<string | null>(null)
+  const [debriefLoading, setDebriefLoading] = useState(false)
+  // ── Venue Intelligence ─────────────────────────────────────────────────
+  interface VenueProfile { name: string; genre_sweet_spot: string; bpm_range: string; notes: string; best_tracks: string[]; total_gigs: number }
+  const [venueProfiles, setVenueProfiles] = useState<Record<string, VenueProfile>>({})
+  const [showVenuePanel, setShowVenuePanel] = useState(false)
+  const [selectedVenue, setSelectedVenue] = useState<string | null>(null)
+  // ── Multi-Deck Preview ─────────────────────────────────────────────────
+  const [showDualPlayer, setShowDualPlayer] = useState(false)
+  const [deckB, setDeckB] = useState<Track | null>(null)
+  const deckBRef = useRef<HTMLAudioElement | null>(null)
+  const [deckBPlaying, setDeckBPlaying] = useState(false)
+  const [deckBTime, setDeckBTime] = useState(0)
+  const [deckBDuration, setDeckBDuration] = useState(0)
+  const [deckBPeaks, setDeckBPeaks] = useState<number[] | null>(null)
+  // ── Crowd Pattern Recognition ──────────────────────────────────────────
+  const [crowdPatterns, setCrowdPatterns] = useState<{ insight: string; tracks: string[]; confidence: number }[]>([])
+  const [crowdPatternsLoading, setCrowdPatternsLoading] = useState(false)
 
   const showToast = (msg: string, tag = 'Info') => {
     setToast({ msg, tag })
@@ -411,7 +448,7 @@ export function SetLab() {
     audio.onloadedmetadata = () => setAudioDuration(audio.duration)
     audio.onended = () => { setAudioPlaying(false); setAudioTime(0) }
     audio.play()
-    setPlayingTrack({ id: track.id, title: track.title, artist: track.artist, album_art: track.album_art })
+    setPlayingTrack({ id: track.id, title: track.title, artist: track.artist, album_art: track.album_art, bpm: track.bpm, camelot: track.camelot, energy: track.energy })
     setAudioPlaying(true)
 
     // Extract waveform peaks in background (if not cached)
@@ -663,11 +700,19 @@ export function SetLab() {
     return acc
   }, {})
 
-  const searchFn = (t: Track) =>
-    t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.genre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.moment_type.toLowerCase().includes(searchQuery.toLowerCase())
+  const searchFn = (t: Track) => {
+    // key: prefix — filter by Camelot key (from Camelot wheel click)
+    if (searchQuery.startsWith('key:')) {
+      const targetKey = searchQuery.slice(4).toUpperCase()
+      const compat = CAMELOT_WHEEL[targetKey] || [targetKey]
+      return compat.includes(t.camelot)
+    }
+    const q = searchQuery.toLowerCase()
+    return t.title.toLowerCase().includes(q) ||
+      t.artist.toLowerCase().includes(q) ||
+      t.genre.toLowerCase().includes(q) ||
+      t.moment_type.toLowerCase().includes(q)
+  }
 
   const depthFiltered = depthFilter >= 100 ? curatedLibrary : curatedLibrary.filter(t => (t.energy || 5) <= Math.ceil(depthFilter / 10))
   const activeSmartPlaylist = searchQuery.startsWith('smart:')
@@ -741,6 +786,169 @@ Give specific mixing advice for this transition.`,
         await getTransitionAdvice(set[i], set[i + 1])
       }
     }
+  }
+
+  // ── Set Template: Apply curve to set builder ────────────────────────
+  function applyTemplateCurve(curve: number[]) {
+    if (set.length === 0) {
+      showToast('Add tracks to your set first, then apply a template', 'Template')
+      return
+    }
+    // Map curve segments to set positions and suggest track reordering
+    const segments = curve.length
+    const tracksPerSegment = Math.max(1, Math.ceil(set.length / segments))
+    const reordered: SetTrack[] = []
+    for (let seg = 0; seg < segments; seg++) {
+      const targetEnergy = curve[seg]
+      const segStart = seg * tracksPerSegment
+      const segEnd = Math.min(segStart + tracksPerSegment, set.length)
+      const available = set.filter(t => !reordered.includes(t))
+      // Sort available tracks by closeness to target energy
+      const sorted = [...available].sort((a, b) => Math.abs(a.energy - targetEnergy) - Math.abs(b.energy - targetEnergy))
+      for (let i = segStart; i < segEnd && sorted.length > 0; i++) {
+        const pick = sorted.shift()!
+        reordered.push({ ...pick, position: reordered.length + 1 })
+      }
+    }
+    // Add any remaining tracks
+    const remaining = set.filter(t => !reordered.find(r => r.id === t.id))
+    remaining.forEach(t => reordered.push({ ...t, position: reordered.length + 1 }))
+    setSet(reordered)
+    setShowTemplateEditor(false)
+    showToast(`Applied ${TEMPLATE_PRESETS[templateSlotType]?.label || 'Custom'} energy curve`, 'Template')
+  }
+
+  // ── Post-Gig Debrief: Generate AI summary ─────────────────────────────
+  async function generateDebriefSummary() {
+    if (!debriefSetId) return
+    const debriefSet = pastSets.find(s => s.id === debriefSetId)
+    if (!debriefSet) return
+    setDebriefLoading(true)
+    try {
+      let tracks: Track[] = []
+      try { tracks = JSON.parse(debriefSet.tracks || '[]') } catch {}
+      const ratedTracks = tracks.map(t => {
+        const rating = debriefRatings[t.id]
+        return `${t.artist} — ${t.title} (${t.bpm}BPM, energy ${t.energy}) — ${rating?.rating || 'not rated'}${rating?.notes ? `: ${rating.notes}` : ''}`
+      }).join('\n')
+
+      const res = await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content:
+            `You're a DJ performance analyst. Here's a set debrief:\n\nSet: ${debriefSet.name}\nVenue: ${(debriefSet as any).venue || 'Unknown'}\n\nTrack ratings:\n${ratedTracks}\n\nProvide a concise debrief (3-5 bullet points):\n- What worked well and why\n- What to improve next time\n- Track selection patterns to note\n- One actionable suggestion for the next gig\n\nKeep it practical and specific to the tracks.`
+          }],
+          model: 'claude-sonnet-4-20250514',
+        }),
+      })
+      const data = await res.json()
+      setDebriefAiSummary(data.response || data.content || 'Could not generate summary')
+    } catch (err: any) {
+      showToast('Debrief failed: ' + err.message, 'Error')
+    }
+    setDebriefLoading(false)
+  }
+
+  // ── Venue Intelligence: Build profiles from past sets ──────────────────
+  function buildVenueProfiles() {
+    const profiles: Record<string, VenueProfile> = {}
+    for (const ps of pastSets) {
+      const venue = (ps as any).venue
+      if (!venue) continue
+      let tracks: Track[] = []
+      try { tracks = JSON.parse(ps.tracks || '[]') } catch {}
+      if (!profiles[venue]) {
+        profiles[venue] = { name: venue, genre_sweet_spot: '', bpm_range: '', notes: '', best_tracks: [], total_gigs: 0 }
+      }
+      const p = profiles[venue]
+      p.total_gigs++
+      // Track BPMs
+      const bpms = tracks.filter(t => t.bpm > 0).map(t => t.bpm)
+      if (bpms.length) p.bpm_range = `${Math.min(...bpms)}-${Math.max(...bpms)}`
+      // Top genres
+      const genres = tracks.map(t => t.genre).filter(Boolean)
+      if (genres.length) {
+        const counts: Record<string, number> = {}
+        genres.forEach(g => { counts[g] = (counts[g] || 0) + 1 })
+        p.genre_sweet_spot = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([g]) => g).join(', ')
+      }
+      // Best tracks by crowd_hits
+      const best = tracks.filter(t => (t.crowd_hits || 0) > 0).sort((a, b) => (b.crowd_hits || 0) - (a.crowd_hits || 0)).slice(0, 5)
+      p.best_tracks = [...new Set([...p.best_tracks, ...best.map(t => `${t.artist} — ${t.title}`)])].slice(0, 10)
+    }
+    setVenueProfiles(profiles)
+  }
+
+  // ── Multi-Deck Preview ─────────────────────────────────────────────────
+  async function loadDeckB(track: Track) {
+    setDeckB(track)
+    setDeckBPeaks(null)
+    setDeckBPlaying(false)
+    setDeckBTime(0)
+    // Try to get audio URL for deck B
+    const url = track.spotify_url || (track as any).preview_url
+    if (url && deckBRef.current) {
+      deckBRef.current.src = url
+      deckBRef.current.load()
+    }
+    // Extract waveform
+    if (waveformCache.current.has(track.id)) {
+      setDeckBPeaks(waveformCache.current.get(track.id)!)
+    }
+  }
+
+  function toggleDeckB() {
+    if (!deckBRef.current || !deckB) return
+    if (deckBPlaying) {
+      deckBRef.current.pause()
+      setDeckBPlaying(false)
+    } else {
+      deckBRef.current.play().catch(() => {})
+      setDeckBPlaying(true)
+    }
+  }
+
+  // ── Crowd Pattern Recognition ──────────────────────────────────────────
+  async function analyseCrowdPatterns() {
+    if (pastSets.length < 3) {
+      showToast('Need at least 3 past sets for pattern recognition', 'Intelligence')
+      return
+    }
+    setCrowdPatternsLoading(true)
+    try {
+      const setData = pastSets.slice(0, 20).map(ps => {
+        let tracks: Track[] = []
+        try { tracks = JSON.parse(ps.tracks || '[]') } catch {}
+        return {
+          name: ps.name,
+          venue: (ps as any).venue || 'Unknown',
+          date: ps.created_at,
+          tracks: tracks.slice(0, 15).map(t => ({
+            artist: t.artist, title: t.title, bpm: t.bpm, energy: t.energy,
+            moment_type: t.moment_type, crowd_hits: t.crowd_hits, genre: t.genre,
+          })),
+        }
+      })
+
+      const res = await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content:
+            `You're a DJ analytics engine. Analyse crowd patterns across these ${setData.length} sets:\n\n${JSON.stringify(setData, null, 1)}\n\nReturn a JSON array of 4-6 insights, each:\n{"insight": "specific pattern description", "tracks": ["Artist — Title", ...], "confidence": 0.0-1.0}\n\nLook for:\n- Tracks that always get crowd reactions\n- Time-of-night patterns (energy levels that work)\n- Genre/BPM sweet spots across venues\n- Tracks that underperform vs expectation\n- Reliable openers/closers\n\nReturn ONLY the JSON array.`
+          }],
+          model: 'claude-sonnet-4-20250514',
+        }),
+      })
+      const data = await res.json()
+      const text = data.response || data.content || '[]'
+      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        setCrowdPatterns(JSON.parse(jsonMatch[0]))
+      }
+    } catch (err: any) {
+      showToast('Pattern analysis failed: ' + err.message, 'Error')
+    }
+    setCrowdPatternsLoading(false)
   }
 
   function addToSet(track: Track, switchTab = false) {
@@ -3517,6 +3725,10 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                         {loadingTransition ? <><ScanPulse size="sm" color={s.gold} /> Analysing...</> : 'Mix advice for all'}
                       </button>
                     )}
+                    <button onClick={() => setShowTemplateEditor(true)}
+                      style={{ ...btn(s.textDim, 'transparent'), justifyContent: 'center', whiteSpace: 'nowrap', padding: '10px 16px' }}>
+                      Energy curve
+                    </button>
                   </div>
 
                   {/* Suggestions */}
@@ -3780,6 +3992,14 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                         <div style={{ fontSize: '10px', color: s.textDimmer }}>{new Date(ps.created_at).toLocaleDateString('en-GB')}</div>
+                        <button
+                          onClick={() => { setDebriefSetId(ps.id); setShowDebrief(true); setDebriefRatings({}); setDebriefAiSummary(null) }}
+                          style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.gold, border: `1px solid ${s.gold}33`, padding: '4px 10px', background: 'transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          onMouseEnter={e => { (e.target as HTMLElement).style.background = `${s.gold}15` }}
+                          onMouseLeave={e => { (e.target as HTMLElement).style.background = 'transparent' }}
+                        >
+                          Debrief
+                        </button>
                         <button
                           onClick={() => loadSetIntoBuilder(ps)}
                           style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.setlab, border: `1px solid ${s.setlab}33`, padding: '4px 10px', background: 'transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}
@@ -5180,6 +5400,134 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
               </div>
 
+              {/* ── Camelot Wheel Visualizer ── */}
+              {library.filter(t => t.camelot).length > 0 && (() => {
+                // All 24 Camelot positions arranged in a circle
+                const camelotPositions = [
+                  '1A','2A','3A','4A','5A','6A','7A','8A','9A','10A','11A','12A',
+                  '1B','2B','3B','4B','5B','6B','7B','8B','9B','10B','11B','12B',
+                ]
+                const COMPAT: Record<string, string[]> = {
+                  '1A':['1A','2A','12A','1B'],'2A':['2A','3A','1A','2B'],'3A':['3A','4A','2A','3B'],'4A':['4A','5A','3A','4B'],
+                  '5A':['5A','6A','4A','5B'],'6A':['6A','7A','5A','6B'],'7A':['7A','8A','6A','7B'],'8A':['8A','9A','7A','8B'],
+                  '9A':['9A','10A','8A','9B'],'10A':['10A','11A','9A','10B'],'11A':['11A','12A','10A','11B'],'12A':['12A','1A','11A','12B'],
+                  '1B':['1B','2B','12B','1A'],'2B':['2B','3B','1B','2A'],'3B':['3B','4B','2B','3A'],'4B':['4B','5B','3B','4A'],
+                  '5B':['5B','6B','4B','5A'],'6B':['6B','7B','5B','6A'],'7B':['7B','8B','6B','7A'],'8B':['8B','9B','7B','8A'],
+                  '9B':['9B','10B','8B','9A'],'10B':['10B','11B','9B','10A'],'11B':['11B','12B','10B','11A'],'12B':['12B','1B','11B','12A'],
+                }
+                const wheelHighlight = (window as any).__camelotHighlight as string | undefined
+                const highlightKeys = wheelHighlight ? (COMPAT[wheelHighlight] || [wheelHighlight]) : []
+                const cx = 150, cy = 150, rOuter = 130, rInner = 80
+
+                return (
+                  <div style={{ ...cardStyle, gridColumn: 'span 3' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={labelStyle}>Harmonic Mixing Wheel</div>
+                      <div style={{ fontSize: '10px', color: s.textDimmer }}>Click a key to highlight compatible tracks</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', marginTop: '8px' }}>
+                      {/* Wheel */}
+                      <svg viewBox="0 0 300 300" style={{ width: '300px', height: '300px', flexShrink: 0 }}>
+                        {/* Minor keys (outer ring) */}
+                        {camelotPositions.slice(0, 12).map((key, i) => {
+                          const angle = (i * 30 - 90) * Math.PI / 180
+                          const x = cx + rOuter * Math.cos(angle)
+                          const y = cy + rOuter * Math.sin(angle)
+                          const count = keyCounts[key] || 0
+                          const isHighlighted = highlightKeys.includes(key)
+                          const isActive = wheelHighlight === key
+                          const opacity = count > 0 ? Math.min(0.3 + (count / (keyDist[0]?.[1] || 1)) * 0.7, 1) : 0.15
+                          return (
+                            <g key={key} style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                (window as any).__camelotHighlight = isActive ? undefined : key
+                                // Force re-render by setting search
+                                if (!isActive) {
+                                  setSearchQuery('')
+                                  setTimeout(() => setSearchQuery(`key:${key}`), 0)
+                                } else {
+                                  setSearchQuery('')
+                                }
+                              }}>
+                              <circle cx={x} cy={y} r={isActive ? 20 : 16}
+                                fill={isHighlighted ? 'rgba(176,141,87,0.3)' : `rgba(154,106,90,${opacity * 0.4})`}
+                                stroke={isActive ? s.gold : isHighlighted ? 'rgba(176,141,87,0.6)' : `rgba(154,106,90,${opacity * 0.5})`}
+                                strokeWidth={isActive ? 2 : 1} />
+                              <text x={x} y={y - 3} textAnchor="middle" fill={count > 0 ? s.text : s.textDimmer}
+                                style={{ fontSize: '10px', fontFamily: 'var(--font-mono)' }}>{key}</text>
+                              {count > 0 && (
+                                <text x={x} y={y + 9} textAnchor="middle" fill={s.textDimmer}
+                                  style={{ fontSize: '8px', fontFamily: 'var(--font-mono)' }}>{count}</text>
+                              )}
+                            </g>
+                          )
+                        })}
+                        {/* Major keys (inner ring) */}
+                        {camelotPositions.slice(12).map((key, i) => {
+                          const angle = (i * 30 - 90) * Math.PI / 180
+                          const x = cx + rInner * Math.cos(angle)
+                          const y = cy + rInner * Math.sin(angle)
+                          const count = keyCounts[key] || 0
+                          const isHighlighted = highlightKeys.includes(key)
+                          const isActive = wheelHighlight === key
+                          const opacity = count > 0 ? Math.min(0.3 + (count / (keyDist[0]?.[1] || 1)) * 0.7, 1) : 0.15
+                          return (
+                            <g key={key} style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                (window as any).__camelotHighlight = isActive ? undefined : key
+                                if (!isActive) {
+                                  setSearchQuery('')
+                                  setTimeout(() => setSearchQuery(`key:${key}`), 0)
+                                } else {
+                                  setSearchQuery('')
+                                }
+                              }}>
+                              <circle cx={x} cy={y} r={isActive ? 18 : 14}
+                                fill={isHighlighted ? 'rgba(61,107,74,0.3)' : `rgba(61,107,74,${opacity * 0.4})`}
+                                stroke={isActive ? '#4d9970' : isHighlighted ? 'rgba(61,107,74,0.6)' : `rgba(61,107,74,${opacity * 0.5})`}
+                                strokeWidth={isActive ? 2 : 1} />
+                              <text x={x} y={y - 3} textAnchor="middle" fill={count > 0 ? s.text : s.textDimmer}
+                                style={{ fontSize: '9px', fontFamily: 'var(--font-mono)' }}>{key}</text>
+                              {count > 0 && (
+                                <text x={x} y={y + 8} textAnchor="middle" fill={s.textDimmer}
+                                  style={{ fontSize: '7px', fontFamily: 'var(--font-mono)' }}>{count}</text>
+                              )}
+                            </g>
+                          )
+                        })}
+                        {/* Center label */}
+                        <text x={cx} y={cy - 5} textAnchor="middle" fill={s.textDimmer}
+                          style={{ fontSize: '8px', letterSpacing: '0.2em', fontFamily: 'var(--font-mono)' }}>MINOR</text>
+                        <text x={cx} y={cy + 8} textAnchor="middle" fill={s.textDimmer}
+                          style={{ fontSize: '7px', letterSpacing: '0.15em', fontFamily: 'var(--font-mono)' }}>outer</text>
+                      </svg>
+
+                      {/* Compatible tracks list when a key is selected */}
+                      {wheelHighlight && (
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.gold, textTransform: 'uppercase', marginBottom: '8px' }}>
+                            Compatible with {wheelHighlight}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '240px', overflowY: 'auto' }}>
+                            {library.filter(t => highlightKeys.includes(t.camelot)).slice(0, 20).map(t => (
+                              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer', transition: 'background 0.1s' }}
+                                onClick={() => playTrack(t)}
+                                onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                <span style={{ color: s.gold, minWidth: '28px', fontSize: '10px' }}>{t.camelot}</span>
+                                <span style={{ color: s.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                                <span style={{ color: s.textDimmer, fontSize: '10px' }}>{t.artist}</span>
+                                <span style={{ color: s.textDimmer, fontSize: '10px' }}>{t.bpm}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Energy Arc bar chart */}
               {library.length >= 3 && (() => {
                 const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : null
@@ -5207,6 +5555,91 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   </div>
                 )
               })()}
+
+              {/* ── Venue Intelligence ── */}
+              {pastSets.length > 0 && (
+                <div style={{ ...cardStyle, gridColumn: 'span 2' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={labelStyle}>Venue Intelligence</div>
+                    <button onClick={() => { buildVenueProfiles(); setShowVenuePanel(true) }}
+                      style={{ fontSize: '10px', color: s.gold, background: 'none', border: `1px solid ${s.gold}33`, padding: '4px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}>
+                      {Object.keys(venueProfiles).length > 0 ? 'Refresh' : 'Analyse venues'}
+                    </button>
+                  </div>
+                  {Object.keys(venueProfiles).length === 0 ? (
+                    <div style={descStyle}>Analyse your past sets to build venue profiles — know what works where</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                      {Object.values(venueProfiles).map(vp => (
+                        <div key={vp.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: s.bg, border: `1px solid ${s.border}`, cursor: 'pointer' }}
+                          onClick={() => setSelectedVenue(selectedVenue === vp.name ? null : vp.name)}>
+                          <div>
+                            <div style={{ fontSize: '12px', color: s.text }}>{vp.name}</div>
+                            <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>
+                              {vp.genre_sweet_spot && `${vp.genre_sweet_spot} · `}{vp.bpm_range && `${vp.bpm_range} BPM · `}{vp.total_gigs} gig{vp.total_gigs !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          <span style={{ fontSize: '8px', color: s.textDimmer }}>{selectedVenue === vp.name ? '▼' : '▶'}</span>
+                        </div>
+                      ))}
+                      {selectedVenue && venueProfiles[selectedVenue]?.best_tracks.length > 0 && (
+                        <div style={{ padding: '12px', background: s.bg, border: `1px solid ${s.gold}22` }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '0.15em', color: s.gold, textTransform: 'uppercase', marginBottom: '8px' }}>
+                            Best tracks at {selectedVenue}
+                          </div>
+                          {venueProfiles[selectedVenue].best_tracks.map((t, i) => (
+                            <div key={i} style={{ fontSize: '11px', color: s.text, padding: '3px 0' }}>{t}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Crowd Pattern Recognition ── */}
+              {pastSets.length >= 3 && (
+                <div style={{ ...cardStyle, gridColumn: 'span 3' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={labelStyle}>Crowd Pattern Recognition</div>
+                    <button onClick={analyseCrowdPatterns} disabled={crowdPatternsLoading}
+                      style={{ fontSize: '10px', color: s.gold, background: 'none', border: `1px solid ${s.gold}33`, padding: '4px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}>
+                      {crowdPatternsLoading ? 'Analysing...' : crowdPatterns.length > 0 ? 'Re-analyse' : 'Analyse patterns'}
+                    </button>
+                  </div>
+                  {crowdPatterns.length === 0 ? (
+                    <div style={descStyle}>Analyses crowd reactions across multiple gigs to find what consistently works</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+                      {crowdPatterns.map((pat, i) => (
+                        <div key={i} style={{ padding: '12px 16px', background: s.bg, border: `1px solid ${s.border}` }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                            <div style={{ fontSize: '12px', color: s.text, lineHeight: '1.5', flex: 1 }}>{pat.insight}</div>
+                            <div style={{ fontSize: '9px', color: pat.confidence > 0.7 ? s.gold : s.textDimmer, padding: '2px 8px', border: `1px solid ${pat.confidence > 0.7 ? s.gold + '44' : s.border}`, flexShrink: 0, marginLeft: '12px' }}>
+                              {Math.round(pat.confidence * 100)}%
+                            </div>
+                          </div>
+                          {pat.tracks.length > 0 && (
+                            <div style={{ fontSize: '10px', color: s.textDim, marginTop: '4px' }}>
+                              {pat.tracks.slice(0, 4).join(' · ')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Multi-Deck Preview launcher ── */}
+              <div style={cardStyle}>
+                <div style={labelStyle}>Multi-Deck Preview</div>
+                <div style={descStyle}>Test transitions by playing two tracks simultaneously</div>
+                <button onClick={() => { setShowDualPlayer(true); if (set.length > 0 && !playingTrack) playTrack(set[0]); if (set.length > 1) loadDeckB(set[1]) }}
+                  style={{ ...btn(s.setlab), marginTop: '8px', justifyContent: 'center', fontSize: '10px' }}>
+                  Open A/B Player
+                </button>
+              </div>
 
             </div>
           )
@@ -5355,6 +5788,269 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
           </div>
         )
       })()}
+
+      {/* ── Set Template Editor Modal ── */}
+      {showTemplateEditor && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setShowTemplateEditor(false)}>
+          <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '28px 32px', width: '560px' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', marginBottom: '20px' }}>
+              Energy Curve Template
+            </div>
+
+            {/* Preset selector */}
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '20px' }}>
+              {Object.entries(TEMPLATE_PRESETS).map(([key, preset]) => (
+                <button key={key} onClick={() => { setTemplateSlotType(key); setTemplateCurve(preset.curve) }}
+                  style={{
+                    fontFamily: s.font, fontSize: '10px', letterSpacing: '0.1em', padding: '6px 14px', cursor: 'pointer',
+                    background: templateSlotType === key ? `${s.setlab}25` : 'transparent',
+                    border: `1px solid ${templateSlotType === key ? s.setlab : s.border}`,
+                    color: templateSlotType === key ? s.setlab : s.textDim,
+                  }}>
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Energy curve visual + drag */}
+            <div style={{ background: s.bg, border: `1px solid ${s.border}`, padding: '20px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '120px' }}>
+                {templateCurve.map((val, i) => (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
+                    <div style={{ fontSize: '10px', color: s.gold, fontFamily: s.font }}>{val}</div>
+                    <div style={{
+                      width: '100%', background: `rgba(176,141,87,${0.3 + (val / 10) * 0.7})`,
+                      height: `${(val / 10) * 100}px`, minHeight: '4px', cursor: 'ns-resize',
+                    }}
+                      onWheel={e => {
+                        const delta = e.deltaY > 0 ? -1 : 1
+                        setTemplateCurve(prev => prev.map((v, j) => j === i ? Math.max(1, Math.min(10, v + delta)) : v))
+                      }}
+                      onClick={() => {
+                        // Cycle through 1-10
+                        setTemplateCurve(prev => prev.map((v, j) => j === i ? (v >= 10 ? 1 : v + 1) : v))
+                      }}
+                    />
+                    <div style={{ fontSize: '8px', color: s.textDimmer, fontFamily: s.font }}>
+                      {['Open', 'Build', 'Rise', 'Peak', 'Sustain', 'Ease', 'Close'][i] || `${i + 1}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '12px', textAlign: 'center' }}>
+                Click bars to adjust energy · Scroll to fine-tune
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowTemplateEditor(false)}
+                style={{ ...btn(s.textDim, 'transparent'), fontSize: '11px', padding: '10px 20px' }}>Cancel</button>
+              <button onClick={() => applyTemplateCurve(templateCurve)}
+                style={{ ...btn(s.setlab), fontSize: '11px', padding: '10px 24px' }}>
+                Apply to set ({set.length} tracks)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Post-Gig Debrief Modal ── */}
+      {showDebrief && debriefSetId && (() => {
+        const debriefSet = pastSets.find(ps => ps.id === debriefSetId)
+        if (!debriefSet) return null
+        let debriefTracks: Track[] = []
+        try { debriefTracks = JSON.parse(debriefSet.tracks || '[]') } catch {}
+        const ratingOptions: Array<{ value: TrackDebrief['rating']; label: string; color: string }> = [
+          { value: 'peaked', label: 'Peaked', color: '#b08d57' },
+          { value: 'kept', label: 'Kept', color: '#4d9970' },
+          { value: 'dropped', label: 'Dropped', color: '#9a6a5a' },
+          { value: 'missed', label: 'Missed', color: '#666' },
+        ]
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setShowDebrief(false)}>
+            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '28px 32px', width: '640px', maxHeight: '85vh', overflowY: 'auto' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', marginBottom: '6px' }}>
+                Post-Gig Debrief
+              </div>
+              <div style={{ fontSize: '13px', color: s.text, marginBottom: '20px' }}>{debriefSet.name || 'Untitled set'}</div>
+
+              {debriefTracks.length === 0 ? (
+                <div style={{ color: s.textDimmer, fontSize: '12px' }}>No tracks in this set</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+                  {debriefTracks.map((t, i) => {
+                    const rating = debriefRatings[t.id]
+                    return (
+                      <div key={t.id} style={{ padding: '10px 14px', background: s.bg, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '10px', color: s.textDimmer, minWidth: '20px' }}>{i + 1}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '12px', color: s.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {t.artist} — {t.title}
+                          </div>
+                          <div style={{ fontSize: '10px', color: s.textDimmer, marginTop: '2px' }}>{t.bpm} BPM · {t.camelot} · Energy {t.energy}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                          {ratingOptions.map(opt => (
+                            <button key={opt.value}
+                              onClick={() => setDebriefRatings(prev => ({ ...prev, [t.id]: { trackId: t.id, rating: opt.value, notes: prev[t.id]?.notes || '' } }))}
+                              style={{
+                                fontSize: '9px', padding: '3px 8px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.08em',
+                                background: rating?.rating === opt.value ? `${opt.color}30` : 'transparent',
+                                border: `1px solid ${rating?.rating === opt.value ? opt.color : s.border}`,
+                                color: rating?.rating === opt.value ? opt.color : s.textDimmer,
+                              }}>
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* AI Summary */}
+              {debriefAiSummary && (
+                <div style={{ padding: '16px 20px', background: s.bg, border: `1px solid ${s.gold}33`, marginBottom: '16px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '10px' }}>Debrief Analysis</div>
+                  <div style={{ fontSize: '12px', color: s.text, lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{debriefAiSummary}</div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowDebrief(false)}
+                  style={{ ...btn(s.textDim, 'transparent'), fontSize: '11px', padding: '10px 20px' }}>Close</button>
+                <button onClick={generateDebriefSummary} disabled={debriefLoading || Object.keys(debriefRatings).length === 0}
+                  style={{ ...btn(s.gold), fontSize: '11px', padding: '10px 24px', opacity: Object.keys(debriefRatings).length === 0 ? 0.4 : 1 }}>
+                  {debriefLoading ? 'Analysing...' : 'Generate debrief'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Multi-Deck Preview Modal ── */}
+      {showDualPlayer && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => { setShowDualPlayer(false); if (deckBRef.current) { deckBRef.current.pause(); setDeckBPlaying(false) } }}>
+          <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '28px 32px', width: '700px' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', marginBottom: '20px' }}>
+              A/B Transition Preview
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              {/* Deck A */}
+              <div style={{ background: s.bg, border: `1px solid ${s.border}`, padding: '16px' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '10px' }}>Deck A</div>
+                {playingTrack ? (
+                  <>
+                    <div style={{ fontSize: '12px', color: s.text, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playingTrack.title}</div>
+                    <div style={{ fontSize: '11px', color: s.textDim, marginBottom: '8px' }}>{playingTrack.artist}</div>
+                    <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color: s.textDimmer, marginBottom: '10px' }}>
+                      <span>{playingTrack.bpm} BPM</span>
+                      <span>{playingTrack.camelot}</span>
+                      <span>E{playingTrack.energy}</span>
+                    </div>
+                    <WaveformDisplay peaks={waveformCache.current.get(playingTrack.id) || null} progress={audioDuration > 0 ? audioTime / audioDuration : 0}
+                      onSeek={pos => { if (audioRef.current) audioRef.current.currentTime = pos * audioDuration }} height={40} />
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
+                      <button onClick={() => { if (audioRef.current) { audioPlaying ? audioRef.current.pause() : audioRef.current.play(); setAudioPlaying(!audioPlaying) } }}
+                        style={{ ...btn(s.setlab), fontSize: '10px', padding: '6px 20px' }}>
+                        {audioPlaying ? 'Pause A' : 'Play A'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: s.textDimmer, fontSize: '11px' }}>No track loaded — play a track first</div>
+                )}
+              </div>
+
+              {/* Deck B */}
+              <div style={{ background: s.bg, border: `1px solid ${s.border}`, padding: '16px' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '10px' }}>Deck B</div>
+                {deckB ? (
+                  <>
+                    <div style={{ fontSize: '12px', color: s.text, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deckB.title}</div>
+                    <div style={{ fontSize: '11px', color: s.textDim, marginBottom: '8px' }}>{deckB.artist}</div>
+                    <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color: s.textDimmer, marginBottom: '10px' }}>
+                      <span>{deckB.bpm} BPM</span>
+                      <span>{deckB.camelot}</span>
+                      <span>E{deckB.energy}</span>
+                    </div>
+                    <WaveformDisplay peaks={deckBPeaks} progress={deckBDuration > 0 ? deckBTime / deckBDuration : 0}
+                      onSeek={pos => { if (deckBRef.current) deckBRef.current.currentTime = pos * deckBDuration }}
+                      height={40} color="rgba(61,107,74,0.4)" progressColor="rgba(61,107,74,0.9)" />
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
+                      <button onClick={toggleDeckB}
+                        style={{ ...btn('#4d9970'), fontSize: '10px', padding: '6px 20px' }}>
+                        {deckBPlaying ? 'Pause B' : 'Play B'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: s.textDimmer, fontSize: '11px' }}>
+                    Click a track to load into Deck B
+                  </div>
+                )}
+                {/* Quick load from set */}
+                {set.length > 0 && (
+                  <div style={{ marginTop: '12px', borderTop: `1px solid ${s.border}`, paddingTop: '10px' }}>
+                    <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px' }}>Load from set</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '120px', overflowY: 'auto' }}>
+                      {set.map(t => (
+                        <button key={t.id} onClick={() => loadDeckB(t)}
+                          style={{ background: deckB?.id === t.id ? `rgba(61,107,74,0.15)` : 'transparent', border: 'none', padding: '4px 8px', cursor: 'pointer', textAlign: 'left', color: s.text, fontFamily: s.font, fontSize: '10px', display: 'flex', gap: '8px' }}>
+                          <span style={{ color: s.textDimmer }}>{t.position}.</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Compatibility info */}
+            {playingTrack && deckB && (
+              <div style={{ marginTop: '16px', padding: '12px 16px', background: s.bg, border: `1px solid ${s.border}`, display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Flow</div>
+                  <div style={{ fontSize: '18px', color: s.gold, fontFamily: s.font }}>{getFlowScore(playingTrack as unknown as Track, deckB)}%</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Key</div>
+                  <div style={{ fontSize: '14px', color: s.text, fontFamily: s.font }}>{playingTrack.camelot} → {deckB.camelot}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.15em', textTransform: 'uppercase' }}>BPM Gap</div>
+                  <div style={{ fontSize: '14px', color: Math.abs(playingTrack.bpm - deckB.bpm) <= 3 ? '#4d9970' : s.setlab, fontFamily: s.font }}>{Math.abs(playingTrack.bpm - deckB.bpm).toFixed(1)}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Energy</div>
+                  <div style={{ fontSize: '14px', color: s.text, fontFamily: s.font }}>{playingTrack.energy} → {deckB.energy}</div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button onClick={() => { setShowDualPlayer(false); if (deckBRef.current) { deckBRef.current.pause(); setDeckBPlaying(false) } }}
+                style={{ ...btn(s.textDim, 'transparent'), fontSize: '11px', padding: '10px 20px' }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Hidden Deck B audio element */}
+      <audio ref={deckBRef}
+        onTimeUpdate={() => { if (deckBRef.current) setDeckBTime(deckBRef.current.currentTime) }}
+        onLoadedMetadata={() => { if (deckBRef.current) setDeckBDuration(deckBRef.current.duration) }}
+        onEnded={() => setDeckBPlaying(false)}
+      />
 
       {toast && (
         <div style={{ position: 'fixed', top: '20px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 9999, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)', borderRadius: '4px' }}>
