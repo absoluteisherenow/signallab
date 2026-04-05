@@ -480,10 +480,31 @@ export function BroadcastLab() {
     setGeneratingCaptions(true)
     setCaptionError('')
     try {
+      // Build rich profiles with deep dive data
       const profilesText = artists
         .filter(a => a.style_rules)
-        .map(a => `${a.name}: ${a.style_rules}`)
-        .join('\n\n')
+        .map(a => {
+          const parts = [`${a.name} (${a.handle || 'unknown'}, ${(a.follower_count || 0).toLocaleString()} followers):`]
+          parts.push(`Voice rules: ${a.style_rules}`)
+          if (a.visual_aesthetic) parts.push(`Visual aesthetic: ${a.visual_aesthetic.mood}. ${a.visual_aesthetic.signature_visual}`)
+          if (a.content_performance) {
+            parts.push(`Best performing: ${a.content_performance.best_type} format. ${a.content_performance.peak_content}`)
+            if (a.content_performance.engagement_rate) parts.push(`Engagement rate: ${a.content_performance.engagement_rate}`)
+          }
+          if (a.brand_positioning) parts.push(`Brand: ${a.brand_positioning}`)
+          if (a.content_strategy_notes) parts.push(`Strategy insight: ${a.content_strategy_notes}`)
+          return parts.join('\n')
+        })
+        .join('\n\n---\n\n')
+
+      // Build lane stats summary
+      const laneAvgLower = Math.round(artists.reduce((s, a) => s + a.lowercase_pct, 0) / (artists.length || 1))
+      const laneAvgShort = Math.round(artists.reduce((s, a) => s + a.short_caption_pct, 0) / (artists.length || 1))
+      const laneAvgNoHash = Math.round(artists.reduce((s, a) => s + a.no_hashtags_pct, 0) / (artists.length || 1))
+      const laneStats = `LANE DATA (from ${artists.length} profiled artists, ${artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)} posts analysed):
+— ${laneAvgLower}% use lowercase, ${laneAvgShort}% keep captions under 10 words, ${laneAvgNoHash}% skip hashtags
+— Voice alignment: ${calcVoiceAlignment(artists).value} (${calcVoiceAlignment(artists).score}%)
+— Tone register: ${calcToneRegister(artists).value}`
 
       // Fetch real gig + release data to prevent hallucination
       let gigContext = ''
@@ -521,7 +542,10 @@ export function BroadcastLab() {
       const raw = await callClaude(
         `You write social media captions for ${artistName}, an ${artistCountry} electronic music artist.
 ${memberContext ? `\n${memberContext}\n` : ''}
-REFERENCE ARTISTS — studied voice profiles:
+
+${laneStats}
+
+DEEP DIVE PROFILES — real data from scanning their Instagram (captions + images + engagement):
 ${profilesText || artists.map(a => a.name).join(', ')}
 ${gigContext}
 
@@ -532,14 +556,20 @@ YOUR RULES:
 — Never describe or explain the photo or video
 — Feels like a private thought shared, not a caption written for an audience
 — CRITICAL: NEVER invent or guess location names, city names, venue names, or dates. Only use real event data from the REAL UPCOMING EVENTS list above. If no matching event exists, write the caption without any location or date specifics.
-— Safe = sounds natural, slightly complete sentence. Loose = fragment, unresolved — no closure, no CTA. Raw = shortest possible — minimum viable thought, often 3 words or fewer
-— Score each variant with estimated save rate 800–2500 based on electronic/dance lane behaviour and how strongly it triggers saves vs likes
+— On-brand = sounds natural, slightly complete sentence, stays close to the artist's established voice. Conversational = fragment, unresolved — no closure, no CTA, feels like overheard thought. Minimal = shortest possible — minimum viable thought, often 2-3 words
+— Score each variant 800–2500 based on the REAL engagement patterns from the deep dive data above
+
+REASONING RULES — each "reasoning" field MUST:
+1. Reference a SPECIFIC artist from the profiles above by name (e.g. "Matches Overmono's fragment style")
+2. Cite a REAL data point (e.g. "lowercase posts in this lane average 2.1K saves")
+3. Explain WHY this specific format triggers saves/engagement based on the deep dive data
+4. Be 2-3 sentences max, written in lowercase, no fluff
 
 ${SKILLS_CAPTION_GEN}
 
 Respond ONLY with valid JSON, no markdown.`,
         `Context: ${context}\nPlatform: ${platform}\nMedia: ${media}\nReturn: {"safe":{"text":"...","reasoning":"...","score":number},"loose":{"text":"...","reasoning":"...","score":number},"raw":{"text":"...","reasoning":"...","score":number}}`,
-        500
+        700
       )
       const d = JSON.parse(raw.replace(/\`\`\`json|\`\`\`/g, '').trim())
       setCaptions(d)
