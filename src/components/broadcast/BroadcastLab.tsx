@@ -1218,52 +1218,70 @@ Generate a complete ad plan tailored to this specific content and format. Return
               {scanningArtist === artist.name && <div className="absolute top-0 left-0 right-0 h-px bg-[#b08d57] animate-pulse" />}
               <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
                 className="absolute top-3 right-3 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none">x</button>
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="text-sm tracking-[.08em]">{artist.name}</div>
-                  <div className="text-[10px] tracking-[.1em] text-[#8a8780] mt-1">{artist.handle} · {artist.genre}</div>
-                </div>
-                {artist.data_source === 'hikerapi' && artist.post_count_analysed ? (
-                  <div className="text-[10px] tracking-[.1em] flex items-center gap-1.5 flex-shrink-0 text-[#3d6b4a]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#3d6b4a]" />
-                    {artist.post_count_analysed} real posts
-                  </div>
-                ) : artist.data_source === 'apify' && artist.post_count_analysed ? (
-                  <div className="text-[10px] tracking-[.1em] flex items-center gap-1.5 flex-shrink-0 text-[#3d6b4a]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#3d6b4a]" />
-                    {artist.post_count_analysed} real posts
-                  </div>
-                ) : artist.data_source === 'manual' && artist.post_count_analysed ? (
-                  <div className="text-[10px] tracking-[.1em] flex items-center gap-1.5 flex-shrink-0 text-[#b08d57]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#b08d57]" />
-                    {artist.post_count_analysed} manual
-                  </div>
+              {/* Header — pic + name + stats */}
+              <div className="flex items-start gap-3 mb-4">
+                {artist.profile_pic_url ? (
+                  <img src={artist.profile_pic_url} alt="" className="w-10 h-10 rounded-full object-cover border border-[#b08d57]/30 flex-shrink-0" />
                 ) : (
-                  <div className="text-[10px] tracking-[.1em] flex items-center gap-1.5 flex-shrink-0 text-[#9a6a5a]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#9a6a5a]" />
-                    not verified
-                  </div>
+                  <div className="w-10 h-10 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/30 flex items-center justify-center text-[11px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
                 )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between">
+                    <div className="text-sm tracking-[.08em]">{artist.name}</div>
+                    {artist.follower_count && (
+                      <span className="text-[10px] text-[#b08d57]">{artist.follower_count > 1000000 ? `${(artist.follower_count/1000000).toFixed(1)}M` : artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] tracking-[.1em] text-[#52504c] mt-0.5">{artist.handle} · {artist.genre}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {(artist.data_source === 'hikerapi' || artist.data_source === 'apify') && artist.post_count_analysed ? (
+                      <span className="text-[9px] tracking-[.1em] text-[#3d6b4a] flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-[#3d6b4a] inline-block" />{artist.post_count_analysed} posts · {artist.visual_aesthetic ? 'deep dive' : 'caption scan'}</span>
+                    ) : artist.data_source === 'manual' ? (
+                      <span className="text-[9px] tracking-[.1em] text-[#b08d57]">{artist.post_count_analysed} manual captions</span>
+                    ) : (
+                      <span className="text-[9px] tracking-[.1em] text-[#9a6a5a]">not verified</span>
+                    )}
+                  </div>
+                </div>
               </div>
+              {/* Deep dive intel — visual + performance */}
+              {artist.visual_aesthetic && (
+                <div className="mb-4 p-3 bg-[#b08d57]/5 border border-[#b08d57]/15">
+                  <div className="flex items-center gap-4 mb-2">
+                    <div>
+                      <div className="text-[8px] tracking-[.16em] uppercase text-[#52504c]">Visual</div>
+                      <div className="text-[11px] text-[#b08d57]">{artist.visual_aesthetic.mood}</div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] tracking-[.16em] uppercase text-[#52504c]">Best format</div>
+                      <div className="text-[11px] text-[#f0ebe2]">{artist.content_performance?.best_type || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] tracking-[.16em] uppercase text-[#52504c]">Engagement</div>
+                      <div className="text-[11px] text-[#f0ebe2]">{artist.content_performance?.engagement_rate || '—'}</div>
+                    </div>
+                  </div>
+                  {artist.content_performance?.peak_content && (
+                    <div className="text-[10px] text-[#8a8780] leading-relaxed">{artist.content_performance.peak_content}</div>
+                  )}
+                </div>
+              )}
+              {/* Voice rules */}
               {artist.style_rules && (
-                <div className="text-[11px] leading-relaxed text-[#8a8780] mb-4 border-l border-white/7 pl-3" style={{}}>
+                <div className="text-[10px] leading-relaxed text-[#8a8780] mb-3 border-l-2 border-[#b08d57]/30 pl-3">
                   {artist.style_rules}
                 </div>
               )}
-              <div className="flex flex-col gap-2 mb-4">
-                {[{l:'Lowercase',v:`${artist.lowercase_pct}%`,p:artist.lowercase_pct},{l:'Short captions',v:`${artist.short_caption_pct}%`,p:artist.short_caption_pct},{l:'No hashtags',v:`${artist.no_hashtags_pct}%`,p:artist.no_hashtags_pct,t:true}].map(b => (
-                  <div key={b.l}>
-                    <div className="flex justify-between">
-                      <span className="text-[10px] tracking-[.08em] text-[#8a8780]">{b.l}</span>
-                      <span className="text-[10px] tracking-[.08em]">{b.v}</span>
-                    </div>
-                    <Bar value={b.p} teal={b.t} />
-                  </div>
-                ))}
-              </div>
+              {/* Brand positioning */}
+              {artist.brand_positioning && (
+                <div className="text-[10px] leading-relaxed text-[#52504c] mb-3 italic">
+                  {artist.brand_positioning}
+                </div>
+              )}
+              {/* Chips */}
               <div className="flex flex-wrap gap-1">
                 {artist.chips.map((chip, i) => (
-                  <span key={chip} className={`text-[10px] tracking-[.1em] uppercase px-2 py-1 border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/35 text-[#b08d57]' : 'border-white/13 text-[#8a8780]'}`}>{chip}</span>
+                  <span key={chip} className={`text-[9px] tracking-[.1em] uppercase px-2 py-0.5 border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/35 text-[#b08d57]' : 'border-white/10 text-[#52504c]'}`}>{chip}</span>
                 ))}
               </div>
             </div>
