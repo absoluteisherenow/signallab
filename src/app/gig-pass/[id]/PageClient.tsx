@@ -43,7 +43,9 @@ const CACHE_MAX_AGE = 60 * 60 * 1000 // 1 hour
 
 function formatDateDisplay(dateStr: string): string {
   try {
-    const d = new Date(dateStr)
+    // Append T12:00 to avoid timezone shifting for date-only strings like "2026-04-10"
+    const d = new Date(dateStr.length === 10 ? `${dateStr}T12:00:00` : dateStr)
+    if (isNaN(d.getTime())) return dateStr
     return d.toLocaleDateString('en-GB', {
       weekday: 'long',
       day: 'numeric',
@@ -111,7 +113,8 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
 
         if (!gigRes.ok) throw new Error('Gig fetch failed')
 
-        const gig = await gigRes.json()
+        const gigJson = await gigRes.json()
+        const gig = gigJson.gig || gigJson // handle both { gig: {...} } and flat response
         const travel = travelRes.ok ? await travelRes.json() : {}
         const advance = advanceRes.ok ? await advanceRes.json() : {}
 
@@ -119,9 +122,9 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
           venue: gig.venue || gig.venue_name || 'Unknown Venue',
           location: gig.location || gig.city || '',
           date: gig.date || gig.gig_date || '',
-          setTime: advance.set_time || gig.set_time || null,
-          doorsTime: advance.doors_time || gig.doors_time || null,
-          venueAddress: advance.venue_address || gig.venue_address || gig.address || null,
+          setTime: advance.set_time || gig.set_time || gig.time || null,
+          doorsTime: advance.doors_time || gig.doors_time || gig.doors || null,
+          venueAddress: advance.venue_address || gig.venue_address || gig.address || gig.location || null,
           promoterName: advance.promoter_name || gig.promoter_name || null,
           promoterPhone: advance.promoter_phone || gig.promoter_phone || null,
           promoterEmail: advance.promoter_email || gig.promoter_email || null,
