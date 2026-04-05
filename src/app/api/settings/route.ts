@@ -22,8 +22,8 @@ export async function GET() {
       advance: { sender_name: 'NIGHT manoeuvres Management', reply_email: 'bookings@nightmanoeuvres.com' },
       aliases: [],
     }
-    // Ensure arrays always exist
-    if (!settings.aliases) settings.aliases = []
+    // Ensure arrays always exist — aliases stored inside profile JSONB
+    if (!settings.aliases) settings.aliases = settings.profile?.aliases || []
     if (!settings.promo_list) settings.promo_list = []
     
     return NextResponse.json({ success: true, settings })
@@ -51,8 +51,14 @@ export async function POST(req: NextRequest) {
     if (advance !== undefined) updates.advance = advance
     if (payment !== undefined) updates.payment = payment
     if (tier !== undefined) updates.tier = tier
-    if (aliases !== undefined) updates.aliases = aliases
     if (promo_list !== undefined) updates.promo_list = promo_list
+
+    // Store aliases inside profile JSONB to avoid missing column issues
+    if (aliases !== undefined && updates.profile) {
+      (updates.profile as any).aliases = aliases
+    } else if (aliases !== undefined) {
+      updates.profile = { aliases }
+    }
 
     if (existing) {
       const { data, error } = await supabase
@@ -67,11 +73,10 @@ export async function POST(req: NextRequest) {
       const { data, error } = await supabase
         .from('artist_settings')
         .insert([{
-          profile,
+          profile: { ...(profile || {}), aliases: aliases || [] },
           team,
           advance,
           payment: payment || {},
-          aliases: aliases || [],
           tier: tier || 'free',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),

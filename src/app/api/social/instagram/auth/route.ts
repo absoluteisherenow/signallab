@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
     'instagram_business_manage_comments',
     'instagram_business_manage_messages',
     'instagram_business_manage_insights',
+    'ads_read',
   ].join(',')
 
   const url = new URL('https://www.instagram.com/oauth/authorize')

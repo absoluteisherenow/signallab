@@ -1139,34 +1139,34 @@ Generate a complete ad plan tailored to this specific content and format. Return
       {featuredRefs.length > 0 && (
         <div className={`grid gap-3 ${featuredRefs.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}>
           {featuredRefs.map(artist => (
-            <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-3 relative group">
+            <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-5 relative group">
               <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
                 className="absolute top-2 right-2 text-white/15 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs leading-none">×</button>
-              <div className="flex items-center gap-2.5 mb-2">
+              <div className="flex items-center gap-3 mb-3">
                 {artist.profile_pic_url ? (
-                  <img src={artist.profile_pic_url} alt="" className="w-7 h-7 rounded-full object-cover border border-[#b08d57]/25 flex-shrink-0" />
+                  <img src={artist.profile_pic_url} alt="" className="w-10 h-10 rounded-full object-cover border border-[#b08d57]/25 flex-shrink-0" />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/25 flex items-center justify-center text-[10px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
+                  <div className="w-10 h-10 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/25 flex items-center justify-center text-sm text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12px] tracking-[.04em] text-[#f0ebe2]">{artist.name}</div>
-                  <div className="text-[8px] text-[#52504c]">{artist.handle}{artist.follower_count ? ` · ${artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}` : ''}</div>
+                  <div className="text-[13px] tracking-[.04em] text-[#f0ebe2]">{artist.name}</div>
+                  <div className="text-[9px] text-[#52504c]">{artist.handle}{artist.follower_count ? ` · ${artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}` : ''}</div>
                 </div>
               </div>
-              <div className="space-y-1 mb-2">
-                {getArtistFindings(artist).slice(0, 3).map((finding, i) => (
-                  <div key={i} className="flex items-start gap-1.5 text-[9px] leading-[1.4] text-[#8a8780]">
-                    <div className="w-1 h-1 rounded-full bg-[#b08d57]/40 mt-1 flex-shrink-0" />
+              <div className="space-y-1.5 mb-3">
+                {getArtistFindings(artist).slice(0, 4).map((finding, i) => (
+                  <div key={i} className="flex items-start gap-2 text-[10px] leading-[1.5] text-[#8a8780]">
+                    <div className="w-1 h-1 rounded-full bg-[#b08d57]/40 mt-1.5 flex-shrink-0" />
                     <span className="line-clamp-2">{finding}</span>
                   </div>
                 ))}
               </div>
-              <div className="overflow-hidden relative h-4">
+              <div className="overflow-hidden relative h-5">
                 <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-[#0e0d0b] to-transparent z-10" />
                 <div className="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-[#0e0d0b] to-transparent z-10" />
                 <div className="marquee-track" style={{ animationDuration: `${Math.max(12, artist.chips.length * 4)}s` }}>
                   {[...artist.chips, ...artist.chips].map((chip, i) => (
-                    <span key={i} className={`text-[6px] tracking-[.08em] uppercase px-1 py-px border mx-0.5 inline-block flex-shrink-0 ${artist.highlight_chips.includes(i % artist.chips.length) ? 'border-[#b08d57]/30 text-[#b08d57]' : 'border-white/8 text-[#3a3830]'}`}>{chip}</span>
+                    <span key={i} className={`text-[7px] tracking-[.08em] uppercase px-1.5 py-0.5 border mx-0.5 inline-block flex-shrink-0 ${artist.highlight_chips.includes(i % artist.chips.length) ? 'border-[#b08d57]/30 text-[#b08d57]' : 'border-white/8 text-[#3a3830]'}`}>{chip}</span>
                   ))}
                 </div>
               </div>

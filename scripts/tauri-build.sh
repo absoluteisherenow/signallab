@@ -39,16 +39,15 @@ echo "→ Building static export..."
 TAURI_BUILD=1 npm run build
 BUILD_EXIT=$?
 
-# Restore everything
+# Restore everything — always run even if build failed
 echo "→ Restoring full app..."
-for dir in "$BACKUP_DIR/app"/*/; do
-  dirname="$(basename "$dir")"
-  mv "$dir" "src/app/$dirname"
-done
-# Restore standalone files
-for f in "$BACKUP_DIR/app"/*; do
-  [ -f "$f" ] && mv "$f" "src/app/$(basename "$f")"
-done
+if [ -d "$BACKUP_DIR/app" ]; then
+  for item in "$BACKUP_DIR/app"/*; do
+    [ -e "$item" ] || continue
+    basename="$(basename "$item")"
+    mv "$item" "src/app/$basename"
+  done
+fi
 
 if [ -f "$BACKUP_DIR/root/middleware.ts" ]; then
   cp "$BACKUP_DIR/root/middleware.ts" "src/middleware.ts"

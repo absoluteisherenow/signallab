@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMobile } from '@/hooks/useMobile'
@@ -272,6 +272,68 @@ export default function MobileShell() {
   const [systemNotifications, setSystemNotifications] = useState<SystemNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [tonightTravel, setTonightTravel] = useState<any[]>([])
+
+  // Track ID state
+  const [trackIdPhase, setTrackIdPhase] = useState<'idle' | 'listening' | 'identifying' | 'found' | 'not_found'>('idle')
+  const [trackIdResult, setTrackIdResult] = useState<{ artist: string; title: string; label?: string } | null>(null)
+  const [trackIdCountdown, setTrackIdCountdown] = useState(10)
+  const trackIdRecorder = useRef<MediaRecorder | null>(null)
+  const trackIdTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  async function startTrackId() {
+    setTrackIdResult(null)
+    setTrackIdCountdown(10)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const chunks: Blob[] = []
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(m => MediaRecorder.isTypeSupported(m)) || ''
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      trackIdRecorder.current = recorder
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        if (trackIdTimer.current) clearInterval(trackIdTimer.current)
+        setTrackIdPhase('identifying')
+        try {
+          const blob = new Blob(chunks, { type: mimeType || 'audio/webm' })
+          const form = new FormData()
+          form.append('audio', blob, 'snippet.webm')
+          const res = await fetch('/api/fingerprint', { method: 'POST', body: form })
+          const data = await res.json()
+          if (data.found) {
+            const track = { artist: data.artist || '', title: data.title || '', label: data.label }
+            setTrackIdResult(track)
+            await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: [{ artist: track.artist, title: track.title, label: track.label || '', source: 'shazam' }] }) })
+            setTrackIdPhase('found')
+            setTimeout(() => setTrackIdPhase('idle'), 5000)
+          } else {
+            setTrackIdPhase('not_found')
+            setTimeout(() => setTrackIdPhase('idle'), 3000)
+          }
+        } catch {
+          setTrackIdPhase('not_found')
+          setTimeout(() => setTrackIdPhase('idle'), 3000)
+        }
+      }
+      recorder.start()
+      setTrackIdPhase('listening')
+      trackIdTimer.current = setInterval(() => {
+        setTrackIdCountdown(prev => {
+          if (prev <= 1) { recorder.stop(); return 0 }
+          return prev - 1
+        })
+      }, 1000)
+    } catch {
+      setTrackIdPhase('not_found')
+      setTimeout(() => setTrackIdPhase('idle'), 3000)
+    }
+  }
+
+  function cancelTrackId() {
+    if (trackIdRecorder.current?.state === 'recording') trackIdRecorder.current.stop()
+    if (trackIdTimer.current) clearInterval(trackIdTimer.current)
+    setTrackIdPhase('idle')
+  }
 
   useEffect(() => {
     setIsInstalled(window.matchMedia('(display-mode: standalone)').matches)
@@ -552,7 +614,7 @@ export default function MobileShell() {
 
       {/* Quick actions */}
       <div style={{ padding: '0 16px', marginBottom: '24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
           {[
             { label: 'Scan', href: '/setlab', icon: '◎' },
             { label: 'Upload', href: '/broadcast', icon: '↑' },
@@ -567,6 +629,26 @@ export default function MobileShell() {
               <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: s.dim, textTransform: 'uppercase' }}>{action.label}</div>
             </Link>
           ))}
+          {/* Track ID button with listening/identifying/found states */}
+          <button
+            onClick={() => {
+              if (trackIdPhase === 'idle' || trackIdPhase === 'found' || trackIdPhase === 'not_found') startTrackId()
+              else cancelTrackId()
+            }}
+            style={{
+              background: trackIdPhase === 'listening' ? 'rgba(200,155,60,0.15)' : trackIdPhase === 'found' ? 'rgba(80,200,120,0.1)' : s.panel,
+              border: `1px solid ${trackIdPhase === 'listening' ? s.gold : trackIdPhase === 'found' ? 'rgba(80,200,120,0.4)' : s.border}`,
+              padding: '20px 8px', textAlign: 'center', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+            }}
+          >
+            <div style={{ fontSize: '24px', lineHeight: 1, color: trackIdPhase === 'listening' ? s.gold : trackIdPhase === 'found' ? '#50c878' : s.gold }}>
+              {trackIdPhase === 'listening' ? '●' : trackIdPhase === 'identifying' ? '⟳' : trackIdPhase === 'found' ? '✓' : '♪'}
+            </div>
+            <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: s.dim, textTransform: 'uppercase' }}>
+              {trackIdPhase === 'idle' ? 'Track ID' : trackIdPhase === 'listening' ? `Listening ${trackIdCountdown}s` : trackIdPhase === 'identifying' ? 'Identifying...' : trackIdPhase === 'found' && trackIdResult ? trackIdResult.title.slice(0, 18) : trackIdPhase === 'not_found' ? 'Not found' : 'Track ID'}
+            </div>
+          </button>
         </div>
       </div>
 
