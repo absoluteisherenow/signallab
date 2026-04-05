@@ -49,7 +49,8 @@ async function classifyEmail(from: string, subject: string, body: string, existi
 
 ${gigsContext}
 
-Email types: new_gig, hotel, flight, train, tech_spec, rider, invoice, release, gig_update, ignore.
+Email types: new_gig, hotel, flight, train, tech_spec, rider, invoice, release, gig_update, remittance, ignore.
+"remittance" = payment received / remittance advice / bank transfer confirmation / wire transfer notification. Keywords: remittance, payment advice, "payment has been made", "funds transferred", BACS, SWIFT.
 
 Return: {"type":"...","confidence":0.0-1.0,"gig_id":"uuid or null","extracted":{
   // new_gig: title, venue, location, date (YYYY-MM-DD), time (HH:MM), fee, currency, promoter_name, promoter_email, notes
@@ -60,6 +61,7 @@ Return: {"type":"...","confidence":0.0-1.0,"gig_id":"uuid or null","extracted":{
   // release: title, type (single/ep/album), release_date, label, streaming_url, notes
   // tech_spec / rider: details
   // gig_update: update
+  // remittance: amount, currency, sender_name, reference, gig_title, payment_date, description
 }}`,
       messages: [{ role: 'user', content: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}` }],
     }),

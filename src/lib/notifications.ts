@@ -13,6 +13,7 @@ export type NotificationType =
   | 'advance_sent'
   | 'advance_received'
   | 'invoice_overdue'
+  | 'payment_received'
   | 'system'
 
 interface CreateNotificationOptions {

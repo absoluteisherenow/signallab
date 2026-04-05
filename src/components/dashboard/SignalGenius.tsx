@@ -382,6 +382,8 @@ export function SignalGenius() {
           return `a tech spec${f.subject ? ` — "${f.subject}"` : ''}`
         case 'gig_update':
           return `a gig update${e.update ? ` — ${e.update}` : ''}`
+        case 'remittance':
+          return `a payment received — ${e.description || e.gig_title || 'remittance'}${e.sender_name ? ` from ${e.sender_name}` : ''}. Mark invoice as paid?`
         default:
           return `a ${f.type} email`
       }

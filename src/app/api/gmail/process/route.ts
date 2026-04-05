@@ -108,6 +108,7 @@ Email types to detect:
 - "flight_cancellation": flight has been cancelled
 - "booking_change": hotel or transport booking has been changed (date, room, etc.)
 - "gig_update": general info update for an existing show (schedule change, new contact, etc.)
+- "remittance": payment received / remittance advice / bank transfer confirmation / "payment has been sent" / wire transfer notification. This is NOT an invoice request — this is confirmation that money has arrived or been sent. Look for keywords: remittance, payment advice, bank transfer, wire transfer, "funds have been", "payment has been made", "transferred to your account", BACS, SWIFT confirmation.
 - "ignore": newsletters, spam, unrelated
 
 Return:
@@ -177,7 +178,16 @@ Return:
     "notes": "any relevant notes",
 
     // For gig_update:
-    "update": "one sentence summary of the change"
+    "update": "one sentence summary of the change",
+
+    // For remittance (payment received):
+    "amount": <number>,
+    "currency": "EUR/GBP/USD/AUD",
+    "sender_name": "who sent the payment",
+    "reference": "invoice ref, transaction ref, or booking ref from email",
+    "gig_title": "event or show this payment relates to, or null",
+    "payment_date": "YYYY-MM-DD or null",
+    "description": "one-line summary e.g. 'Balance payment for Fabric show'"
   }
 }`,
       messages: [{
@@ -327,6 +337,57 @@ async function handleInvoice(gigId: string | null, extracted: any) {
   }])
 }
 
+async function handleRemittance(gigId: string | null, extracted: any) {
+  // Try to find a matching invoice by amount + gig, or by gig_title
+  let matchedInvoice: any = null
+
+  if (extracted.amount && extracted.amount > 0) {
+    // Match by amount + currency (most reliable)
+    const { data: invoices } = await supabase
+      .from('invoices')
+      .select('id, gig_title, amount, currency, status, gig_id')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (invoices?.length) {
+      // Exact amount match
+      matchedInvoice = invoices.find((i: any) =>
+        Math.abs(i.amount - extracted.amount) < 1 &&
+        (!extracted.currency || i.currency === extracted.currency)
+      )
+      // Fallback: match by gig_id
+      if (!matchedInvoice && gigId) {
+        matchedInvoice = invoices.find((i: any) => i.gig_id === gigId)
+      }
+    }
+  }
+
+  const description = extracted.description || extracted.gig_title || 'Payment received'
+  const amountStr = extracted.amount ? `${extracted.currency || ''}${extracted.amount}` : ''
+
+  if (matchedInvoice) {
+    // Create notification prompting user to mark as paid
+    await createNotification({
+      type: 'payment_received',
+      title: `Payment received — ${matchedInvoice.gig_title}`,
+      message: `${amountStr} from ${extracted.sender_name || 'unknown'}. Mark invoice as paid?`,
+      href: '/business/finances',
+      gig_id: matchedInvoice.gig_id || undefined,
+      metadata: { invoice_id: matchedInvoice.id, amount: extracted.amount, currency: extracted.currency },
+    })
+  } else {
+    // No matching invoice found — still notify
+    await createNotification({
+      type: 'payment_received',
+      title: `Payment received${amountStr ? ` — ${amountStr}` : ''}`,
+      message: `${description}${extracted.sender_name ? ` from ${extracted.sender_name}` : ''}. No matching invoice found — check finances.`,
+      href: '/business/finances',
+      metadata: { amount: extracted.amount, currency: extracted.currency, sender: extracted.sender_name },
+    })
+  }
+}
+
 async function handleRelease(extracted: any) {
   if (!extracted.title) return
   await supabase.from('releases').insert([{
@@ -429,6 +490,10 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
       case 'release':
         await handleRelease(classification.extracted)
         actionResult = { created: 'release' }
+        break
+      case 'remittance':
+        await handleRemittance(classification.gig_id, classification.extracted)
+        actionResult = { detected: 'payment_received' }
         break
       case 'gig_update':
         await handleGigUpdate(classification.gig_id, classification.extracted)
