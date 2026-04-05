@@ -325,6 +325,13 @@ pub fn remove_folder(id: String) -> Result<(), String> {
     Ok(())
 }
 
+// ── Audio file read ────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn read_audio_file(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| format!("Cannot read {}: {}", path, e))
+}
+
 // ── Playlist commands ──────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

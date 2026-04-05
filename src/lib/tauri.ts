@@ -14,7 +14,15 @@ async function getInvoke() {
 }
 
 export function isTauri(): boolean {
-  return typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__
+  if (typeof window === 'undefined') return false
+  return !!(window as any).__TAURI_INTERNALS__ || new URLSearchParams(window.location.search).has('desktop')
+}
+
+export async function readAudioFile(path: string): Promise<Uint8Array> {
+  const inv = await getInvoke()
+  if (!inv) throw new Error('Not in Tauri')
+  const bytes = await inv('read_audio_file', { path }) as number[]
+  return new Uint8Array(bytes)
 }
 
 // ── Track type (mirrors Rust Track struct) ──────────────────────────────────

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { analyseAudioFile } from '@/lib/audioAnalysis'
 import { ScanPulse } from '@/components/ui/ScanPulse'
-import { isTauri, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, getPlaylists as tauriGetPlaylists, type TauriTrack, type TauriPlaylist } from '@/lib/tauri'
+import { isTauri, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, getPlaylists as tauriGetPlaylists, readAudioFile, type TauriTrack, type TauriPlaylist } from '@/lib/tauri'
 import { CollectionSidebar } from '@/components/setlab/CollectionSidebar'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800, model = 'claude-haiku-4-5-20251001'): Promise<string> {
@@ -353,13 +353,12 @@ export function SetLab() {
     if (file) {
       url = URL.createObjectURL(file)
     } else if (isTauri() && track.file_path) {
-      // Desktop: read audio file from disk via Tauri
+      // Desktop: read audio file from disk via Rust command
       try {
-        const { invoke } = await import('@tauri-apps/api/core')
-        const bytes = await invoke('plugin:fs|read_file', { path: track.file_path }) as number[]
+        const bytes = await readAudioFile(track.file_path)
         const ext = track.file_path.split('.').pop()?.toLowerCase() || 'mp3'
         const mimeMap: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4', aiff: 'audio/aiff', aif: 'audio/aiff', ogg: 'audio/ogg' }
-        const blob = new Blob([new Uint8Array(bytes)], { type: mimeMap[ext] || 'audio/mpeg' })
+        const blob = new Blob([bytes.buffer as ArrayBuffer], { type: mimeMap[ext] || 'audio/mpeg' })
         url = URL.createObjectURL(blob)
       } catch (err: any) {
         console.error('File read error:', err)
@@ -2011,10 +2010,10 @@ Return ONLY valid JSON, no markdown.`, 300)
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: s.bg, color: s.text, fontFamily: s.font }}>
       {sidebarEl}
-      <div style={{ flex: 1, minHeight: '100vh', overflow: 'auto' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
 
-      {/* HEADER */}
-      <div style={{ padding: isDesktop ? '24px 36px 0' : '40px 48px 0', borderBottom: `1px solid ${s.border}` }}>
+      {/* HEADER — sticky */}
+      <div style={{ flexShrink: 0, padding: isDesktop ? '24px 36px 0' : '40px 48px 0', borderBottom: `1px solid ${s.border}`, background: s.bg, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: isDesktop ? '14px' : '20px' }}>
           <div>
             {!isDesktop && <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Set Lab</div>}
@@ -2078,42 +2077,10 @@ Return ONLY valid JSON, no markdown.`, 300)
             </span>
           </div>
         )}
-      </div>
 
-      <div style={{ padding: isDesktop ? '16px 28px' : '24px 48px' }}>
-
-        {/* ═══ LIBRARY TAB ═══ */}
+        {/* Search + filter pills — sticky in header for library tab */}
         {activeTab === 'library' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-            {/* ── SUB-TABS (web only — desktop uses sidebar) ── */}
-            {!isDesktop && (
-            <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${s.border}` }}>
-              {([
-                { key: 'all', label: 'All', count: curatedLibrary.length },
-                { key: 'discoveries', label: 'Discoveries', count: discoveries.length },
-                { key: 'playlists', label: 'Playlists', count: Object.keys(playlistGroups).length },
-                { key: 'wantlist', label: 'Wantlist', count: wantlist.length },
-              ] as const).map(tab => (
-                <button key={tab.key} onClick={() => setLibrarySection(tab.key as any)} style={{
-                  background: 'none', border: 'none', fontFamily: s.font,
-                  fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
-                  padding: '10px 20px', cursor: 'pointer',
-                  borderBottom: librarySection === tab.key ? `2px solid ${s.gold}` : '2px solid transparent',
-                  color: librarySection === tab.key ? s.text : s.textDimmer,
-                  marginBottom: '-1px',
-                }}>{tab.label} ({tab.count})</button>
-              ))}
-            </div>
-            )}
-
-            {/* ── LIBRARY SECTION (visible when 'all' selected) ── */}
-            {librarySection === 'all' && <>
-
-            {!isDesktop && <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '8px' }}>
-              Library ({curatedLibrary.length})
-            </div>}
-
+          <div style={{ padding: isDesktop ? '12px 36px 12px' : '12px 48px 12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {/* Search / Add track */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               {addingTrack ? (
@@ -2158,6 +2125,46 @@ Return ONLY valid JSON, no markdown.`, 300)
                   }}>{type}</button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Header divider line */}
+        <div style={{ height: '1px', background: s.border }} />
+      </div>
+
+      <div style={{ flex: 1, overflow: 'auto', padding: isDesktop ? '16px 28px' : '24px 48px' }}>
+
+        {/* ═══ LIBRARY TAB ═══ */}
+        {activeTab === 'library' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            {/* ── SUB-TABS (web only — desktop uses sidebar) ── */}
+            {!isDesktop && (
+            <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${s.border}` }}>
+              {([
+                { key: 'all', label: 'All', count: curatedLibrary.length },
+                { key: 'discoveries', label: 'Discoveries', count: discoveries.length },
+                { key: 'playlists', label: 'Playlists', count: Object.keys(playlistGroups).length },
+                { key: 'wantlist', label: 'Wantlist', count: wantlist.length },
+              ] as const).map(tab => (
+                <button key={tab.key} onClick={() => setLibrarySection(tab.key as any)} style={{
+                  background: 'none', border: 'none', fontFamily: s.font,
+                  fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                  padding: '10px 20px', cursor: 'pointer',
+                  borderBottom: librarySection === tab.key ? `2px solid ${s.gold}` : '2px solid transparent',
+                  color: librarySection === tab.key ? s.text : s.textDimmer,
+                  marginBottom: '-1px',
+                }}>{tab.label} ({tab.count})</button>
+              ))}
+            </div>
+            )}
+
+            {/* ── LIBRARY SECTION (visible when 'all' selected) ── */}
+            {librarySection === 'all' && <>
+
+            {!isDesktop && <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '8px' }}>
+              Library ({curatedLibrary.length})
+            </div>}
 
             {/* Import zones — hidden on desktop (imports via sidebar / Rekordbox) */}
             {!isDesktop && <>

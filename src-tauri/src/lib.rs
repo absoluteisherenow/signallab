@@ -34,6 +34,7 @@ pub fn run() {
             db::get_folders,
             db::add_folder,
             db::remove_folder,
+            db::read_audio_file,
             db::get_playlists,
             db::get_playlist_tracks,
             // Import commands
