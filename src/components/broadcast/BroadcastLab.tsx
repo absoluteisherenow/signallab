@@ -903,155 +903,100 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
       <SignalLabHeader />
 
-      <div className="flex flex-col gap-7 p-8">
+      <div className="flex flex-col gap-5 p-8">
 
-      {/* POST NOW — reactive quick triggers */}
-      <div className="bg-[#0e0d0b] border border-white/7 p-7">
-        <div className="flex items-center gap-2 mb-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
-          Post now<div className="flex-1 h-px bg-white/10" />
-          <span className="text-[#52504c] tracking-[.1em] normal-case text-[10px]">Pick a trigger — generate & copy</span>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: 'Gig announced', context: 'gig just announced — upcoming show', desc: 'Announce a new show date' },
-            { label: 'Track released', context: 'new track / release out now', desc: 'Release day post' },
-            { label: 'Mix / recording live', context: 'new mix or recording just dropped', desc: 'Mix drop or recording post' },
-          ].map(trigger => (
-            <button
-              key={trigger.label}
-              onClick={() => {
-                setContext(trigger.context)
-                setTimeout(generateCaptions, 100)
-                showToast(`Generating — ${trigger.label}`, 'Broadcast Lab')
-                const el = document.querySelector('.caption-panel')
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }}
-              className="bg-[#1a1917] border border-white/7 p-5 text-left hover:border-[#b08d57]/50 hover:bg-[#141310] transition-colors group cursor-pointer"
-            >
-              <div className="text-[11px] tracking-[.12em] uppercase text-[#b08d57] mb-2 group-hover:text-[#c9a46e] transition-colors">{trigger.label}</div>
-              <div className="text-[10px] tracking-[.06em] text-[#52504c]">{trigger.desc}</div>
-              <div className="mt-3 text-[9px] tracking-[.16em] uppercase text-[#3a3830] group-hover:text-[#8a8780] transition-colors">Generate captions →</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* CAPTION GENERATOR */}
-      <div className="bg-[#0e0d0b] border border-white/7 p-8 caption-panel">
-        <div className="flex items-center gap-2 mb-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
-          Caption generator — tuned to your voice<div className="flex-1 h-px bg-white/10" />
-          <button onClick={syncInstagram} disabled={syncingIG}
-            className="flex items-center gap-1.5 text-[9px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex-shrink-0 ml-2">
-            {syncingIG
-              ? <><div className="w-1.5 h-1.5 border border-current border-t-transparent rounded-full animate-spin" />Syncing...</>
-              : igSyncResult?.synced != null
-                ? <><span className="w-1.5 h-1.5 rounded-full bg-[#3d6b4a] inline-block" />{igSyncResult.synced} posts synced</>
-                : igSyncResult?.error
-                  ? <><span className="w-1.5 h-1.5 rounded-full bg-red-500/60 inline-block" />Sync failed</>
-                  : <>Sync Instagram →</>
-            }
-          </button>
-        </div>
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          <div>
-            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">What happened</label>
-            <input value={context} onChange={e => setContext(e.target.value)} placeholder="show, studio, flight..."
+      {/* CAPTION GENERATOR — compact */}
+      <div className="bg-[#0e0d0b] border border-white/7 p-5 caption-panel">
+        {/* Row 1: context input + generate button */}
+        <div className="flex gap-2 mb-3">
+          <div className="flex-1 relative">
+            <input value={context} onChange={e => setContext(e.target.value)} placeholder="What happened — show, studio, flight, release..."
+              onKeyDown={e => { if (e.key === 'Enter' && context.trim()) generateCaptions() }}
               className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors placeholder-[#2e2c29]" />
           </div>
-          <div>
-            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Platform</label>
-            <select value={platform} onChange={e => setPlatform(e.target.value)} className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors">
-              {['Instagram','TikTok','X / Twitter'].map(p => <option key={p}>{p}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] tracking-[.18em] uppercase text-[#8a8780] mb-2">Media type</label>
-            <select value={media} onChange={e => setMedia(e.target.value)} className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors">
-              {['Crowd clip (video)','Show photo','Behind the decks','Studio photo','Travel / transit','No media'].map(m => <option key={m}>{m}</option>)}
-            </select>
-          </div>
+          <select value={media} onChange={e => setMedia(e.target.value)} className="bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[10px] px-2 py-2.5 outline-none focus:border-[#b08d57] transition-colors w-[140px]">
+            {['Crowd clip','Show photo','Behind decks','Studio photo','Travel','No media'].map(m => <option key={m}>{m}</option>)}
+          </select>
+          <button onClick={generateCaptions} disabled={generatingCaptions || !context.trim()}
+            className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-40 flex items-center gap-2 whitespace-nowrap">
+            {generatingCaptions && <div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />}
+            {generatingCaptions ? 'Generating...' : 'Generate →'}
+          </button>
         </div>
-        <div className="flex gap-2 mb-3">
+
+        {/* Row 2: format + attach + platform + sync */}
+        <div className="flex items-center gap-2 flex-wrap">
           {(['post','carousel','story','reel'] as const).map(f => (
             <button key={f} onClick={() => setPostFormat(f)}
-              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${postFormat===f ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
+              className={`text-[9px] tracking-[.14em] uppercase px-3 py-1 border transition-colors ${postFormat===f ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/10 text-[#52504c] hover:border-white/20'}`}>
               {f}
             </button>
           ))}
-        </div>
-
-        <div className="flex gap-2 mb-5">
+          <div className="w-px h-4 bg-white/10 mx-1" />
           <button onClick={() => setMediaPickerOpen(true)}
-            className="text-[10px] tracking-[.14em] uppercase border border-white/13 text-[#8a8780] px-3.5 py-1.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors flex items-center gap-2">
+            className="text-[9px] tracking-[.14em] uppercase border border-white/10 text-[#52504c] px-3 py-1 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors flex items-center gap-1.5">
             {mediaUrls.length > 0 ? (
-              <>
-                <div className="w-5 h-5 bg-[#1a1917] border border-white/10 overflow-hidden flex-shrink-0">
-                  <img src={mediaUrls[0]} className="w-full h-full object-cover" alt="" />
-                </div>
-                {mediaUrls.length} attached
-              </>
+              <><div className="w-4 h-4 bg-[#1a1917] border border-white/10 overflow-hidden flex-shrink-0"><img src={mediaUrls[0]} className="w-full h-full object-cover" alt="" /></div>{mediaUrls.length} attached</>
             ) : 'Attach media'}
           </button>
           {mediaUrls.length > 0 && (
-            <button onClick={() => setMediaUrls([])} className="text-[10px] text-[#52504c] hover:text-red-400 transition-colors px-1">×</button>
+            <button onClick={() => setMediaUrls([])} className="text-[9px] text-[#52504c] hover:text-red-400 transition-colors">×</button>
           )}
-
+          <div className="w-px h-4 bg-white/10 mx-1" />
           {['Instagram','TikTok','X / Twitter'].map(p => (
-            <button key={p} onClick={() => {setPlatform(p);setTimeout(generateCaptions,100)}}
-              className={`text-[10px] tracking-[.14em] uppercase px-3.5 py-1.5 border transition-colors ${platform===p?'border-[#b08d57] text-[#b08d57]':'border-white/13 text-[#8a8780] hover:border-white/20'}`}>
+            <button key={p} onClick={() => setPlatform(p)}
+              className={`text-[9px] tracking-[.14em] uppercase px-3 py-1 border transition-colors ${platform===p?'border-[#b08d57] text-[#b08d57]':'border-white/10 text-[#52504c] hover:border-white/20'}`}>
               {p}
-              {hasDirectConnection(p) && (
-                <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#6aaa7a] align-middle" title="Direct connection" />
-              )}
+              {hasDirectConnection(p) && <span className="ml-1 inline-block w-1 h-1 rounded-full bg-[#6aaa7a] align-middle" />}
             </button>
           ))}
-          {/* Connection route indicator */}
-          <div className="ml-auto text-[9px] tracking-[.12em] text-[#4a4845] uppercase flex items-center gap-1.5">
-            {hasDirectConnection(platform) ? (
-              <><span className="w-1.5 h-1.5 rounded-full bg-[#6aaa7a] inline-block" />Direct</>
-            ) : (
-              <><span className="w-1.5 h-1.5 rounded-full bg-[#b08d57] inline-block opacity-60" />Via Buffer</>
-            )}
-          </div>
+          <button onClick={syncInstagram} disabled={syncingIG}
+            className="ml-auto text-[9px] tracking-[.12em] uppercase text-[#3a3830] hover:text-[#b08d57] transition-colors disabled:opacity-40">
+            {syncingIG ? 'Syncing...' : igSyncResult?.synced != null ? `${igSyncResult.synced} synced` : 'Sync IG'}
+          </button>
         </div>
+
+        {/* Loading indicator */}
         {generatingCaptions && (
-          <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mb-4">
+          <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mt-4">
             <div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.2s'}} /><div className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{animationDelay:'.4s'}} />
-            <span>Generating captions — reading your tone profile...</span>
+            <span>Reading your tone profile...</span>
           </div>
         )}
-        <div className="grid grid-cols-3 gap-3 mb-5">
+
+        {/* Caption variants — only show when we have results */}
+        {(captions || generatingCaptions) && (
+        <div className="grid grid-cols-3 gap-3 mt-4">
           {variantKeys.map(key => {
             const v = captions?.[key]
             return (
               <div key={key} onClick={() => setSelectedVariant(key)}
                 className={`bg-[#1a1917] border p-4 cursor-pointer transition-colors ${selectedVariant===key?'border-[#b08d57]':'border-white/7 hover:border-white/13'}`}>
-                <div className="flex items-center gap-2 mb-2.5 text-[10px] tracking-[.18em] uppercase text-[#8a8780]">
-                  {key.charAt(0).toUpperCase()+key.slice(1)}<div className="flex-1 h-px bg-white/10" />
+                <div className="flex items-center gap-2 mb-2 text-[9px] tracking-[.18em] uppercase text-[#52504c]">
+                  {key.charAt(0).toUpperCase()+key.slice(1)}<div className="flex-1 h-px bg-white/7" />
                 </div>
-                {generatingCaptions ? <div className="h-16 bg-white/5 animate-pulse rounded" /> : (
+                {generatingCaptions ? <div className="h-12 bg-white/5 animate-pulse rounded" /> : (
                   <>
-                    <div className="flex items-start gap-2 mb-2">
-                      <div className="text-[12px] tracking-[.05em] leading-7 min-h-[72px] flex-1">{v?.text||''}</div>
+                    <div className="flex items-start gap-2 mb-1.5">
+                      <div className="text-[12px] tracking-[.04em] leading-6 flex-1">{v?.text||''}</div>
                       <button onClick={e => { e.stopPropagation(); copyToClipboard(v?.text||'', key.charAt(0).toUpperCase()+key.slice(1)) }}
-                        className="text-[10px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors flex-shrink-0 whitespace-nowrap mt-1">
+                        className="text-[9px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors flex-shrink-0 mt-0.5">
                         Copy
                       </button>
                     </div>
-                    <div className="text-[10px] text-[#8a8780] mt-1.5 leading-relaxed italic" style={{}}>{v?.reasoning||''}</div>
-                    <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/7">
-                      <div className="flex items-center gap-3">
+                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-white/5">
+                      <div className="flex items-center gap-2">
                         <button onClick={e=>{e.stopPropagation();publish(v?.text||'',platform,mediaUrls)}}
-                          className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">
-                          {hasDirectConnection(platform) ? 'Publish →' : 'Schedule →'}
+                          className="text-[9px] tracking-[.14em] uppercase text-[#b08d57]">
+                          {hasDirectConnection(platform) ? 'Publish' : 'Schedule'}
                         </button>
                         <a href={`/broadcast/ads?caption=${encodeURIComponent(v?.text||'')}`}
-                          className="text-[10px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors"
+                          className="text-[9px] tracking-[.14em] uppercase text-[#3a3830] hover:text-[#b08d57] transition-colors"
                           onClick={e => e.stopPropagation()}>
-                          Boost →
+                          Boost
                         </a>
                       </div>
-                      <div className="text-[10px] text-[#8a8780]">Est. <span className={v&&v.score>1600?'text-[#3d6b4a]':v&&v.score>1200?'text-[#b08d57]':'text-[#8a8780]'}>{v?formatScore(v.score):'...'}</span></div>
+                      <span className="text-[9px] text-[#3a3830]">{v?formatScore(v.score):''}</span>
                     </div>
                   </>
                 )}
@@ -1059,7 +1004,8 @@ Generate a complete ad plan tailored to this specific content and format. Return
             )
           })}
         </div>
-        {captionError && <div className="bg-red-900/20 border border-red-800/40 text-red-300 text-[10px] px-4 py-3 mb-4">{captionError}</div>}
+        )}
+        {captionError && <div className="bg-red-900/20 border border-red-800/40 text-red-300 text-[10px] px-4 py-3 mt-3">{captionError}</div>}
 
         {/* REELS TEXT OVERLAY + REPURPOSE ACTIONS */}
         {captions && (
@@ -1144,23 +1090,11 @@ Generate a complete ad plan tailored to this specific content and format. Return
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-white/7">
-          <div className="text-[9.5px] text-[#8a8780] italic flex-1 mr-4" style={{}}>
+        {captions && (
+          <div className="text-[9px] text-[#3a3830] italic mt-3">
             Tuned to: {getArtistNames().join(' · ')} · your past posts
           </div>
-          <div className="flex gap-2.5">
-            <button onClick={generateCaptions} disabled={generatingCaptions}
-              className="text-[10px] tracking-[.16em] uppercase border border-white/13 text-[#8a8780] px-5 py-2.5 hover:border-[#8a8780] hover:text-[#f0ebe2] transition-colors disabled:opacity-40 flex items-center gap-2">
-              {generatingCaptions&&<div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
-              {generatingCaptions?'Generating...':'Regenerate'}
-            </button>
-            <button onClick={() => publish(captions?.[selectedVariant]?.text||'', platform, mediaUrls)}
-              disabled={publishing}
-              className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-50">
-              {publishing ? 'Posting...' : hasDirectConnection(platform) ? 'Publish →' : 'Schedule via Buffer →'}
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* REFERENCE ARTISTS */}
