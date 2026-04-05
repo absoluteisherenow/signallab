@@ -1039,92 +1039,79 @@ Generate a complete ad plan tailored to this specific content and format. Return
 
       <div className="flex flex-col gap-4 p-6">
 
-      {/* ── YOUR ARTIST — deep dive summary ── */}
+      {/* ── YOUR ARTIST — compact single-row profile ── */}
       {ownArtist ? (
-        <div className="bg-[#0e0d0b] border border-white/7">
-          <div className="p-6">
-            <div className="flex items-start gap-5 mb-5">
-              {ownArtist.profile_pic_url ? (
-                <img src={ownArtist.profile_pic_url} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-[#b08d57]/40 flex-shrink-0" />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-[#b08d57]/10 border-2 border-[#b08d57]/40 flex items-center justify-center text-lg text-[#b08d57] flex-shrink-0">{ownArtist.name.charAt(0)}</div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] mb-1">Your profile</div>
-                <div className="text-xl font-light tracking-tight text-[#f0ebe2] mb-0.5">{ownArtist.name}</div>
-                <div className="text-[11px] text-[#52504c]">
-                  {ownArtist.handle}
-                  {ownArtist.follower_count ? ` · ${ownArtist.follower_count > 1000 ? `${Math.round(ownArtist.follower_count/1000)}K` : ownArtist.follower_count} followers` : ''}
-                  {ownArtist.genre ? ` · ${ownArtist.genre}` : ''}
-                </div>
-              </div>
-              {va && va.score > 0 && (
-                <div className="text-right flex-shrink-0">
-                  <div className="text-[28px] font-light text-[#b08d57] leading-none">{va.score}%</div>
-                  <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-1">voice alignment</div>
-                </div>
-              )}
-            </div>
-
-            {/* Deep dive grid */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="border-l-2 border-[#b08d57]/30 pl-3">
-                <div className="text-[8px] tracking-[.18em] uppercase text-[#b08d57] mb-2">Voice</div>
-                {ownArtist.style_rules ? (
-                  <div className="text-[11px] leading-[1.7] text-[#8a8780] line-clamp-4">{ownArtist.style_rules}</div>
-                ) : (
-                  <div className="text-[11px] text-[#52504c] italic">Sync your Instagram to build your voice profile</div>
-                )}
-              </div>
-              <div className="border-l-2 border-[#b08d57]/30 pl-3">
-                <div className="text-[8px] tracking-[.18em] uppercase text-[#b08d57] mb-2">Visual aesthetic</div>
-                {ownArtist.visual_aesthetic ? (
-                  <div className="text-[11px] leading-[1.7] text-[#8a8780]">
-                    {ownArtist.visual_aesthetic.mood}
-                    {ownArtist.visual_aesthetic.signature_visual && <span className="block mt-1 text-[#52504c]">{ownArtist.visual_aesthetic.signature_visual}</span>}
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-[#52504c] italic">Deep dive scan needed</div>
-                )}
-              </div>
-              <div className="border-l-2 border-[#b08d57]/30 pl-3">
-                <div className="text-[8px] tracking-[.18em] uppercase text-[#b08d57] mb-2">Performance</div>
-                {ownArtist.content_performance ? (
-                  <div className="text-[11px] leading-[1.7] text-[#8a8780]">
-                    <span className="text-[#f0ebe2]">{ownArtist.content_performance.best_type}</span> is your strongest format
-                    {ownArtist.content_performance.engagement_rate && <span className="block text-[#b08d57]">{ownArtist.content_performance.engagement_rate} engagement</span>}
-                    {ownArtist.content_performance.posting_frequency && <span className="block text-[#52504c]">{ownArtist.content_performance.posting_frequency}</span>}
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-[#52504c] italic">Post data needed</div>
-                )}
+        <div className="bg-[#0e0d0b] border border-white/7 p-4">
+          <div className="flex items-center gap-4 mb-3">
+            {ownArtist.profile_pic_url ? (
+              <img src={ownArtist.profile_pic_url} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-[#b08d57]/40 flex-shrink-0" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-[#b08d57]/10 border-2 border-[#b08d57]/40 flex items-center justify-center text-sm text-[#b08d57] flex-shrink-0">{ownArtist.name.charAt(0)}</div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-light tracking-tight text-[#f0ebe2]">{ownArtist.name}</div>
+              <div className="text-[10px] text-[#52504c]">
+                {ownArtist.handle}
+                {ownArtist.follower_count ? ` · ${ownArtist.follower_count > 1000 ? `${Math.round(ownArtist.follower_count/1000)}K` : ownArtist.follower_count} followers` : ''}
+                {ownArtist.genre ? ` · ${ownArtist.genre}` : ''}
               </div>
             </div>
-
-            {/* Stats bar — real data only */}
-            <div className="grid grid-cols-3 gap-px bg-white/5 mt-5 border border-white/5">
-              <div className="bg-[#0e0d0b] py-2 px-2 text-center">
-                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.content_performance?.engagement_rate || '—'}</div>
-                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Engagement rate</div>
+            {/* Inline stats */}
+            <div className="flex items-center gap-5 flex-shrink-0">
+              <div className="text-center">
+                <div className="text-[14px] font-light text-[#f0ebe2]">{ownArtist.content_performance?.engagement_rate || '—'}</div>
+                <div className="text-[7px] tracking-[.12em] uppercase text-[#52504c]">Engagement</div>
               </div>
-              <div className="bg-[#0e0d0b] py-2 px-2 text-center">
-                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.content_performance?.best_type || '—'}</div>
-                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Best format</div>
+              <div className="text-center">
+                <div className="text-[14px] font-light text-[#f0ebe2]">{ownArtist.content_performance?.best_type || '—'}</div>
+                <div className="text-[7px] tracking-[.12em] uppercase text-[#52504c]">Best format</div>
               </div>
-              <div className="bg-[#0e0d0b] py-2 px-2 text-center">
-                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.follower_count ? (ownArtist.follower_count >= 1000 ? `${(ownArtist.follower_count / 1000).toFixed(1).replace(/\.0$/, '')}K` : ownArtist.follower_count) : '—'}</div>
-                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Followers</div>
+              <div className="text-center">
+                <div className="text-[14px] font-light text-[#f0ebe2]">{ownArtist.follower_count ? (ownArtist.follower_count >= 1000 ? `${(ownArtist.follower_count / 1000).toFixed(1).replace(/\.0$/, '')}K` : ownArtist.follower_count) : '—'}</div>
+                <div className="text-[7px] tracking-[.12em] uppercase text-[#52504c]">Followers</div>
               </div>
             </div>
-
-            {(ownArtist.brand_positioning || ownArtist.content_strategy_notes) && (
-              <div className="mt-4 pt-4 border-t border-white/5 text-[11px] leading-[1.7] text-[#52504c]">
-                {ownArtist.brand_positioning && <span>{ownArtist.brand_positioning}</span>}
-                {ownArtist.brand_positioning && ownArtist.content_strategy_notes && <span> · </span>}
-                {ownArtist.content_strategy_notes && <span>{ownArtist.content_strategy_notes}</span>}
+            {va && va.score > 0 && (
+              <div className="text-right flex-shrink-0 pl-3 border-l border-white/8">
+                <div className="text-[22px] font-light text-[#b08d57] leading-none">{va.score}%</div>
+                <div className="text-[7px] tracking-[.12em] uppercase text-[#52504c] mt-0.5">voice</div>
               </div>
             )}
           </div>
+          {/* Voice / Visual / Performance — compact row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="border-l border-[#b08d57]/25 pl-2.5">
+              <div className="text-[7px] tracking-[.16em] uppercase text-[#b08d57] mb-1">Voice</div>
+              {ownArtist.style_rules ? (
+                <div className="text-[10px] leading-[1.5] text-[#8a8780] line-clamp-2">{ownArtist.style_rules}</div>
+              ) : (
+                <div className="text-[10px] text-[#52504c] italic">Sync Instagram to build voice profile</div>
+              )}
+            </div>
+            <div className="border-l border-[#b08d57]/25 pl-2.5">
+              <div className="text-[7px] tracking-[.16em] uppercase text-[#b08d57] mb-1">Visual</div>
+              {ownArtist.visual_aesthetic ? (
+                <div className="text-[10px] leading-[1.5] text-[#8a8780] line-clamp-2">{ownArtist.visual_aesthetic.mood}</div>
+              ) : (
+                <div className="text-[10px] text-[#52504c] italic">Deep dive scan needed</div>
+              )}
+            </div>
+            <div className="border-l border-[#b08d57]/25 pl-2.5">
+              <div className="text-[7px] tracking-[.16em] uppercase text-[#b08d57] mb-1">Performance</div>
+              {ownArtist.content_performance ? (
+                <div className="text-[10px] leading-[1.5] text-[#8a8780]">
+                  <span className="text-[#f0ebe2]">{ownArtist.content_performance.best_type}</span> strongest · {ownArtist.content_performance.posting_frequency || ''}
+                </div>
+              ) : (
+                <div className="text-[10px] text-[#52504c] italic">Post data needed</div>
+              )}
+            </div>
+          </div>
+          {(ownArtist.brand_positioning || ownArtist.content_strategy_notes) && (
+            <div className="mt-2 pt-2 border-t border-white/5 text-[10px] leading-[1.5] text-[#52504c] line-clamp-1">
+              {ownArtist.brand_positioning}{ownArtist.content_strategy_notes ? ` · ${ownArtist.content_strategy_notes}` : ''}
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-[#0e0d0b] border border-[#b08d57]/20 p-6">
@@ -1148,38 +1135,38 @@ Generate a complete ad plan tailored to this specific content and format. Return
         </div>
       )}
 
-      {/* ── REFERENCE ARTISTS — featured with bullet findings ── */}
+      {/* ── REFERENCE ARTISTS — compact cards ── */}
       {featuredRefs.length > 0 && (
-        <div className={`grid gap-4 ${featuredRefs.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}>
+        <div className={`grid gap-3 ${featuredRefs.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}>
           {featuredRefs.map(artist => (
-            <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-4 relative group">
+            <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-3 relative group">
               <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
-                className="absolute top-3 right-3 text-white/15 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs leading-none">×</button>
-              <div className="flex items-center gap-3 mb-3">
+                className="absolute top-2 right-2 text-white/15 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs leading-none">×</button>
+              <div className="flex items-center gap-2.5 mb-2">
                 {artist.profile_pic_url ? (
-                  <img src={artist.profile_pic_url} alt="" className="w-9 h-9 rounded-full object-cover border border-[#b08d57]/25 flex-shrink-0" />
+                  <img src={artist.profile_pic_url} alt="" className="w-7 h-7 rounded-full object-cover border border-[#b08d57]/25 flex-shrink-0" />
                 ) : (
-                  <div className="w-9 h-9 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/25 flex items-center justify-center text-[11px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
+                  <div className="w-7 h-7 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/25 flex items-center justify-center text-[10px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] tracking-[.04em] text-[#f0ebe2]">{artist.name}</div>
-                  <div className="text-[9px] text-[#52504c]">{artist.handle}{artist.follower_count ? ` · ${artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}` : ''}</div>
+                  <div className="text-[12px] tracking-[.04em] text-[#f0ebe2]">{artist.name}</div>
+                  <div className="text-[8px] text-[#52504c]">{artist.handle}{artist.follower_count ? ` · ${artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}` : ''}</div>
                 </div>
               </div>
-              <div className="space-y-1.5 mb-3">
-                {getArtistFindings(artist).map((finding, i) => (
-                  <div key={i} className="flex items-start gap-2 text-[10px] leading-[1.5] text-[#8a8780]">
-                    <div className="w-1 h-1 rounded-full bg-[#b08d57]/40 mt-1.5 flex-shrink-0" />
-                    {finding}
+              <div className="space-y-1 mb-2">
+                {getArtistFindings(artist).slice(0, 3).map((finding, i) => (
+                  <div key={i} className="flex items-start gap-1.5 text-[9px] leading-[1.4] text-[#8a8780]">
+                    <div className="w-1 h-1 rounded-full bg-[#b08d57]/40 mt-1 flex-shrink-0" />
+                    <span className="line-clamp-2">{finding}</span>
                   </div>
                 ))}
               </div>
-              <div className="overflow-hidden relative h-5 mt-1">
-                <div className="absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-[#0e0d0b] to-transparent z-10" />
-                <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-[#0e0d0b] to-transparent z-10" />
+              <div className="overflow-hidden relative h-4">
+                <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-[#0e0d0b] to-transparent z-10" />
+                <div className="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-[#0e0d0b] to-transparent z-10" />
                 <div className="marquee-track" style={{ animationDuration: `${Math.max(12, artist.chips.length * 4)}s` }}>
                   {[...artist.chips, ...artist.chips].map((chip, i) => (
-                    <span key={i} className={`text-[7px] tracking-[.1em] uppercase px-1.5 py-px border mx-1 inline-block flex-shrink-0 ${artist.highlight_chips.includes(i % artist.chips.length) ? 'border-[#b08d57]/30 text-[#b08d57]' : 'border-white/8 text-[#3a3830]'}`}>{chip}</span>
+                    <span key={i} className={`text-[6px] tracking-[.08em] uppercase px-1 py-px border mx-0.5 inline-block flex-shrink-0 ${artist.highlight_chips.includes(i % artist.chips.length) ? 'border-[#b08d57]/30 text-[#b08d57]' : 'border-white/8 text-[#3a3830]'}`}>{chip}</span>
                   ))}
                 </div>
               </div>
