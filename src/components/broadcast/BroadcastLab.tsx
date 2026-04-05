@@ -21,6 +21,25 @@ interface ArtistProfile {
   post_count_analysed?: number
   last_scanned?: string
   profile_pic_url?: string
+  follower_count?: number
+  biography?: string
+  visual_aesthetic?: {
+    mood: string
+    palette: string
+    subjects: string[]
+    signature_visual: string
+    avoid: string
+  }
+  content_performance?: {
+    best_type: string
+    best_subject: string
+    engagement_rate: string
+    posting_frequency: string
+    peak_content: string
+  }
+  brand_positioning?: string
+  collaboration_network?: string
+  content_strategy_notes?: string
 }
 
 interface CaptionVariant {
@@ -915,6 +934,12 @@ Generate a complete ad plan tailored to this specific content and format. Return
               <div className="text-[22px] font-light tracking-[-0.01em] text-[#f0ebe2]">
                 Tuned to {artists.length} artist{artists.length !== 1 ? 's' : ''} in your lane
               </div>
+              {/* Lane summary from deep analysis */}
+              {artists.some(a => a.visual_aesthetic) && (
+                <div className="text-[11px] text-[#8a8780] mt-2 leading-relaxed max-w-lg">
+                  {artists.find(a => a.visual_aesthetic)?.visual_aesthetic?.mood} aesthetic · {calcToneRegister(artists).value} tone · {artists.find(a => a.content_performance)?.content_performance?.best_type || 'photo'}-led
+                </div>
+              )}
             </div>
             <div className="text-right">
               <div className="text-[28px] font-light text-[#b08d57]">{calcVoiceAlignment(artists).score}%</div>
@@ -924,13 +949,18 @@ Generate a complete ad plan tailored to this specific content and format. Return
           {/* Artist profile pics + names */}
           <div className="flex items-center gap-3 flex-wrap">
             {artists.map(a => (
-              <div key={a.name} className="flex items-center gap-2 border border-[#b08d57]/20 bg-[#b08d57]/5 px-3 py-1.5">
+              <div key={a.name} className="flex items-center gap-2 border border-[#b08d57]/20 bg-[#b08d57]/5 px-3 py-1.5 group relative">
                 {a.profile_pic_url ? (
                   <img src={a.profile_pic_url} alt="" className="w-6 h-6 rounded-full object-cover border border-[#b08d57]/30" />
                 ) : (
                   <div className="w-6 h-6 rounded-full bg-[#b08d57]/15 border border-[#b08d57]/30 flex items-center justify-center text-[8px] text-[#b08d57]">{a.name.charAt(0)}</div>
                 )}
-                <span className="text-[10px] tracking-[.12em] uppercase text-[#b08d57]">{a.name}</span>
+                <div>
+                  <span className="text-[10px] tracking-[.12em] uppercase text-[#b08d57]">{a.name}</span>
+                  {a.follower_count && (
+                    <span className="text-[8px] text-[#52504c] ml-1.5">{a.follower_count > 1000000 ? `${(a.follower_count/1000000).toFixed(1)}M` : a.follower_count > 1000 ? `${(a.follower_count/1000).toFixed(0)}K` : a.follower_count}</span>
+                  )}
+                </div>
               </div>
             ))}
             <span className="text-[10px] text-[#52504c]">+ your posts</span>

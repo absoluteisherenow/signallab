@@ -6,15 +6,31 @@ interface PostData {
   comments: number
   mediaType: 'photo' | 'video' | 'carousel'
   takenAt: string
+  imageUrl?: string
+  viewCount?: number
+  location?: string
+  usertags?: string[]
+  carouselCount?: number
+}
+
+interface UserProfile {
+  biography?: string
+  followerCount?: number
+  followingCount?: number
+  mediaCount?: number
+  category?: string
+  externalUrl?: string
+  fullName?: string
+  profilePicUrl?: string
 }
 
 interface ScrapeResult {
   posts: PostData[]
   captions: string[]
-  profilePicUrl?: string
+  userProfile?: UserProfile
 }
 
-// ── HikerAPI scraper ─────────────────────────────────────────────────────────
+// ── HikerAPI scraper — extract EVERYTHING ────────────────────────────────────
 async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
   const key = process.env.HIKER_API_KEY
   if (!key) return { posts: [], captions: [] }
@@ -31,11 +47,23 @@ async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
     const userId = user?.pk || user?.id
     if (!userId) return { posts: [], captions: [] }
 
+    // Extract full user profile
+    const userProfile: UserProfile = {
+      biography: user?.biography || user?.bio || undefined,
+      followerCount: user?.follower_count || user?.followers || undefined,
+      followingCount: user?.following_count || user?.following || undefined,
+      mediaCount: user?.media_count || undefined,
+      category: user?.category || user?.category_name || undefined,
+      externalUrl: user?.external_url || undefined,
+      fullName: user?.full_name || undefined,
+      profilePicUrl: user?.profile_pic_url_hd || user?.profile_pic_url || undefined,
+    }
+
     const mediaRes = await fetch(
       `https://api.hikerapi.com/v2/user/medias?user_id=${userId}&count=30`,
       { headers: { 'x-access-key': key, 'Accept': 'application/json' }, signal: AbortSignal.timeout(25000) }
     )
-    if (!mediaRes.ok) return { posts: [], captions: [] }
+    if (!mediaRes.ok) return { posts: [], captions: [], userProfile }
     const mediaData = await mediaRes.json()
     const items: any[] = mediaData?.response?.items || mediaData?.items || mediaData?.data || []
 
@@ -43,17 +71,36 @@ async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
       const cap = p?.caption
       const caption = typeof cap === 'string' ? cap : (cap?.text || '')
       const mediaTypeMap: Record<number, 'photo' | 'video' | 'carousel'> = { 1: 'photo', 2: 'video', 8: 'carousel' }
+
+      // Extract best image URL
+      const imageUrl = p?.image_versions2?.candidates?.[0]?.url
+        || p?.carousel_media?.[0]?.image_versions2?.candidates?.[0]?.url
+        || p?.thumbnail_url
+        || undefined
+
+      // Extract location
+      const location = p?.location?.name || p?.location?.short_name || undefined
+
+      // Extract usertags
+      const usertags: string[] = (p?.usertags?.in || [])
+        .map((t: any) => t?.user?.username)
+        .filter(Boolean)
+
       return {
         caption,
         likes: p?.like_count || 0,
         comments: p?.comment_count || 0,
         mediaType: (mediaTypeMap[p?.media_type] ?? 'photo') as 'photo' | 'video' | 'carousel',
         takenAt: p?.taken_at ? new Date(p.taken_at * 1000).toISOString() : new Date().toISOString(),
+        imageUrl,
+        viewCount: p?.play_count || p?.view_count || undefined,
+        location,
+        usertags: usertags.length > 0 ? usertags : undefined,
+        carouselCount: p?.carousel_media_count || undefined,
       }
     }).filter(p => p.caption.length > 3).slice(0, 30)
 
-    const profilePicUrl = user?.profile_pic_url || user?.profile_pic_url_hd || undefined
-    return { posts, captions: posts.map(p => p.caption), profilePicUrl }
+    return { posts, captions: posts.map(p => p.caption), userProfile }
   } catch {
     return { posts: [], captions: [] }
   }
@@ -90,6 +137,9 @@ async function scrapeViaApify(username: string): Promise<ScrapeResult> {
         comments: p.commentsCount || p.comments || 0,
         mediaType: (p.type === 'Video' ? 'video' : p.type === 'Sidecar' ? 'carousel' : 'photo') as 'photo' | 'video' | 'carousel',
         takenAt: p.timestamp || new Date().toISOString(),
+        imageUrl: p.displayUrl || p.url || undefined,
+        viewCount: p.videoViewCount || undefined,
+        location: p.locationName || undefined,
       }))
       .slice(0, 30)
     return { posts, captions: posts.map(p => p.caption) }
@@ -109,7 +159,7 @@ async function savePostPerformance(artistName: string, posts: PostData[]) {
       comments: p.comments,
       media_type: p.mediaType,
       taken_at: p.takenAt,
-      engagement_score: p.likes + (p.comments * 3), // comments weighted 3x
+      engagement_score: p.likes + (p.comments * 3),
       scanned_at: new Date().toISOString(),
     }))
     await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/post_performance`, {
@@ -122,13 +172,137 @@ async function savePostPerformance(artistName: string, posts: PostData[]) {
       },
       body: JSON.stringify(rows),
     })
-  } catch {
-    // non-critical — don't fail the scan if this fails
-  }
+  } catch { /* non-critical */ }
 }
 
-// ── Analyse captions with Claude ─────────────────────────────────────────────
-async function analyseWithClaude(name: string, captions: string[]): Promise<any> {
+// ── Deep analysis with Opus — captions + images + engagement ─────────────────
+async function deepAnalyse(name: string, posts: PostData[], userProfile?: UserProfile): Promise<any> {
+  const apiKey = process.env.ANTHROPIC_API_KEY!
+
+  // Sort by engagement to find top performers
+  const sorted = [...posts].sort((a, b) => (b.likes + b.comments * 3) - (a.likes + a.comments * 3))
+  const topPosts = sorted.slice(0, 10)
+
+  // Get image URLs for top-performing posts (up to 8 images to stay within limits)
+  const imageUrls = topPosts
+    .filter(p => p.imageUrl)
+    .slice(0, 8)
+    .map(p => p.imageUrl!)
+
+  // Build the content array — text analysis + images
+  const content: any[] = []
+
+  // Add top-performing images for visual analysis
+  for (const url of imageUrls) {
+    content.push({
+      type: 'image',
+      source: { type: 'url', url },
+    })
+  }
+
+  // Build rich post data for text analysis
+  const postSummary = posts.map((p, i) => {
+    const engagement = p.likes + (p.comments * 3)
+    const parts = [
+      `${i + 1}. "${p.caption}"`,
+      `   ${p.likes} likes, ${p.comments} comments (score: ${engagement})`,
+      `   Type: ${p.mediaType}${p.viewCount ? `, ${p.viewCount} views` : ''}`,
+      p.location ? `   Location: ${p.location}` : null,
+      p.usertags?.length ? `   Tagged: ${p.usertags.join(', ')}` : null,
+    ].filter(Boolean)
+    return parts.join('\n')
+  }).join('\n\n')
+
+  const bioSection = userProfile ? [
+    `\n\nPROFILE:`,
+    `Bio: ${userProfile.biography || 'none'}`,
+    `Followers: ${userProfile.followerCount?.toLocaleString() || 'unknown'}`,
+    `Following: ${userProfile.followingCount?.toLocaleString() || 'unknown'}`,
+    `Total posts: ${userProfile.mediaCount || 'unknown'}`,
+    userProfile.category ? `Category: ${userProfile.category}` : null,
+    userProfile.externalUrl ? `Link: ${userProfile.externalUrl}` : null,
+  ].filter(Boolean).join('\n') : ''
+
+  // Engagement stats
+  const avgLikes = Math.round(posts.reduce((s, p) => s + p.likes, 0) / posts.length)
+  const avgComments = Math.round(posts.reduce((s, p) => s + p.comments, 0) / posts.length)
+  const photoCount = posts.filter(p => p.mediaType === 'photo').length
+  const videoCount = posts.filter(p => p.mediaType === 'video').length
+  const carouselCount = posts.filter(p => p.mediaType === 'carousel').length
+  const locations = [...new Set(posts.map(p => p.location).filter(Boolean))]
+  const allTags = [...new Set(posts.flatMap(p => p.usertags || []))]
+
+  const statsSection = `\n\nENGAGEMENT STATS:
+Avg likes: ${avgLikes}, Avg comments: ${avgComments}
+Content mix: ${photoCount} photos, ${videoCount} videos, ${carouselCount} carousels
+${locations.length > 0 ? `Locations: ${locations.join(', ')}` : 'No locations tagged'}
+${allTags.length > 0 ? `Frequently tagged: ${allTags.slice(0, 10).join(', ')}` : 'No usertags'}`
+
+  content.push({
+    type: 'text',
+    text: `You are doing a DEEP analysis of electronic music artist "${name}" for a voice + visual profiling system. You have their ${posts.length} most recent Instagram posts with full engagement data, and their top-performing images above.
+
+POSTS (ordered by recency):
+${postSummary}
+${bioSection}
+${statsSection}
+
+Analyse EVERYTHING — their writing voice, visual aesthetic, what content performs, their brand positioning, posting patterns, and the specific moves that make them recognisable.
+
+The images above are their TOP-PERFORMING posts. Study the visual patterns: lighting, colour palette, subject matter, composition, mood. What do their best images have in common?
+
+Return this exact JSON:
+{
+  "handle": "@instagramhandle",
+  "genre": "genre (2-3 words max)",
+  "lowercase_pct": number 0-100,
+  "short_caption_pct": number 0-100 (captions under 10 words),
+  "no_hashtags_pct": number 0-100,
+  "chips": ["5-7 short style descriptors covering BOTH voice and visual, max 2 words each"],
+  "highlight_chips": [0, 1, 2],
+  "style_rules": "6-8 sentences. Cover BOTH writing voice AND visual aesthetic. Be specific and actionable: what do they always do, what do they never do, signature moves, what triggers saves. This feeds AI caption generation AND content recommendations.",
+  "visual_aesthetic": {
+    "mood": "2-3 word mood descriptor (e.g. 'dark atmospheric raw')",
+    "palette": "dominant colour description",
+    "subjects": ["what appears in their images — up to 5"],
+    "signature_visual": "one sentence — their most recognisable visual move",
+    "avoid": "what they never post visually"
+  },
+  "content_performance": {
+    "best_type": "photo|video|carousel — which format gets most engagement",
+    "best_subject": "what kind of content performs best for them",
+    "engagement_rate": "calculated as (avg likes + avg comments) / followers as percentage, or 'unknown' if no follower data",
+    "posting_frequency": "how often they post based on timestamps",
+    "peak_content": "one sentence — their single highest-performing content pattern"
+  },
+  "brand_positioning": "2-3 sentences on how they position themselves — mysterious vs accessible, underground vs mainstream, personal vs professional",
+  "collaboration_network": "who they tag and work with — labels, venues, other artists",
+  "content_strategy_notes": "3-4 specific, actionable observations about their strategy that could inform someone in the same lane"
+}`
+  })
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-6',
+      max_tokens: 2000,
+      system: 'You are an elite music industry content analyst. You deeply understand electronic music culture, underground aesthetics, and what makes artist brands resonate. Respond ONLY with valid JSON, no markdown.',
+      messages: [{ role: 'user', content }],
+    }),
+  })
+
+  const data = await res.json()
+  const text = data.content?.[0]?.text || '{}'
+  return JSON.parse(text.replace(/```json|```/g, '').trim())
+}
+
+// ── Lightweight analysis for manual caption paste (no images available) ───────
+async function analyseTextOnly(name: string, captions: string[]): Promise<any> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -137,12 +311,12 @@ async function analyseWithClaude(name: string, captions: string[]): Promise<any>
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 900,
-      system: 'You are a social media voice analyst. Respond ONLY with valid JSON, no markdown.',
+      model: 'claude-opus-4-6',
+      max_tokens: 1200,
+      system: 'You are an elite music industry content analyst. Respond ONLY with valid JSON, no markdown.',
       messages: [{
         role: 'user',
-        content: `Analyse the exact social media voice of music artist "${name}" from these ${captions.length} real Instagram captions:\n\n${captions.map((c, i) => `${i + 1}. ${JSON.stringify(c)}`).join('\n')}\n\nStudy the patterns deeply — word count, punctuation, capitalisation, hashtag use, what they never do, emotional register, structural moves.\n\nReturn this exact JSON:\n{\n  "handle": "@instagramhandle",\n  "genre": "genre (2-3 words max)",\n  "lowercase_pct": number 0-100,\n  "short_caption_pct": number 0-100 (captions under 10 words),\n  "no_hashtags_pct": number 0-100,\n  "chips": ["3-5 short style descriptors, max 2 words each"],\n  "highlight_chips": [0, 1],\n  "style_rules": "4-6 sentences. Must be specific and actionable: what do they always do structurally, what do they never do, what is the signature move that makes their voice recognisable, what triggers saves in their posts, what emotional register do they operate in. This feeds directly into AI caption generation — make it a brief for a copywriter, not a description."\n}`,
+        content: `Analyse the exact social media voice of music artist "${name}" from these ${captions.length} real Instagram captions:\n\n${captions.map((c, i) => `${i + 1}. ${JSON.stringify(c)}`).join('\n')}\n\nReturn this exact JSON:\n{\n  "handle": "@instagramhandle",\n  "genre": "genre (2-3 words max)",\n  "lowercase_pct": number 0-100,\n  "short_caption_pct": number 0-100 (captions under 10 words),\n  "no_hashtags_pct": number 0-100,\n  "chips": ["5-7 short style descriptors, max 2 words each"],\n  "highlight_chips": [0, 1, 2],\n  "style_rules": "6-8 sentences. Specific and actionable: what do they always do structurally, what do they never do, signature moves, what triggers saves, emotional register.",\n  "brand_positioning": "2-3 sentences on how they position themselves",\n  "content_strategy_notes": "3-4 specific observations about their caption strategy"\n}`,
       }],
     }),
   })
@@ -157,9 +331,9 @@ export async function POST(req: NextRequest) {
     const { name, handle, manualCaptions } = await req.json()
     if (!name) return NextResponse.json({ success: false, error: 'Artist name required' }, { status: 400 })
 
-    // Manual caption paste — user provides real captions directly
+    // Manual caption paste — text-only analysis (no images)
     if (manualCaptions && Array.isArray(manualCaptions) && manualCaptions.length > 0) {
-      const profile = await analyseWithClaude(name, manualCaptions)
+      const profile = await analyseTextOnly(name, manualCaptions)
       return NextResponse.json({
         success: true,
         profile: {
@@ -192,10 +366,12 @@ export async function POST(req: NextRequest) {
       }, { status: 404 })
     }
 
-    // Save engagement data for trend analysis (non-blocking)
+    // Save engagement data (non-blocking)
     savePostPerformance(name, result.posts)
 
-    const profile = await analyseWithClaude(name, result.captions)
+    // Deep analysis — Opus with images + captions + engagement + profile
+    const profile = await deepAnalyse(name, result.posts, result.userProfile)
+
     return NextResponse.json({
       success: true,
       profile: {
@@ -203,7 +379,9 @@ export async function POST(req: NextRequest) {
         data_source: dataSource,
         post_count_analysed: result.captions.length,
         last_scanned: new Date().toISOString().split('T')[0],
-        ...(result.profilePicUrl ? { profile_pic_url: result.profilePicUrl } : {}),
+        profile_pic_url: result.userProfile?.profilePicUrl || undefined,
+        follower_count: result.userProfile?.followerCount || undefined,
+        biography: result.userProfile?.biography || undefined,
       },
     })
   } catch (err: any) {
