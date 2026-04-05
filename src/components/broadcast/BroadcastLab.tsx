@@ -197,6 +197,8 @@ export function BroadcastLab() {
   const [adCampaignType, setAdCampaignType] = useState<'release' | 'gig' | 'always-on'>('release')
   const [adBudget, setAdBudget] = useState<'low' | 'mid' | 'high'>('low')
   const [trends, setTrends] = useState<Trend[]>((_cache.trends as Trend[]) || [])
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const toggleSection = (key: string) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }))
   const [refreshingInsights, setRefreshingInsights] = useState(false)
   const [trendsSource, setTrendsSource] = useState<{ postsAnalysed?: number; artistsIncluded?: string[] } | null>((_cache.trendsSource as any) || null)
   const [connectedSocials, setConnectedSocials] = useState<string[]>([]) // platform ids with direct connection
@@ -1075,7 +1077,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
                           className="text-[10px] tracking-[.14em] uppercase text-[#b08d57] hover:opacity-100 transition-opacity">
                           {hasDirectConnection(platform) ? 'Publish →' : 'Schedule →'}
                         </button>
-                        <button onClick={e=>{e.stopPropagation();generateAdPlan(v?.text||'')}}
+                        <button onClick={e=>{e.stopPropagation();setExpandedSections(prev=>({...prev,ads:true}));generateAdPlan(v?.text||'')}}
                           disabled={generatingAdPlan}
                           className="text-[10px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors disabled:opacity-40">
                           Boost →
@@ -1194,12 +1196,16 @@ Generate a complete ad plan tailored to this specific content and format. Return
       </div>
 
       {/* REFERENCE ARTISTS */}
-      <div>
-        <div className="flex items-center gap-2 mb-4 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+      <div className="bg-[#0e0d0b] border border-white/7">
+        <button onClick={() => toggleSection('artists')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
           Reference artists — your lane
           <div className="flex-1 h-px bg-white/10" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+          {!expandedSections.artists && artists.length > 0 && (
+            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{artists.length} artist{artists.length !== 1 ? 's' : ''} profiled</span>
+          )}
+          <span className="text-[#52504c] text-xs ml-1">{expandedSections.artists ? '▾' : '▸'}</span>
+        </button>
+        {expandedSections.artists && <div className="grid grid-cols-2 gap-3 px-5 pb-5">
           {artists.map(artist => (
             <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-5 relative group hover:border-white/13 transition-colors">
               {scanningArtist === artist.name && <div className="absolute top-0 left-0 right-0 h-px bg-[#b08d57] animate-pulse" />}
@@ -1304,14 +1310,19 @@ Generate a complete ad plan tailored to this specific content and format. Return
               </div>
             )}
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* TONE PROFILE */}
-      <div className="bg-[#0e0d0b] border border-white/7 p-8">
-        <div className="flex items-center gap-2 mb-6 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+      <div className="bg-[#0e0d0b] border border-white/7">
+        <button onClick={() => toggleSection('tone')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
           Live tone profile — NIGHT manoeuvres<div className="flex-1 h-px bg-white/10" />
-        </div>
+          {!expandedSections.tone && artists.length >= 2 && (
+            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{calcVoiceAlignment(artists).value} · {calcToneRegister(artists).value}</span>
+          )}
+          <span className="text-[#52504c] text-xs ml-1">{expandedSections.tone ? '▾' : '▸'}</span>
+        </button>
+        {expandedSections.tone && <div className="px-5 pb-5">
         <div className="grid grid-cols-3 gap-6 mb-7">
           {[
             {l:'Lowercase',v:`${Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1)),s:'Lane average across reference artists'},
@@ -1346,13 +1357,19 @@ Generate a complete ad plan tailored to this specific content and format. Return
             </div>
           ))}
         </div>
+        </div>}
       </div>
 
       {/* TREND ENGINE */}
-      <div className="bg-[#0e0d0b] border border-white/7 p-7">
-        <div className="flex items-center gap-2 mb-2 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+      <div className="bg-[#0e0d0b] border border-white/7">
+        <button onClick={() => toggleSection('trends')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
           Trend engine — filtered for your lane<div className="flex-1 h-px bg-white/10" />
-        </div>
+          {!expandedSections.trends && trends.length > 0 && (
+            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{trends.length} trend{trends.length !== 1 ? 's' : ''} · {trends.filter(t => t.hot).length} hot</span>
+          )}
+          <span className="text-[#52504c] text-xs ml-1">{expandedSections.trends ? '▾' : '▸'}</span>
+        </button>
+        {expandedSections.trends && <div className="px-5 pb-5">
         {trendsSource ? (
           <div className="text-[10px] tracking-[.07em] text-[#3d6b4a] mb-5 flex items-center gap-1.5">
             <div className="w-1 h-1 rounded-full bg-[#3d6b4a]" />
@@ -1414,13 +1431,19 @@ Generate a complete ad plan tailored to this specific content and format. Return
             </div>
           </div>
         )}
+        </div>}
       </div>
 
       {/* AD AMPLIFIER */}
-      <div className="bg-[#0e0d0b] border border-white/7 p-7">
-        <div className="flex items-center gap-2 mb-2 text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+      <div className="bg-[#0e0d0b] border border-white/7">
+        <button onClick={() => toggleSection('ads')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
           Ad amplifier — paid strategy<div className="flex-1 h-px bg-white/10" />
-        </div>
+          {!expandedSections.ads && adPlan && (
+            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{adPlan.campaign_type} plan active</span>
+          )}
+          <span className="text-[#52504c] text-xs ml-1">{expandedSections.ads ? '▾' : '▸'}</span>
+        </button>
+        {expandedSections.ads && <div className="px-5 pb-5">
         <div className="text-[10px] tracking-[.07em] text-[#8a8780] mb-5 italic">Underground-calibrated paid campaigns. Every ad feels organic — never salesy.</div>
 
         <div className="flex gap-3 mb-4">
@@ -1539,9 +1562,10 @@ Generate a complete ad plan tailored to this specific content and format. Return
         {!adPlan && !generatingAdPlan && (
           <div className="border border-dashed border-white/13 p-6 text-center">
             <div className="text-[11px] tracking-[.1em] text-[#8a8780] mb-1">Select campaign type and budget, then generate</div>
-            <div className="text-[10px] tracking-[.07em] text-[#2e2c29]">Or hit "Boost" on any caption above to build a plan around that content</div>
+            <div className="text-[10px] tracking-[.07em] text-[#2e2c29]">Or hit &quot;Boost&quot; on any caption above to build a plan around that content</div>
           </div>
         )}
+        </div>}
       </div>
 
       {/* SIGNAL PANEL */}
