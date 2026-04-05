@@ -988,7 +988,7 @@ Give specific mixing advice for this transition.`,
     setDeckBPlaying(false)
     setDeckBTime(0)
     // Try to get audio URL for deck B
-    const url = track.spotify_url || (track as any).preview_url
+    const url = track.preview_url || track.file_path || null
     if (url && deckBRef.current) {
       deckBRef.current.src = url
       deckBRef.current.load()
@@ -3416,18 +3416,18 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       const canPlay = track.has_local_audio || track.file_path || track.preview_url
                       if (canPlay) {
                         playTrack(track)
-                      } else if (track.spotify_url) {
-                        window.open(track.spotify_url, '_blank')
+                      } else {
+                        showToast('No audio — connect your music folder or drop the file', 'Info')
                       }
                     }}>
                       {track.album_art ? (
-                        <div style={{ width: '28px', height: '28px', position: 'relative', cursor: (track.has_local_audio || track.preview_url || track.spotify_url) ? 'pointer' : 'default' }}>
+                        <div style={{ width: '28px', height: '28px', position: 'relative', cursor: (track.has_local_audio || track.preview_url) ? 'pointer' : 'default' }}>
                           <img src={track.album_art} alt="" style={{ width: '28px', height: '28px', objectFit: 'cover', opacity: playingTrack?.id === track.id ? 0.4 : 1, transition: 'opacity 0.15s' }} />
-                          {(track.has_local_audio || track.preview_url || track.spotify_url) && <div className="play-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s', background: 'rgba(0,0,0,0.4)' }}>{playingTrack?.id === track.id && audioPlaying ? '■' : '▶'}</div>}
+                          {(track.has_local_audio || track.preview_url) && <div className="play-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', opacity: playingTrack?.id === track.id ? 1 : 0, transition: 'opacity 0.15s', background: 'rgba(0,0,0,0.4)' }}>{playingTrack?.id === track.id && audioPlaying ? '■' : '▶'}</div>}
                         </div>
                       ) : (
-                        <div style={{ width: '28px', height: '28px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (track.has_local_audio || track.preview_url || track.spotify_url) ? 'pointer' : 'default' }}>
-                          <span style={{ fontSize: '12px', color: (track.has_local_audio || track.preview_url) ? s.gold : track.spotify_url ? s.textDim : s.textDimmer }}>{(track.has_local_audio || track.preview_url) ? (playingTrack?.id === track.id && audioPlaying ? '■' : '▶') : track.spotify_url ? '↗' : '♪'}</span>
+                        <div style={{ width: '28px', height: '28px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (track.has_local_audio || track.preview_url) ? 'pointer' : 'default' }}>
+                          <span style={{ fontSize: '12px', color: (track.has_local_audio || track.preview_url) ? s.gold : s.textDimmer }}>{(track.has_local_audio || track.preview_url) ? (playingTrack?.id === track.id && audioPlaying ? '■' : '▶') : '♪'}</span>
                         </div>
                       )}
                     </div>

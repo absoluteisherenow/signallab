@@ -972,214 +972,287 @@ Generate a complete ad plan tailored to this specific content and format. Return
     }
   }
 
+
+  // ── Derive artist groupings ──
+  const ownArtist = artists.find(a => a.name.toLowerCase() === artistName.toLowerCase())
+  const refArtists = artists.filter(a => a !== ownArtist)
+  const featuredRefs = refArtists.slice(0, 4)
+  const otherRefs = refArtists.slice(4)
+
+  function getArtistFindings(a: ArtistProfile): string[] {
+    const f: string[] = []
+    if (a.content_performance?.best_type) f.push(`Best format: ${a.content_performance.best_type}`)
+    if (a.content_performance?.engagement_rate) f.push(`Engagement rate: ${a.content_performance.engagement_rate}`)
+    if (a.visual_aesthetic?.mood) f.push(`Visual mood: ${a.visual_aesthetic.mood}`)
+    if (a.lowercase_pct > 65) f.push(`${a.lowercase_pct}% lowercase — raw, detached register`)
+    else if (a.lowercase_pct > 40) f.push(`${a.lowercase_pct}% lowercase — mixed register`)
+    if (a.no_hashtags_pct > 60) f.push(`Skips hashtags ${a.no_hashtags_pct}% of the time`)
+    if (a.content_performance?.peak_content) f.push(a.content_performance.peak_content)
+    if (a.visual_aesthetic?.signature_visual) f.push(`Signature: ${a.visual_aesthetic.signature_visual}`)
+    return f.slice(0, 4)
+  }
+
+  // Scrolling preview content — real data when available, capability hints when not
+  const captionPreview = captions
+    ? [captions.safe.text, captions.loose.text, captions.raw.text].filter(Boolean)
+    : ['generate captions in your voice', '3 variants scored by predicted reach', 'one-click publish to any platform', 'reels overlays and repurpose to 3 formats']
+
+  const trendPreview = trends.length > 0
+    ? trends.map(t => `${t.name} — ${t.fit}% lane fit${t.hot ? ' · HOT' : ''}`)
+    : ['trends derived from real engagement data', 'lane-specific content patterns', 'auto-generated captions for each trend']
+
+  const va = artists.length >= 2 ? calcVoiceAlignment(artists) : null
+  const totalPosts = artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)
+
   return (
     <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono flex flex-col">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .marquee-track { display: flex; white-space: nowrap; animation: marquee 30s linear infinite; }
+        .marquee-track:hover { animation-play-state: paused; }
+      ` }} />
 
       <SignalLabHeader />
 
       <div className="flex flex-col gap-4 p-6">
 
-      {/* CONTENT INTELLIGENCE — hero section, first thing you see */}
-      {(() => {
-        const tr = artists.length > 0 ? calcToneRegister(artists) : null
-        const va = artists.length > 0 ? calcVoiceAlignment(artists) : null
-        const totalPosts = artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)
-        const allChips = [...new Set(artists.flatMap(a => a.chips || []))].slice(0, 10)
-        const topArtists = artists.slice(0, 2)
-        const restArtists = artists.slice(2)
-
-        return (
+      {/* ── YOUR ARTIST — deep dive summary ── */}
+      {ownArtist ? (
         <div className="bg-[#0e0d0b] border border-white/7">
-          {/* Header — compact */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
-            <div className="flex items-center gap-2">
-              <div className="text-[12px] tracking-[.22em] uppercase text-[#b08d57]">Content Intelligence</div>
-              {artists.length > 0 && <div className="text-[10px] text-[#52504c]">· {artists.length} artists · {totalPosts} posts</div>}
-            </div>
-            {va && va.score > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="text-[22px] font-light text-[#b08d57]">{va.score}%</div>
-                <div className="text-[8px] tracking-[.12em] uppercase text-[#52504c] leading-tight">confidence</div>
+          <div className="p-6">
+            <div className="flex items-start gap-5 mb-5">
+              {ownArtist.profile_pic_url ? (
+                <img src={ownArtist.profile_pic_url} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-[#b08d57]/40 flex-shrink-0" />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-[#b08d57]/10 border-2 border-[#b08d57]/40 flex items-center justify-center text-lg text-[#b08d57] flex-shrink-0">{ownArtist.name.charAt(0)}</div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] mb-1">Your profile</div>
+                <div className="text-xl font-light tracking-tight text-[#f0ebe2] mb-0.5">{ownArtist.name}</div>
+                <div className="text-[11px] text-[#52504c]">
+                  {ownArtist.handle}
+                  {ownArtist.follower_count ? ` · ${ownArtist.follower_count > 1000 ? `${Math.round(ownArtist.follower_count/1000)}K` : ownArtist.follower_count} followers` : ''}
+                  {ownArtist.genre ? ` · ${ownArtist.genre}` : ''}
+                </div>
               </div>
-            )}
-          </div>
-
-          {/* Top 2 artists — compact but rich */}
-          {topArtists.length > 0 && (
-            <div className="grid grid-cols-2 gap-px bg-white/5">
-              {topArtists.map(artist => (
-                <div key={artist.name} className="bg-[#0e0d0b] p-4 relative group">
-                  <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
-                    className="absolute top-2 right-2 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-sm leading-none">x</button>
-                  {/* Name row */}
-                  <div className="flex items-center gap-2.5 mb-3">
-                    {artist.profile_pic_url ? (
-                      <img src={artist.profile_pic_url} alt="" className="w-8 h-8 rounded-full object-cover border border-[#b08d57]/30 flex-shrink-0" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/30 flex items-center justify-center text-[11px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] tracking-[.06em] text-[#f0ebe2]">{artist.name}</div>
-                      <div className="text-[9px] text-[#52504c]">{artist.handle} · {artist.genre}{artist.follower_count ? ` · ${artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}` : ''}</div>
-                    </div>
-                  </div>
-                  {/* Stats row — tighter */}
-                  <div className="grid grid-cols-4 gap-px bg-white/5 mb-3 border border-white/5">
-                    <div className="bg-[#0e0d0b] py-1.5 px-1 text-center">
-                      <div className="text-[14px] font-light text-[#f0ebe2]">{artist.lowercase_pct}%</div>
-                      <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Lowercase</div>
-                    </div>
-                    <div className="bg-[#0e0d0b] py-1.5 px-1 text-center">
-                      <div className="text-[14px] font-light text-[#f0ebe2]">{artist.short_caption_pct}%</div>
-                      <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Short</div>
-                    </div>
-                    <div className="bg-[#0e0d0b] py-1.5 px-1 text-center">
-                      <div className="text-[14px] font-light text-[#f0ebe2]">{artist.no_hashtags_pct}%</div>
-                      <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">No tags</div>
-                    </div>
-                    <div className="bg-[#0e0d0b] py-1.5 px-1 text-center">
-                      <div className="text-[14px] font-light text-[#b08d57]">{artist.content_performance?.engagement_rate || `${artist.post_count_analysed}`}</div>
-                      <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">{artist.content_performance?.engagement_rate ? 'Eng. rate' : 'Posts'}</div>
-                    </div>
-                  </div>
-                  {/* Voice rules — 2 lines max */}
-                  {artist.style_rules && (
-                    <div className="text-[10px] leading-[1.6] text-[#8a8780] mb-3 border-l-2 border-[#b08d57]/25 pl-2.5 line-clamp-2">
-                      {artist.style_rules}
-                    </div>
-                  )}
-                  {/* Chips — single row */}
-                  <div className="flex flex-wrap gap-1">
-                    {artist.chips.slice(0, 5).map((chip, i) => (
-                      <span key={chip} className={`text-[8px] tracking-[.1em] uppercase px-1.5 py-px border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/40 text-[#b08d57] bg-[#b08d57]/5' : 'border-white/10 text-[#52504c]'}`}>{chip}</span>
-                    ))}
-                    {artist.chips.length > 5 && <span className="text-[8px] text-[#52504c]">+{artist.chips.length - 5}</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* More artists — readable row */}
-          {restArtists.length > 0 && (
-            <div className="border-t border-white/5 px-5 py-4">
-              <button onClick={() => toggleSection('moreArtists')} className="flex items-center gap-3 w-full text-left">
-                <span className="text-[11px] tracking-[.14em] uppercase text-[#8a8780]">+{restArtists.length} more</span>
-                <div className="flex items-center gap-3 ml-1 flex-wrap">
-                  {restArtists.map(a => (
-                    <div key={a.name} className="flex items-center gap-1.5">
-                      {a.profile_pic_url ? (
-                        <img src={a.profile_pic_url} alt="" className="w-5 h-5 rounded-full object-cover border border-white/10" />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full bg-[#b08d57]/10 border border-white/10 flex items-center justify-center text-[8px] text-[#b08d57]">{a.name.charAt(0)}</div>
-                      )}
-                      <span className="text-[10px] text-[#8a8780]">{a.name}</span>
-                    </div>
-                  ))}
-                </div>
-                <span className="text-[#8a8780] text-xs ml-auto">{expandedSections.moreArtists ? '▾' : '▸'}</span>
-              </button>
-              {expandedSections.moreArtists && (
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                  {restArtists.map(artist => (
-                    <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-4 relative group">
-                      <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name) }}
-                        className="absolute top-2 right-2 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-sm leading-none">x</button>
-                      <div className="flex items-center gap-2 mb-2">
-                        {artist.profile_pic_url ? (
-                          <img src={artist.profile_pic_url} alt="" className="w-7 h-7 rounded-full object-cover border border-white/10 flex-shrink-0" />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-[#b08d57]/10 border border-white/10 flex items-center justify-center text-[9px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
-                        )}
-                        <div className="text-[12px] text-[#f0ebe2]">{artist.name}</div>
-                        <span className="ml-auto text-[10px] text-[#52504c]">{artist.post_count_analysed} posts</span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-1 mb-2">
-                        <div className="text-center"><span className="text-[13px] text-[#f0ebe2]">{artist.lowercase_pct}%</span><div className="text-[7px] text-[#52504c]">lower</div></div>
-                        <div className="text-center"><span className="text-[13px] text-[#f0ebe2]">{artist.short_caption_pct}%</span><div className="text-[7px] text-[#52504c]">short</div></div>
-                        <div className="text-center"><span className="text-[13px] text-[#f0ebe2]">{artist.no_hashtags_pct}%</span><div className="text-[7px] text-[#52504c]">no tags</div></div>
-                        <div className="text-center"><span className="text-[13px] text-[#b08d57]">{artist.content_performance?.engagement_rate || artist.post_count_analysed}</span><div className="text-[7px] text-[#52504c]">{artist.content_performance?.engagement_rate ? 'eng' : 'posts'}</div></div>
-                      </div>
-                      {artist.style_rules && <div className="text-[10px] text-[#8a8780] line-clamp-2 leading-relaxed">{artist.style_rules}</div>}
-                    </div>
-                  ))}
+              {va && va.score > 0 && (
+                <div className="text-right flex-shrink-0">
+                  <div className="text-[28px] font-light text-[#b08d57] leading-none">{va.score}%</div>
+                  <div className="text-[8px] tracking-[.14em] uppercase text-[#52504c] mt-1">voice alignment</div>
                 </div>
               )}
             </div>
-          )}
 
-          {/* Scanning progress */}
-          {scanningArtist && scanStage && (
-            <div className="border-t border-[#b08d57]/30 p-5 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#b08d57]/20"><div className="h-full bg-[#b08d57] animate-pulse" style={{ width: '100%' }} /></div>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full border-2 border-[#b08d57]/40 flex items-center justify-center flex-shrink-0">
-                  <div className="w-5 h-5 border-2 border-[#b08d57] border-t-transparent rounded-full animate-spin" />
-                </div>
-                <div>
-                  <div className="text-[10px] tracking-[.18em] uppercase text-[#b08d57] mb-0.5">Signal Scan — {scanningArtist}</div>
-                  <div className="text-[13px] text-[#f0ebe2] font-light">{scanStage}</div>
-                </div>
+            {/* Deep dive grid */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="border-l-2 border-[#b08d57]/30 pl-3">
+                <div className="text-[8px] tracking-[.18em] uppercase text-[#52504c] mb-2">Voice</div>
+                {ownArtist.style_rules ? (
+                  <div className="text-[11px] leading-[1.7] text-[#8a8780] line-clamp-4">{ownArtist.style_rules}</div>
+                ) : (
+                  <div className="text-[11px] text-[#2e2c29] italic">Sync your Instagram to build your voice profile</div>
+                )}
+              </div>
+              <div className="border-l-2 border-[#b08d57]/30 pl-3">
+                <div className="text-[8px] tracking-[.18em] uppercase text-[#52504c] mb-2">Visual aesthetic</div>
+                {ownArtist.visual_aesthetic ? (
+                  <div className="text-[11px] leading-[1.7] text-[#8a8780]">
+                    {ownArtist.visual_aesthetic.mood}
+                    {ownArtist.visual_aesthetic.signature_visual && <span className="block mt-1 text-[#52504c]">{ownArtist.visual_aesthetic.signature_visual}</span>}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-[#2e2c29] italic">Deep dive scan needed</div>
+                )}
+              </div>
+              <div className="border-l-2 border-[#b08d57]/30 pl-3">
+                <div className="text-[8px] tracking-[.18em] uppercase text-[#52504c] mb-2">Performance</div>
+                {ownArtist.content_performance ? (
+                  <div className="text-[11px] leading-[1.7] text-[#8a8780]">
+                    <span className="text-[#f0ebe2]">{ownArtist.content_performance.best_type}</span> is your strongest format
+                    {ownArtist.content_performance.engagement_rate && <span className="block text-[#b08d57]">{ownArtist.content_performance.engagement_rate} engagement</span>}
+                    {ownArtist.content_performance.posting_frequency && <span className="block text-[#52504c]">{ownArtist.content_performance.posting_frequency}</span>}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-[#2e2c29] italic">Post data needed</div>
+                )}
               </div>
             </div>
-          )}
 
-          {/* Add artist + paste panel */}
-          <div className="border-t border-white/5 p-5">
-            {pastingFor ? (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div><div className="text-[11px] tracking-[.1em] text-[#b08d57] uppercase mb-0.5">Paste captions — {pastingFor}</div><div className="text-[10px] text-[#8a8780]">One per line</div></div>
-                  <button onClick={() => { setPastingFor(null); setPastedCaptions('') }} className="text-[#8a8780] hover:text-[#f0ebe2] text-lg leading-none">×</button>
-                </div>
-                <textarea autoFocus value={pastedCaptions} onChange={e => setPastedCaptions(e.target.value)} placeholder={"caption one\ncaption two\ncaption three"} rows={5}
-                  className="w-full bg-[#1a1917] border border-white/10 text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29] resize-none focus:border-[#b08d57]/50" />
-                <div className="flex items-center gap-3">
-                  <button onClick={() => submitManualCaptions(pastingFor)} disabled={!!scanningArtist}
-                    className="text-[10px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] disabled:opacity-50 flex items-center gap-2">
-                    {scanningArtist ? <><div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />Analysing...</> : 'Analyse captions'}
-                  </button>
-                  <span className="text-[10px] text-[#2e2c29]">{pastedCaptions.split('\n').filter(l => l.trim().length > 5).length} captions ready</span>
-                </div>
+            {/* Stats bar */}
+            <div className="grid grid-cols-4 gap-px bg-white/5 mt-5 border border-white/5">
+              <div className="bg-[#0e0d0b] py-2 px-2 text-center">
+                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.lowercase_pct}%</div>
+                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Lowercase</div>
               </div>
-            ) : !addingArtist ? (
-              <button onClick={() => setAddingArtist(true)} className="flex items-center gap-2 text-[10px] tracking-[.16em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors">
-                <span className="text-lg leading-none">+</span> Run Signal Scan
-              </button>
-            ) : (
-              <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                <input ref={addInputRef} value={newArtistName} onChange={e => setNewArtistName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && newArtistName.trim()) { scanArtist(newArtistName.trim()); setNewArtistName(''); setAddingArtist(false) }
-                    if (e.key === 'Escape') { setAddingArtist(false); setNewArtistName('') }
-                  }}
-                  placeholder="Artist name or @handle — Enter to scan"
-                  className="flex-1 bg-[#1a1917] border border-[#b08d57] text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29]" />
-                <button onClick={() => { setAddingArtist(false); setNewArtistName('') }} className="text-[10px] text-[#52504c] hover:text-[#f0ebe2]">Cancel</button>
+              <div className="bg-[#0e0d0b] py-2 px-2 text-center">
+                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.short_caption_pct}%</div>
+                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Short</div>
+              </div>
+              <div className="bg-[#0e0d0b] py-2 px-2 text-center">
+                <div className="text-[16px] font-light text-[#f0ebe2]">{ownArtist.no_hashtags_pct}%</div>
+                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">No tags</div>
+              </div>
+              <div className="bg-[#0e0d0b] py-2 px-2 text-center">
+                <div className="text-[16px] font-light text-[#b08d57]">{ownArtist.post_count_analysed || 0}</div>
+                <div className="text-[7px] tracking-[.14em] uppercase text-[#52504c]">Posts analysed</div>
+              </div>
+            </div>
+
+            {(ownArtist.brand_positioning || ownArtist.content_strategy_notes) && (
+              <div className="mt-4 pt-4 border-t border-white/5 text-[11px] leading-[1.7] text-[#52504c]">
+                {ownArtist.brand_positioning && <span>{ownArtist.brand_positioning}</span>}
+                {ownArtist.brand_positioning && ownArtist.content_strategy_notes && <span> · </span>}
+                {ownArtist.content_strategy_notes && <span>{ownArtist.content_strategy_notes}</span>}
               </div>
             )}
           </div>
+        </div>
+      ) : (
+        <div className="bg-[#0e0d0b] border border-[#b08d57]/20 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] mb-1">Your profile</div>
+              <div className="text-[13px] text-[#8a8780]">Sync your Instagram to build your deep dive profile</div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={syncInstagram} disabled={syncingIG}
+                className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2.5 hover:bg-[#c9a46e] transition-colors disabled:opacity-40 flex items-center gap-2">
+                {syncingIG && <div className="w-2 h-2 border border-[#070706] border-t-transparent rounded-full animate-spin" />}
+                {syncingIG ? 'Syncing...' : 'Sync Instagram'}
+              </button>
+              <button onClick={() => { setAddingArtist(true); setNewArtistName(artistName) }}
+                className="text-[10px] tracking-[.16em] uppercase border border-white/13 text-[#8a8780] px-4 py-2.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors">
+                Scan manually
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-          {/* Lane DNA chips */}
-          {allChips.length > 0 && (
-            <div className="border-t border-white/5 px-5 py-4">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {allChips.map(chip => (
-                  <span key={chip} className="text-[9px] tracking-[.1em] uppercase text-[#b08d57] border border-[#b08d57]/25 px-2 py-0.5 bg-[#b08d57]/5">{chip}</span>
+      {/* ── REFERENCE ARTISTS — featured with bullet findings ── */}
+      {featuredRefs.length > 0 && (
+        <div className={`grid gap-4 ${featuredRefs.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}>
+          {featuredRefs.map(artist => (
+            <div key={artist.name} className="bg-[#0e0d0b] border border-white/7 p-4 relative group">
+              <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
+                className="absolute top-3 right-3 text-white/15 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs leading-none">×</button>
+              <div className="flex items-center gap-3 mb-3">
+                {artist.profile_pic_url ? (
+                  <img src={artist.profile_pic_url} alt="" className="w-9 h-9 rounded-full object-cover border border-[#b08d57]/25 flex-shrink-0" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-[#b08d57]/10 border border-[#b08d57]/25 flex items-center justify-center text-[11px] text-[#b08d57] flex-shrink-0">{artist.name.charAt(0)}</div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] tracking-[.04em] text-[#f0ebe2]">{artist.name}</div>
+                  <div className="text-[9px] text-[#52504c]">{artist.handle}{artist.follower_count ? ` · ${artist.follower_count > 1000 ? `${Math.round(artist.follower_count/1000)}K` : artist.follower_count}` : ''}</div>
+                </div>
+              </div>
+              <div className="space-y-1.5 mb-3">
+                {getArtistFindings(artist).map((finding, i) => (
+                  <div key={i} className="flex items-start gap-2 text-[10px] leading-[1.5] text-[#8a8780]">
+                    <div className="w-1 h-1 rounded-full bg-[#b08d57]/40 mt-1.5 flex-shrink-0" />
+                    {finding}
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {artist.chips.slice(0, 4).map((chip, i) => (
+                  <span key={chip} className={`text-[7px] tracking-[.1em] uppercase px-1.5 py-px border ${artist.highlight_chips.includes(i) ? 'border-[#b08d57]/30 text-[#b08d57]' : 'border-white/8 text-[#3a3830]'}`}>{chip}</span>
                 ))}
               </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── OTHER SCANNED ARTISTS — clear names row ── */}
+      {otherRefs.length > 0 && (
+        <div className="bg-[#0e0d0b] border border-white/7 px-5 py-3 flex items-center gap-4 flex-wrap">
+          <div className="text-[9px] tracking-[.16em] uppercase text-[#52504c] flex-shrink-0">Also scanned</div>
+          {otherRefs.map(a => (
+            <div key={a.name} className="flex items-center gap-1.5 group">
+              {a.profile_pic_url ? (
+                <img src={a.profile_pic_url} alt="" className="w-5 h-5 rounded-full object-cover border border-white/10" />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-[#b08d57]/8 border border-white/8 flex items-center justify-center text-[7px] text-[#b08d57]">{a.name.charAt(0)}</div>
+              )}
+              <span className="text-[11px] text-[#8a8780]">{a.name}</span>
+              <button onClick={() => { setArtists(prev => prev.filter(x => x.name !== a.name)); removeArtistFromDb(a.name) }}
+                className="text-white/10 hover:text-red-400 opacity-0 group-hover:opacity-100 text-[9px] leading-none transition-opacity">×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Scanning progress */}
+      {scanningArtist && scanStage && (
+        <div className="bg-[#0e0d0b] border border-[#b08d57]/30 p-5 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#b08d57]/20"><div className="h-full bg-[#b08d57] animate-pulse" style={{ width: '100%' }} /></div>
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full border-2 border-[#b08d57]/40 flex items-center justify-center flex-shrink-0">
+              <div className="w-5 h-5 border-2 border-[#b08d57] border-t-transparent rounded-full animate-spin" />
+            </div>
+            <div>
+              <div className="text-[10px] tracking-[.18em] uppercase text-[#b08d57] mb-0.5">Signal Scan — {scanningArtist}</div>
+              <div className="text-[13px] text-[#f0ebe2] font-light">{scanStage}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add artist / paste captions */}
+      {pastingFor ? (
+        <div className="bg-[#0e0d0b] border border-white/7 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[10px] tracking-[.1em] text-[#b08d57] uppercase">Paste captions — {pastingFor}</div>
+            <button onClick={() => { setPastingFor(null); setPastedCaptions('') }} className="text-[#8a8780] hover:text-[#f0ebe2] text-sm leading-none">×</button>
+          </div>
+          <textarea autoFocus value={pastedCaptions} onChange={e => setPastedCaptions(e.target.value)} placeholder={"caption one\ncaption two\ncaption three"} rows={4}
+            className="w-full bg-[#1a1917] border border-white/10 text-[#f0ebe2] font-mono text-[11px] px-3 py-2 outline-none placeholder-[#2e2c29] resize-none focus:border-[#b08d57]/50 mb-2" />
+          <button onClick={() => submitManualCaptions(pastingFor)} disabled={!!scanningArtist}
+            className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-4 py-2 hover:bg-[#c9a46e] disabled:opacity-50">
+            {scanningArtist ? 'Analysing...' : 'Analyse'}
+          </button>
+        </div>
+      ) : !scanningArtist && (
+        <div className="flex items-center">
+          {!addingArtist ? (
+            <button onClick={() => setAddingArtist(true)} className="flex items-center gap-1.5 text-[10px] tracking-[.14em] uppercase text-[#3a3830] hover:text-[#b08d57] transition-colors">
+              <span className="text-sm leading-none">+</span> Run Signal Scan
+            </button>
+          ) : (
+            <div className="flex gap-2 flex-1" onClick={e => e.stopPropagation()}>
+              <input ref={addInputRef} value={newArtistName} onChange={e => setNewArtistName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newArtistName.trim()) { scanArtist(newArtistName.trim()); setNewArtistName(''); setAddingArtist(false) }
+                  if (e.key === 'Escape') { setAddingArtist(false); setNewArtistName('') }
+                }}
+                placeholder="Artist name or @handle — Enter to scan"
+                className="flex-1 bg-[#1a1917] border border-[#b08d57] text-[#f0ebe2] font-mono text-[11px] px-3 py-1.5 outline-none placeholder-[#2e2c29]" />
+              <button onClick={() => { setAddingArtist(false); setNewArtistName('') }} className="text-[9px] text-[#52504c] hover:text-[#f0ebe2]">Esc</button>
+            </div>
           )}
         </div>
-        )
-      })()}
+      )}
 
-      {/* CAPTION GENERATOR — collapsible, intelligence is the hero */}
-      <div className="bg-[#0e0d0b] border border-white/7 caption-panel">
-        <button onClick={() => toggleSection('captions')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
-          Caption generator<div className="flex-1 h-px bg-white/10" />
-          {captions && !expandedSections.captions && <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">3 variants ready</span>}
-          <span className="text-[#52504c] text-xs ml-1">{expandedSections.captions ? '▾' : '▸'}</span>
+      {/* ── CAPTION GENERATOR — scrolling intelligence preview ── */}
+      <div className="bg-[#0e0d0b] border border-white/7 overflow-hidden caption-panel">
+        <button onClick={() => toggleSection('captions')} className="w-full flex items-center gap-3 px-5 py-4 hover:bg-white/[0.02] transition-colors text-left">
+          <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] flex-shrink-0">Artist Voice</div>
+          {!expandedSections.captions ? (
+            <div className="flex-1 overflow-hidden relative h-4 mx-2">
+              <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#0e0d0b] to-transparent z-10" />
+              <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0e0d0b] to-transparent z-10" />
+              <div className="marquee-track">
+                {[...captionPreview, ...captionPreview].map((item, i) => (
+                  <span key={i} className="text-[10px] tracking-[.04em] text-[#52504c] mx-6 italic">{item}</span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 h-px bg-white/10" />
+          )}
+          <span className="text-[#3a3830] text-xs flex-shrink-0">{expandedSections.captions ? '▾' : '▸'}</span>
         </button>
         {expandedSections.captions && <div className="px-5 pb-5">
         {/* Row 1: context input + generate button */}
@@ -1380,75 +1453,24 @@ Generate a complete ad plan tailored to this specific content and format. Return
       </div>}
       </div>
 
-      {/* (intelligence section is at top of page now) */}
-
-      {/* TONE PROFILE */}
-      <div className="bg-[#0e0d0b] border border-white/7">
-        <button onClick={() => toggleSection('tone')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
-          Live tone profile — NIGHT manoeuvres<div className="flex-1 h-px bg-white/10" />
-          {!expandedSections.tone && artists.length >= 2 && (
-            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{calcVoiceAlignment(artists).score}% confidence · {calcToneRegister(artists).value}</span>
-          )}
-          <span className="text-[#52504c] text-xs ml-1">{expandedSections.tone ? '▾' : '▸'}</span>
-        </button>
-        {expandedSections.tone && <div className="px-5 pb-5">
-        <div className="grid grid-cols-3 gap-6 mb-7">
-          {(() => {
-            const va = calcVoiceAlignment(artists)
-            const tr = calcToneRegister(artists)
-            const totalPosts = artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)
-            const realArtists = artists.filter(a => a.data_source === 'apify' || a.data_source === 'manual' || a.data_source === 'hikerapi')
-            const lower = Math.round(artists.reduce((a, b) => a + b.lowercase_pct, 0) / (artists.length || 1))
-            const short = Math.round(artists.reduce((a, b) => a + b.short_caption_pct, 0) / (artists.length || 1))
-            const noHash = Math.round(artists.reduce((a, b) => a + b.no_hashtags_pct, 0) / (artists.length || 1))
-            const styleDesc = [lower > 55 ? 'Lowercase' : null, short > 45 ? 'Punchy' : 'Long-form', noHash > 55 ? 'No hashtags' : null].filter(Boolean).join(', ') || 'Mixed'
-            const lastScanned = artists.filter(a => a.last_scanned).sort((a, b) => new Date(b.last_scanned!).getTime() - new Date(a.last_scanned!).getTime())[0]?.last_scanned
-            const lastUpdated = lastScanned ? `${daysSince(lastScanned)}d ago` : '—'
-            return [
-              {l:'Voice confidence',v:`${va.score}%`,p:va.score,s:va.desc},
-              {l:'Tone',v:tr.value,p:tr.score,s:tr.desc,t:true},
-              {l:'Style',v:styleDesc,p:Math.round((lower + noHash) / 2),s:`${lower}% lowercase · ${short}% short · ${noHash}% no hashtags`},
-              {l:'Artists profiled',v:`${artists.length}`,p:Math.min(artists.length*20,100),s:realArtists.length > 0 ? `${realArtists.length} from real captions` : 'Add artists to build your lane'},
-              {l:'Posts analysed',v:totalPosts > 0 ? `${totalPosts}` : '—',p:Math.min(totalPosts, 100),s:totalPosts > 0 ? 'Real captions powering your voice model' : 'Scan artists to analyse posts',t:true},
-              {l:'Last updated',v:lastUpdated,p:lastScanned ? Math.max(5, 100 - daysSince(lastScanned) * 5) : 0,s:lastScanned ? 'Keep scanning to stay current' : 'No scans yet'},
-            ]
-          })().map(m => (
-            <div key={m.l}>
-              <div className="flex justify-between items-baseline mb-1">
-                <span className="text-[11px] tracking-[.1em] text-[#8a8780]">{m.l}</span>
-                <span className="text-xl font-light text-[#b08d57]">{m.v}</span>
+      {/* ── TREND ENGINE — scrolling intelligence preview ── */}
+      <div className="bg-[#0e0d0b] border border-white/7 overflow-hidden">
+        <button onClick={() => toggleSection('trends')} className="w-full flex items-center gap-3 px-5 py-4 hover:bg-white/[0.02] transition-colors text-left">
+          <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57] flex-shrink-0">Trend Engine</div>
+          {!expandedSections.trends ? (
+            <div className="flex-1 overflow-hidden relative h-4 mx-2">
+              <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#0e0d0b] to-transparent z-10" />
+              <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0e0d0b] to-transparent z-10" />
+              <div className="marquee-track">
+                {[...trendPreview, ...trendPreview].map((item, i) => (
+                  <span key={i} className="text-[10px] tracking-[.04em] text-[#52504c] mx-6">{item}</span>
+                ))}
               </div>
-              <Bar value={m.p} teal={m.t} />
-              <div className="text-[11px] tracking-[.08em] text-[#2e2c29] mt-1">{m.s}</div>
             </div>
-          ))}
-        </div>
-        <div className="border-t border-white/7 pt-5 flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-[10px] tracking-[.15em] uppercase text-[#2e2c29]">Lane insights</div>
-            <button onClick={refreshLaneInsights} disabled={refreshingInsights}
-              className="text-[10px] tracking-[.12em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors disabled:opacity-40 flex items-center gap-1">
-              {refreshingInsights && <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
-              {refreshingInsights ? 'Refreshing...' : 'Refresh →'}
-            </button>
-          </div>
-          {laneInsights.map((ins, i) => (
-            <div key={i} className="flex gap-3 py-3 border-b border-white/7 last:border-0 text-[12px] tracking-[.07em] text-[#8a8780] leading-relaxed hover:text-white/60 hover:pl-1 transition-all cursor-default">
-              <span className="text-[#b08d57] opacity-70 flex-shrink-0">→</span>{ins}
-            </div>
-          ))}
-        </div>
-        </div>}
-      </div>
-
-      {/* TREND ENGINE */}
-      <div className="bg-[#0e0d0b] border border-white/7">
-        <button onClick={() => toggleSection('trends')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
-          Trend engine — filtered for your lane<div className="flex-1 h-px bg-white/10" />
-          {!expandedSections.trends && trends.length > 0 && (
-            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{trends.length} trend{trends.length !== 1 ? 's' : ''} · {trends.filter(t => t.hot).length} hot</span>
+          ) : (
+            <div className="flex-1 h-px bg-white/10" />
           )}
-          <span className="text-[#52504c] text-xs ml-1">{expandedSections.trends ? '▾' : '▸'}</span>
+          <span className="text-[#3a3830] text-xs flex-shrink-0">{expandedSections.trends ? '▾' : '▸'}</span>
         </button>
         {expandedSections.trends && <div className="px-5 pb-5">
         {trendsSource ? (
