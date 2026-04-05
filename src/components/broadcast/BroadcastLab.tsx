@@ -461,7 +461,12 @@ export function BroadcastLab() {
         showToast(data.error || 'Sync failed', 'Error')
       } else {
         setIgSyncResult({ synced: data.synced })
-        showToast(`${data.synced} posts synced from Instagram`, 'Signal Lab')
+        showToast(`${data.synced} posts synced — running deep dive...`, 'Signal Lab')
+        // Auto-trigger deep dive on own account
+        fetch('/api/instagram/deep-dive', { method: 'POST' })
+          .then(r => r.json())
+          .then(d => { if (d.success) showToast('Your voice profile is live', 'Deep dive') })
+          .catch(() => {})
       }
     } catch (err: any) {
       setIgSyncResult({ error: err.message })

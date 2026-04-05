@@ -61,6 +61,10 @@ export default function SocialConnect() {
       if (e.data.status === 'connected') {
         loadAccounts()
         setConnecting(null)
+        // Auto-trigger deep dive when Instagram connects
+        if (e.data.platform === 'instagram') {
+          fetch('/api/instagram/deep-dive', { method: 'POST' }).catch(() => {})
+        }
       } else if (e.data.status === 'error') {
         console.error('OAuth error:', e.data.reason)
         setConnecting(null)
