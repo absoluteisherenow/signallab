@@ -97,8 +97,28 @@ export function BroadcastCalendar() {
   async function loadPerf() {
     try {
       const res = await fetch('/api/trends')
+      if (!res.ok) return
+      const ct = res.headers.get('content-type') || ''
+      if (!ct.includes('application/json')) return
       const data = await res.json()
-      setPerfData(data)
+      // Trends API returns { trends, postsAnalysed, artistsIncluded, ... }
+      // Map into perfData shape for the calendar
+      const trends = data.trends || []
+      const topPosts = trends.slice(0, 3).map((t: any, i: number) => ({
+        artist_name: (data.artistsIncluded || [])[0] || '',
+        caption: t.context || t.name || '',
+        likes: t.posts_supporting || 0,
+        comments: 0,
+        engagement_score: t.fit || 0,
+        media_type: t.platform || 'instagram',
+        taken_at: '',
+      }))
+      setPerfData({
+        topPosts,
+        byPlatform: { instagram: { avg_engagement: 0, post_count: data.postsAnalysed || 0 }, tiktok: { avg_engagement: 0, post_count: 0 } },
+        totalScanned: data.postsAnalysed || 0,
+        lastScanned: null,
+      })
     } catch {}
   }
 
