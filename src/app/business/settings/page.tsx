@@ -70,6 +70,150 @@ interface Alias {
   voice_profile: Record<string, unknown>
 }
 
+const MEDIA_CATEGORIES = [
+  { key: 'all', label: 'All' },
+  { key: 'promo', label: 'Promo shots' },
+  { key: 'crowd', label: 'Crowd clips' },
+  { key: 'studio', label: 'Studio' },
+  { key: 'artwork', label: 'Artwork' },
+  { key: 'bts', label: 'Behind the scenes' },
+  { key: 'travel', label: 'Travel' },
+  { key: 'other', label: 'Other' },
+] as const
+
+interface MediaItem { url: string; pathname: string; size: number; uploadedAt: string; category: string }
+
+function MediaLibraryTab() {
+  const [items, setItems] = useState<MediaItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [category, setCategory] = useState('all')
+  const [uploading, setUploading] = useState(false)
+  const [uploadCat, setUploadCat] = useState('other')
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { loadMedia() }, [category])
+
+  async function loadMedia() {
+    setLoading(true)
+    try {
+      const params = category !== 'all' ? `?category=${category}` : ''
+      const res = await fetch(`/api/media${params}`)
+      const data = await res.json()
+      setItems((data.blobs || []).sort((a: MediaItem, b: MediaItem) =>
+        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+      ))
+    } catch { /* silent */ }
+    setLoading(false)
+  }
+
+  async function upload(files: FileList) {
+    setUploading(true)
+    for (const file of Array.from(files)) {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('category', uploadCat)
+      await fetch('/api/media', { method: 'POST', body: form })
+    }
+    setUploading(false)
+    loadMedia()
+  }
+
+  async function deleteItem(url: string) {
+    setDeleting(url)
+    await fetch('/api/media', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) })
+    setItems(prev => prev.filter(i => i.url !== url))
+    setDeleting(null)
+  }
+
+  const isVideo = (path: string) => /\.(mp4|mov|webm)$/i.test(path)
+  const formatSize = (bytes: number) => bytes > 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)}MB` : `${Math.round(bytes / 1024)}KB`
+  const catLabel = (key: string) => MEDIA_CATEGORIES.find(c => c.key === key)?.label || key
+
+  return (
+    <div style={{ maxWidth: '800px' }}>
+      <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>Media library</div>
+
+      {/* Category filter */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {MEDIA_CATEGORIES.map(c => (
+          <button key={c.key} onClick={() => setCategory(c.key)}
+            style={{
+              fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase',
+              padding: '6px 12px', border: `1px solid ${category === c.key ? 'var(--gold)' : 'rgba(255,255,255,0.1)'}`,
+              color: category === c.key ? 'var(--gold)' : 'var(--text-dimmer)',
+              background: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)',
+            }}>
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Upload bar */}
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '24px', padding: '12px', border: '1px solid rgba(255,255,255,0.07)', background: 'var(--panel)' }}>
+        <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }}
+          onChange={e => { if (e.target.files?.length) upload(e.target.files) }} />
+        <select value={uploadCat} onChange={e => setUploadCat(e.target.value)}
+          style={{
+            background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-dim)',
+            fontSize: '9px', letterSpacing: '0.1em', padding: '6px 8px', fontFamily: 'var(--font-mono)',
+          }}>
+          {MEDIA_CATEGORIES.filter(c => c.key !== 'all').map(c => (
+            <option key={c.key} value={c.key}>{c.label}</option>
+          ))}
+        </select>
+        <button onClick={() => fileRef.current?.click()} disabled={uploading}
+          style={{
+            fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase',
+            padding: '6px 14px', border: '1px solid rgba(255,255,255,0.1)',
+            color: 'var(--text-dim)', background: 'none', cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', opacity: uploading ? 0.4 : 1,
+          }}>
+          {uploading ? 'Uploading...' : 'Upload files'}
+        </button>
+        <span style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginLeft: 'auto' }}>{items.length} file{items.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {/* Grid */}
+      {loading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} style={{ aspectRatio: '1', background: 'rgba(255,255,255,0.03)' }} />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <div style={{ border: '1px dashed rgba(255,255,255,0.1)', padding: '48px', textAlign: 'center' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '8px' }}>
+            No media{category !== 'all' ? ` in ${catLabel(category)}` : ' yet'}
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>Upload photos, videos, and artwork above</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+          {items.map(item => (
+            <div key={item.url} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)', background: 'var(--panel)' }}
+              className="group">
+              {isVideo(item.pathname) ? (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: '24px' }}>▶</div>
+              ) : (
+                <img src={item.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              )}
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.7)', padding: '4px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <span style={{ fontSize: '8px', color: 'var(--text-dimmer)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{catLabel(item.category)} · {formatSize(item.size)}</span>
+                <button onClick={() => deleteItem(item.url)} disabled={deleting === item.url}
+                  style={{ fontSize: '10px', color: '#c97a7a', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontFamily: 'var(--font-mono)', opacity: deleting === item.url ? 0.4 : 1 }}>
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Settings() {
   const [profile, setProfile] = useState({ name: '', genre: '', country: '', bio: '' })
   const [team, setTeam] = useState([
@@ -102,7 +246,7 @@ export default function Settings() {
   const [promoForm, setPromoForm] = useState({ name: '', email: '', whatsapp: '', instagram: '', tag: '' })
   const [tier, setTier] = useState<'free' | 'pro'>('free')
   const [saved, setSaved] = useState(false)
-  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance' | 'payment' | 'aliases' | 'documents' | 'promo'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'advance' | 'payment' | 'aliases' | 'documents' | 'promo' | 'media'>('profile')
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
@@ -319,8 +463,8 @@ export default function Settings() {
       <PageHeader
         section="Settings"
         title="Settings"
-        tabs={([...(['profile', 'team', 'integrations', 'advance', 'payment', 'documents', 'promo'] as const), ...(tier === 'pro' ? ['aliases' as const] : [])]).map(tab => ({
-          label: tab === 'advance' ? 'Advance form' : tab === 'payment' ? 'Payment details' : tab === 'aliases' ? 'Aliases' : tab === 'documents' ? 'Vault' : tab === 'promo' ? 'Promo list' : tab,
+        tabs={([...(['profile', 'team', 'integrations', 'advance', 'payment', 'documents', 'media', 'promo'] as const), ...(tier === 'pro' ? ['aliases' as const] : [])]).map(tab => ({
+          label: tab === 'advance' ? 'Advance form' : tab === 'payment' ? 'Payment details' : tab === 'aliases' ? 'Aliases' : tab === 'documents' ? 'Vault' : tab === 'promo' ? 'Promo list' : tab === 'media' ? 'Media library' : tab,
           active: activeTab === tab,
           onClick: () => setActiveTab(tab),
         }))}
@@ -1152,6 +1296,11 @@ export default function Settings() {
             })
           )}
         </div>
+      )}
+
+      {/* MEDIA LIBRARY TAB */}
+      {activeTab === 'media' && (
+        <MediaLibraryTab />
       )}
 
       {/* PROMO LIST TAB */}
