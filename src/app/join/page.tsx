@@ -14,11 +14,11 @@ const C = {
 }
 
 const MODULES = [
-  { num: '01', name: 'TOUR LAB', desc: 'Every show from offer to settlement. Gig planning, logistics, invoicing — the full cycle, closed.' },
-  { num: '02', name: 'BROADCAST LAB', desc: 'Your personal content strategist. Captions in your voice, scheduling across platforms, campaign calendars, trend intelligence — all from one place.' },
-  { num: '03', name: 'SONIX LAB', desc: 'Technical analysis for mixes and productions. Frequency, structure, level data — so you can hear what the numbers say.' },
-  { num: '04', name: 'SET LAB', desc: 'Desktop and web. Tracks what you play, how you play it, and what works. Rekordbox integration, crate digging, set history — your full DJ library, organised.' },
-  { num: '05', name: 'DROP LAB', desc: 'Release planning and campaign management. Phase-by-phase from seeding to long tail — promo blasts, listening pages, tracked opens, nothing missed.' },
+  { num: '01', name: 'TOUR LAB', desc: 'From the first offer to the final settlement — every gig, planned, tracked, and paid. Less spreadsheets, more soundchecks.' },
+  { num: '02', name: 'BROADCAST LAB', desc: 'A content strategist that knows your voice. Writes captions that sound like you, schedules across platforms, spots trends worth using — and ignores the ones that aren\'t.' },
+  { num: '03', name: 'SONIX LAB', desc: 'Hear what the numbers say. Frequency analysis, mix diagnostics, stem-level feedback — technical insight that sharpens your ear and your output.' },
+  { num: '04', name: 'SET LAB', desc: 'Desktop app and web. Your full DJ library with Rekordbox import, set history, and underground discovery built in. The more you use it, the deeper it digs.' },
+  { num: '05', name: 'DROP LAB', desc: 'Release campaigns that build momentum — from first tease to long tail. Promo blasts, branded listening pages, tracked opens. Know exactly who played your record.' },
 ]
 
 const ROLES = ['Artist', 'Manager / Agent', 'Label', 'Promoter / Booker']
