@@ -37,13 +37,39 @@ export async function POST() {
       return NextResponse.json({ success: false, error: 'Missing Instagram credentials' }, { status: 400 })
     }
 
-    // Check token expiry
-    if (token_expiry && Date.now() > Number(token_expiry)) {
-      return NextResponse.json({ success: false, error: 'Instagram token expired — please reconnect your Instagram account in Settings' }, { status: 401 })
+    // Auto-refresh token if expired or expiring within 7 days
+    const expiryMs = Number(token_expiry)
+    const sevenDays = 7 * 24 * 60 * 60 * 1000
+    let currentToken = access_token
+
+    if (token_expiry && (Date.now() > expiryMs || Date.now() > expiryMs - sevenDays)) {
+      try {
+        const refreshRes = await fetch(
+          `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${currentToken}`
+        )
+        const refreshData = await refreshRes.json()
+        if (refreshData.access_token) {
+          currentToken = refreshData.access_token
+          const newExpiry = Date.now() + ((refreshData.expires_in || 5184000) * 1000)
+          await supabase.from('connected_social_accounts').update({
+            access_token: refreshData.access_token,
+            token_expiry: newExpiry,
+            updated_at: new Date().toISOString(),
+          }).eq('platform', 'instagram').eq('handle', handle)
+          console.log(`[IG] Token refreshed for ${handle}, new expiry: ${new Date(newExpiry).toISOString()}`)
+        } else if (Date.now() > expiryMs) {
+          // Token truly expired and can't be refreshed
+          return NextResponse.json({ success: false, error: 'Instagram token expired and could not be refreshed — please reconnect in Settings' }, { status: 401 })
+        }
+      } catch {
+        if (Date.now() > expiryMs) {
+          return NextResponse.json({ success: false, error: 'Instagram token expired — please reconnect your Instagram account in Settings' }, { status: 401 })
+        }
+      }
     }
 
     // Fetch recent media
-    const mediaUrl = `https://graph.instagram.com/v25.0/${platform_user_id}/media?fields=id,caption,media_type,timestamp,permalink,like_count,comments_count&limit=50&access_token=${access_token}`
+    const mediaUrl = `https://graph.instagram.com/v25.0/${platform_user_id}/media?fields=id,caption,media_type,timestamp,permalink,like_count,comments_count&limit=50&access_token=${currentToken}`
     const mediaRes = await fetchIG(mediaUrl)
     if (!mediaRes.ok) {
       const err = await mediaRes.json().catch(() => ({}))
@@ -72,7 +98,7 @@ export async function POST() {
         batch.map(async (post) => {
           const metrics = insightMetrics[post.media_type] || ['impressions', 'reach', 'saved']
           try {
-            const insightUrl = `https://graph.instagram.com/v25.0/${post.id}/insights?metric=${metrics.join(',')}&access_token=${access_token}`
+            const insightUrl = `https://graph.instagram.com/v25.0/${post.id}/insights?metric=${metrics.join(',')}&access_token=${currentToken}`
             let insightRes = await fetchIG(insightUrl, 5000)
             // Retry once on transient failure
             if (!insightRes.ok && (insightRes.status === 429 || insightRes.status >= 500)) {

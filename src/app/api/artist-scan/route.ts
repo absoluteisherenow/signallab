@@ -349,7 +349,26 @@ Return this exact JSON:
   })
 
   const data = await res.json()
+  if (data.error) {
+    console.error(`[deepAnalyse] API error for ${name}:`, data.error)
+    // Retry without images if image URLs caused the error
+    if (imageUrls.length > 0) {
+      console.log(`[deepAnalyse] Retrying ${name} without images...`)
+      const textOnlyContent = content.filter((c: any) => c.type !== 'image')
+      const retryRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-opus-4-6', max_tokens: 2000, system: 'You are an elite music industry content analyst. Respond ONLY with valid JSON, no markdown.', messages: [{ role: 'user', content: textOnlyContent }] }),
+      })
+      const retryData = await retryRes.json()
+      if (retryData.error) { console.error(`[deepAnalyse] Retry also failed:`, retryData.error); return {} }
+      const retryText = retryData.content?.[0]?.text || '{}'
+      return JSON.parse(retryText.replace(/```json|```/g, '').trim())
+    }
+    return {}
+  }
   const text = data.content?.[0]?.text || '{}'
+  console.log(`[deepAnalyse] ${name}: got ${text.length} chars response`)
   return JSON.parse(text.replace(/```json|```/g, '').trim())
 }
 
@@ -424,7 +443,9 @@ export async function POST(req: NextRequest) {
     savePostPerformance(name, result.posts)
 
     // Deep analysis — Opus with images + captions + engagement + profile
+    console.log(`[artist-scan] ${name}: ${result.posts.length} posts, userProfile: ${!!result.userProfile}, dataSource: ${dataSource}`)
     const profile = await deepAnalyse(name, result.posts, result.userProfile)
+    console.log(`[artist-scan] ${name}: deepAnalyse returned keys:`, Object.keys(profile))
     const realStats = calcCaptionStats(result.captions)
     const realEngagement = calcEngagementRate(result.posts, result.userProfile?.followerCount)
     const realBestFormat = calcBestFormat(result.posts)
