@@ -14,10 +14,10 @@ const C = {
 }
 
 const MODULES = [
-  { num: '01', name: 'TOUR LAB', desc: 'Offers, advancing, rider management, travel logistics, invoicing, settlement — the full lifecycle of every show, in one place. Less admin, more soundchecks.' },
-  { num: '02', name: 'BROADCAST LAB', desc: 'A content strategist that knows your voice. Writes captions that sound like you, schedules across platforms, spots trends worth using — and ignores the ones that aren\'t.' },
+  { num: '01', name: 'TOUR LAB', desc: 'Offers, advancing, rider management, travel logistics, invoicing, settlement — the full lifecycle of every show, in one place. Less admin, more music.' },
+  { num: '02', name: 'BROADCAST LAB', desc: 'A content strategist that knows your voice. Writes captions that sound like you, schedules across platforms, spots trends worth using — and ignores the ones that aren\'t in your lane.' },
   { num: '03', name: 'SONIX LAB', desc: 'Hear what the numbers say. Frequency analysis, mix diagnostics, stem-level feedback — technical insight that sharpens your ear and your output.' },
-  { num: '04', name: 'SET LAB', desc: 'Desktop app and web. Your full DJ library with Rekordbox import, set history, and underground discovery built in. The more you use it, the deeper it digs.' },
+  { num: '04', name: 'SET LAB', desc: 'Desktop app and web. Import from Rekordbox, analyse your sets, track what works, and discover underground music you haven\'t found yet. A DJ library that learns how you play.' },
   { num: '05', name: 'DROP LAB', desc: 'Release campaigns that build momentum — from first tease to long tail. Promo blasts, branded listening pages, tracked opens. Know exactly who played your record.' },
 ]
 
@@ -214,7 +214,7 @@ export default function JoinPage() {
                 Step inside.
               </h2>
               <p style={{ fontSize: '12px', color: C.dim, lineHeight: '1.8', marginBottom: '36px' }}>
-                We onboard every artist personally. Tell us who you are and what you're building.
+                We onboard every artist personally. Drop your email and we'll be in touch.
               </p>
 
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
