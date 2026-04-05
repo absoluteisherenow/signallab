@@ -227,18 +227,21 @@ async function savePostPerformance(artistName: string, posts: PostData[]) {
   } catch { /* non-critical */ }
 }
 
-// ── Deep analysis with Opus — captions + images + engagement ─────────────────
+// ── Deep analysis — Sonnet on top 20, images + engagement ───────────────────
+const SCAN_POST_LIMIT = 20
+const SCAN_IMAGE_LIMIT = 8
+
 async function deepAnalyse(name: string, posts: PostData[], userProfile?: UserProfile): Promise<any> {
   const apiKey = process.env.ANTHROPIC_API_KEY!
 
-  // Sort by engagement to find top performers
+  // Sort by engagement to find top performers, cap at SCAN_POST_LIMIT
   const sorted = [...posts].sort((a, b) => (b.likes + b.comments * 3) - (a.likes + a.comments * 3))
-  const topPosts = sorted.slice(0, 10)
+  const topPosts = sorted.slice(0, SCAN_POST_LIMIT)
 
-  // Get image URLs for top-performing posts (up to 8 images to stay within limits)
+  // Get image URLs for top-performing posts
   const imageUrls = topPosts
     .filter(p => p.imageUrl)
-    .slice(0, 8)
+    .slice(0, SCAN_IMAGE_LIMIT)
     .map(p => p.imageUrl!)
 
   // Build the content array — text analysis + images
@@ -292,7 +295,7 @@ ${allTags.length > 0 ? `Frequently tagged: ${allTags.slice(0, 10).join(', ')}` :
 
   content.push({
     type: 'text',
-    text: `You are doing a DEEP analysis of electronic music artist "${name}" for a voice + visual profiling system. You have their ${posts.length} most recent Instagram posts with full engagement data, and their top-performing images above.
+    text: `You are doing a DEEP analysis of electronic music artist "${name}" for a voice + visual profiling system. You have their top ${topPosts.length} Instagram posts (by engagement) with full data, and their top-performing images above.
 
 POSTS (ordered by recency):
 ${postSummary}
@@ -341,7 +344,7 @@ Return this exact JSON:
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
       system: 'You are an elite music industry content analyst. You deeply understand electronic music culture, underground aesthetics, and what makes artist brands resonate. Respond ONLY with valid JSON, no markdown.',
       messages: [{ role: 'user', content }],
@@ -382,7 +385,7 @@ async function analyseTextOnly(name: string, captions: string[]): Promise<any> {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 1200,
       system: 'You are an elite music industry content analyst. Respond ONLY with valid JSON, no markdown.',
       messages: [{
