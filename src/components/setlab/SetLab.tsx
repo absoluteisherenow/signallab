@@ -2319,8 +2319,15 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
       // Step 3: Search external sources in parallel
       const searchTerms = criteria.search_terms || query
+      const safeFetch = async (url: string, opts: RequestInit) => {
+        const r = await fetch(url, opts)
+        if (!r.ok) throw new Error(`${url} returned ${r.status}`)
+        const ct = r.headers.get('content-type') || ''
+        if (!ct.includes('application/json')) throw new Error(`${url} returned non-JSON`)
+        return r.json()
+      }
       const [beatportRes, bandcampRes] = await Promise.allSettled([
-        fetch('/api/beatport', {
+        safeFetch('/api/beatport', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2328,12 +2335,12 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
             maxPopularity: maxPopularity,
             limit: 15,
           }),
-        }).then(r => r.json()),
-        fetch('/api/bandcamp', {
+        }),
+        safeFetch('/api/bandcamp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: searchTerms, genre: criteria.genres?.[0], limit: 15 }),
-        }).then(r => r.json()),
+        }),
       ])
 
       const beatportTracks = beatportRes.status === 'fulfilled' ? (beatportRes.value.tracks || []) : []
@@ -3680,6 +3687,84 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
             </>}
 
+            {/* ── PLAYLISTS SECTION ── */}
+            {librarySection === 'playlists' && <>
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '8px' }}>
+              Playlists
+            </div>
+            {(() => {
+              const allPlaylists: Record<string, Track[]> = {}
+              // User-created playlists (track IDs → resolve from library)
+              Object.entries(userPlaylists).forEach(([name, ids]) => {
+                allPlaylists[name] = library.filter(t => ids.includes(t.id))
+              })
+              // Screenshot-sourced playlists
+              Object.entries(playlistGroups).forEach(([name, tracks]) => {
+                if (!allPlaylists[name]) allPlaylists[name] = tracks
+                else allPlaylists[name] = [...allPlaylists[name], ...tracks]
+              })
+              const names = Object.keys(allPlaylists)
+              if (names.length === 0) return (
+                <div style={{ textAlign: 'center', padding: '32px 24px' }}>
+                  <div style={{ fontSize: '12px', color: s.textDimmer }}>No playlists yet — use the + button on any track to create one</div>
+                </div>
+              )
+              return names.map(name => (
+                <div key={name} style={{ background: s.panel, border: `1px solid ${s.border}`, marginBottom: '12px' }}>
+                  <div style={{ padding: '12px 20px', borderBottom: `1px solid ${s.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '12px', color: s.text, letterSpacing: '0.08em' }}>{name}</div>
+                    <div style={{ fontSize: '10px', color: s.textDimmer }}>{allPlaylists[name].length} tracks</div>
+                  </div>
+                  {allPlaylists[name].map(track => (
+                    <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      {track.album_art ? (
+                        <img src={track.album_art} alt="" style={{ width: '28px', height: '28px', objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: '28px', height: '28px', background: s.border, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <span style={{ fontSize: '12px', color: s.textDimmer }}>♪</span>
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em' }}>{track.title}</div>
+                        <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
+                      </div>
+                      <div style={{ fontSize: '11px', color: s.textDim, flexShrink: 0 }}>{track.bpm ? Math.round(track.bpm) : ''}</div>
+                      <div style={{ fontSize: '11px', color: s.gold, flexShrink: 0 }}>{track.camelot || track.key || ''}</div>
+                      <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '10px', padding: '5px 10px', flexShrink: 0 }}>→ Set</button>
+                    </div>
+                  ))}
+                </div>
+              ))
+            })()}
+            </>}
+
+            {/* ── WANTLIST SECTION ── */}
+            {librarySection === 'wantlist' && <>
+            <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '8px' }}>
+              Wantlist ({wantlist.length})
+            </div>
+            {wantlist.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 24px' }}>
+                <div style={{ fontSize: '12px', color: s.textDimmer }}>No tracks on your wantlist yet</div>
+              </div>
+            ) : (
+              <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
+                {wantlist.map((track: any) => (
+                  <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px', borderBottom: `1px solid ${s.border}`, transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', color: s.text, letterSpacing: '0.04em' }}>{track.title}</div>
+                      <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{track.artist}</div>
+                    </div>
+                    <button onClick={() => addToSet(track)} style={{ ...btn(s.gold), fontSize: '10px', padding: '5px 10px', flexShrink: 0 }}>→ Set</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            </>}
 
           </div>
         )}
