@@ -164,6 +164,71 @@ export default function Dashboard() {
   const [chasingGigId, setChasingGigId] = useState<string | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
 
+  // Track ID state
+  const [trackIdPhase, setTrackIdPhase] = useState<'idle' | 'listening' | 'identifying' | 'found' | 'not_found'>('idle')
+  const [trackIdResult, setTrackIdResult] = useState<{ artist: string; title: string; label?: string } | null>(null)
+  const [trackIdCountdown, setTrackIdCountdown] = useState(10)
+  const trackIdRecorder = useRef<MediaRecorder | null>(null)
+  const trackIdTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  async function startTrackId() {
+    setTrackIdResult(null)
+    setTrackIdCountdown(10)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const chunks: Blob[] = []
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(m => MediaRecorder.isTypeSupported(m)) || ''
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      trackIdRecorder.current = recorder
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        if (trackIdTimer.current) clearInterval(trackIdTimer.current)
+        setTrackIdPhase('identifying')
+        try {
+          const blob = new Blob(chunks, { type: mimeType || 'audio/webm' })
+          const form = new FormData()
+          form.append('audio', blob, 'snippet.webm')
+          const res = await fetch('/api/fingerprint', { method: 'POST', body: form })
+          const data = await res.json()
+          if (data.found) {
+            const track = { artist: data.artist || '', title: data.title || '', label: data.label }
+            setTrackIdResult(track)
+            // Auto-save
+            await fetch('/api/tracks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracks: [{ artist: track.artist, title: track.title, label: track.label || '', source: 'shazam' }] }) })
+            setTrackIdPhase('found')
+            setTimeout(() => setTrackIdPhase('idle'), 4000)
+          } else {
+            setTrackIdPhase('not_found')
+            setTimeout(() => setTrackIdPhase('idle'), 3000)
+          }
+        } catch {
+          setTrackIdPhase('not_found')
+          setTimeout(() => setTrackIdPhase('idle'), 3000)
+        }
+      }
+      setTrackIdPhase('listening')
+      recorder.start(500)
+      let secs = 10
+      trackIdTimer.current = setInterval(() => {
+        secs -= 1
+        setTrackIdCountdown(secs)
+        if (secs <= 0) {
+          if (trackIdTimer.current) clearInterval(trackIdTimer.current)
+          if (trackIdRecorder.current?.state !== 'inactive') trackIdRecorder.current?.stop()
+        }
+      }, 1000)
+    } catch {
+      setTrackIdPhase('idle')
+    }
+  }
+
+  function cancelTrackId() {
+    if (trackIdTimer.current) clearInterval(trackIdTimer.current)
+    if (trackIdRecorder.current?.state !== 'inactive') trackIdRecorder.current?.stop()
+    setTrackIdPhase('idle')
+  }
+
   // Tonight Mode state
   const [tonightGig, setTonightGig] = useState<Gig | null>(null)
   const [tonightTravel, setTonightTravel] = useState<TravelBooking[]>([])
@@ -860,6 +925,22 @@ export default function Dashboard() {
           {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={trackIdPhase === 'listening' ? cancelTrackId : startTrackId}
+            disabled={trackIdPhase === 'identifying'}
+            className="btn-secondary btn-sm"
+            style={{
+              border: trackIdPhase === 'listening' ? '1px solid var(--gold)' : undefined,
+              color: trackIdPhase === 'listening' ? 'var(--gold)' : undefined,
+              position: 'relative',
+            }}
+          >
+            {trackIdPhase === 'idle' && '♫ Track ID'}
+            {trackIdPhase === 'listening' && `Listening... ${trackIdCountdown}s`}
+            {trackIdPhase === 'identifying' && 'Identifying...'}
+            {trackIdPhase === 'found' && `✓ ${trackIdResult?.artist} — ${trackIdResult?.title}`}
+            {trackIdPhase === 'not_found' && 'Not found — try again'}
+          </button>
           <Link href="/gigs/new" className="btn-primary btn-sm" style={{ textDecoration: 'none' }}>+ New gig</Link>
           <Link href="/broadcast" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ New post</Link>
           <Link href="/releases/new" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ New release</Link>
