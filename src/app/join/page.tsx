@@ -122,7 +122,7 @@ export default function JoinPage() {
           fontWeight: 300, letterSpacing: '0.04em',
           color: C.text, marginBottom: '20px',
         }}>
-          Five modules. One system. Career infrastructure.
+          Five modules. One system. The more you use it, the sharper it gets.
         </h2>
         <p style={{ fontSize: '13px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8' }}>
           Everything is connected. A confirmed gig feeds your schedule. A release syncs your campaign. A tour updates your logistics. The system handles the infrastructure so you can focus on the work.
