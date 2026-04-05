@@ -21,7 +21,7 @@ const MODULES = [
   { num: '05', name: 'DROP LAB', desc: 'Release campaigns that build momentum — from first tease to long tail. Promo blasts, branded listening pages, tracked opens. Know exactly who played your record.' },
 ]
 
-const ROLES = ['Artist', 'Manager / Agent', 'Label', 'Promoter / Booker']
+const ROLES = ['DJ / Producer', 'Artist', 'Manager / Agent', 'Label', 'Promoter / Booker']
 
 export default function JoinPage() {
   const [name, setName] = useState('')
@@ -166,7 +166,7 @@ export default function JoinPage() {
           Less admin. More bandwidth.
         </h2>
         <p style={{ fontSize: '13px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8', maxWidth: '480px', margin: '0 auto' }}>
-          Every module shares context. Gig planning, logistics, invoicing, scheduling — handled in one place so the creative work stays yours.
+          Every module shares context. A confirmed gig updates your content calendar. A release triggers your campaign. Your sets inform your discovery. Everything connected, nothing duplicated.
         </p>
       </section>
 
@@ -180,10 +180,10 @@ export default function JoinPage() {
           color: C.text, maxWidth: '680px', margin: '0 auto 20px',
           lineHeight: 1.3,
         }}>
-          It takes care of all the friction so you can concentrate on the music.
+          Built by artists, for artists. No corporate tools repurposed for music — this was designed from the ground up for electronic music.
         </h2>
         <p style={{ fontSize: '12px', color: C.dim, letterSpacing: '0.04em', lineHeight: '1.8' }}>
-          The planning, the invoices, the logistics, the scheduling — handled. Everything else is yours.
+          The gig admin, the content planning, the release logistics, the promo — handled. The music stays yours.
         </p>
       </section>
 
