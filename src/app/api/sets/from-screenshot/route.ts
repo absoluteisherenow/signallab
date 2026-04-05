@@ -40,7 +40,15 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 2000,
-        system: `You are a DJ tracklist extraction tool. You read screenshots of DJ software (Rekordbox, Traktor, Serato, CDJ screens, handwritten setlists, or any tracklist format) and extract every track visible.
+        system: `You are a DJ tracklist extraction tool. You read screenshots of any source containing track information and extract every track visible.
+
+Sources you can read:
+- DJ software (Rekordbox, Traktor, Serato, CDJ screens)
+- Handwritten setlists or typed tracklists
+- Instagram posts, stories, reels, or captions showing track names
+- Social media screenshots with track info in overlays, captions, or comments
+- Spotify/Apple Music/Bandcamp playlist screenshots
+- Any image containing artist names and track titles
 
 Return ONLY a valid JSON array. No markdown, no explanation, just the array.
 
@@ -52,12 +60,13 @@ Each object in the array should have:
 - "position": play order position starting from 1 (number)
 
 Rules:
-- Extract every track you can identify
+- Extract every track you can identify from ANY part of the image
+- Check captions, overlays, text overlays, comments, and watermarks for track info
 - If artist and title are in "Artist - Title" format, split them correctly
 - If BPM or key columns are visible, include those values
 - Preserve the exact order shown in the screenshot
 - If you cannot determine artist, use "Unknown"
-- Skip headers, column labels, and non-track rows`,
+- Skip headers, column labels, UI chrome, and non-track content`,
         messages: [{
           role: 'user',
           content: [

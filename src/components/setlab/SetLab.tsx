@@ -3326,7 +3326,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     {screenshotImportDrag ? 'Drop screenshot here' : 'Import from screenshot'}
                   </div>
                   <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                    Drop a photo of your tracklist (Traktor, Rekordbox, CDJ screen) — tracks extracted and added to library
+                    Drop a photo of any tracklist — DJ software, Instagram clips, Spotify playlists, handwritten notes
                   </div>
                 </div>
               )}
@@ -3361,6 +3361,24 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       Show
                     </button>
                   </div>
+                </div>
+              )
+            })()}
+
+            {/* Artwork enrichment — web users can re-fetch missing artwork from Spotify */}
+            {(() => {
+              const noArt = filteredLibrary.filter(t => !t.album_art && t.artist && t.title)
+              if (noArt.length === 0) return null
+              return (
+                <div style={{ padding: '8px 20px', background: 'rgba(176,141,87,0.04)', border: `1px solid rgba(176,141,87,0.15)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '11px', color: s.gold, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px' }}>♪</span>
+                    <span>{noArt.length} track{noArt.length !== 1 ? 's' : ''} missing artwork</span>
+                  </div>
+                  <button onClick={() => batchSpotifyEnrich(library)}
+                    style={{ fontSize: '10px', color: s.gold, background: 'rgba(176,141,87,0.08)', border: '1px solid rgba(176,141,87,0.3)', padding: '4px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}>
+                    Fetch artwork
+                  </button>
                 </div>
               )
             })()}

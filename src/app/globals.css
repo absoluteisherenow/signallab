@@ -626,5 +626,5 @@ body.advance-active {
   .mobile-tab-bar { display: flex !important; }
   .app-shell { flex-direction: column; }
   .app-main { padding-bottom: 56px; }
-  .signal-desktop-fab { display: none !important; }
+  .signal-desktop-fab { display: flex !important; }
 }
