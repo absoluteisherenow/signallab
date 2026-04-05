@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { aiCache } from '@/lib/aiCache'
 import { SignalLabHeader } from './SignalLabHeader'
-import { SocialsMastermind } from './SocialsMastermind'
 import { MediaPicker } from '@/components/ui/MediaPicker'
 import { SKILLS_CAPTION_GEN, SKILL_ADS_MANAGER } from '@/lib/skillPromptsClient'
 
@@ -956,6 +955,17 @@ Generate a complete ad plan tailored to this specific content and format. Return
           </button>
         </div>
 
+        {/* Reference artist chips */}
+        {artists.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-3">
+            <span className="text-[8px] tracking-[.12em] uppercase text-[#2e2c29] mr-0.5">Voice tuned to</span>
+            {artists.map(a => (
+              <span key={a.name} className="text-[8px] tracking-[.12em] uppercase text-[#52504c] border border-white/8 px-2 py-0.5">{a.name}</span>
+            ))}
+            <span className="text-[8px] text-[#2e2c29]">+ your posts</span>
+          </div>
+        )}
+
         {/* Loading indicator */}
         {generatingCaptions && (
           <div className="flex items-center gap-2 text-[10px] tracking-[.1em] uppercase text-[#8a8780] mt-4">
@@ -1090,11 +1100,6 @@ Generate a complete ad plan tailored to this specific content and format. Return
           </div>
         )}
 
-        {captions && (
-          <div className="text-[9px] text-[#3a3830] italic mt-3">
-            Tuned to: {getArtistNames().join(' · ')} · your past posts
-          </div>
-        )}
       </div>
 
       {/* REFERENCE ARTISTS */}
@@ -1220,20 +1225,32 @@ Generate a complete ad plan tailored to this specific content and format. Return
         <button onClick={() => toggleSection('tone')} className="w-full flex items-center gap-2 p-5 text-[10px] tracking-[.22em] uppercase text-[#b08d57] hover:bg-white/[0.02] transition-colors text-left">
           Live tone profile — NIGHT manoeuvres<div className="flex-1 h-px bg-white/10" />
           {!expandedSections.tone && artists.length >= 2 && (
-            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{calcVoiceAlignment(artists).value} · {calcToneRegister(artists).value}</span>
+            <span className="text-[10px] tracking-[.1em] normal-case text-[#52504c]">{calcVoiceAlignment(artists).score}% confidence · {calcToneRegister(artists).value}</span>
           )}
           <span className="text-[#52504c] text-xs ml-1">{expandedSections.tone ? '▾' : '▸'}</span>
         </button>
         {expandedSections.tone && <div className="px-5 pb-5">
         <div className="grid grid-cols-3 gap-6 mb-7">
-          {[
-            {l:'Lowercase',v:`${Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.lowercase_pct,0)/(artists.length||1)),s:'Lane average across reference artists'},
-            {l:'Under 10 words',v:`${Math.round(artists.reduce((a,b)=>a+b.short_caption_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.short_caption_pct,0)/(artists.length||1)),s:'Short captions in your lane'},
-            {l:'No hashtags',v:`${Math.round(artists.reduce((a,b)=>a+b.no_hashtags_pct,0)/(artists.length||1))}%`,p:Math.round(artists.reduce((a,b)=>a+b.no_hashtags_pct,0)/(artists.length||1)),s:'Lane standard — hashtags hurt tone',t:true},
-            {l:'Artists profiled',v:`${artists.length}`,p:Math.min(artists.length*20,100),s:artists.filter(a=>a.data_source==='apify'||a.data_source==='manual'||a.data_source==='hikerapi').length>0?`${artists.filter(a=>a.data_source==='apify'||a.data_source==='manual'||a.data_source==='hikerapi').length} from real captions`:'Add artists to build your lane'},
-            {l:'Voice alignment',v:calcVoiceAlignment(artists).value,p:calcVoiceAlignment(artists).score,s:calcVoiceAlignment(artists).desc,t:true},
-            {l:'Tone register',v:calcToneRegister(artists).value,p:calcToneRegister(artists).score,s:calcToneRegister(artists).desc},
-          ].map(m => (
+          {(() => {
+            const va = calcVoiceAlignment(artists)
+            const tr = calcToneRegister(artists)
+            const totalPosts = artists.reduce((s, a) => s + (a.post_count_analysed || 0), 0)
+            const realArtists = artists.filter(a => a.data_source === 'apify' || a.data_source === 'manual' || a.data_source === 'hikerapi')
+            const lower = Math.round(artists.reduce((a, b) => a + b.lowercase_pct, 0) / (artists.length || 1))
+            const short = Math.round(artists.reduce((a, b) => a + b.short_caption_pct, 0) / (artists.length || 1))
+            const noHash = Math.round(artists.reduce((a, b) => a + b.no_hashtags_pct, 0) / (artists.length || 1))
+            const styleDesc = [lower > 55 ? 'Lowercase' : null, short > 45 ? 'Punchy' : 'Long-form', noHash > 55 ? 'No hashtags' : null].filter(Boolean).join(', ') || 'Mixed'
+            const lastScanned = artists.filter(a => a.last_scanned).sort((a, b) => new Date(b.last_scanned!).getTime() - new Date(a.last_scanned!).getTime())[0]?.last_scanned
+            const lastUpdated = lastScanned ? `${daysSince(lastScanned)}d ago` : '—'
+            return [
+              {l:'Voice confidence',v:`${va.score}%`,p:va.score,s:va.desc},
+              {l:'Tone',v:tr.value,p:tr.score,s:tr.desc,t:true},
+              {l:'Style',v:styleDesc,p:Math.round((lower + noHash) / 2),s:`${lower}% lowercase · ${short}% short · ${noHash}% no hashtags`},
+              {l:'Artists profiled',v:`${artists.length}`,p:Math.min(artists.length*20,100),s:realArtists.length > 0 ? `${realArtists.length} from real captions` : 'Add artists to build your lane'},
+              {l:'Posts analysed',v:totalPosts > 0 ? `${totalPosts}` : '—',p:Math.min(totalPosts, 100),s:totalPosts > 0 ? 'Real captions powering your voice model' : 'Scan artists to analyse posts',t:true},
+              {l:'Last updated',v:lastUpdated,p:lastScanned ? Math.max(5, 100 - daysSince(lastScanned) * 5) : 0,s:lastScanned ? 'Keep scanning to stay current' : 'No scans yet'},
+            ]
+          })().map(m => (
             <div key={m.l}>
               <div className="flex justify-between items-baseline mb-1">
                 <span className="text-[11px] tracking-[.1em] text-[#8a8780]">{m.l}</span>
@@ -1444,7 +1461,6 @@ Generate a complete ad plan tailored to this specific content and format. Return
       )}
 
       </div>{/* end inner p-8 */}
-      <SocialsMastermind />
     </div>
   )
 }

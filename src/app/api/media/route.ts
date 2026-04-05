@@ -3,11 +3,28 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const MEDIA_CATEGORIES = ['promo', 'crowd', 'studio', 'artwork', 'bts', 'travel', 'other'] as const
 
+function autoDetectCategory(filename: string): string {
+  const name = filename.toLowerCase()
+  const rules: [string, string[]][] = [
+    ['promo', ['promo', 'press', 'headshot', 'portrait', 'profile', 'shot']],
+    ['crowd', ['crowd', 'gig', 'venue', 'live', 'show', 'festival', 'dancefloor']],
+    ['studio', ['studio', 'session', 'mix', 'desk', 'daw', 'ableton', 'synth', 'gear']],
+    ['artwork', ['artwork', 'cover', 'sleeve', 'art', 'design', 'visual']],
+    ['bts', ['bts', 'behind', 'backstage', 'setup', 'soundcheck', 'greenroom']],
+    ['travel', ['travel', 'hotel', 'airport', 'flight', 'train', 'road']],
+  ]
+  for (const [cat, keywords] of rules) {
+    if (keywords.some(kw => name.includes(kw))) return cat
+  }
+  return 'other'
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
-    const category = (formData.get('category') as string | null) || 'other'
+    const manualCategory = formData.get('category') as string | null
+    const category = manualCategory || autoDetectCategory(file?.name || '')
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
