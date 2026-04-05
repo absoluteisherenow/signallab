@@ -67,9 +67,23 @@ async function getSpotifyToken(): Promise<string> {
 
 // ── POST handler ────────────────────────────────────────────────────────────
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+function jsonResponse(data: any, init?: { status?: number }) {
+  return NextResponse.json(data, { ...init, headers: corsHeaders })
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders })
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
-    return NextResponse.json(
+    return jsonResponse(
       { error: 'Spotify not configured — add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to .env.local' },
       { status: 500 }
     )
@@ -78,7 +92,7 @@ export async function POST(req: NextRequest) {
   try {
     const { artist, title } = await req.json()
     if (!artist || !title) {
-      return NextResponse.json({ error: 'Both artist and title are required' }, { status: 400 })
+      return jsonResponse({ error: 'Both artist and title are required' }, { status: 400 })
     }
 
     const token = await getSpotifyToken()
@@ -99,7 +113,7 @@ export async function POST(req: NextRequest) {
     const track = searchData?.tracks?.items?.[0]
 
     if (!track) {
-      return NextResponse.json({ found: false })
+      return jsonResponse({ found: false })
     }
 
     // ── Get audio features ──────────────────────────────────────────────
@@ -143,7 +157,7 @@ export async function POST(req: NextRequest) {
       audioFeaturesAvailable = false
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       found: true,
       spotify_id: track.id,
       title: track.name,
@@ -162,7 +176,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return jsonResponse({ error: err.message }, { status: 500 })
   }
 }
 

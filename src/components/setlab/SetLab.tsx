@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { analyseAudioFile } from '@/lib/audioAnalysis'
 import { ScanPulse } from '@/components/ui/ScanPulse'
-import { isTauri, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, getPlaylists as tauriGetPlaylists, readAudioFile, rescanTagsForTracks, scanFolderTags, type TauriTrack, type TauriPlaylist, type AudioTags } from '@/lib/tauri'
+import { isTauri, apiBase, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, getPlaylists as tauriGetPlaylists, readAudioFile, rescanTagsForTracks, scanFolderTags, type TauriTrack, type TauriPlaylist, type AudioTags } from '@/lib/tauri'
 import { CollectionSidebar } from '@/components/setlab/CollectionSidebar'
 import { WaveformDisplay, extractPeaks, extractPeaksFromFile } from '@/components/setlab/WaveformDisplay'
 
@@ -2793,7 +2793,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
     // Auto Spotify enrichment (free) — artwork, preview, verified BPM/key
     try {
-      const spRes = await fetch('/api/spotify/lookup', {
+      const spRes = await fetch(`${apiBase()}/api/spotify/lookup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ artist: rbTrack.artist, title: rbTrack.title }),

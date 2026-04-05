@@ -18,6 +18,11 @@ export function isTauri(): boolean {
   return !!(window as any).__TAURI_INTERNALS__ || new URLSearchParams(window.location.search).has('desktop')
 }
 
+/** Returns the base URL for API calls — hosted URL when in Tauri, empty string (relative) when in browser */
+export function apiBase(): string {
+  return isTauri() ? (process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com') : ''
+}
+
 export async function readAudioFile(path: string): Promise<Uint8Array> {
   const inv = await getInvoke()
   if (!inv) throw new Error('Not in Tauri')
