@@ -887,6 +887,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
   }
 
   const variantKeys: ('safe' | 'loose' | 'raw')[] = ['safe', 'loose', 'raw']
+  const variantLabels: Record<string, string> = { safe: 'On-brand', loose: 'Conversational', raw: 'Minimal' }
 
   async function copyToClipboard(text: string, variantName: string) {
     try {
@@ -979,34 +980,46 @@ Generate a complete ad plan tailored to this specific content and format. Return
         <div className="grid grid-cols-3 gap-3 mt-4">
           {variantKeys.map(key => {
             const v = captions?.[key]
+            const label = variantLabels[key]
+            const best = captions ? variantKeys.reduce((a, b) => (captions[a]?.score || 0) >= (captions[b]?.score || 0) ? a : b) : null
+            const isBest = key === best
             return (
               <div key={key} onClick={() => setSelectedVariant(key)}
-                className={`bg-[#1a1917] border p-4 cursor-pointer transition-colors ${selectedVariant===key?'border-[#b08d57]':'border-white/7 hover:border-white/13'}`}>
-                <div className="flex items-center gap-2 mb-2 text-[9px] tracking-[.18em] uppercase text-[#52504c]">
-                  {key.charAt(0).toUpperCase()+key.slice(1)}<div className="flex-1 h-px bg-white/7" />
-                </div>
-                {generatingCaptions ? <div className="h-12 bg-white/5 animate-pulse rounded" /> : (
+                className={`bg-[#1a1917] border p-4 cursor-pointer transition-all relative ${selectedVariant===key?'border-[#b08d57]':'border-white/7 hover:border-white/13'}`}>
+                {generatingCaptions ? (
+                  <div className="space-y-2">
+                    <div className="h-3 w-20 bg-white/5 animate-pulse rounded" />
+                    <div className="h-8 bg-white/5 animate-pulse rounded" />
+                    <div className="h-3 w-full bg-white/3 animate-pulse rounded" />
+                  </div>
+                ) : (
                   <>
-                    <div className="flex items-start gap-2 mb-1.5">
-                      <div className="text-[12px] tracking-[.04em] leading-6 flex-1">{v?.text||''}</div>
-                      <button onClick={e => { e.stopPropagation(); copyToClipboard(v?.text||'', key.charAt(0).toUpperCase()+key.slice(1)) }}
-                        className="text-[9px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#b08d57] transition-colors flex-shrink-0 mt-0.5">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[9px] tracking-[.18em] uppercase text-[#8a8780]">{label}</span>
+                      <div className="flex items-center gap-1.5">
+                        {isBest && <span className="text-[7px] tracking-[.14em] uppercase text-[#b08d57] border border-[#b08d57]/30 px-1.5 py-0.5">Top pick</span>}
+                        <span className="text-[13px] font-light text-[#b08d57]">{v?formatScore(v.score):''}</span>
+                        <span className="text-[8px] text-[#52504c]">reach</span>
+                      </div>
+                    </div>
+                    <div className="text-[13px] tracking-[.03em] leading-relaxed text-[#f0ebe2] mb-3">{v?.text||''}</div>
+                    {v?.reasoning && (
+                      <div className="text-[9px] tracking-[.05em] text-[#52504c] leading-relaxed mb-3 italic">{v.reasoning}</div>
+                    )}
+                    <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                      <button onClick={e => { e.stopPropagation(); copyToClipboard(v?.text||'', label) }}
+                        className="text-[9px] tracking-[.14em] uppercase text-[#8a8780] hover:text-[#b08d57] transition-colors">
                         Copy
                       </button>
-                    </div>
-                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-white/5">
-                      <div className="flex items-center gap-2">
-                        <button onClick={e=>{e.stopPropagation();publish(v?.text||'',platform,mediaUrls)}}
-                          className="text-[9px] tracking-[.14em] uppercase text-[#b08d57]">
-                          {hasDirectConnection(platform) ? 'Publish' : 'Schedule'}
-                        </button>
-                        <a href={`/broadcast/ads?caption=${encodeURIComponent(v?.text||'')}`}
-                          className="text-[9px] tracking-[.14em] uppercase text-[#3a3830] hover:text-[#b08d57] transition-colors"
-                          onClick={e => e.stopPropagation()}>
-                          Boost
-                        </a>
-                      </div>
-                      <span className="text-[9px] text-[#3a3830]">{v?formatScore(v.score):''}</span>
+                      <button onClick={e=>{e.stopPropagation();publish(v?.text||'',platform,mediaUrls)}}
+                        className="text-[9px] tracking-[.14em] uppercase text-[#b08d57]">
+                        {hasDirectConnection(platform) ? 'Publish' : 'Schedule'}
+                      </button>
+                      <a href={`/broadcast/ads?caption=${encodeURIComponent(v?.text||'')}`}
+                        className="text-[9px] tracking-[.14em] uppercase text-[#3a3830] hover:text-[#b08d57] transition-colors"
+                        onClick={e => e.stopPropagation()}>
+                        Boost
+                      </a>
                     </div>
                   </>
                 )}
