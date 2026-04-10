@@ -85,6 +85,22 @@ async function gmailFetch(tokens: GmailTokens, path: string): Promise<any> {
   return res.json()
 }
 
+async function gmailPost(tokens: GmailTokens, path: string, body: any): Promise<any> {
+  if (tokens.expiry_date < Date.now() + 60_000) {
+    await refreshAccessToken(tokens)
+  }
+  const res = await fetch(`${GMAIL_API}${path}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${tokens.access_token}`,
+      'Content-Type': 'application/json',
+      'Accept-Encoding': 'identity',
+    },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
 function makeRawGmailClient(tokens: GmailTokens) {
   return {
     users: {
@@ -101,6 +117,20 @@ function makeRawGmailClient(tokens: GmailTokens) {
           if (params.format) qs.set('format', params.format)
           const data = await gmailFetch(tokens, `/users/${params.userId}/messages/${params.id}?${qs}`)
           return { data }
+        },
+        async send(params: { userId: string; requestBody: { raw: string } }) {
+          const data = await gmailPost(tokens, `/users/${params.userId}/messages/send`, { raw: params.requestBody.raw })
+          return { data }
+        },
+        async modify(params: { userId: string; id: string; requestBody: { addLabelIds?: string[]; removeLabelIds?: string[] } }) {
+          const data = await gmailPost(tokens, `/users/${params.userId}/messages/${params.id}/modify`, params.requestBody)
+          return { data }
+        },
+        attachments: {
+          async get(params: { userId: string; messageId: string; id: string }) {
+            const data = await gmailFetch(tokens, `/users/${params.userId}/messages/${params.messageId}/attachments/${params.id}`)
+            return { data }
+          },
         },
       },
     },
