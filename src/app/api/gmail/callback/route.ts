@@ -9,11 +9,16 @@ const supabase = createClient(
 )
 
 function getOAuthClient() {
-  return new google.auth.OAuth2(
+  const client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     (process.env.GOOGLE_REDIRECT_URI || 'https://signallabos.com/api/gmail/callback').trim()
   )
+  // Cloudflare Workers can corrupt gzipped responses from Google APIs.
+  client.requestOptions = {
+    headers: { 'Accept-Encoding': 'identity' },
+  }
+  return client
 }
 
 export async function GET(req: NextRequest) {
