@@ -190,13 +190,32 @@ export async function POST() {
 
     let totalScanned = 0
     const allInvoices: any[] = []
+    const debug: any[] = []
 
     for (const { gmail, email } of clients) {
       try {
+        // Debug: test raw list call
+        const testQuery = 'newer_than:60d (invoice OR fee OR advancing)'
+        const { data: testList } = await gmail.users.messages.list({
+          userId: 'me',
+          maxResults: 5,
+          q: testQuery,
+        })
+        debug.push({
+          account: email,
+          testQuery,
+          resultKeys: testList ? Object.keys(testList) : null,
+          messageCount: testList?.messages?.length ?? 0,
+          rawResultSizeEstimate: testList?.resultSizeEstimate,
+          error: testList?.error,
+        })
+
         const { scanned, invoices } = await processAccount(gmail, email, processedIds)
         totalScanned += scanned
         allInvoices.push(...invoices)
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        debug.push({ account: email, error: msg })
         console.error(`Invoice scan failed for ${email}:`, err)
       }
     }
@@ -207,6 +226,7 @@ export async function POST() {
       scanned: totalScanned,
       found: allInvoices.length,
       invoices: allInvoices,
+      debug,
     })
 
   } catch (err: unknown) {
