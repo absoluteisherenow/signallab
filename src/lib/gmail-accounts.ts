@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { global: { headers: { 'Accept-Encoding': 'identity' } } }
 )
 
 export interface ConnectedAccount {
@@ -79,12 +80,72 @@ export async function getGmailClients(): Promise<Array<{
     return [{ gmail: makeGmailClient(legacyAccount), email: 'primary', label: 'Primary', id: 'legacy' }]
   }
 
-  return accounts.map((acc: any) => ({
-    gmail: makeGmailClient(acc),
-    email: acc.email,
-    label: acc.label,
-    id: acc.id,
-  }))
+  // Build clients, skipping any accounts with invalid/corrupted tokens
+  const clients: Array<{
+    gmail: ReturnType<typeof google.gmail>
+    email: string
+    label: string
+    id: string
+  }> = []
+
+  for (const acc of accounts) {
+    try {
+      // Validate tokens are real OAuth strings, not corrupted binary blobs.
+      // Real OAuth tokens only contain printable ASCII chars (codes 32-126).
+      // Corrupted rows contain gzip binary (starts with 0x1f 0x8b).
+      const isValidToken = (t: unknown): t is string => {
+        if (typeof t !== 'string' || t.length < 20) return false
+        // Check first 10 chars for any control characters (code < 32) or non-ASCII (code > 126)
+        for (let i = 0; i < Math.min(t.length, 10); i++) {
+          const code = t.charCodeAt(i)
+          if (code < 32 || code > 126) return false
+        }
+        return true
+      }
+      if (!isValidToken(acc.refresh_token)) {
+        console.error(`Skipping account ${acc.email}: invalid/corrupted refresh_token (firstCharCode=${String(acc.refresh_token)?.charCodeAt(0)})`)
+        continue
+      }
+      if (!isValidToken(acc.access_token)) {
+        console.error(`Skipping account ${acc.email}: invalid/corrupted access_token (firstCharCode=${String(acc.access_token)?.charCodeAt(0)})`)
+        continue
+      }
+      clients.push({
+        gmail: makeGmailClient(acc),
+        email: acc.email,
+        label: acc.label,
+        id: acc.id,
+      })
+    } catch (err) {
+      console.error(`Skipping account ${acc.email}: ${err instanceof Error ? err.message : 'unknown error'}`)
+    }
+  }
+
+  // If all multi-account entries failed, fall back to legacy artist_settings
+  if (clients.length === 0) {
+    const { data: settings } = await supabase
+      .from('artist_settings')
+      .select('gmail_access_token, gmail_refresh_token, gmail_token_expiry')
+      .single()
+
+    if (settings?.gmail_refresh_token) {
+      const legacyAccount = {
+        id: 'legacy',
+        email: 'primary',
+        label: 'Primary',
+        access_token: settings.gmail_access_token,
+        refresh_token: settings.gmail_refresh_token,
+        token_expiry: settings.gmail_token_expiry,
+      }
+      clients.push({ gmail: makeGmailClient(legacyAccount), email: 'primary', label: 'Primary', id: 'legacy' })
+    }
+  }
+
+  if (clients.length === 0) {
+    throw new Error('No Gmail accounts connected — visit Settings to connect')
+  }
+
+  return clients
 }
 
 // Get connected accounts list (no tokens — safe for client display)
