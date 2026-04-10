@@ -1,4 +1,3 @@
-import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -13,48 +12,105 @@ export interface ConnectedAccount {
   label: string
 }
 
-function getOAuthClient() {
-  const client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    (process.env.GOOGLE_REDIRECT_URI || 'https://signallabos.com/api/gmail/callback').trim()
-  )
-  // Cloudflare Workers can corrupt gzipped responses from Google APIs.
-  // Force identity encoding on all outbound requests via the OAuth client.
-  client.requestOptions = {
-    headers: { 'Accept-Encoding': 'identity' },
-  }
-  return client
-}
+// ── Raw fetch Gmail client ──────────────────────────────────────────────────
+// Replaces googleapis/gaxios which corrupts responses on Cloudflare Workers.
+// Returns an object that matches the shape consumers expect:
+//   gmail.users.messages.list({ userId, q, maxResults })
+//   gmail.users.messages.get({ userId, id, format })
 
-// Returns a Gmail client for a single connected account row
-function makeGmailClient(account: {
-  id: string
-  email: string
-  label: string
+const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1'
+
+interface GmailTokens {
   access_token: string
   refresh_token: string
-  token_expiry: number
-}) {
-  const oauth2Client = getOAuthClient()
-  oauth2Client.setCredentials({
-    access_token: account.access_token,
-    refresh_token: account.refresh_token,
-    expiry_date: account.token_expiry,
-  })
-  // Auto-refresh
-  oauth2Client.on('tokens', async (tokens) => {
-    await supabase.from('connected_email_accounts').update({
-      access_token: tokens.access_token,
-      token_expiry: tokens.expiry_date,
-    }).eq('id', account.id)
-  })
-  return google.gmail({ version: 'v1', auth: oauth2Client })
+  expiry_date: number
+  accountId: string  // for persisting refreshed tokens
 }
 
-// Returns all connected Gmail clients + their metadata
+async function refreshAccessToken(tokens: GmailTokens): Promise<string> {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept-Encoding': 'identity',
+    },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      refresh_token: tokens.refresh_token,
+      grant_type: 'refresh_token',
+    }),
+  })
+  const data = await res.json() as { access_token?: string; expires_in?: number }
+  if (!data.access_token) {
+    throw new Error('Failed to refresh Gmail access token')
+  }
+  // Persist refreshed token
+  const newExpiry = Date.now() + (data.expires_in || 3600) * 1000
+  await supabase.from('connected_email_accounts').update({
+    access_token: data.access_token,
+    token_expiry: newExpiry,
+  }).eq('id', tokens.accountId)
+
+  tokens.access_token = data.access_token
+  tokens.expiry_date = newExpiry
+  return data.access_token
+}
+
+async function gmailFetch(tokens: GmailTokens, path: string): Promise<any> {
+  // Refresh if expired or expiring in next 60s
+  if (tokens.expiry_date < Date.now() + 60_000) {
+    await refreshAccessToken(tokens)
+  }
+
+  const res = await fetch(`${GMAIL_API}${path}`, {
+    headers: {
+      'Authorization': `Bearer ${tokens.access_token}`,
+      'Accept-Encoding': 'identity',
+    },
+  })
+
+  if (res.status === 401) {
+    // Token expired mid-request — refresh and retry once
+    await refreshAccessToken(tokens)
+    const retry = await fetch(`${GMAIL_API}${path}`, {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Accept-Encoding': 'identity',
+      },
+    })
+    return retry.json()
+  }
+
+  return res.json()
+}
+
+function makeRawGmailClient(tokens: GmailTokens) {
+  return {
+    users: {
+      messages: {
+        async list(params: { userId: string; q?: string; maxResults?: number }) {
+          const qs = new URLSearchParams()
+          if (params.q) qs.set('q', params.q)
+          if (params.maxResults) qs.set('maxResults', String(params.maxResults))
+          const data = await gmailFetch(tokens, `/users/${params.userId}/messages?${qs}`)
+          return { data }
+        },
+        async get(params: { userId: string; id: string; format?: string }) {
+          const qs = new URLSearchParams()
+          if (params.format) qs.set('format', params.format)
+          const data = await gmailFetch(tokens, `/users/${params.userId}/messages/${params.id}?${qs}`)
+          return { data }
+        },
+      },
+    },
+  }
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
 export async function getGmailClients(): Promise<Array<{
-  gmail: ReturnType<typeof google.gmail>
+  gmail: ReturnType<typeof makeRawGmailClient>
   email: string
   label: string
   id: string
@@ -75,20 +131,18 @@ export async function getGmailClients(): Promise<Array<{
       throw new Error('No Gmail accounts connected — visit Settings to connect')
     }
 
-    const legacyAccount = {
-      id: 'legacy',
-      email: 'primary',
-      label: 'Primary',
+    const tokens: GmailTokens = {
       access_token: settings.gmail_access_token,
       refresh_token: settings.gmail_refresh_token,
-      token_expiry: settings.gmail_token_expiry,
+      expiry_date: settings.gmail_token_expiry,
+      accountId: 'legacy',
     }
-    return [{ gmail: makeGmailClient(legacyAccount), email: 'primary', label: 'Primary', id: 'legacy' }]
+    return [{ gmail: makeRawGmailClient(tokens), email: 'primary', label: 'Primary', id: 'legacy' }]
   }
 
   // Build clients, skipping any accounts with invalid/corrupted tokens
   const clients: Array<{
-    gmail: ReturnType<typeof google.gmail>
+    gmail: ReturnType<typeof makeRawGmailClient>
     email: string
     label: string
     id: string
@@ -96,12 +150,8 @@ export async function getGmailClients(): Promise<Array<{
 
   for (const acc of accounts) {
     try {
-      // Validate tokens are real OAuth strings, not corrupted binary blobs.
-      // Real OAuth tokens only contain printable ASCII chars (codes 32-126).
-      // Corrupted rows contain gzip binary (starts with 0x1f 0x8b).
       const isValidToken = (t: unknown): t is string => {
         if (typeof t !== 'string' || t.length < 20) return false
-        // Check first 10 chars for any control characters (code < 32) or non-ASCII (code > 126)
         for (let i = 0; i < Math.min(t.length, 10); i++) {
           const code = t.charCodeAt(i)
           if (code < 32 || code > 126) return false
@@ -109,15 +159,22 @@ export async function getGmailClients(): Promise<Array<{
         return true
       }
       if (!isValidToken(acc.refresh_token)) {
-        console.error(`Skipping account ${acc.email}: invalid/corrupted refresh_token (firstCharCode=${String(acc.refresh_token)?.charCodeAt(0)})`)
+        console.error(`Skipping account ${acc.email}: invalid/corrupted refresh_token`)
         continue
       }
       if (!isValidToken(acc.access_token)) {
-        console.error(`Skipping account ${acc.email}: invalid/corrupted access_token (firstCharCode=${String(acc.access_token)?.charCodeAt(0)})`)
+        console.error(`Skipping account ${acc.email}: invalid/corrupted access_token`)
         continue
       }
+
+      const tokens: GmailTokens = {
+        access_token: acc.access_token,
+        refresh_token: acc.refresh_token,
+        expiry_date: acc.token_expiry,
+        accountId: acc.id,
+      }
       clients.push({
-        gmail: makeGmailClient(acc),
+        gmail: makeRawGmailClient(tokens),
         email: acc.email,
         label: acc.label,
         id: acc.id,
@@ -135,15 +192,13 @@ export async function getGmailClients(): Promise<Array<{
       .single()
 
     if (settings?.gmail_refresh_token) {
-      const legacyAccount = {
-        id: 'legacy',
-        email: 'primary',
-        label: 'Primary',
+      const tokens: GmailTokens = {
         access_token: settings.gmail_access_token,
         refresh_token: settings.gmail_refresh_token,
-        token_expiry: settings.gmail_token_expiry,
+        expiry_date: settings.gmail_token_expiry,
+        accountId: 'legacy',
       }
-      clients.push({ gmail: makeGmailClient(legacyAccount), email: 'primary', label: 'Primary', id: 'legacy' })
+      clients.push({ gmail: makeRawGmailClient(tokens), email: 'primary', label: 'Primary', id: 'legacy' })
     }
   }
 
