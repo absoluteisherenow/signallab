@@ -191,8 +191,69 @@ Return:
 
 // ── Action handlers ────────────────────────────────────────────────────────
 
-async function handleNewGig(extracted: any, emailFrom: string) {
+async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: string | null) {
   if (!extracted.title && !extracted.venue) return null
+
+  // If classifier matched an existing gig, update it instead of creating a duplicate
+  if (classifiedGigId) {
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    if (extracted.fee) updates.fee = extracted.fee
+    if (extracted.currency) updates.currency = extracted.currency
+    if (extracted.time) updates.time = extracted.time
+    if (extracted.promoter_email) updates.promoter_email = extracted.promoter_email
+    if (extracted.promoter_name) updates.promoter_name = extracted.promoter_name
+    if (extracted.notes) updates.notes = extracted.notes
+
+    await supabase.from('gigs').update(updates).eq('id', classifiedGigId)
+
+    // Still create invoice if fee arrived and none exists yet
+    if (extracted.fee && extracted.fee > 0) {
+      const { data: existingInv } = await supabase
+        .from('invoices').select('id').eq('gig_id', classifiedGigId).limit(1)
+
+      if (!existingInv?.length) {
+        const { data: gig } = await supabase.from('gigs').select('title, date, currency').eq('id', classifiedGigId).single()
+        const gigDate = gig?.date ? new Date(gig.date) : new Date()
+        const dueDate = new Date(gigDate.getTime() + 30 * 86400000)
+        const { data: newInvoice } = await supabase.from('invoices').insert([{
+          gig_id: classifiedGigId,
+          gig_title: gig?.title || extracted.title,
+          amount: extracted.fee,
+          currency: extracted.currency || gig?.currency || 'EUR',
+          type: 'full',
+          status: 'pending',
+          due_date: dueDate.toISOString().split('T')[0],
+        }]).select()
+
+        if (newInvoice?.[0]) {
+          await createNotification({
+            type: 'invoice_created',
+            title: `Invoice created — ${gig?.title || extracted.title}`,
+            message: `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+            href: `/gigs/${classifiedGigId}`,
+            gig_id: classifiedGigId,
+          })
+        }
+      }
+    }
+
+    return { id: classifiedGigId, updated: true }
+  }
+
+  // Duplicate guard: check venue + date match before creating
+  if (extracted.venue && extracted.date) {
+    const { data: existing } = await supabase
+      .from('gigs')
+      .select('id, title')
+      .ilike('venue', `%${extracted.venue}%`)
+      .eq('date', extracted.date)
+      .limit(1)
+
+    if (existing?.length) {
+      // Gig already exists — treat as update instead
+      return handleNewGig(extracted, emailFrom, existing[0].id)
+    }
+  }
 
   const { data, error } = await supabase.from('gigs').insert([{
     title: extracted.title || `Show @ ${extracted.venue}`,
@@ -327,6 +388,20 @@ async function handleInvoice(gigId: string | null, extracted: any) {
 
   const invoiceTitle = gig?.title || extracted.gig_title || extracted.description || 'Email import'
 
+  // Duplicate guard: skip if gig already has an invoice with same amount
+  if (gigId) {
+    const { data: existingInv } = await supabase
+      .from('invoices')
+      .select('id, amount')
+      .eq('gig_id', gigId)
+      .limit(5)
+
+    if (existingInv?.length) {
+      const sameAmount = existingInv.some(inv => Number(inv.amount) === Number(extracted.amount || 0))
+      if (sameAmount) return // exact duplicate — skip silently
+    }
+  }
+
   const { data: newInvoice } = await supabase.from('invoices').insert([{
     gig_id: gigId || null,
     gig_title: invoiceTitle,
@@ -430,7 +505,7 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
 
     switch (classification.type) {
       case 'new_gig':
-        actionResult = await handleNewGig(classification.extracted, from)
+        actionResult = await handleNewGig(classification.extracted, from, classification.gig_id)
         break
       case 'hotel':
       case 'flight':
