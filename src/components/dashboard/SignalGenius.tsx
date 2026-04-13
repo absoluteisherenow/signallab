@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useMobile } from '@/hooks/useMobile'
+import { scaleIn, slideUp } from '@/lib/motion'
 import { SKILL_SOCIAL_STRATEGY, SKILL_VOICE_ENGINE, SKILL_ADS_MANAGER, SKILL_INSTAGRAM_GROWTH } from '@/lib/skillPromptsClient'
 
 // Module-level guard — shared across all component instances
@@ -963,8 +965,8 @@ Rules:
           href="/signal?speak=1"
           style={{
             width: 64, height: 64, borderRadius: '50%',
-            background: '#0e0d0b',
-            border: '1.5px solid rgba(176,141,87,0.4)',
+            background: '#0e0e0e',
+            border: '1.5px solid rgba(255,42,26,0.4)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             textDecoration: 'none', pointerEvents: 'auto',
             boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
@@ -980,36 +982,44 @@ Rules:
     )
   }
 
-  // Desktop: floating button opens chat panel
-  if (!open) {
-    return (
-      <button
-        className="signal-desktop-fab"
-        onClick={() => setOpen(true)}
-        style={{
-          position: 'fixed', bottom: 28, right: 28,
-          width: 56, height: 56, borderRadius: '50%',
-          background: '#0e0d0b',
-          border: '1.5px solid rgba(176,141,87,0.35)',
-          cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000, transition: 'all 0.2s ease',
-          boxShadow: 'none',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.6)' }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.35)' }}
-        title="Signal"
-      >
-        <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
-          <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        </svg>
-      </button>
-    )
-  }
-
-  // Chat panel
+  // Desktop: floating button / chat panel
   return (
-    <div className="signal-desktop-fab" style={{
+    <AnimatePresence mode="wait" initial={false}>
+      {!open ? (
+        <motion.button
+          key="signal-fab"
+          variants={scaleIn}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="signal-desktop-fab"
+          onClick={() => setOpen(true)}
+          style={{
+            position: 'fixed', bottom: 28, right: 28,
+            width: 72, height: 72, borderRadius: '50%',
+            background: '#0e0e0e',
+            border: '1.5px solid rgba(255,42,26,0.35)',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, transition: 'all 0.2s ease',
+            boxShadow: 'none',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.borderColor = 'rgba(255,42,26,0.6)' }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(255,42,26,0.35)' }}
+          title="Signal"
+        >
+          <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
+            <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+        </motion.button>
+      ) : (
+        <motion.div
+          key="signal-panel"
+          variants={slideUp}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="signal-desktop-fab" style={{
       position: 'fixed',
       bottom: 28,
       right: 28,
@@ -1031,14 +1041,14 @@ Rules:
           <svg width="18" height="18" viewBox="0 0 64 64" fill="none">
             <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
-          <div style={{ fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)' }}>
+          <div style={{ fontSize: '11px', letterSpacing: '0.22em', fontWeight: 700, textTransform: 'uppercase', color: 'var(--gold)' }}>
             Signal
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {speaking && (
             <button onClick={stopSpeaking} style={{
-              background: 'none', border: '1px solid rgba(176,141,87,0.3)', color: 'var(--gold)',
+              background: 'none', border: '1px solid rgba(255,42,26,0.3)', color: 'var(--gold)',
               fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em',
               textTransform: 'uppercase', padding: '3px 8px', cursor: 'pointer',
             }}>Stop</button>
@@ -1084,8 +1094,8 @@ Rules:
             <div key={msg.id} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
               <div style={{
                 padding: '11px 15px',
-                background: msg.role === 'user' ? 'rgba(176,141,87,0.08)' : isSaved ? 'rgba(176,141,87,0.04)' : 'rgba(255,255,255,0.02)',
-                border: `1px solid ${msg.role === 'user' ? 'rgba(176,141,87,0.25)' : isSaved ? 'rgba(176,141,87,0.3)' : 'var(--border-dim)'}`,
+                background: msg.role === 'user' ? 'rgba(255,42,26,0.08)' : isSaved ? 'rgba(255,42,26,0.04)' : 'rgba(255,255,255,0.02)',
+                border: `1px solid ${msg.role === 'user' ? 'rgba(255,42,26,0.25)' : isSaved ? 'rgba(255,42,26,0.3)' : 'var(--border-dim)'}`,
                 fontSize: '12px', lineHeight: 1.7, color: 'var(--text)',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
               }}>
@@ -1130,7 +1140,7 @@ Rules:
         {pendingInvoice && !loading && (
           <div style={{
             alignSelf: 'flex-start', padding: '14px 16px',
-            background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.3)',
+            background: 'rgba(255,42,26,0.06)', border: '1px solid rgba(255,42,26,0.3)',
             maxWidth: '88%',
           }}>
             <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '10px', lineHeight: 1.6 }}>
@@ -1142,7 +1152,7 @@ Rules:
             </div>
             <button onClick={handleCreateInvoice} disabled={creatingInvoice}
               style={{
-                background: 'var(--gold)', border: 'none', color: '#070706',
+                background: 'var(--gold)', border: 'none', color: '#050505',
                 fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
                 textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer',
                 opacity: creatingInvoice ? 0.6 : 1,
@@ -1155,7 +1165,7 @@ Rules:
         {createdInvoice && !pendingEmail && (
           <div style={{
             alignSelf: 'flex-start', padding: '14px 16px',
-            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(176,141,87,0.3)',
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,42,26,0.3)',
             maxWidth: '88%',
           }}>
             <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '10px' }}>
@@ -1173,7 +1183,7 @@ Rules:
               </a>
               <button onClick={handlePreviewEmail}
                 style={{
-                  background: 'var(--gold)', border: 'none', color: '#070706',
+                  background: 'var(--gold)', border: 'none', color: '#050505',
                   fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
                   textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer',
                 }}>
@@ -1186,7 +1196,7 @@ Rules:
         {pendingEmail && (
           <div style={{
             alignSelf: 'flex-start', width: '100%', maxWidth: '100%',
-            border: '1px solid rgba(176,141,87,0.3)',
+            border: '1px solid rgba(255,42,26,0.3)',
           }}>
             <div style={{
               padding: '10px 14px', borderBottom: '1px solid var(--border-dim)',
@@ -1212,7 +1222,7 @@ Rules:
               </button>
               <button onClick={handleSendEmail} disabled={sendingEmail}
                 style={{
-                  background: 'var(--gold)', border: 'none', color: '#070706',
+                  background: 'var(--gold)', border: 'none', color: '#050505',
                   fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
                   textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer',
                   opacity: sendingEmail ? 0.6 : 1,
@@ -1227,7 +1237,7 @@ Rules:
         {pendingEmailFindings.length > 0 && !loading && (
           <div style={{
             alignSelf: 'flex-start', padding: '14px 16px',
-            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(176,141,87,0.25)',
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,42,26,0.25)',
             maxWidth: '100%', width: '100%',
           }}>
             <div style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dimmer)', marginBottom: '10px' }}>
@@ -1266,7 +1276,7 @@ Rules:
               </button>
               <button onClick={handleImportEmailFindings} disabled={importingEmails}
                 style={{
-                  background: 'var(--gold)', border: 'none', color: '#070706',
+                  background: 'var(--gold)', border: 'none', color: '#050505',
                   fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
                   textTransform: 'uppercase', padding: '7px 16px', cursor: 'pointer',
                   opacity: importingEmails ? 0.6 : 1,
@@ -1286,15 +1296,38 @@ Rules:
           {suggestedPrompts.map(prompt => (
             <button key={prompt} onClick={() => handleSend(prompt)} disabled={loading}
               style={{
-                background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.18)',
+                background: 'rgba(255,42,26,0.06)', border: '1px solid rgba(255,42,26,0.18)',
                 color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px',
                 padding: '6px 12px', cursor: 'pointer', transition: 'all 0.12s', letterSpacing: '0.03em',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(176,141,87,0.12)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.35)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(176,141,87,0.06)'; e.currentTarget.style.borderColor = 'rgba(176,141,87,0.18)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,42,26,0.12)'; e.currentTarget.style.borderColor = 'rgba(255,42,26,0.35)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,42,26,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,42,26,0.18)' }}
             >
               {prompt}
             </button>
+          ))}
+        </div>
+      )}
+
+      {/* Topic chips — route context for the query-aware system prompt */}
+      {messages.length === 0 && !loading && (
+        <div style={{ padding: '8px 22px 4px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Content', prefix: '[Content strategy] ' },
+            { label: 'Finances', prefix: '[Invoice & revenue] ' },
+            { label: 'Travel', prefix: '[Travel logistics] ' },
+            { label: 'Production', prefix: '[Mix & production] ' },
+          ].map(chip => (
+            <button key={chip.label} onClick={() => { setInput(chip.prefix); inputRef.current?.focus() }}
+              style={{
+                padding: '4px 12px', borderRadius: 3, fontSize: 10,
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+                background: 'transparent', border: '1px solid var(--border-dim)',
+                color: 'var(--text-dimmest)', cursor: 'pointer', transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,42,26,0.4)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmest)' }}
+            >{chip.label}</button>
           ))}
         </div>
       )}
@@ -1310,20 +1343,20 @@ Rules:
             cursor: 'pointer', flexShrink: 0, fontSize: '16px',
             opacity: uploading ? 0.4 : 1, alignSelf: 'center',
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--gold)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.4)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--gold)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,42,26,0.4)' }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}
         >📎</button>
         <button onClick={toggleRecording} disabled={loading} title={recording ? 'Stop recording' : 'Voice input'} style={{
           background: recording ? 'rgba(200,60,60,0.15)' : 'transparent',
-          border: `1px solid ${recording ? 'rgba(200,60,60,0.5)' : 'rgba(176,141,87,0.3)'}`,
+          border: `1px solid ${recording ? 'rgba(200,60,60,0.5)' : 'rgba(255,42,26,0.3)'}`,
           color: recording ? '#c83c3c' : 'var(--text-dimmer)',
           width: 56, height: 56, borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
           boxShadow: 'none',
         }}
-          onMouseEnter={e => { if (!recording) { (e.currentTarget as HTMLElement).style.color = 'var(--gold)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.4)' } }}
-          onMouseLeave={e => { if (!recording) { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.3)' } }}
+          onMouseEnter={e => { if (!recording) { (e.currentTarget as HTMLElement).style.color = 'var(--gold)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,42,26,0.4)' } }}
+          onMouseLeave={e => { if (!recording) { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,42,26,0.3)' } }}
         >
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -1340,12 +1373,12 @@ Rules:
             color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '12px',
             padding: '11px 14px', outline: 'none', transition: 'border-color 0.15s',
           }}
-          onFocus={e => e.currentTarget.style.borderColor = 'rgba(176,141,87,0.4)'}
+          onFocus={e => e.currentTarget.style.borderColor = 'rgba(255,42,26,0.4)'}
           onBlur={e => e.currentTarget.style.borderColor = 'var(--border-dim)'}
         />
         <button onClick={() => handleSend()} disabled={!input.trim() || loading}
           style={{
-            background: 'var(--gold)', border: 'none', color: '#070706',
+            background: 'var(--gold)', border: 'none', color: '#050505',
             fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.16em',
             textTransform: 'uppercase', padding: '11px 18px',
             cursor: !input.trim() || loading ? 'not-allowed' : 'pointer',
@@ -1354,6 +1387,8 @@ Rules:
       </div>
 
       <style>{`@keyframes pulse { 0%,100%{opacity:0.3;transform:scale(0.8)} 50%{opacity:1;transform:scale(1)} }`}</style>
-    </div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
