@@ -13,6 +13,7 @@ export type NotificationType =
   | 'gig_cancelled'
   | 'advance_sent'
   | 'advance_received'
+  | 'invoice_created'
   | 'invoice_overdue'
   | 'invoice_request'
   | 'payment_received'
@@ -20,6 +21,7 @@ export type NotificationType =
 
 // Money-critical notification types — these get SMS + email by default
 const SMS_CRITICAL_TYPES: Set<NotificationType> = new Set([
+  'invoice_created',
   'invoice_request',
   'invoice_overdue',
   'payment_received',

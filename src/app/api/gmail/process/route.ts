@@ -89,7 +89,7 @@ async function classifyEmail(
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 800,
       system: `You are an email classifier for a DJ/electronic music artist. Classify incoming emails and extract relevant info. Return ONLY valid JSON.
 
@@ -104,11 +104,7 @@ Email types to detect:
 - "rider": hospitality or technical rider confirmed
 - "invoice": invoice received, payment request, or payment receipt (deposit paid, balance due, payment confirmed)
 - "release": release confirmation, distribution email, label announcement, streaming live notification, mastering delivery
-- "flight_change": flight time, gate, or route has changed (not a new booking — an update to an existing one)
-- "flight_cancellation": flight has been cancelled
-- "booking_change": hotel or transport booking has been changed (date, room, etc.)
 - "gig_update": general info update for an existing show (schedule change, new contact, etc.)
-- "remittance": payment received / remittance advice / bank transfer confirmation / "payment has been sent" / wire transfer notification. This is NOT an invoice request — this is confirmation that money has arrived or been sent. Look for keywords: remittance, payment advice, bank transfer, wire transfer, "funds have been", "payment has been made", "transferred to your account", BACS, SWIFT confirmation.
 - "ignore": newsletters, spam, unrelated
 
 Return:
@@ -178,16 +174,7 @@ Return:
     "notes": "any relevant notes",
 
     // For gig_update:
-    "update": "one sentence summary of the change",
-
-    // For remittance (payment received):
-    "amount": <number>,
-    "currency": "EUR/GBP/USD/AUD",
-    "sender_name": "who sent the payment",
-    "reference": "invoice ref, transaction ref, or booking ref from email",
-    "gig_title": "event or show this payment relates to, or null",
-    "payment_date": "YYYY-MM-DD or null",
-    "description": "one-line summary e.g. 'Balance payment for Fabric show'"
+    "update": "one sentence summary of the change"
   }
 }`,
       messages: [{
@@ -207,48 +194,60 @@ Return:
 async function handleNewGig(extracted: any, emailFrom: string) {
   if (!extracted.title && !extracted.venue) return null
 
-  // Need at minimum a venue and date to auto-create
-  if (!extracted.venue || !extracted.date) return null
-
-  // Check for duplicates — same venue + date
-  const { data: existing } = await supabase
-    .from('gigs')
-    .select('id')
-    .eq('venue', extracted.venue)
-    .eq('date', extracted.date)
-    .maybeSingle()
-
-  if (existing) return null // Already exists
-
   const { data, error } = await supabase.from('gigs').insert([{
-    title: extracted.title || `${extracted.venue} show`,
-    venue: extracted.venue,
+    title: extracted.title || `Show @ ${extracted.venue}`,
+    venue: extracted.venue || '',
     location: extracted.location || '',
-    date: extracted.date,
+    date: extracted.date || null,
     time: extracted.time || '22:00',
     fee: extracted.fee || 0,
     currency: extracted.currency || 'EUR',
-    status: 'pending', // NOT confirmed — needs artist approval
+    status: 'confirmed',
     promoter_email: extracted.promoter_email || emailFrom,
     promoter_name: extracted.promoter_name || '',
     notes: extracted.notes || '',
     created_at: new Date().toISOString(),
-  }]).select().single()
+  }]).select()
 
   if (error) throw error
+  const gig = data?.[0]
 
-  if (data) {
+  if (gig) {
     await createNotification({
       type: 'gig_added',
-      title: `Booking detected — ${extracted.venue}`,
-      message: `${extracted.title || extracted.venue} on ${extracted.date}${extracted.fee ? ` for ${extracted.currency || '€'}${extracted.fee}` : ''}. Tap to review and confirm.`,
-      href: `/gigs/${data.id}`,
-      gig_id: data.id,
-      sendEmail: true,
+      title: `New gig from email — ${gig.title}`,
+      message: `${gig.venue}${gig.date ? ' · ' + new Date(gig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}`,
+      href: `/gigs/${gig.id}`,
+      gig_id: gig.id,
     })
+
+    // Auto-create invoice if fee is set
+    if (gig.fee && gig.fee > 0) {
+      const gigDate = gig.date ? new Date(gig.date) : new Date()
+      const dueDate = new Date(gigDate.getTime() + 30 * 86400000)
+      const { data: newInvoice } = await supabase.from('invoices').insert([{
+        gig_id: gig.id,
+        gig_title: gig.title,
+        amount: gig.fee,
+        currency: gig.currency || 'EUR',
+        type: 'full',
+        status: 'pending',
+        due_date: dueDate.toISOString().split('T')[0],
+      }]).select()
+
+      if (newInvoice?.[0]) {
+        await createNotification({
+          type: 'invoice_created',
+          title: `Invoice created — ${gig.title}`,
+          message: `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+          href: `/gigs/${gig.id}`,
+          gig_id: gig.id,
+        })
+      }
+    }
   }
 
-  return data
+  return gig
 }
 
 async function handleTravel(type: string, gigId: string | null, extracted: any) {
@@ -326,64 +325,27 @@ async function handleInvoice(gigId: string | null, extracted: any) {
     ? await supabase.from('gigs').select('title').eq('id', gigId).single()
     : { data: null }
 
-  await supabase.from('invoices').insert([{
+  const invoiceTitle = gig?.title || extracted.gig_title || extracted.description || 'Email import'
+
+  const { data: newInvoice } = await supabase.from('invoices').insert([{
     gig_id: gigId || null,
-    gig_title: gig?.title || extracted.gig_title || extracted.description || 'Email import',
+    gig_title: invoiceTitle,
     amount: extracted.amount || 0,
     currency: extracted.currency || 'EUR',
     type: extracted.type || 'full',
     status: 'pending',
     due_date: extracted.due_date || null,
-  }])
-}
+  }]).select()
 
-async function handleRemittance(gigId: string | null, extracted: any) {
-  // Try to find a matching invoice by amount + gig, or by gig_title
-  let matchedInvoice: any = null
-
-  if (extracted.amount && extracted.amount > 0) {
-    // Match by amount + currency (most reliable)
-    const { data: invoices } = await supabase
-      .from('invoices')
-      .select('id, gig_title, amount, currency, status, gig_id')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(50)
-
-    if (invoices?.length) {
-      // Exact amount match
-      matchedInvoice = invoices.find((i: any) =>
-        Math.abs(i.amount - extracted.amount) < 1 &&
-        (!extracted.currency || i.currency === extracted.currency)
-      )
-      // Fallback: match by gig_id
-      if (!matchedInvoice && gigId) {
-        matchedInvoice = invoices.find((i: any) => i.gig_id === gigId)
-      }
-    }
-  }
-
-  const description = extracted.description || extracted.gig_title || 'Payment received'
-  const amountStr = extracted.amount ? `${extracted.currency || ''}${extracted.amount}` : ''
-
-  if (matchedInvoice) {
-    // Create notification prompting user to mark as paid
+  if (newInvoice?.[0]) {
     await createNotification({
-      type: 'payment_received',
-      title: `Payment received — ${matchedInvoice.gig_title}`,
-      message: `${amountStr} from ${extracted.sender_name || 'unknown'}. Mark invoice as paid?`,
-      href: '/business/finances',
-      gig_id: matchedInvoice.gig_id || undefined,
-      metadata: { invoice_id: matchedInvoice.id, amount: extracted.amount, currency: extracted.currency },
-    })
-  } else {
-    // No matching invoice found — still notify
-    await createNotification({
-      type: 'payment_received',
-      title: `Payment received${amountStr ? ` — ${amountStr}` : ''}`,
-      message: `${description}${extracted.sender_name ? ` from ${extracted.sender_name}` : ''}. No matching invoice found — check finances.`,
-      href: '/business/finances',
-      metadata: { amount: extracted.amount, currency: extracted.currency, sender: extracted.sender_name },
+      type: 'invoice_created',
+      title: `Invoice from email — ${invoiceTitle}`,
+      message: extracted.due_date
+        ? `Due ${new Date(extracted.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+        : `${extracted.currency || 'EUR'} amount pending`,
+      href: gigId ? `/gigs/${gigId}` : '/business/finances',
+      gig_id: gigId || undefined,
     })
   }
 }
@@ -468,9 +430,7 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
 
     switch (classification.type) {
       case 'new_gig':
-        if (classification.confidence >= 0.7) {
-          actionResult = await handleNewGig(classification.extracted, from)
-        }
+        actionResult = await handleNewGig(classification.extracted, from)
         break
       case 'hotel':
       case 'flight':
@@ -491,113 +451,10 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
         await handleRelease(classification.extracted)
         actionResult = { created: 'release' }
         break
-      case 'remittance':
-        await handleRemittance(classification.gig_id, classification.extracted)
-        actionResult = { detected: 'payment_received' }
-        break
       case 'gig_update':
         await handleGigUpdate(classification.gig_id, classification.extracted)
         actionResult = { updated: classification.gig_id }
         break
-
-      case 'flight_change': {
-        // Extract new flight details from the email
-        const fcExtractRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.ANTHROPIC_API_KEY!,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 512,
-            system: 'Extract flight change details from this email. Return JSON: { "flight_number": string, "old_departure": string|null, "new_departure": string, "old_arrival": string|null, "new_arrival": string, "from": string|null, "to": string|null, "reference": string|null }. Return ONLY valid JSON.',
-            messages: [{ role: 'user', content: body }],
-          }),
-        })
-        const fcExtractData = await fcExtractRes.json()
-        const flightChangeDetails = JSON.parse(fcExtractData.content?.[0]?.text || '{}')
-
-        if (flightChangeDetails.flight_number) {
-          const { data: existingFlight } = await supabase
-            .from('travel_bookings')
-            .select('id, gig_id')
-            .eq('flight_number', flightChangeDetails.flight_number)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-
-          if (existingFlight) {
-            await supabase.from('travel_bookings').update({
-              departure_at: flightChangeDetails.new_departure || undefined,
-              arrival_at: flightChangeDetails.new_arrival || undefined,
-            }).eq('id', existingFlight.id)
-
-            await createNotification({
-              type: 'system',
-              title: `Flight changed — ${flightChangeDetails.flight_number}`,
-              message: `New departure: ${flightChangeDetails.new_departure || 'unknown'}${flightChangeDetails.old_departure ? ` (was ${flightChangeDetails.old_departure})` : ''}`,
-              href: existingFlight.gig_id ? `/gigs/${existingFlight.gig_id}` : undefined,
-              gig_id: existingFlight.gig_id || undefined,
-              sendEmail: true,
-            })
-          }
-        }
-        actionResult = { updated: 'flight_change', flight: flightChangeDetails.flight_number || null }
-        break
-      }
-
-      case 'flight_cancellation': {
-        const fxExtractRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.ANTHROPIC_API_KEY!,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 256,
-            system: 'Extract the cancelled flight number and any rebooking details. Return JSON: { "flight_number": string, "rebooking_reference": string|null, "rebooking_details": string|null }. Return ONLY valid JSON.',
-            messages: [{ role: 'user', content: body }],
-          }),
-        })
-        const fxExtractData = await fxExtractRes.json()
-        const cancelDetails = JSON.parse(fxExtractData.content?.[0]?.text || '{}')
-
-        if (cancelDetails.flight_number) {
-          const { data: existingCancelled } = await supabase
-            .from('travel_bookings')
-            .select('id, gig_id')
-            .eq('flight_number', cancelDetails.flight_number)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-
-          await createNotification({
-            type: 'system',
-            title: `FLIGHT CANCELLED — ${cancelDetails.flight_number}`,
-            message: cancelDetails.rebooking_details || 'Check your email for rebooking options',
-            href: existingCancelled?.gig_id ? `/gigs/${existingCancelled.gig_id}` : undefined,
-            gig_id: existingCancelled?.gig_id || undefined,
-            sendEmail: true,
-          })
-        }
-        actionResult = { alert: 'flight_cancellation', flight: cancelDetails.flight_number || null }
-        break
-      }
-
-      case 'booking_change': {
-        await createNotification({
-          type: 'system',
-          title: 'Booking change detected',
-          message: 'A travel booking has been updated — check your email for details',
-          sendEmail: false,
-        })
-        actionResult = { alert: 'booking_change' }
-        break
-      }
     }
 
     await markProcessed(gmail, msg.id)
@@ -658,8 +515,11 @@ export async function POST() {
   }
 }
 
-// Vercel Cron triggers via GET — run the same processing logic
-export async function GET(req: Request) {
-  // Allow Vercel cron or manual trigger
-  return POST()
+// Health check / manual trigger from dashboard
+export async function GET() {
+  return NextResponse.json({
+    status: 'ok',
+    endpoint: 'POST /api/gmail/process',
+    description: 'Reads unread Gmail, classifies with Claude, updates gigs',
+  })
 }

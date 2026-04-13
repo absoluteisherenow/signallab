@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 
 interface Notification {
   id: string
@@ -22,7 +24,10 @@ const TYPE_COLOR: Record<string, string> = {
   gig_cancelled: '#8a4a3a',
   advance_sent: 'var(--text-dimmer)',
   advance_received: 'var(--green)',
+  invoice_created: 'var(--gold)',
+  invoice_request: 'var(--gold)',
   invoice_overdue: '#8a4a3a',
+  payment_received: 'var(--green)',
   system: 'var(--text-dimmer)',
 }
 
@@ -32,7 +37,10 @@ const TYPE_LABEL: Record<string, string> = {
   gig_cancelled: 'Gig',
   advance_sent: 'Advance',
   advance_received: 'Advance',
+  invoice_created: 'Finance',
+  invoice_request: 'Finance',
   invoice_overdue: 'Finance',
+  payment_received: 'Finance',
   system: 'System',
 }
 
@@ -130,12 +138,18 @@ export default function NotificationsPage() {
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+            style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}
+          >
             {filtered.map((n, i) => {
               const color = TYPE_COLOR[n.type] || 'var(--text-dimmer)'
               const label = TYPE_LABEL[n.type] || 'System'
               return (
-                <div key={n.id}
+                <motion.div key={n.id}
+                  variants={staggerItem}
                   onClick={() => handleClick(n)}
                   style={{
                     display: 'grid', gridTemplateColumns: '5px 1fr auto',
@@ -158,10 +172,10 @@ export default function NotificationsPage() {
                     {n.message && <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', lineHeight: 1.5 }}>{n.message}</div>}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-dimmest)', textAlign: 'right', flexShrink: 0, paddingTop: '2px' }}>{timeAgo(n.created_at)}</div>
-                </div>
+                </motion.div>
               )
             })}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

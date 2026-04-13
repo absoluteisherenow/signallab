@@ -2,39 +2,5 @@
   "buildCommand": "next build",
   "devCommand": "next dev",
   "installCommand": "npm install",
-  "outputDirectory": ".next",
-  "crons": [
-    {
-      "path": "/api/gmail/process",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/agents/advance-chaser",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/invoices/reminders",
-      "schedule": "0 10 * * *"
-    },
-    {
-      "path": "/api/agents/weekly-content",
-      "schedule": "0 7 * * 1"
-    },
-    {
-      "path": "/api/agents/post-gig",
-      "schedule": "0 23 * * *"
-    },
-    {
-      "path": "/api/crons/night-before",
-      "schedule": "0 18 * * *"
-    },
-    {
-      "path": "/api/crons/sync-performance",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/crons/check-comments",
-      "schedule": "0 12 * * *"
-    }
-  ]
+  "outputDirectory": ".next"
 }
