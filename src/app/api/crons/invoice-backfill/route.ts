@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     // Get all gigs with a fee > 0 that aren't cancelled
     const { data: gigs, error: gigsError } = await supabase
       .from('gigs')
-      .select('id, title, fee, currency, date, promoter_email, promoter_name')
+      .select('id, title, fee, currency, date, promoter_email')
       .gt('fee', 0)
       .neq('status', 'cancelled')
 
