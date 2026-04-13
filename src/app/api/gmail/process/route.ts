@@ -230,7 +230,7 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
             type: 'invoice_created',
             title: `Invoice created — ${gig?.title || extracted.title}`,
             message: `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
-            href: `/gigs/${classifiedGigId}`,
+            href: `/api/invoices/${newInvoice[0].id}`,
             gig_id: classifiedGigId,
           })
         }
@@ -301,7 +301,7 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
           type: 'invoice_created',
           title: `Invoice created — ${gig.title}`,
           message: `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
-          href: `/gigs/${gig.id}`,
+          href: `/api/invoices/${newInvoice[0].id}`,
           gig_id: gig.id,
         })
       }
@@ -419,7 +419,7 @@ async function handleInvoice(gigId: string | null, extracted: any) {
       message: extracted.due_date
         ? `Due ${new Date(extracted.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
         : `${extracted.currency || 'EUR'} amount pending`,
-      href: gigId ? `/gigs/${gigId}` : '/business/finances',
+      href: `/api/invoices/${newInvoice[0].id}`,
       gig_id: gigId || undefined,
     })
   }

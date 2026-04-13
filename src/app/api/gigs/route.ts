@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
               type: 'invoice_created',
               title: `Invoice created — ${gig.title}`,
               message: `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
-              href: `/gigs/${gig.id}`,
+              href: `/api/invoices/${newInvoice[0].id}`,
               gig_id: gig.id,
             })
           }
