@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NIGHT manoeuvres — Vespers Execution Plan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@200;300;400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070706;
+      --panel: #0e0d0b;
+      --panel-hover: #141311;
+      --border-dim: #1a1917;
+      --border: #2e2c29;
+      --gold: #b08d57;
+      --gold-bright: #c9a46e;
+      --vermilion: #ff3b30;
+      --vermilion-soft: rgba(255, 59, 48, 0.10);
+      --text: #f0ebe2;
+      --text-dim: #8a8780;
+      --text-muted: #5a5850;
+      --green: #5a9a6a;
+      --green-soft: rgba(61, 107, 74, 0.15);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 60px 40px;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 80px 0 60px;
+      border-bottom: 1px solid var(--border-dim);
+      margin-bottom: 60px;
+    }
+
+    .header-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: var(--vermilion);
+      margin-bottom: 24px;
+    }
+
+    .header-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 800;
+      font-size: clamp(48px, 8vw, 100px);
+      letter-spacing: -2px;
+      color: var(--text);
+      text-transform: uppercase;
+      line-height: 0.95;
+      margin-bottom: 16px;
+    }
+
+    .header-sub {
+      font-family: 'DM Mono', monospace;
+      font-weight: 300;
+      font-size: 14px;
+      color: var(--text-dim);
+      letter-spacing: 3px;
+      margin-bottom: 40px;
+    }
+
+    .header-tag {
+      display: inline-block;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--vermilion);
+      border: 1px solid var(--border);
+      padding: 8px 24px;
+    }
+
+    /* ── Sections ── */
+    .section { margin-bottom: 64px; }
+
+    .section-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: var(--vermilion);
+      margin-bottom: 8px;
+    }
+
+    .section-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 500;
+      font-size: 24px;
+      color: var(--text);
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .section-text {
+      color: var(--text-dim);
+      line-height: 1.8;
+      max-width: 700px;
+    }
+
+    .section-text strong { color: var(--text); font-weight: 500; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border-dim);
+      margin: 64px 0;
+    }
+
+    /* ── Stats Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border-dim);
+      border: 1px solid var(--border-dim);
+      margin-bottom: 48px;
+    }
+
+    .stat-card {
+      background: var(--panel);
+      padding: 28px 24px;
+    }
+
+    .stat-value {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 26px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .stat-value.red { color: var(--vermilion); }
+    .stat-value.green { color: var(--green); }
+
+    .stat-label {
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* ── Projection Grid ── */
+    .projection-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border-dim);
+      border: 1px solid var(--border-dim);
+      margin-bottom: 32px;
+    }
+
+    .projection-card {
+      background: var(--panel);
+      padding: 32px;
+    }
+
+    .projection-header {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .projection-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 13px;
+    }
+
+    .projection-row:last-child { border-bottom: none; }
+
+    .projection-source { color: var(--text-dim); }
+    .projection-value { color: var(--text); font-weight: 500; }
+    .projection-total .projection-source,
+    .projection-total .projection-value {
+      color: var(--vermilion);
+      font-weight: 500;
+      font-size: 15px;
+    }
+
+    /* ── Timeline ── */
+    .timeline { margin-bottom: 48px; }
+
+    .phase-header {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 500;
+      font-size: 18px;
+      color: var(--vermilion);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .week-block {
+      background: var(--panel);
+      border: 1px solid var(--border-dim);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .week-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .week-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .week-dates {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    .week-body { padding: 20px 24px; }
+
+    .week-row {
+      display: grid;
+      grid-template-columns: 100px 100px 1fr;
+      gap: 16px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 13px;
+      align-items: start;
+    }
+
+    .week-row:last-child { border-bottom: none; }
+
+    .week-day { color: var(--text-dim); font-size: 12px; }
+    .week-format { color: var(--vermilion); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+    .week-content { color: var(--text-dim); }
+    .week-content strong { color: var(--text); font-weight: 500; }
+
+    /* ── Film Brief ── */
+    .film-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border-dim);
+      border: 1px solid var(--border-dim);
+      margin-bottom: 32px;
+    }
+
+    .film-card {
+      background: var(--panel);
+      padding: 28px 24px;
+    }
+
+    .film-number {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 600;
+      font-size: 32px;
+      color: var(--border);
+      margin-bottom: 8px;
+    }
+
+    .film-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .film-deadline {
+      font-size: 11px;
+      color: var(--vermilion);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .film-detail {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+
+    .film-output {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-dim);
+    }
+
+    .film-output strong { color: var(--text-dim); }
+
+    /* ── Campaign Cards ── */
+    .campaign-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border-dim);
+      border: 1px solid var(--border-dim);
+      margin-bottom: 32px;
+    }
+
+    .campaign-card {
+      background: var(--panel);
+      padding: 28px 24px;
+    }
+
+    .campaign-name {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 13px;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .campaign-obj {
+      font-size: 11px;
+      color: var(--vermilion);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .campaign-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .campaign-row:last-child { border-bottom: none; }
+    .campaign-row-label { color: var(--text-muted); }
+    .campaign-row-value { color: var(--text-dim); }
+
+    /* ── WhatsApp ── */
+    .wa-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border-dim);
+      border: 1px solid var(--border-dim);
+      margin-bottom: 32px;
+    }
+
+    .wa-card {
+      background: var(--panel);
+      padding: 28px 24px;
+    }
+
+    .wa-wave {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 13px;
+      color: var(--text);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .wa-timing {
+      font-size: 11px;
+      color: var(--vermilion);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .wa-detail {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+
+    .wa-target {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-dim);
+    }
+
+    .wa-target strong { color: var(--text-dim); }
+
+    /* ── Checkpoint ── */
+    .checkpoint {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--vermilion);
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+
+    .checkpoint-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 13px;
+      color: var(--vermilion);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+
+    .checkpoint-row {
+      display: grid;
+      grid-template-columns: 160px 100px 1fr;
+      gap: 16px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 12px;
+    }
+
+    .checkpoint-row:last-child { border-bottom: none; }
+    .checkpoint-metric { color: var(--text-dim); }
+    .checkpoint-target { color: var(--green); font-weight: 500; }
+    .checkpoint-action { color: var(--text-muted); }
+
+    /* ── Budget Table ── */
+    .budget-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 32px;
+    }
+
+    .budget-table th {
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .budget-table td {
+      font-size: 13px;
+      color: var(--text-dim);
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .budget-table tr:last-child td {
+      color: var(--vermilion);
+      font-weight: 500;
+      border-bottom: none;
+    }
+
+    /* ── Assumptions ── */
+    .assumption {
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 6px 0;
+      padding-left: 16px;
+      border-left: 2px solid var(--border-dim);
+      margin-bottom: 8px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding: 48px 0;
+      border-top: 1px solid var(--border-dim);
+      margin-top: 64px;
+    }
+
+    .footer-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .footer-handle {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+    }
+
+    .footer-prepared {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 20px;
+      letter-spacing: 1px;
+    }
+
+    /* ── Gear list ── */
+    .gear-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .gear-tag {
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--bg);
+      border: 1px solid var(--border-dim);
+      padding: 4px 12px;
+      letter-spacing: 1px;
+    }
+
+    .logo {
+      width: 360px;
+      margin-bottom: 48px;
+      filter: invert(1);
+      opacity: 0.95;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .film-grid, .campaign-grid, .projection-grid { grid-template-columns: 1fr; }
+      .wa-grid { grid-template-columns: 1fr; }
+      .checkpoint-row { grid-template-columns: 1fr; gap: 4px; }
+      .week-row { grid-template-columns: 80px 80px 1fr; gap: 8px; }
+    }
+
+    @media (max-width: 600px) {
+      .container { padding: 40px 20px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .header-title { font-size: 36px; }
+      .week-row { grid-template-columns: 1fr; gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- ── HEADER ── -->
+    <div class="header">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAADUCAYAAACyAXUCAAAACXBIWXMAABcRAAAXEQHKJvM/AAAgAElEQVR4nO2dCbRcRbX3q7tvEkJAIMwhBEiYwiSDQYKMgoBMkoDM80xIyDzPITOzPJHPAZ9PERRRQNBPkQARHzIoKIKoyKAIMgkkgGTst2qt/37r/+2vzunT997c3L73/1urVye3z6lTVeecvWvv2rUrBCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEA1EiT6NTkdphxBCtHu8sG1U4VvuIO0QQoh2jwnYHiGEgSGEQ0IIW7rfGpE9Qwg7dYB2CCFEu6VEAndKCGFmCGFsCKGX+70RrI4uaMcZIYQ5IYQxIYQLQggbNlBbhBCiYTDhe2oIYXoIYXwIYWoI4bIQwiYNIHhL1I4DoTjGQhGOCCFcF0LYi44RQgjRygK4FwTvZCiRqEyOaueC1+q+TQjhzBDCRNR7VAhhRgjhihDCVbBK2nM7hBCiITEh3DOEcDkUyLgQwiQokv1aKaKp1MoC3MraMYQwJIQwC4pjWghhJCyQ6JK7JISwHtVBCCFEK2KCdUAIYS6UxzSM6OP/D3fHNbd8+3dLw4XtvB1gaUwh99ssKMAxCApYv4V1F0IIUYAmuILGQRiPgDKJI/v9WyCIo7WwXQihfwihq/ut3vJKzvKYRPUcDqUX/30QXVvKQwgh1iAmZKOgnxBCuBLurFkY4cfPpu7Yom6mQ+FSmhdCuDSE8MUQQl/MXaxbR5msDKJrajYsjymoZ6zv1VCC3eusqxBCiFaYp9gdwngYRvNDEZl1Yp0CP7IbyhgJy2Y03GOX4RpHFJwbsetVYF2MpzJHoH7DsI5lgzrrKIQQohUwoXs0RvVmiczBiP8Md1xeGYegjJlQGlbWbFgNc/G307CGI6ss+8RIsZNx/gyUOQP/j/XdiK4t5SGEEG2MCd7NQwhnQUCbtXAZRvx93bFZDMFk9ihYCeMQWjsREV+TUOYUXM+XaYqjjAnzoVSelRnLOJbO0ZyHEEKsRUwAfwKCejpFZ12F7yJrK0bCOpiJMmbD1TSHLJDJmBvxK9/tO7qjzsW5V8LqmAnFNg+Wh1kvUhxCCNHOLJHTILgvIashTrRvW0OJXELWwnAsVByKcy2Cagh+24jKKmGuI157MJTMUJw/nOY+zPJQ5l0hhGjHiwwnw3qYl2GJpAT4CBw3gyyQabBAbC5kLibSvfvpQERU2RyHzaHE7wWyPIQQov1j1sXnMH8xiSyRSzGfEUN/U+6nGKZ7HCyH0fi+DOdeAeVwfAhhHTonWiJHkoVyGSKuLsf3aGd5CCGEaOdUoEQWQGnMx/fVcEn1zhDqZaRVt+ipqzARfnEI4RSkkTd6IxT3RpQ9D3MlNo8yDdaKLUaUAhFCiAahDMvgcgh4s0SGYo2In4uwCCr7Wz/k1uJ1GmbhbAqXl1kal5KVE11np1OklpIiCiFEA2FKoD9cUVfB8piP7xtCCPvUuStgtGoiW8FVdTWUxzzKwzUb/26E1PJCCCEyKJHAHwNrYQqEf3QvnRNC6OOODRkWif2+GeY1bNW7rTkZgrL3JIvFnyuEEKKBKJMlMg4WyHhESM3A4kM+Li8lSYy0ugjzKmMRnRXLXAjlcbA7p0zlSokIIUQDYpZEN0yEj4bAHwYlso87jj8BUVdHQXEMx7m2F8kI7I7YA0rGyuiHJImDEd1l5QshhGgneDdTlsvIlMHOUCCzYT3MhfupJ5XH50SlMwjuKtt//UpYMdcj15ZfAGpvyrg7Df+OqU2EEEK0I7LmLvKUyF5QAsMRMRXnRy5ESvX+SOc+ECG4V0ARcAbdmXBlHQoFY2yJBYNTUOZEKCvbLfGTOXUWQgjRxkShvzU+W8FdxBFQPkzXcmaNRDTWdFgVUSmcD4E/C8piFu23PgZKZyJ+i2tFODJrE3JrTYN1MxXHT0RZMcVKRGG9QgjRDnYkPAPzGDMhvOdCOfRL7CbISuTTUA7ToBxsE6rJEPjjyZIwJTMBlkpfpzw2gvKwa0/D8VNQju3bvpurgxBCiDbGBPCnMLIfAzeRTY6Pxuj/6JwtaXvjvGk43oT8xIQCiQrqPLioNkzMtRwIhTEViRjNLTaZzteug0IIsZYpuVH/NHIrjYewHgvFMh1RUHyefW9LLqxxVM5kskKmocxZWGHOuxuaG2oXhAaPpkn26WTdTMD3ju76Qggh2hge9U+A8DfLwSyQERDaw2EBbEbn2vndMecxE8fb+ePxMatmFMqMv2+Bc015ROvmBER02Ta6I6CARqF+4zHhznUXQgixFuA8VTa6nwLLwyarJ0CoRyVwLUU/ld3cxd503gxKAe/LnENRWsHlwxqDa3F470ycNx2fi13dhRBCrOWNo66glOkTMIFtqden4P8x7HZ9OpdXiW+GNSCjUM4oWDNjqczhUEoH0Xm8++AlUByWJmUYlIdtiTsOx3DdhRBCrGUFYuG3tm3sZAq1nQMFcCCdx/t+nApr40paJDiVrAYL452MOY4DcK5PTdIH15kIS2QCnWcbUx3pzhFCCLEWKWGhn6UTGQfLYyKsilmIwrJjObGizX3YVrfDaPvZ0fjYNrQj8PdtM5RACZbIYVBkQ3De5ZTe3dK6S4EIIcRapkRzENOhDMyCmE3zF30SC/fOg9VhlsdsfFsq9uk4dxr+Pxlp249LlMV1WReuqpk4fg7q08sdJ4QQYi1jAvkLGPGPx+h/IqyJ4xPupn3dxlKX0tzHedhkyiKwhuF7KKyUaFHskaNELG9W3IDqGOyG2M9dXwghRDsiRkZ9HlbHAoz6v0ALCCtu0eF8WBVzYGksgGJZH2UdS2XNhyUyB5bJPBxbj1KQ8hBCiHaKWQNbQLjbfAOnVo+5ry6AhTIJYbXTsIajb2Jx4FYI/T2Noqouw7nDEP5r5zCcDp7LE0II0U5JCXL72xFwaS2EApgHy+MaSrHOoblcVtwHZFdYLlNgiUzBfAnvISKEEKKB4dF/gGVxIgS+WR6XQAl8DnmtsqwEX9bJiPCagDImwxL5FB0vhBCigTFB3gtC3uYtJsDiGIlwW85plbJe/L97YiX6VXBnzUX5sezdcYzcVUII0aCYAD+cVqJfCkE/BGs5Ythv3i6G7MbyLq1d4PqyMi1kN26Rqyy7QgjRoJRoIn0CrUi3nFhXIlKLJ9dZMZwKRXAydivMSgF/FKK8bJW7rSE5k86REhFCiAazPLaFdTANazZsRfoMpBLpQueYkN8NisCSMk6AgoibVG3sjrXvvWgV+1R8z0HoMLvGhBBCtHNMWA+CEpiBxYDXYs5j94Rg3wBWxxjMZ9g+IpPh+poNq4LP4RXnk8jKGU+r2s/CLol8vBBCiHaGuaEqSHQ4A3MflhvrSLc3OlsreyGsdzgdb/uBjMXK9glujYjfzfAchPcOheIaCmUU15as544XQgjRTuA5jEMx+rfdA+e67LcsxE2BDIACGQ0lMB4RW5NoX/T494FUDl87sjWOs90Px9A+INEFJuUhhBDtDFMCO2B1+VRYDJNgNQxMRFUZ9v8eiKKyfcz9nui2H3rWOg+rQz9YMdPpewTCe0+SJSKEEO2DEq0OHwiX0Uzai2MWWR7lAmWdS5PmpkDGo6wJsGQGuGt7muCyugqKY4bbAtdWq2uNiBBCrAV4tXhXuIfmw+KYSNvQfjrD6kiVF9meNn/iSfSp+Axyx2dRgRIxN9gYuNPGobzeBcsRQgjRivDk9SeQKdfCbkfBAjkHazn8+o5QUPCPhTtrOG1vewLcXEXr1xVpU+bQxLxthXtUnfUSQgjRSpZHLygOSx3C1sKFcGnZ8fWWzzmv+FOPwC+RQhpE2+La2pJpUCIRubKEEGINYwL8kBDCRRQmOx5rOya79R3NEcx5CqI5yihgseJg1PcKuLFGo+5aZCiEEG1ACfuZX0sL9ibiOyqQPem49gK7swahrmYpzYGbjHNxCSGEWAMchjmESUgVYmlJ5mHRoN/Do71Qouiswaj/cMyrjMN8TXNdbkIIIRKYMN0cCmM+JSscT3MfZ2LrWT6nPYcbD0I48HR85iNfl18hL4QQohWE7vFQHMMQZTUCbqB+7tj2DE/QD4L1MRLzIpMwtxPRpLoQQrQicW+NYxBKexLCY+P+5I2iPIKra3e4s+bDCrEU8Bu644QQQrSQLIHaiILWLIxN4YIbDotqDLbVFUII0cpk7RTYiHACx7hG5GpYIbXSpAghhBD/S0wAeVoIYQ/8X8pDCCFEXfuXNLpVJYQQnQZOWVLBx/7f1vWQ8hBCNBRZOZ/q+aSo5/zUnhrN+RQVvqwsavWNHZdVx5a2Pa8vW3Jv/GZZbfWRAhRCdEhMcTAxD9V2CAfeFxtF7RZC2Ir2MGdlYv8WQohOiwnDU0IIvwkhLAohPBRC+GXBz+IQwsP4dxS2gUbQPUMId4UQ/htlpsqNf3swhPBkCGF/qldccf6zEMIj+H1xjXo8jLo/hQy8XA+D5xci22BV+90hhD+FEN4PIawOIVTxWRZCeB11+3II4bNIhmjn90Ld/m8IYWN3zXid/wwhPIZ6Fam/tXMxlJkxFe0qem+sTx9HnW1vk8Xoz6y62LVr3e/FNa79FDICpO6BEKIDYaPr0RCaK0mA1vuJQoqV0hYhhH/it1U559k1j6N6ReH+Af7OQj3vswLfs109vOWwYwjhFiiMIuWvpu8nECUVkLcq/v1tKBMWmFHRPFOg7anrVGH9GLe69hX52DVPRRmfdO2orqGP3cuJiXsghOhg2Gi6N/akiMLxXhJYKzM+JszexQK4w7Ci2med3R9Zc+OI9JshhI8h3Oz8H4QQTsZWszaKt5QlB2G1+YIQwhIIPl8nK+eBEMLZuNZ2ic2m7BMX6C0lQRrPX47/fxhCuD+EcD2y5Mb8Wt8KIfwhIXSfDSG8hn+/lVAgJazjOA5pSv6W0ad27T9j46qYpuVQt1lVf6y8jzstfp/6L3VfVkHhxD49ApZcgEJaQecupzatQp/8DZbYR/hbqux4zF9DCP+iulfx7xWw2qpoc0QKRIhOggncbm70vDpnpPmoOzcLEyTzqYxHnJDPO29mwkKyUfZLpHxKOelCvkdlmDC1MqKi6JtRRrQmDg8h/IqEJV//XwkF4us/mJSWtwRWYLvd1PmpttyT6Av7d3T7MWVSIKvdsS/DPXYArMX1ofSfTVhOdu5nUY9NsN/KBXC/2fGm0Ce49gshOjDm4onCMmCka8ItpURYGEVLIUtYWPRSFEyRg6mMG8ja8BFOJXfeoByhGa2PgLpb+K2VEVDGj0n488i7CvedHV+GW6+JyjPKWCVu5aysoUC4P7cn4eqv/zq24y3hupWMSX9L8z7LKTJ2b11DgwCOMDMFYte+L5Fry77/kKNAPuPaaeeMdfWQAhGiE2KC4TYIgr9jkjjly19FlkTXGpaElbs3nR/TmAcX5eQxAXRCjgK5313DX/NLCeVh536F6lAuEMYbsIkVC8s8C8T+35cEvlcg0RW2Xo3+C6SMZuQokIWu39gCsTa/SBtXmZI05VlLgRzg+osV3jfoeCkQITohJkS+C0HwD/jyX8hQIisLCoyUAom78BVVIF+oU4HYecfSsd519FqO4M9qQwlC9yGqRxEFsl0NBdKjDgUyvZkKxI6JbqtUvzfHAuFr7U1zIOPdb0KITqhA3gkhbIAw35QCMcHyPuVvSglj+9tebaBA2HX1eKLeK527J+/6WfX5DAnwdxpAgexK1+MdG1tDgfDc2dM4TpPoQnRCvAJ5CxFakTsSQjw1gVtaywrEzjmxhtLLEqS1qCT6qL0rkF0o5HibVlYg/P873LySFIgQnViBvEkKJE4Ev+EEihfmcV/ykDER3FYKxL7vTJyziiKQ4kLH5qwot/IPRVlxrcuW7rf2qkBexoR96lotUSB2D2/CcWNcPYQQnVSB2Og6ckmGFbKajt/BldWWCsSusznmb7LcVw+0QjqS6CLbCZ+sNhRVIOu5eZbUp2sLJtH7QjHcRYpoTSiQUXgGznL1EEJ0cgViwuC+Gq6sO11ZbalA7PgDMiwlE7S3FLh2LYoon7VtgTSnPc1RIEIIUUiB7IoV6HmurLPdOW2tQM6voeTmFhC0HL6b9elCobCpzL5FFchGOLcbLI3Up0eBdSBSIEKIdqlAOJ9UVu6sVbR+hM9rKwViZU2toUDaKkooT4Gw8I+rv3+PDABZnz8gUWFqHkoKRAjR7hWIfZpoLUSWkI4Ly4IbmbeVAllQo27DXfkpQdoXinIEfPtjCnyGuEnqIgqkNT5SIEKIdq9A+JgBSECYEoomfKLgZ/99WymQ+TUUyAhXfuqax1NbimbsXeLCZIsokGXIKfYI8m1lfSwtviVmlAUihGg4BRJIUE+r4cp6nsJl21KBTKqhQCa58lN9sAvydX0VCxItCaP/LKekjgtdjqm1HYVVD1IgQog2USCc5faxhMBhoWZJE9tyEv2cGgqknlXo1tY5iTLZCkhl1FUUlhCi01BUgfCxB2W4Zyz76yrsTRGwVWxbKJD9M9xFJmi/58pPYUEDVr89c5TA64ik4n7hf8sCEUJ0eOpRICyornKCzAv5mCPJhHB7WEj4WCJ3Vq0+6Z/YJZGjznx6dD5XFogQosNTrwKxv22Qs4Urb3O64xpWIPx9d47LKa5j2dodX0SB+KABa+ur6APfT1IgQohOQ70KhIXVURluo9WUyO9SSvm9ppMpnpExD2KC8WR3fK0+2SdnU6hogYiBCCE6Nc1RICywvpwhtFdT4sE1rUCsnutlbM9q5/3QXaNWHU7MSc4oBSKE6PSk0rlvVUC42W9xr+w/Z7iybFJ9ZRtuKHWuE7AsDFeSQMwTuFa/r7YTBdIeJtGVJFEI8f9hAu92UiBbF5xs9iN13oObBdGKNtrStuT2d2eBa8Lx1xQB5be1LZPQ7o9Ns0xY1+vCao0tba2fZuYokKtcv7W2AjnQtUsIIf53EZ4JKdsHPU4a746/cdLALEzgfi/DlcXCztZidMN1/TqTCoWufjFHgTyMYyzk1ruyNg4h/CZnX/R7KQQ3tdZlY6wSZ6Ftq9NX5ygQS7ZoCsiu57fWfYOub/eA62Htiv0UoHi9VeXX3HRNlJPC72veDQsivQLxmQW6Ur1akhJfCNFB4Ggjy7ZbRV6pUFBQmCAanqNAOJS2e42y7e/fSJS3mvYk7+/a4NvUC6lArAyzIqy8FzDB3y+EsA4EY3TdnYnV9Cyk78dcDv8tywLx/ZG1O+IpGfX3/bB+xja99u+ncExen6aw616QYT1aP91DSl2KQ4hOTpkW+EXf+n9QrqXlEJArkYvpGkzgnpsj6E7GrnT/gABaXiP9x9Nwu0yH8DZiQsKRGG0/WCCNyN8wgT8rsVWtfffACN1bMctIAMdcVn8NIfwF7jsvTK8ll9rHdN4rToHEa54XQpiN/VE+xLV8fyxHGUtxXKz/eMwlGceGEK5E3f/o7k2qL2I49dXISLwT1Ymx/x8Hl1i8B4vQppU1yn8e80HxvCsKut86GyX1h+gMNNVIz84fE5a/o/P8S/KLAuVkWSRRmBnbJBbt1fqscJPz7GoruSSQ36+z/Gi9HIbzu9Bcz78TFogdk5pLyPtwPXajsm5NuKxqfWqFKltf3NaMsr31Z0EWmhf5f7MJRKRERIfGXvo4OXodRvwLMYLlT3RjzYMVckWOsLgA5SxIlJH6LES515EbKmBV9yz8XqSshaj7DZQ2JTWpzoK0D+obR9O/DCG8iAnt1+DSuh91O8BZM5bOPmBO4MchhBtDCOu6fh2B/pqPEX5e/a9CO+fjE1fSG6egXVn3JqtPo7W0R05fRE4LIVyPsuu5Z/PxPS1nj/XWwNJTNErUVwnf62HuTAjRweCUJ/7vPfDy11I+drxom5F8I1AmC/d5RO19Hn9rFAUoRLMosn2rfcoFR4z1frywaG455Wa0Oet3i1Aq1VBGqWs2t/6VNdinqfq3pJ5rSjBavXeHdXZRO1cmJXzHAIMnyNVXZK2TEKKBSWW+FWuPMmVUXkLCOG7w1V5H82V8H0xzUEtzXIiiA2MTrk209qGjtIfXSBQZobb0urYWoks7e4k4VTvvtFhZg9fx61QahVQb1vRzw2uRPsL35fh7ZQ2tf2rJ/WnC9xBSeGPpGqKTkOUCKdXpAirVIdjrOac5L0etFCSpfT5aMiLPU05FMt/W64qqt161BFC5la5Ty9VXtCx/P4rQ0ntoZeS59/LW7jR3/qJEAQ5LXMTXQPxmz5YJ/OZcI+9944i9esqL/BfqGqPbIlIenQR+CErYXW4c4u8tqqeelyzvBcsS7PU+uLXqZOXH0f++aM/3sRDtV1h7YZEiPApPtaXoqI/bEK97eAhhMtaY7OuuxWQJ9taaSPUCPbZ7EPzrP8dK9Xvxt5a4sfx1NgshDEaE0624XtwqNxS8RtZkf57gzOqzeoQtPz8bUBtixNqwjL1P/HnNeZ7tGfgMwrstxPtr1IaWWCC+fjHFzPlY/3Qr3pHN6PdalKmN3wohvIOs079dw9Fpoh3BD8GhWOdgIx+Lp59Ax6aEatz3+0hM9h2XsbjKj3zWgaI6D6nHi2S9rQWX3wuL0p6mdqzCQrNf00I+UyLWnqlYvBfDU3+Kjy3yqzWqtt/j+oOXE+sgbF0Ch8VymVvA130x1l3Yqufmwgq+hFHsN2gleRXRMo9gAWEVg4ZabfX45yGGRX+b8mctQ5jw+1hzcVKNa5gS64Jw3AdwP34GRdeHjmMqFF68CMfeg3Us5xRoF/dXT4QDv594Hx7G88t14HT6mxZMEOmvbelU7qL7E4XxloljTkX497oFrsPP2Tp4Dn9OiyOX4v6vwqLUrMwGvswS2nsnXG3bhxAucUpPVkgHhh/Im3Djf4XcS8dRXqBXXL4ie1jjJNkdeHhs1XY8/kmXxZYf4C0xEn0TD6w9xG9hEo7rVU87yiSEF2A0ZC/hElyzH9X9MPw2hcoZlhAWUwvUyYTOxrSR013YI+QsEkKPUp+wsjsQwnE5PtaPdzdDEHGd7JwDoAgth5Wt2D6TUn8EvPTVggoz1fcxhPMnVP94T8e4NQE/wFqTPMFn/XkDLba0eo/IqFsTbTG81C3SfLjAiJjbcRY9P3di0eR33JzECVRXO+9ErJZfjbYXUVr8e3coyzfhDvqYrvkoUvD/mFbkP1NgJXyFrnEiDRCrWOx5EqXU2RQDnx/WqDcro5+hr3bF3zajwdNgVwfRgbCb2hsujI8xqjF6YEGZCWBzPdiD9i1SFqfjwRlFD+fNOLYrKanJGI2+hh36toXbhPND8Yi5nnZ0xSK/N9zIPwq0nalMdtH8BYLVRq0rcd6/XcLDUoHr74kUJq9S1tYAN4EJtL+SILPffoLf4ojwGChAU0JVpDTh69SCR9HbITU9C+APcB9YgDeRouGkgbWuab9vCGFve51UIYR60zUqLjFknwwhZcdNwXHLSZCOr3HO7mRd2T387xyXkz+/JxSG1Z8HHKfi71aXs93zbfm+FmOB5gN4lnYqKIzXg6J7D8+SbeJ1Hco0hWbvyuMFdsu0du2I59zuzQosnuyeOPZmWItcTqq+n0DfvkYDjq5UhuUma+4ASLRj7GH5JEY7z0HYBMp6egU9cO8gvYat3v0AwtLSb5gAOpvOsdG2jUz/jId/HK5RdkKrCuHfu+CojR/6faB8OC3FR2gDt9mX+Sp8vztSAkWziO50k7EprN1HoW33kYKwl+lGat/zVOfhEOq/DyHsR3UMsOrsnG8V7A8+poSoHd+mOPrcm47lCVlzYVbhjuT6ePicg90eKLFNk+hYu4b11fVIAZJKemjHXErC0up+fUadrM3bYEBgLjPr71rPUxM9o3/HYOlEOsd+N0Vvecni8cYAlw04sgP643x3nVTd14db9Q0a7HDk3j4YzJnyeIisuqx5Ivv7JWQBVzFHYe8tB2zY8b9FBFiqbOv7zWD9vECehkpikFDFveRzRYNjN3IghOwieplN6O3iXEAPQuhblMVXaGTRRA/Vn+ic+MIFjBqrSJexHT2Y3Vw+oipM86I+Xft9FI02bXT4oota4RfBztscguYWylS7nEZ3GxQUPCdRn1j51o9HusnQr2Kk+QC5z3jS3YQFJyq8sk5rYEv4/k3YmTD9Nt3nVMp0DsPsm9N2nhweRQkRzXI7jcosu77aEXW6NtEmO+ZEspjsfnw3I6KqTJaDLWCz9r5ObpWsQI8mJ/Aepf1fmug+sjXEe7BYud+H8Dd3UkA+r9WUaThL8W2Iur9K/d6V2jkS/WrPw710nawFnAHv0X+6er+IQaO1jwNNAu6dd88Z1ld94Np+Bp4IP6dnzzDvOcMDG9HA2AOxH160e+jhsQekh0v9XcUo+kmMvNivyXHjfuOia0jhxCgkvzaCLRY750uunnltWJ82flpJymMxTTqmor3s/ME4/l087CtovidPgHJfnex2wmP3UR+UVaU2zsUk5RtOwVl53aForU2r3HFZsAvKrrmM2jSlRtSctfMnGLUbqUg5u4dfoXbZwrGjqD6ljAHG84nU701kzXyQENaptPf27+7ww7PyWEJuxCzlYX8fgXO+TvXgvWFsXoyVmu1MaO/LB4hkCjQwmoH+38L1MddpI7h5/kYuvW702+2uL24jpZanPLag58jei2dpAMfJQLvQs7MKcz2+r+34nfDsPk5uwQodVyZX4jKqO1u9okHh0cFH8LObe4FNWBMMJnxsNPwcRpAsICrOylhBL9sHeJF5BS0LsM+4lbbvUvnlAvM25rKyiecqlFj3GgK37NxEPPm/tMC2pU1ul8D5rn02srWFYCvd5OsiSr1ndBwAABEZSURBVFfu+/Hr7qWPdaw1cmsiH/1HbuOoFYhys+Oy3B0BwmU1KZvUiNmsK9swaxnOiff6cziuS8L9swtGra8l7nGFAjJs/sru52+pr7wVafW5NdHmQa5vGO5v2x53Ml2DXTEjE660ya6du+HvMQLR6AOr4cZEX9q/N4H78iVyA5ny2Jsmyu1Z+Bop8DzlsQ1lQrZznyMXdCVhIQ5G3/08oaybqE7vw33Wo4aL6yB3Hy9wZYkGw270ztib4Sd0M1moX+xGW6YQ7qNRo51n53yONijic/5Ku/l5Qdkf/mYeNY5z5Xrs79vTJke2b0MV4akmVGpNWO5L1zX3S5XcL1kPuv39iIRfntvHu+Zxn9zsXmD+vtIp4XfIH17LErLQSbakPnKCtNYE8nUQej5k1LePR8U2Iv+C89tzBNhFeJ5+h6AJLtvqvy3NX5jQeYkmZys1orQ4cu2igspjNo6/mI5n5TE1oTxupfrzPGL87UL67T5M5puLxwR/k1MeL5LyMMviTAq6+NjNrWStcbG6bEXKYxn14/Z0HLexO/XhraTAvPI4EHW5j47JU2JDUKa5lifm3BPRAJQpdJVDQ9ny+DQ9uCyIvuaUDX/3xkvgz3mUIkT8uX0So6sf57wcwUUVpZTHVzLWVWT1g0U58fxErYec3SzxnG9SmSyYTnKKaVXCjVTO2Y/E2nSua3tWfS5M9P+HiOjKaw/3xy5QBjPdNUtO2Hw3YbWZ4OzmFMcumDszxblujvJ4ximPt7HJV6r99v/JVJcVzjqopTxMOZxFx/N9uTqhPH7m5uesnT1gPd/hBgLmzrN0QGUaPL2EAVZvZ83MoHu5LOEeTb0fPA/0qFMe/6J+7OrejWPg7ozXGpq4RhPJjFVoX1PBAdqP3Ps9zJUpGhwfXbQxvcQsVG07V3652IzmyVre8tT7R8vkB/9NIlLG/MR5K4jZ8uA6fsO1KQsr5/yEwL254Ej/EJzzPTepy8LhDTeHsZryGKXmBi5OCKvUJLPBI9lLac3KKnppjy/wwnK9H8RAYH0n9KyuO9O8GAvsuXS8Hbs1bcH7AlbjW1u88tg1YXn8m4Svb3+qz1bUiNKyttrfpyUsDx4EfJXaaXV6OGPfeCtzDu7Djej/LIFskXeP0jNvls/XE9dl92ie5dETc39s9a4iC9QUlFnfD9K7uoO7RskFNFQxGZ/nPgv0974U/WfP5NH4TZFYHQB+qO2m354YWc7IeHi9/5gFyr0J/yiHKi52yuPtGhNsTeRnfjGhPO5wD34WvE7gbSewfkpRL6ky7OX7PI6/3V3TzlkXizCtT0yon5ejPE6h4zh8OKtNLAhHJyyd1ViTw9fIwn6fhHIGJJ6PDWCVLEn0/T2ujv1hla2G+204uTv4GeIFf7y3+qqEVZA197QiI0orNYhgd9P8hPJgofmdhBB/iJSHf0bt3C70bP8eQnkdPPN7Yo7QXLbz6XmzAIrbElb11Ym+ywqpZeWesnhLCNFeRHMixySeqVLCDXVd4rlIUcH3dOeKfaPO9CiiQbAbPjahCKbXUB7H05yHvWj30QSct1aayG20jEaaWesNODpkIEIyvQB7uOAiJavLRmT98LoIH4rIdeAJ6qpzW/lJYB+VtJrcUCwM7fjD3aR3FZEzqfURdk3vv7e5KuuTUYnrpbDfj8N5/4Dg3g+uzNOx/uRD3C8LI11FET0bQUF8EUK2CoUwmtrAdeZJ9TOo7XxPx2TUv4nm2z50fcYTv/4estC72S0AZOVRcZPxK6jsDQo8H4MQSLAYgQK+Xcug5CxFCM9DfDNx3S8XVB5bIx2PH/zdSqHqV5Dl/jtYFZWM59i78MbWqEdIuLRfc/eHPQSig8BCzEYt9vDOo2NSMffbQ+DwQ7IoIzbd/n1TQrhmjZT5xTyWwjrNJVSFNZK1kpmx37rRQjCr82vuhfZ1qLgVxtfljKYvTLzEcWLbuw/KZFG96RTqMxkhn/Z/q9MtzlVh17spoy2eJlLMSxGe/SrKsEGB+c/nQ3lywIGFW99Ac2ZPIACBJ2G5n1g4sZ+fn7uFNdxWB2OVNvfZkzkL6qycdcgnb+sbvC//a4mIvrsT8zZ8P6z8y50bdHP02UQI4OPIpWv1anJzMTx4uy3HmuL+2I1Ctu1ZqMJanIA2Wx/fDYsv9XxzmevBsqzS+pWuBQYklYwIzjjwUAhvB4Mnsy3X1XL3EnjlUaKH6UH3Ej+VEWppD9XQhHA1H3FTzot5Geq1xAm2ZTDH+RpZ7bSw0x8k/Ozsm2dSI7EJiX7hiK6l7sVJTcjbeRuiz7gPX3a+aF+fgJHw/TiHXUpmufjkfimsPntCMf+I6rQ/oqmOxtyEKYNrnLVj9+F15BfbLVHf1BqCDShNiI/y49X2qXMPTayqf4GiurL6bHOEe39I60KaclwuVp/vkpspSzFVKMtA0XxpPOI/JDEIeDDHmiq5/vgYE/u/J4XM9+dZhCFbVJ21he8Pl9kf81Fv0sR7EaFfcdYseyV4MCo6CDb6+KmLlLjXmfVMxQmT5SREdko8JPbgDSCXw4oaK6v5wV5Ik7QPuWvay5o3KrKye1BmU/YPn1dD8KxHLjfzyfsXzwcfLEtYAikL7v+49vyL5h+4Pvxy7wiB+QoUq4VHViFYd6/xwnNZloHgPgodTc21mPX0BAmGjxBYMTChHH2oMA8G9kb9eW7BhOZPE+GjXN+jSWHaM/Qm5YvK6jPLTfYKWZpNCVesCd/lNGGcCgfnsrdGBuMqWdJ+Eto+We6fB12b8qxq7ssLabC3PSnWKto6ktrrz/fuaLvOaeiDh+HSLcP1tQiDE0vHkiUXtnULWKt4b4sMakQDwVEjfLP/iNFa6uG1l+Z050paBRcTHxPcCH2Ru05qpMkv5kbkajoHoycWlo/VeCi5rC1dZIoJLB+qaufZ/3eCz/g9MvtTllKgsFZTwr/ImJCvkDDk0eJKWkPRlCEwjkYfWObVEa5Px9ZQqFzWCRR8YK41ngfw6wR6YpW09f8tVKadkxops7AaRos8zQIxYf0ErsF9yvU9k/rW7t+HCC3lfvXnnYL+XUxzXDxRbFbXnxLPp49QtHPL1IdLITD3qdH3Hp9zjJ+DI2oMasqINOMJ8oOcErKQ6kqB+xPgorPor/nU5v9yfb4ikaGZg2Mece/BH2h9i1xXHYSKC83jFzJr9TX77N8uaAn4VCH2cD+emCDml/5TEFZxRP5Zt2BvVYEssVzWQPLr82Tm7XRsyj8/GO17ilbuZrVvjOsPzmXkR65+1GnnTEqklmDha/MF36GAActvZNE0Wem8fVlTXLqYvKiaEil0TsdyeGJeh2EXTS+43KqYJ9jNDQb+Tv3FbqFyYiEfp6H3q5pZIFbISr4pYXHwv70ivpfCkXliuUIK55ukDFOpPGrhF5ouywnb5qCDrRBptZxCc30i0rco2ilVJ69QBsJ1+i6FTZvytXfO3rvFGZl716UB378pe4C9O1IeHYQyxfP/0wkxXqOQEiI9KG2IPfB3unIZe7h+4BZFccZZezlKLmXEIzRyCQg1tBfk6YSrw+rAL8xYiqBh4feKW2XN562DyJcqRmQcfppq2+G0EttbY1lKeE8cZ8pskRvtsrDaGu6EKmUUbnJWDyuglDVlf9uCBPlldHyeW4EVvC1Oe9ft8eL7hetwMe75H8mfvtA9d4PdOgyeyL0TfXWXC564NTHCtuvugEn1Krlcskbggfq3CkFqz4a3wkyovg0heW5CWRbFjrf1UzbwMOufnwWr52AM8p4jd7G5HrfHgMuEfCigOHrQ6vMf0fyllXkn2nkCXFsnk7Lk+7QJLO6qC0HPCnkWDYo9iN3J1FzmwlJTI5aK89nbOc/lxHXb/7vR5F4VJrE9pPxy9KM5jjl0zS6UJsIezu+4FbWVxMrnX5NS3BE++9XO1eNXTB8E//Nymu9ICYcyCfcXXZ9MK9CPZznL76iMFcIXwBXwEs2NNFGfLKB+PcKlEPH5rs6D8HmFttTNS2uSqvd1uNZ7LlOtRROxJTMQI1BzFfICw/uo3g9Qvfle7I+6/htl+VX2eyf6rEQL9J6lSf1a6VtsB0bec8W7RwfQO3MPrRzPyitWCzvHntMqAhGsTVznTWl9yM1UN/+M2dqjR+h3ez+4vBLCp99CTiuLsvKDuWco2zBb6XzMfpADVXzep9XmqcAD0cDYzfwP56f8bSIranAP6UVuhLE0sXcFww+cjQY5pJXnOubipX8JpridxwKpiawf26PAT2T3phj/qLT2wt93cvsg8DUC3Cf2gj7oInqyFGOZBKGZ7HfTyDEvZp/3SHgjMed0ALX1Jgoh9W6Yz5JSTKU7KWGO4DdUVo9muFvKlOTQosxOzShnPwrKeMAFVlj9f5gQmjyatVDvX9K9sBxfVQh87wI9nAYqC2gUXaSd1td+z4ouiJCyZJgvZCy6aw7WpzZyr9LeI2yBjcPg5026tremKi6zwnsUycfHdUV6nWfpeWD3m5/TuBvWFmeHsP7eHC7CZSRLvu1ckVIeHYhyItmePWwmaLNG2vtTBNUqN0lXJAJqHr0kv4CAPAapIpZgRDnLZc9NTTwfQ6P2qXCj9IOJ/SP89h5Cg9kXHuDG4gngARCCd9O2o2cXEA5lN/pfQcKFwyRT8MvH8zITUZ8hJMx+h363a1Yyyvo6CdXDMN+wO0bSFhX2a7I6UmUVwdo9iqLuToegOgCWl13vSZojYTeMH4xUIcyOxPE3I6R4GRYhljLSYizHvNO+mL94itrJaw1qCbCKW4FfxdzbLDybL9MczUVOKbVUOPr5F5u43wP98SXah+cG2pyslsvRFkE+BuW3MzIn3Ehrtn7odkfMcrUehOf7H7Aiz8R9uZcWf/4T921PnOPdbqIDUCbXzt8xqngdo3LbqzlLQK0Ln+oHEHofuoV0eZRoJGUpUjg+fQleDt4prpbgPpoSMHJZf4H7glcLswWzvQtDtfNeTayYzhIOZVoF/T5enjfxfUjBPrEyjshYtPc0fN2sALOizMwNN5csLFPwy2AJHOKswZa82HbuORSRZfV+G3MyA11bU0EEJUQR2bmryZK7mZ4Hq2+ZLLe3E332GJ6LetvJz/jdif67H4MTvyiyNeDw6JsTbfoIK7c54qlSoLx14AK2cGebm3sZ1p6VZ/1aa7AzAAlOX8Eg6VnIg2sw12eRc82dCxINAEfS9MEIuBe+a71s69I5W+I8e6HqoYKH8VJMBh/h3GZFXnp7OLtj9HkWhMrOLjTTl8WC4nD4aC+Du6U5wmFzCLkt0B+b5ritUthxPSGgRmKOor9zIxR5Ge2YLTCXci4UnM1N1VNWEThkc19ca3dyjRW5nrV/D4zsh0MYbZzjOy9RO7+IPjsbFlCpBe20c7sipPZMjLw3dcesqVG1PTd7wKofAUu7ZzOuzf22OdpxKAZPPgtCkX7iZzrvHLmrOjEtmQAsSqkVH768EXnei5b1ArSWcGhOFE5eO4pSy93WWiNmJqtMH7HU2s9DVp+1tJ1Z9Sm3gTumNd8NK69I6G5RfN9yxJtcVZ0Me1j5U4TmnJNVTms8fP4hLjfzvObWobn9WKs+7aFvm1P3PFdIa9fZn9OaI981VW69126N65db4f4w9VjYQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQojQofgf2r3cjJcopGAAAAAASUVORK5CYII=" alt="NIGHT manoeuvres" class="logo">
+      <div class="header-title">Vespers<br>Execution Plan</div>
+      <div class="header-sub">Friday 12 June 2026 -- London -- 250 capacity</div>
+      <div class="header-tag">Internal -- Team Document</div>
+    </div>
+
+    <!-- ── OVERVIEW ── -->
+    <div class="section">
+      <div class="section-label">Overview</div>
+      <div class="section-title">The Numbers</div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value red">250</div>
+          <div class="stat-label">Capacity</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">26</div>
+          <div class="stat-label">Tickets Sold</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value red">8</div>
+          <div class="stat-label">Weeks to Go</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">&pound;675</div>
+          <div class="stat-label">Total Ad Budget</div>
+        </div>
+      </div>
+
+      <p class="section-text">
+        Sell out 250 tickets and hit 5K followers. Three phases: <strong>Build</strong> the audience (weeks 1-4), <strong>Convert</strong> them into ticket buyers (weeks 5-7), <strong>Final push</strong> (week 8 to show night). Organic content builds the world, paid ads convert warm audiences into ticket sales, WhatsApp closes the deal.
+      </p>
+      <p class="section-text" style="margin-top: 16px;">
+        <strong>Proven baseline:</strong> Sold out NDR 2 (~150-200 cap) on personal WhatsApp messages alone. This plan layers structured content and paid media on top of that.
+      </p>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── PROJECTIONS ── -->
+    <div class="section">
+      <div class="section-label">Projections</div>
+      <div class="section-title">Where the Tickets Come From</div>
+
+      <div class="projection-grid">
+        <div class="projection-card">
+          <div class="projection-header">Ticket Sales</div>
+          <div class="projection-row">
+            <span class="projection-source">Current tickets</span>
+            <span class="projection-value">26</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">WhatsApp (3 waves)</span>
+            <span class="projection-value">80 - 150</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">Paid ads (warm conversion)</span>
+            <span class="projection-value">38 - 84</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">Paid ads (retargeting)</span>
+            <span class="projection-value">12 - 54</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">fabric Records cross-promo</span>
+            <span class="projection-value">10 - 30</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">Organic / word-of-mouth</span>
+            <span class="projection-value">15 - 40</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">Percolate's own promo</span>
+            <span class="projection-value">20 - 50</span>
+          </div>
+          <div class="projection-row projection-total">
+            <span class="projection-source">Total</span>
+            <span class="projection-value">201 - 434</span>
+          </div>
+        </div>
+        <div class="projection-card">
+          <div class="projection-header">Follower Growth</div>
+          <div class="projection-row">
+            <span class="projection-source">Starting followers</span>
+            <span class="projection-value">1,326</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">Paid (always-on boost)</span>
+            <span class="projection-value">+200 - 400</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">Organic content</span>
+            <span class="projection-value">+800 - 2,500</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">Athens / Caribou spike</span>
+            <span class="projection-value">+200 - 1,000</span>
+          </div>
+          <div class="projection-row">
+            <span class="projection-source">fabric Records audience</span>
+            <span class="projection-value">+100 - 400</span>
+          </div>
+          <div class="projection-row" style="visibility: hidden;">
+            <span class="projection-source">&nbsp;</span>
+            <span class="projection-value">&nbsp;</span>
+          </div>
+          <div class="projection-row" style="visibility: hidden;">
+            <span class="projection-source">&nbsp;</span>
+            <span class="projection-value">&nbsp;</span>
+          </div>
+          <div class="projection-row projection-total">
+            <span class="projection-source">Total</span>
+            <span class="projection-value">2,626 - 5,626</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="assumption">Conservative (201 tickets) hits 80% capacity. Sellout is the realistic outcome, not the stretch.</div>
+      <div class="assumption">WhatsApp is the single highest-conversion channel. Proven on NDR 2.</div>
+      <div class="assumption">Athens / Caribou is the wildcard. Could significantly outperform if content goes viral.</div>
+      <div class="assumption">Ad projections based on real test data: &pound;0.16 CPC, 3.4% CTR for Males 35-44.</div>
+      <div class="assumption">KiNK remix (confirmed, date TBC) adds his audience into the funnel. Not yet modelled in projections.</div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── FILMING SESSIONS ── -->
+    <div class="section">
+      <div class="section-label">Content Production</div>
+      <div class="section-title">What We Need to Film</div>
+
+      <p class="section-text" style="margin-bottom: 24px;">
+        7 filming sessions produce ~43 posts. More than enough for 2-3 grid posts per week across 8 weeks. Every session generates multiple derivatives.
+      </p>
+
+      <div class="film-grid">
+        <div class="film-card">
+          <div class="film-number">01</div>
+          <div class="film-title">NDR Record Picks</div>
+          <div class="film-deadline">Film by Apr 20</div>
+          <div class="film-detail">5 vinyl pulls from Next Door Records. Overhead camera, warm lighting, close-ups of labels and artwork. Optional 5-10s audio clips for Reel version.</div>
+          <div class="film-output"><strong>Output:</strong> 6-slide carousel + Reel with audio + 5 story shares = 7 posts</div>
+        </div>
+        <div class="film-card">
+          <div class="film-number">02</div>
+          <div class="film-title">Studio Performance</div>
+          <div class="film-deadline">Film by Apr 27 -- highest priority</div>
+          <div class="film-detail">Full Hybrid Live performance. Full day in studio. 3-5 performance sections at different energy levels. Wide rig, booth POV, hands on OB-6, vinyl close-ups, CDJ screens, Move close-ups.</div>
+          <div class="film-output"><strong>Output:</strong> Full cut + 3 Reels + BTS carousel + booth POV + stills = 8 posts</div>
+          <div class="gear-list">
+            <span class="gear-tag">Sony FX3</span>
+            <span class="gear-tag">DJI Osmo Pocket 3</span>
+            <span class="gear-tag">Astera Titan Tubes</span>
+            <span class="gear-tag">2x ADJ Focus Spot 2X</span>
+            <span class="gear-tag">Zhiyun Molus G200</span>
+          </div>
+        </div>
+        <div class="film-card">
+          <div class="film-number">03</div>
+          <div class="film-title">Buchla 200e Session</div>
+          <div class="film-deadline">Film by May 4</div>
+          <div class="film-detail">Building a patch from scratch on the Buchla. Close on the 261e oscillator, 296e spectral processor, 252e rhythm generator. The journey from init to finished sound.</div>
+          <div class="film-output"><strong>Output:</strong> Hook Reel + module carousel + sound design Reel + stories = 5 posts</div>
+        </div>
+        <div class="film-card">
+          <div class="film-number">04</div>
+          <div class="film-title">Machine vs Human</div>
+          <div class="film-deadline">Film by May 4</div>
+          <div class="film-detail">Split frame or two cameras. Anthony on hardware and modular with arpeggiated loops, Dot plays piano live over it. Man and machine side by side. The contrast IS the content.</div>
+          <div class="film-output"><strong>Output:</strong> Main Reel (scroll-stopper) + BTS + stories = 3 posts</div>
+        </div>
+        <div class="film-card">
+          <div class="film-number">05</div>
+          <div class="film-title">Sound Design Breakdown</div>
+          <div class="film-deadline">Film by May 11</div>
+          <div class="film-detail">"The OB-6 patch behind our live sets" or "How we built [track] from All for You EP." Screen capture + overhead camera + hands on OB-6. Educational, musical, saveable.</div>
+          <div class="film-output"><strong>Output:</strong> Reel + carousel breakdown + story series = 3 posts</div>
+        </div>
+        <div class="film-card">
+          <div class="film-number">06</div>
+          <div class="film-title">Athens / Caribou Show</div>
+          <div class="film-deadline">May 19-25 -- the content bomb</div>
+          <div class="film-detail">Support slot for Daphni / Caribou, under the Acropolis. Film everything: NM performing, crowd reactions, venue with Acropolis visible, backstage, soundcheck. This is potentially the single biggest viral content moment of the campaign.</div>
+          <div class="film-output"><strong>Output:</strong> Crowd Reel + booth POV + atmosphere stories + tracklist = 5 posts + ad creative</div>
+          <div class="gear-list">
+            <span class="gear-tag">Sony FX3</span>
+            <span class="gear-tag">DJI Osmo Pocket 3</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-text" style="color: var(--text-muted); font-size: 12px;">
+        Session 7: Vespers show night (June 12). Film setup, soundcheck, crowd, booth POV, audience reactions. Get someone to film NM from the crowd. Generates another 5+ posts for post-show content.
+      </p>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── RELEASES ── -->
+    <div class="section">
+      <div class="section-label">Releases</div>
+      <div class="section-title">Release Fuel</div>
+
+      <p class="section-text" style="margin-bottom: 24px;">
+        Two fabric Records releases during the campaign. Each generates content that feeds Vespers visibility. fabric to include Vespers dates in their promo.
+      </p>
+
+      <div class="campaign-grid">
+        <div class="campaign-card">
+          <div class="campaign-name">All for You EP</div>
+          <div class="campaign-obj">fabric Records -- 17 April 2026</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Status</span>
+            <span class="campaign-row-value">Current release</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Content</span>
+            <span class="campaign-row-value">Announcement, behind-the-track, DJ clip, stories</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Posts</span>
+            <span class="campaign-row-value">~5 posts</span>
+          </div>
+        </div>
+        <div class="campaign-card">
+          <div class="campaign-name">Visions ft Sarah Nimmo + KiNK Remix</div>
+          <div class="campaign-obj">fabric Records -- 14 May 2026</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Status</span>
+            <span class="campaign-row-value">Big summer single + KiNK remix confirmed</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Content</span>
+            <span class="campaign-row-value">Announcement, collab content, behind-the-track, stories</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Borrowed reach</span>
+            <span class="campaign-row-value">Sarah Nimmo's audience + KiNK's audience</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── WEEK BY WEEK ── -->
+    <div class="section">
+      <div class="section-label">Timeline</div>
+      <div class="section-title">Week by Week</div>
+
+      <!-- PHASE 1 -->
+      <div class="phase-header">Phase 1: Build -- Apr 14 to May 11</div>
+
+      <div class="week-block">
+        <div class="week-header">
+          <div class="week-title">Week 1</div>
+          <div class="week-dates">Apr 14-20</div>
+        </div>
+        <div class="week-body">
+          <div class="week-row">
+            <span class="week-day">Mon 14</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>Campaign opener.</strong> Strong first impression. Sets the tone.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Thu 17</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>All for You EP announcement.</strong> Artwork + fabric Records. Pin to grid.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Sat 19</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>All for You EP second angle.</strong> Production detail or alternate clip.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Ongoing</span>
+            <span class="week-format">Stories</span>
+            <span class="week-content">Ticket link + BTS from studio. Keep light.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="week-block">
+        <div class="week-header">
+          <div class="week-title">Week 2</div>
+          <div class="week-dates">Apr 21-27</div>
+        </div>
+        <div class="week-body">
+          <div class="week-row">
+            <span class="week-day">Mon 21</span>
+            <span class="week-format">Carousel</span>
+            <span class="week-content"><strong>NDR Record Picks.</strong> 5 slides. Tag @NextDoorRecords.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Thu 24</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>All for You EP third angle.</strong> Sound design moment or DJ set clip.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Sat 26</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>Records That Shaped Them</strong> or Hybrid Live World content.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">This week</span>
+            <span class="week-format">Action</span>
+            <span class="week-content"><strong>Studio Performance shoot.</strong> Full day. Most important day of the campaign.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">This week</span>
+            <span class="week-format">WhatsApp</span>
+            <span class="week-content"><strong>Wave 1: Inner circle.</strong> 30-50 messages. Close friends, regular gig-goers.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="week-block">
+        <div class="week-header">
+          <div class="week-title">Week 3</div>
+          <div class="week-dates">Apr 28 - May 4</div>
+        </div>
+        <div class="week-body">
+          <div class="week-row">
+            <span class="week-day">Mon 28</span>
+            <span class="week-format">Reel</span>
+            <span class="week-content"><strong>Studio Performance first drop.</strong> Strongest 15-30s moment. Let the video talk.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Wed 30</span>
+            <span class="week-format">Carousel</span>
+            <span class="week-content"><strong>Studio Performance BTS.</strong> Setup, lighting, the rig from above.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Fri 2</span>
+            <span class="week-format">Reel</span>
+            <span class="week-content"><strong>Studio Performance second clip.</strong> Different energy.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">This week</span>
+            <span class="week-format">Action</span>
+            <span class="week-content"><strong>Film Buchla session + Machine vs Human.</strong> Can do both same day at Dot's studio.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="week-block">
+        <div class="week-header">
+          <div class="week-title">Week 4</div>
+          <div class="week-dates">May 5-11</div>
+        </div>
+        <div class="week-body">
+          <div class="week-row">
+            <span class="week-day">Mon 5</span>
+            <span class="week-format">Reel</span>
+            <span class="week-content"><strong>Buchla session.</strong> "Building a patch on the 200e." Tag @buchlausa.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Wed 7</span>
+            <span class="week-format">Carousel</span>
+            <span class="week-content"><strong>Buchla module breakdown.</strong> 4-5 slides with context per module. Save-magnet.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Fri 9</span>
+            <span class="week-format">Reel</span>
+            <span class="week-content"><strong>Machine vs Human.</strong> The scroll-stopper. Anthony on modular, Dot on piano.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">This week</span>
+            <span class="week-format">WhatsApp</span>
+            <span class="week-content"><strong>Wave 2: Extended network.</strong> 50-80 messages. Industry, DJs, producers, scene regulars.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHECKPOINT 1 -->
+      <div class="checkpoint">
+        <div class="checkpoint-title">Checkpoint -- May 11</div>
+        <div class="checkpoint-row">
+          <span class="checkpoint-metric">Tickets sold</span>
+          <span class="checkpoint-target">60+</span>
+          <span class="checkpoint-action">If behind: increase ad spend, accelerate Wave 2 WhatsApp</span>
+        </div>
+        <div class="checkpoint-row">
+          <span class="checkpoint-metric">Engagement pool</span>
+          <span class="checkpoint-target">5,000+</span>
+          <span class="checkpoint-action">If behind: increase Campaign 1 daily spend for final week</span>
+        </div>
+        <div class="checkpoint-row">
+          <span class="checkpoint-metric">Follower count</span>
+          <span class="checkpoint-target">1,500+</span>
+          <span class="checkpoint-action">If behind: boost more organic winners via Campaign 4</span>
+        </div>
+        <div class="checkpoint-row">
+          <span class="checkpoint-metric">Content bank</span>
+          <span class="checkpoint-target">All filmed</span>
+          <span class="checkpoint-action">Studio perf + Buchla + MvH must be done. Prioritise remaining shoots.</span>
+        </div>
+      </div>
+
+      <!-- PHASE 2 -->
+      <div class="phase-header" style="margin-top: 48px;">Phase 2: Convert -- May 12 to May 31</div>
+
+      <div class="week-block">
+        <div class="week-header">
+          <div class="week-title">Week 5</div>
+          <div class="week-dates">May 12-18</div>
+        </div>
+        <div class="week-body">
+          <div class="week-row">
+            <span class="week-day">Wed 14</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>Visions ft Sarah Nimmo announcement.</strong> Artwork + fabric + Sarah tagged. Her audience = new eyes.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Sat 17</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>Sound design breakdown</strong> or Visions behind-the-track.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Sun 18</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>First dedicated Vespers post.</strong> Venue, lineup, "what we're building."</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">This week</span>
+            <span class="week-format">Ads</span>
+            <span class="week-content"><strong>Launch Campaign 3 (Retargeting).</strong> Target RA link clickers who didn't buy.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="week-block">
+        <div class="week-header">
+          <div class="week-title">Week 6</div>
+          <div class="week-dates">May 19-25</div>
+        </div>
+        <div class="week-body">
+          <div class="week-row">
+            <span class="week-day">Show night</span>
+            <span class="week-format">Action</span>
+            <span class="week-content"><strong>Athens. Film everything.</strong> NM performing, crowd, Acropolis in frame, backstage, soundcheck.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Day after</span>
+            <span class="week-format">Reel</span>
+            <span class="week-content"><strong>Best crowd moment.</strong> Quick turnaround. Strike while fresh.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Sat 24</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>"Back in London. Vespers. June 12."</strong> Ride the Athens momentum.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">48hrs after</span>
+            <span class="week-format">Ads</span>
+            <span class="week-content"><strong>Load Athens content as ad creative.</strong> Replace all Campaign 2 + 3 creative. If Reel pops 2x average, boost same day.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="week-block">
+        <div class="week-header">
+          <div class="week-title">Week 7</div>
+          <div class="week-dates">May 26 - Jun 1</div>
+        </div>
+        <div class="week-body">
+          <div class="week-row">
+            <span class="week-day">Mon 26</span>
+            <span class="week-format">Reel</span>
+            <span class="week-content"><strong>Athens content.</strong> Best crowd reaction or Acropolis atmosphere.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Wed 28</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>Vespers lineup spotlight</strong> or collaborator-tagged content.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Fri 30</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>Studio Performance reshare.</strong> "This is what we're bringing."</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">This week</span>
+            <span class="week-format">Ads</span>
+            <span class="week-content"><strong>Heaviest conversion push begins.</strong> Campaign 2 at &pound;60/week. Athens creative should be primary.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHECKPOINT 2 -->
+      <div class="checkpoint">
+        <div class="checkpoint-title">Checkpoint -- June 1</div>
+        <div class="checkpoint-row">
+          <span class="checkpoint-metric">Tickets sold</span>
+          <span class="checkpoint-target">175+</span>
+          <span class="checkpoint-action">Max out remaining ad budget in final 2 weeks. Wave 3 WhatsApp immediately.</span>
+        </div>
+        <div class="checkpoint-row">
+          <span class="checkpoint-metric">Tickets sold</span>
+          <span class="checkpoint-target">200+</span>
+          <span class="checkpoint-action">Shift to FOMO messaging. "Final tickets."</span>
+        </div>
+        <div class="checkpoint-row">
+          <span class="checkpoint-metric">Tickets sold</span>
+          <span class="checkpoint-target" style="color: var(--vermilion);">130 or below</span>
+          <span class="checkpoint-action">Serious concern. Budget increase, broader targeting, direct scene asks.</span>
+        </div>
+        <div class="checkpoint-row">
+          <span class="checkpoint-metric">Follower count</span>
+          <span class="checkpoint-target">2,500+</span>
+          <span class="checkpoint-action">On track. Continue Campaign 4.</span>
+        </div>
+      </div>
+
+      <!-- PHASE 3 -->
+      <div class="phase-header" style="margin-top: 48px;">Phase 3: Final Push -- Jun 2 to Jun 12</div>
+
+      <div class="week-block">
+        <div class="week-header">
+          <div class="week-title">Week 8</div>
+          <div class="week-dates">Jun 2-8</div>
+        </div>
+        <div class="week-body">
+          <div class="week-row">
+            <span class="week-day">Mon 2</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>"10 days."</strong> Clean, confident. Not desperate countdown.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Wed 4</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>Best-performing content reshared</strong> or new edit.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Fri 6</span>
+            <span class="week-format">Carousel</span>
+            <span class="week-content"><strong>Lineup feature</strong> or "what to expect."</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">This week</span>
+            <span class="week-format">WhatsApp</span>
+            <span class="week-content"><strong>Wave 3: Final push.</strong> 30-50 messages. Only if tickets are genuinely selling. Never bluff.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">This week</span>
+            <span class="week-format">Ads</span>
+            <span class="week-content"><strong>Maximum spend.</strong> Campaign 2: &pound;70/wk. Campaign 3: &pound;35/wk. Urgency creative.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="week-block">
+        <div class="week-header">
+          <div class="week-title">Show Week</div>
+          <div class="week-dates">Jun 9-12</div>
+        </div>
+        <div class="week-body">
+          <div class="week-row">
+            <span class="week-day">Mon 9</span>
+            <span class="week-format">Grid</span>
+            <span class="week-content"><strong>"This Friday."</strong> Clean, confident, final.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Tue-Wed</span>
+            <span class="week-format">Stories</span>
+            <span class="week-content"><strong>Prep content.</strong> What's going in the bag, setup planning, "Tomorrow" tease.</span>
+          </div>
+          <div class="week-row">
+            <span class="week-day">Thu 12</span>
+            <span class="week-format">Show</span>
+            <span class="week-content"><strong>Film everything.</strong> Setup, soundcheck, doors, crowd, performance. This IS the content.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── WHATSAPP ── -->
+    <div class="section">
+      <div class="section-label">Direct Outreach</div>
+      <div class="section-title">WhatsApp Strategy</div>
+
+      <p class="section-text" style="margin-bottom: 24px;">
+        Highest-conversion channel. Sold out NDR 2 on personal messages alone. Three waves, escalating urgency, never bluffing.
+      </p>
+
+      <div class="wa-grid">
+        <div class="wa-card">
+          <div class="wa-wave">Wave 1: Inner Circle</div>
+          <div class="wa-timing">Apr 21-25</div>
+          <div class="wa-detail">Close friends, regular gig-goers, people who'd come regardless. 30-50 messages. Personal, not templated. After they commit, ask them to share.</div>
+          <div class="wa-target"><strong>Target:</strong> 15-25 confirmed tickets</div>
+        </div>
+        <div class="wa-card">
+          <div class="wa-wave">Wave 2: Extended Network</div>
+          <div class="wa-timing">May 5-9</div>
+          <div class="wa-detail">Industry contacts, DJs, producers, label people, venue staff, scene regulars. 50-80 messages. Wave 1 social proof gives you credibility.</div>
+          <div class="wa-target"><strong>Target:</strong> 20-30 tickets (many bring +1s)</div>
+        </div>
+        <div class="wa-card">
+          <div class="wa-wave">Wave 3: Final Push</div>
+          <div class="wa-timing">Jun 2-6</div>
+          <div class="wa-detail">Anyone from Wave 1+2 who didn't respond + wider London contacts. 30-50 messages. Only send if tickets are genuinely selling. Never bluff.</div>
+          <div class="wa-target"><strong>Target:</strong> 10-20 tickets</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── AD CAMPAIGNS ── -->
+    <div class="section">
+      <div class="section-label">Paid Media</div>
+      <div class="section-title">4 Campaigns, &pound;675 Total</div>
+
+      <p class="section-text" style="margin-bottom: 24px;">
+        Each campaign has a specific job. Pool building first, conversion second, retargeting the warm audience, always-on follower growth running underneath.
+      </p>
+
+      <div class="campaign-grid">
+        <div class="campaign-card">
+          <div class="campaign-name">1. Engagement Pool Builder</div>
+          <div class="campaign-obj">&pound;175 -- Apr 14 to May 18</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Objective</span>
+            <span class="campaign-row-value">Engagement / Video Views</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Targeting</span>
+            <span class="campaign-row-value">London 25km, 21-44, interest stacks</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Placements</span>
+            <span class="campaign-row-value">IG Stories + Reels only</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Daily avg</span>
+            <span class="campaign-row-value">~&pound;5/day</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Job</span>
+            <span class="campaign-row-value">Build the warm audience that Campaign 2 converts</span>
+          </div>
+        </div>
+        <div class="campaign-card">
+          <div class="campaign-name">2. Ticket Conversion</div>
+          <div class="campaign-obj">&pound;300 -- May 1 to Jun 12</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Objective</span>
+            <span class="campaign-row-value">Traffic to RA listing</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Targeting</span>
+            <span class="campaign-row-value">Warm pool from Campaign 1 + lookalikes</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">CTA</span>
+            <span class="campaign-row-value">GET TICKETS</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Pacing</span>
+            <span class="campaign-row-value">&pound;4/day ramping to &pound;10-15/day final weeks</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Job</span>
+            <span class="campaign-row-value">Turn warm audiences into ticket buyers</span>
+          </div>
+        </div>
+        <div class="campaign-card">
+          <div class="campaign-name">3. Retargeting</div>
+          <div class="campaign-obj">&pound;125 -- May 15 to Jun 12</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Objective</span>
+            <span class="campaign-row-value">Traffic to RA listing</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Targeting</span>
+            <span class="campaign-row-value">RA link clickers who didn't buy + 3x engagers</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Placements</span>
+            <span class="campaign-row-value">IG Stories only (full screen, direct)</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Daily avg</span>
+            <span class="campaign-row-value">~&pound;4.50/day</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Job</span>
+            <span class="campaign-row-value">Second touch on people who showed intent</span>
+          </div>
+        </div>
+        <div class="campaign-card">
+          <div class="campaign-name">4. Follower Growth</div>
+          <div class="campaign-obj">&pound;75 -- Apr 14 to Aug</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Objective</span>
+            <span class="campaign-row-value">Engagement (boost best organic posts)</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Targeting</span>
+            <span class="campaign-row-value">1% lookalike of followers, UK-wide, 21-44</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Rule</span>
+            <span class="campaign-row-value">Only boost posts that outperform 2x organic avg</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Daily avg</span>
+            <span class="campaign-row-value">~&pound;1-2/day</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Job</span>
+            <span class="campaign-row-value">Long-tail follower growth. Every follower = future ticket buyer.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── BUDGET ── -->
+    <div class="section">
+      <div class="section-label">Budget</div>
+      <div class="section-title">Weekly Spend Pacing</div>
+
+      <table class="budget-table">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>Pool</th>
+            <th>Convert</th>
+            <th>Retarget</th>
+            <th>Follow</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Apr 14-20</td>
+            <td>&pound;30</td>
+            <td>--</td>
+            <td>--</td>
+            <td>&pound;10</td>
+            <td>&pound;40</td>
+          </tr>
+          <tr>
+            <td>Apr 21-27</td>
+            <td>&pound;30</td>
+            <td>--</td>
+            <td>--</td>
+            <td>&pound;10</td>
+            <td>&pound;40</td>
+          </tr>
+          <tr>
+            <td>Apr 28 - May 4</td>
+            <td>&pound;35</td>
+            <td>&pound;25</td>
+            <td>--</td>
+            <td>&pound;10</td>
+            <td>&pound;70</td>
+          </tr>
+          <tr>
+            <td>May 5-11</td>
+            <td>&pound;35</td>
+            <td>&pound;25</td>
+            <td>--</td>
+            <td>&pound;10</td>
+            <td>&pound;70</td>
+          </tr>
+          <tr>
+            <td>May 12-18</td>
+            <td>&pound;35</td>
+            <td>&pound;30</td>
+            <td>&pound;20</td>
+            <td>&pound;10</td>
+            <td>&pound;95</td>
+          </tr>
+          <tr>
+            <td>May 19-25</td>
+            <td>&pound;10</td>
+            <td>&pound;40</td>
+            <td>&pound;25</td>
+            <td>&pound;15</td>
+            <td>&pound;90</td>
+          </tr>
+          <tr>
+            <td>May 26 - Jun 1</td>
+            <td>--</td>
+            <td>&pound;60</td>
+            <td>&pound;30</td>
+            <td>&pound;10</td>
+            <td>&pound;100</td>
+          </tr>
+          <tr>
+            <td>Jun 2-8</td>
+            <td>--</td>
+            <td>&pound;70</td>
+            <td>&pound;35</td>
+            <td>--</td>
+            <td>&pound;105</td>
+          </tr>
+          <tr>
+            <td>Jun 9-12</td>
+            <td>--</td>
+            <td>&pound;50</td>
+            <td>&pound;15</td>
+            <td>--</td>
+            <td>&pound;65</td>
+          </tr>
+          <tr>
+            <td><strong>Total</strong></td>
+            <td><strong>&pound;175</strong></td>
+            <td><strong>&pound;300</strong></td>
+            <td><strong>&pound;125</strong></td>
+            <td><strong>&pound;75</strong></td>
+            <td><strong>&pound;675</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── AD MANAGEMENT ── -->
+    <div class="section">
+      <div class="section-label">Ad Management</div>
+      <div class="section-title">Daily Protocol</div>
+
+      <div class="campaign-grid">
+        <div class="campaign-card">
+          <div class="campaign-name">48-Hour Rule</div>
+          <div class="campaign-obj">Non-negotiable</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Rule</span>
+            <span class="campaign-row-value">Any ad with CTR below 1% after 48hrs: kill it</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Frequency</span>
+            <span class="campaign-row-value">Any ad set over 3.0 frequency: pause it</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">CPC ceiling</span>
+            <span class="campaign-row-value">Above &pound;0.50 for 3+ days: kill it</span>
+          </div>
+        </div>
+        <div class="campaign-card">
+          <div class="campaign-name">Creative Rotation</div>
+          <div class="campaign-obj">Every 7-10 days</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Rule</span>
+            <span class="campaign-row-value">Never run same creative longer than 10 days</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Prep</span>
+            <span class="campaign-row-value">Next week's creative ready before killing current</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Negative comments</span>
+            <span class="campaign-row-value">Kill immediately. Credibility damage.</span>
+          </div>
+        </div>
+        <div class="campaign-card">
+          <div class="campaign-name">Scale Triggers</div>
+          <div class="campaign-obj">When to push harder</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">CTR above 2%</span>
+            <span class="campaign-row-value">Increase daily budget by 20%</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Engagement above 5%</span>
+            <span class="campaign-row-value">Expand to lookalike audiences</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Organic post 2x avg</span>
+            <span class="campaign-row-value">Boost same day via Campaign 4</span>
+          </div>
+        </div>
+        <div class="campaign-card">
+          <div class="campaign-name">Creative Rules</div>
+          <div class="campaign-obj">Always</div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Source</span>
+            <span class="campaign-row-value">All creative = NM's organic content. Never stock.</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Aesthetic</span>
+            <span class="campaign-row-value">Dark/moody matching the feed. Seamless click-through.</span>
+          </div>
+          <div class="campaign-row">
+            <span class="campaign-row-label">Tone</span>
+            <span class="campaign-row-value">No "BUY TICKETS" energy. Lead with the art.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── INTEREST TARGETING ── -->
+    <div class="section">
+      <div class="section-label">Targeting</div>
+      <div class="section-title">Interest Stack</div>
+
+      <p class="section-text" style="margin-bottom: 24px;">
+        2-3 interests per ad set. Stacking narrows the audience to higher intent. Always exclude existing followers from prospecting campaigns.
+      </p>
+
+      <div class="wa-grid">
+        <div class="wa-card">
+          <div class="wa-wave">Primary</div>
+          <div class="wa-timing">Confirmed targetable</div>
+          <div class="wa-detail">Resident Advisor<br>Boiler Room<br>Bicep</div>
+        </div>
+        <div class="wa-card">
+          <div class="wa-wave">Secondary</div>
+          <div class="wa-timing">Test and validate</div>
+          <div class="wa-detail">Four Tet<br>Jamie xx<br>Floating Points<br>Disclosure<br>KiNK</div>
+        </div>
+        <div class="wa-card">
+          <div class="wa-wave">Tertiary</div>
+          <div class="wa-timing">Pool building / broader</div>
+          <div class="wa-detail">Cercle<br>HOR Berlin<br>Mixmag<br>Ben Bohmer<br>Peggy Gou</div>
+        </div>
+      </div>
+
+      <div class="assumption">Never go above 1% lookalike for underground. Audience gets too broad.</div>
+      <div class="assumption">Always exclude: mainstream EDM interests (Tomorrowland, Ultra, Martin Garrix).</div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── fabric COORDINATION ── -->
+    <div class="section">
+      <div class="section-label">Coordination</div>
+      <div class="section-title">fabric Records</div>
+
+      <p class="section-text">
+        Both fabric releases should mention Vespers dates in their promo. This is free borrowed distribution.
+      </p>
+
+      <div style="margin-top: 24px;">
+        <div class="assumption">Confirm All for You EP promo includes "Live at Vespers, London - June 12" in caption/bio/promo</div>
+        <div class="assumption">Same request for Visions (May 14) - agree this now, not last minute</div>
+        <div class="assumption">If fabric does a mailer for either release, Vespers date should be in there</div>
+        <div class="assumption">KiNK remix promo (date TBC) - same coordination when release date is confirmed</div>
+      </div>
+    </div>
+
+    <!-- ── FOOTER ── -->
+    <div class="footer">
+      <div style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;">Powered by</div>
+      <a href="https://signallabos.com" style="text-decoration: none; display: inline-block;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 48" fill="none" style="width: 280px; margin-bottom: 20px; opacity: 0.7;">
+          <g transform="translate(18, 0)">
+            <rect x="4" y="4" width="40" height="40" rx="10" fill="none" stroke="#ff3b30" stroke-width="1.2" opacity="0.25"/>
+            <polyline points="10,24 16,24 19,15 23,33 27,11 31,31 34,21 37,24 40,24"
+              stroke="#ff3b30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <text x="56" y="30" font-family="Unbounded, sans-serif" font-weight="200" font-size="22" fill="#f0ebe2" letter-spacing="1">Signal Lab <tspan fill="#8a8780" font-family="DM Mono, monospace" font-weight="300" font-size="14" dx="4" letter-spacing="2">OS</tspan></text>
+          </g>
+        </svg>
+      </a>
+      <div class="footer-text" style="margin-top: 8px; color: var(--text-muted);">Prepared April 2026</div>
+    </div>
+
+  </div>
+</body>
+</html>
