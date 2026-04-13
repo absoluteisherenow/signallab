@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NIGHT manoeuvres — Vespers Promotional Strategy</title>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@200;300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070706;
+      --panel: #0e0d0b;
+      --panel-hover: #141311;
+      --border-dim: #1a1917;
+      --border: #2e2c29;
+      --gold: #b08d57;
+      --gold-bright: #c9a46e;
+      --gold-glow: rgba(176, 141, 87, 0.15);
+      --vermilion: #ff3b30;
+      --vermilion-soft: rgba(255, 59, 48, 0.10);
+      --midnight: #1a2744;
+      --text: #f0ebe2;
+      --text-dim: #8a8780;
+      --text-muted: #5a5850;
+      --green: #3d6b4a;
+      --green-soft: rgba(61, 107, 74, 0.15);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 60px 40px;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 80px 0 60px;
+      border-bottom: 1px solid var(--border-dim);
+      margin-bottom: 60px;
+    }
+
+    .logo {
+      width: 360px;
+      margin-bottom: 48px;
+      filter: invert(1);
+      opacity: 0.95;
+    }
+
+    .header-venue {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 200;
+      font-size: 13px;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: var(--vermilion);
+      margin-bottom: 8px;
+    }
+
+    .header-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 800;
+      font-size: clamp(72px, 10vw, 140px);
+      letter-spacing: -3px;
+      color: var(--text);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      line-height: 0.95;
+    }
+
+    .header-date {
+      font-family: 'DM Mono', monospace;
+      font-weight: 300;
+      font-size: 14px;
+      color: var(--text-dim);
+      letter-spacing: 3px;
+      margin-bottom: 40px;
+    }
+
+    .header-label {
+      display: inline-block;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--vermilion);
+      border: 1px solid var(--border);
+      padding: 8px 24px;
+    }
+
+    .confidential {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-top: 24px;
+    }
+
+    /* ── Sections ── */
+    .section {
+      margin-bottom: 64px;
+    }
+
+    .section-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: var(--vermilion);
+      margin-bottom: 8px;
+    }
+
+    .section-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 500;
+      font-size: 24px;
+      color: var(--text);
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .section-text {
+      color: var(--text-dim);
+      line-height: 1.8;
+      max-width: 700px;
+    }
+
+    .section-text strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border-dim);
+      margin: 64px 0;
+    }
+
+    /* ── Momentum Banner ── */
+    .momentum {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--vermilion);
+      padding: 32px 40px;
+      margin-bottom: 64px;
+    }
+
+    .momentum-stat {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 28px;
+      color: var(--vermilion);
+      margin-bottom: 4px;
+    }
+
+    .momentum-label {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .momentum-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 12px;
+      font-style: italic;
+      font-family: Georgia, serif;
+    }
+
+    /* ── Stat Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border-dim);
+      border: 1px solid var(--border-dim);
+      margin-bottom: 0;
+    }
+
+    .stat-card {
+      background: var(--panel);
+      padding: 28px 24px;
+      transition: background 0.2s;
+    }
+
+    .stat-card:hover {
+      background: var(--panel-hover);
+    }
+
+    /* ── Hero Stat ── */
+    .hero-stat {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border: 1px solid var(--border);
+      margin-bottom: 48px;
+      overflow: hidden;
+    }
+
+    .hero-stat-left {
+      background: var(--panel);
+      padding: 48px 40px;
+      border-right: 1px solid var(--border-dim);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .hero-stat-value {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 600;
+      font-size: 80px;
+      color: var(--vermilion);
+      line-height: 1;
+      margin-bottom: 12px;
+      letter-spacing: -3px;
+    }
+
+    .hero-stat-label {
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    .hero-stat-benchmark {
+      display: inline-block;
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 13px;
+      color: var(--vermilion);
+      border: 1px solid rgba(182, 58, 58, 0.3);
+      padding: 6px 14px;
+      letter-spacing: 1px;
+    }
+
+    .hero-stat-right {
+      background: var(--panel);
+      padding: 48px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .hero-stat-context {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.9;
+    }
+
+    .hero-stat-context strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .hero-stat-context .vermilion {
+      color: var(--vermilion);
+      font-weight: 500;
+    }
+
+    @media (max-width: 700px) {
+      .hero-stat { grid-template-columns: 1fr; }
+      .hero-stat-left { border-right: none; border-bottom: 1px solid var(--border-dim); }
+      .hero-stat-value { font-size: 48px; }
+    }
+
+    .stat-value {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 26px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .stat-value.gold, .stat-value.red {
+      color: var(--vermilion);
+    }
+
+    .stat-value.green {
+      color: #5a9a6a;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .stat-context {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .stat-context .highlight {
+      color: var(--vermilion);
+    }
+
+    /* ── Phase Timeline ── */
+    .phases {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 32px;
+    }
+
+    .phase {
+      background: var(--panel);
+      border: 1px solid var(--border-dim);
+      padding: 28px 24px;
+      position: relative;
+    }
+
+    .phase::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+    }
+
+    .phase:nth-child(1)::before { background: var(--vermilion); opacity: 0.4; }
+    .phase:nth-child(2)::before { background: var(--vermilion); opacity: 0.7; }
+    .phase:nth-child(3)::before { background: var(--vermilion); opacity: 1; }
+
+    .phase-number {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 200;
+      font-size: 11px;
+      color: var(--vermilion);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .phase-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 16px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .phase-dates {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .phase-items {
+      list-style: none;
+      padding: 0;
+    }
+
+    .phase-items li {
+      font-size: 12px;
+      color: var(--text-dim);
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border-dim);
+      line-height: 1.5;
+    }
+
+    .phase-items li:last-child {
+      border-bottom: none;
+    }
+
+    /* ── Content Pillars ── */
+    .pillars {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .pillar {
+      background: var(--panel);
+      border: 1px solid var(--border-dim);
+      padding: 24px;
+    }
+
+    .pillar-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .pillar-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .pillar-tag {
+      display: inline-block;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    /* ── Budget Table ── */
+    .budget-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 24px;
+    }
+
+    .budget-table th {
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 400;
+    }
+
+    .budget-table td {
+      font-size: 13px;
+      color: var(--text-dim);
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .budget-table td:first-child {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .budget-total {
+      background: var(--vermilion-soft);
+    }
+
+    .budget-total td {
+      color: var(--vermilion) !important;
+      font-weight: 500 !important;
+      border-bottom: none;
+    }
+
+    /* ── Credential Stack ── */
+    .credentials {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      background: var(--border-dim);
+      border: 1px solid var(--border-dim);
+      margin-top: 24px;
+    }
+
+    .credential {
+      background: var(--panel);
+      padding: 20px 24px;
+    }
+
+    .credential-venue {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .credential-detail {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .credential-role {
+      font-size: 10px;
+      color: var(--vermilion);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+
+    /* ── USP Block ── */
+    .usp {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--vermilion);
+      padding: 32px 40px;
+      margin-top: 40px;
+    }
+
+    .usp-title {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 16px;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .usp-text {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.8;
+    }
+
+    .usp-gear {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-dim);
+      font-style: italic;
+      font-family: Georgia, serif;
+    }
+
+    /* ── Partnership Section ── */
+    .partnership {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 40px;
+      margin-top: 40px;
+    }
+
+    .partnership-intro {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.8;
+      margin-bottom: 28px;
+      max-width: 650px;
+    }
+
+    .partnership-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    .partnership-col h4 {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 12px;
+      color: var(--vermilion);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .partnership-col ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .partnership-col li {
+      font-size: 12px;
+      color: var(--text-dim);
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-dim);
+      padding-left: 16px;
+      position: relative;
+      line-height: 1.5;
+    }
+
+    .partnership-col li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 14px;
+      width: 6px;
+      height: 1px;
+    }
+
+    .our-commitment li::before {
+      background: var(--vermilion);
+    }
+
+    .their-plan li::before {
+      background: var(--text-muted);
+    }
+
+    .partnership-col li:last-child {
+      border-bottom: none;
+    }
+
+    /* ── Cadence ── */
+    .cadence {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border-dim);
+      border: 1px solid var(--border-dim);
+      margin-top: 24px;
+    }
+
+    .cadence-item {
+      background: var(--panel);
+      padding: 20px 16px;
+      text-align: center;
+    }
+
+    .cadence-value {
+      font-family: 'Unbounded', sans-serif;
+      font-weight: 400;
+      font-size: 20px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .cadence-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .cadence-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding: 60px 0 40px;
+      border-top: 1px solid var(--border-dim);
+      margin-top: 80px;
+    }
+
+    .footer-logo {
+      width: 100px;
+      filter: invert(1);
+      opacity: 0.6;
+      margin-bottom: 20px;
+    }
+
+    .footer-handle {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+    }
+
+    .footer-prepared {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 20px;
+      letter-spacing: 1px;
+    }
+
+    /* ── Print ── */
+    @media print {
+      body { background: #fff; color: #1a1a1a; }
+      .stat-card, .phase, .pillar, .credential, .cadence-item,
+      .partnership, .momentum, .usp { background: #f8f7f5; border-color: #ddd; }
+      .stat-value, .phase-title, .credential-venue, .usp-title { color: #1a1a1a; }
+      .section-title { color: #1a1a1a; }
+      .logo, .footer-logo { filter: none; }
+      .stats-grid, .credentials, .cadence { background: #ddd; }
+      .gold, .red { color: #ff3b30 !important; }
+      .header { border-color: #ddd; }
+      .footer { border-color: #ddd; }
+    }
+
+    @media (max-width: 700px) {
+      .container { padding: 40px 20px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .phases { grid-template-columns: 1fr; }
+      .pillars { grid-template-columns: 1fr; }
+      .credentials { grid-template-columns: 1fr; }
+      .partnership-grid { grid-template-columns: 1fr; }
+      .cadence { grid-template-columns: repeat(2, 1fr); }
+      .header-title { font-size: 48px; }
+      .stat-value { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- ── HEADER ── -->
+    <div class="header">
+      <img src="data:image/png;base64,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" alt="NIGHT manoeuvres" class="logo">
+
+      <div class="header-title">Vespers Content Strategy</div>
+      <div class="header-date">London &mdash; 12 June 2026</div>
+
+    </div>
+
+    <!-- ── MOMENTUM ── -->
+    <div class="momentum">
+      <div class="momentum-stat">26 of 250 tickets sold</div>
+      <div class="momentum-label">10% sold before the campaign launched</div>
+      <div class="momentum-note">All sales from organic reach and a small test spend. Full campaign is now live.</div>
+    </div>
+
+    <!-- ── AUDIENCE METRICS ── -->
+    <div class="section">
+      <div class="section-label">Audience</div>
+      <div class="section-title">Key Performance Metrics</div>
+
+      <div class="hero-stat">
+        <div class="hero-stat-left">
+          <div class="hero-stat-value">9.1%</div>
+          <div class="hero-stat-label">Engagement Rate</div>
+          <div class="hero-stat-benchmark">7x above industry average</div>
+        </div>
+        <div class="hero-stat-right">
+          <div class="hero-stat-context">
+            Industry average for music and entertainment on Instagram is <strong>1.2%</strong>. NIGHT manoeuvres sits at <span class="vermilion">9.1%</span>, calculated across likes, comments, saves, and shares as a percentage of followers. That's not a passive audience. They <strong>save and share</strong> what we post. All before any paid ads.
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">4,000+</div>
+          <div class="stat-label">Avg Organic Reach</div>
+          <div class="stat-context">Per post, consistently. Content breaks beyond the follower base organically.</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value green">3x</div>
+          <div class="stat-label">Reach Multiplier</div>
+          <div class="stat-context">Every post reaches <span class="highlight">3x our follower count</span> without paid support. Algorithm is working for us.</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">31,000</div>
+          <div class="stat-label">Peak Reach</div>
+          <div class="stat-context">Single post. Collaborative tagging and platform distribution working together.</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--vermilion);">4-8x</div>
+          <div class="stat-label">Amplification</div>
+          <div class="stat-context">Reach lift when content involves collaborators, venues, or labels. <span class="highlight">The network effect scales with every show.</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">26%</div>
+          <div class="stat-label">London Audience</div>
+          <div class="stat-context">Our #1 city. 75% of all engagement comes from 25-44 year olds. 58% male, 42% female.</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value green">Sold Out</div>
+          <div class="stat-label">Previous Headline</div>
+          <div class="stat-context">Comparable room, similar capacity. Sold out on personal outreach alone, before any paid promotion.</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── PROMOTIONAL PLAN ── -->
+    <div class="section">
+      <div class="section-label">Strategy</div>
+      <div class="section-title">8-Week Promotional Plan</div>
+
+      <p class="section-text" style="margin-bottom: 32px;">
+        Content and paid media running in parallel across three phases. Organic builds the audience, paid converts them into ticket buyers.
+      </p>
+
+      <div class="phases">
+        <div class="phase">
+          <div class="phase-number">Phase 01</div>
+          <div class="phase-title">Build</div>
+          <div class="phase-dates">April 12 — May 11</div>
+          <ul class="phase-items">
+            <li>2-3 grid posts per week, starting now</li>
+            <li>Recurring series that build audience and drive follows</li>
+            <li>Studio performance filmed: cinema camera, professional lighting, full rig. One shoot, 8-10 posts</li>
+            <li>Buchla + synth session content from the studio (rare gear, high shareability)</li>
+            <li>All for You EP (fabric Records, 17 April) with Vespers dates in fabric's promo channels</li>
+            <li>Paid campaign scaled from test budget to full 8-week run</li>
+          </ul>
+        </div>
+        <div class="phase">
+          <div class="phase-number">Phase 02</div>
+          <div class="phase-title">Convert</div>
+          <div class="phase-dates">May 12 — May 31</div>
+          <ul class="phase-items">
+            <li>Visions ft Sarah Nimmo single (fabric Records, 14 May) with Vespers dates in fabric's promo + Sarah's audience</li>
+            <li>Athens show with Caribou / Daphni, directly under the Acropolis. Filming the full show.</li>
+            <li>Vespers-specific content intensifies</li>
+            <li>Retargeting ads re-engage everyone who interacted but didn't buy</li>
+            <li>Venue and event teaser content</li>
+            <li>Collaborator story shares + fabric Records cross-promotion</li>
+          </ul>
+        </div>
+        <div class="phase">
+          <div class="phase-number">Phase 03</div>
+          <div class="phase-title">Final Push</div>
+          <div class="phase-dates">June 1 — June 12</div>
+          <ul class="phase-items">
+            <li>Highest ad spend concentrated here</li>
+            <li>Countdown content across grid + stories</li>
+            <li>Social proof: who's confirmed, who's coming</li>
+            <li>Limited capacity messaging as tickets sell through</li>
+            <li>Real-time night-of content for future shows</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── CONTENT STRATEGY ── -->
+    <div class="section">
+      <div class="section-label">Content</div>
+      <div class="section-title">What We're Producing</div>
+
+      <div class="cadence">
+        <div class="cadence-item">
+          <div class="cadence-value">2-3</div>
+          <div class="cadence-label">Grid Posts / Week</div>
+          <div class="cadence-sub">Carousel-heavy (63% of views)</div>
+        </div>
+        <div class="cadence-item">
+          <div class="cadence-value">Stories</div>
+          <div class="cadence-label">With Ticket Links</div>
+          <div class="cadence-sub">BTS + event content</div>
+        </div>
+        <div class="cadence-item">
+          <div class="cadence-value">8</div>
+          <div class="cadence-label">Weeks</div>
+          <div class="cadence-sub">Structured plan</div>
+        </div>
+        <div class="cadence-item">
+          <div class="cadence-value">6pm</div>
+          <div class="cadence-label">Peak Posting</div>
+          <div class="cadence-sub">BST, data-validated</div>
+        </div>
+      </div>
+
+      <div class="pillars">
+        <div class="pillar">
+          <div class="pillar-title">Studio Performance</div>
+          <div class="pillar-desc">A properly filmed live performance. Cinema camera, professional lighting, the full rig. One shoot, 8-10 posts. Shows people exactly what they're buying a ticket for.</div>
+          <div class="pillar-tag">Sells tickets</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">Athens with Caribou</div>
+          <div class="pillar-desc">Filming the full show under the Acropolis. Support slot with Caribou / Daphni. One night, potentially our biggest content moment of the campaign.</div>
+          <div class="pillar-tag">Viral potential</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">Buchla + Synth Sessions</div>
+          <div class="pillar-desc">Access to a Buchla 200e, Jupiter-8, Memorymoog, and a full Eurorack studio. Rare gear that the synth community actively shares. Reaches audiences we don't have yet.</div>
+          <div class="pillar-tag">Reaches new people</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">Machine vs Human</div>
+          <div class="pillar-desc">Anthony on hardware and modular with arpeggiated loops, Dot plays piano live over it. Man and machine side by side. Curiosity hook for Reels, shareable, shows the musicianship behind the electronics.</div>
+          <div class="pillar-tag">Scroll-stopper</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">Records That Shaped Them</div>
+          <div class="pillar-desc">Recurring carousel series. Vinyl picks with stories behind each record. Our highest-engagement format. People save it, share it, follow for more.</div>
+          <div class="pillar-tag">Grows audience</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">Next Door Records Picks</div>
+          <div class="pillar-desc">Our top picks from Next Door Records for the Vespers set. They're on the lineup. They reshare. Their audience finds us.</div>
+          <div class="pillar-tag">Lineup cross-promo</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">Hybrid Live World</div>
+          <div class="pillar-desc">Gear breakdowns, setup process, studio sessions. The synth and production community on IG actively seeks this content out. Gets shared beyond our audience.</div>
+          <div class="pillar-tag">Reaches new people</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">Show Momentum</div>
+          <div class="pillar-desc">Every post links back to Vespers. Not hard sell. The show stays visible for 8 weeks until it feels like the obvious Friday night.</div>
+          <div class="pillar-tag">Sells tickets</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">Track IDs + Setlist Recaps</div>
+          <div class="pillar-desc">Post-show tracklists from every gig. People save these and come back to find the tracks. Grows our following between shows.</div>
+          <div class="pillar-tag">Grows audience</div>
+        </div>
+      </div>
+
+      <p class="section-text" style="margin-top: 24px; font-size: 12px;">
+        <strong>Posting discipline:</strong> 24h minimum between grid posts to avoid reach throttling. Carousel-first strategy (63% of our view share vs 27% for Reels). All posts timed to 6pm BST (validated peak). Paid boost on show-day content to offset Friday organic dip.
+      </p>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── PAID MEDIA ── -->
+    <div class="section">
+      <div class="section-label">Paid Media</div>
+      <div class="section-title">Our Ad Investment</div>
+
+      <table class="budget-table">
+        <thead>
+          <tr>
+            <th>Campaign</th>
+            <th>Budget</th>
+            <th>Window</th>
+            <th>Objective</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Engagement Pool</td>
+            <td>&pound;175</td>
+            <td>Apr 14 — May 18</td>
+            <td>Build warm audience from content</td>
+          </tr>
+          <tr>
+            <td>Ticket Conversion</td>
+            <td>&pound;300</td>
+            <td>May 1 — Jun 12</td>
+            <td>Convert warm audience to RA tickets</td>
+          </tr>
+          <tr>
+            <td>Retargeting</td>
+            <td>&pound;125</td>
+            <td>May 15 — Jun 12</td>
+            <td>Close people who clicked but didn't buy</td>
+          </tr>
+          <tr>
+            <td>Follower Growth</td>
+            <td>&pound;75</td>
+            <td>Apr 14 — Aug</td>
+            <td>Boost organic winners to new audiences</td>
+          </tr>
+          <tr class="budget-total">
+            <td>Total Committed</td>
+            <td>&pound;675</td>
+            <td>Full campaign</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="section-text" style="margin-top: 24px;">
+        <strong>Strategy:</strong> Engagement first, conversion second. We build a warm audience from content before asking anyone to buy a ticket. Retargeting closes the gap. All creative uses NM's organic content and visual language.
+      </p>
+      <p class="section-text" style="margin-top: 12px;">
+        <strong>Targeting:</strong> London 25km, ages 21-44. Interest stacking across Resident Advisor, Boiler Room, Bicep, Four Tet, Jamie xx, Floating Points, Disclosure, Cercle. Layered with 1% lookalike audiences built from our existing engagers. Existing followers excluded from all prospecting.
+      </p>
+      <p class="section-text" style="margin-top: 12px;">
+        <strong>Management:</strong> Daily performance monitoring. Creative rotated every 7-10 days to prevent fatigue. Any ad below 1% CTR killed within 48 hours. Budget shifted in real-time toward best-performing creative and audiences. Full retargeting funnel from first engagement through to ticket purchase.
+      </p>
+      <p class="section-text" style="margin-top: 12px;">
+        <strong>Personal outreach:</strong> Direct WhatsApp campaign to our London network alongside the paid media. Proven channel. We sold out a comparable room on personal outreach alone.
+      </p>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── CREDENTIAL STACK ── -->
+    <div class="section">
+      <div class="section-label">Credentials</div>
+      <div class="section-title">Active Show Calendar</div>
+
+      <p class="section-text" style="margin-bottom: 24px;">
+        Every show and release generates content that compounds into Vespers promotion. Nothing is standalone.
+      </p>
+
+      <div class="credentials">
+        <div class="credential">
+          <div class="credential-venue">Soho House</div>
+          <div class="credential-detail">London — April 2026</div>
+          <div class="credential-role">Content captured. Deploying now.</div>
+        </div>
+        <div class="credential">
+          <div class="credential-venue">Daphni / Caribou</div>
+          <div class="credential-detail">Athens, under the Acropolis — May 2026</div>
+          <div class="credential-role">Support slot. Filming the show. Content gold.</div>
+        </div>
+        <div class="credential">
+          <div class="credential-venue">Percolate</div>
+          <div class="credential-detail">Vespers, London — June 2026</div>
+          <div class="credential-role">Headline. 250 capacity.</div>
+        </div>
+        <div class="credential">
+          <div class="credential-venue">All for You EP</div>
+          <div class="credential-detail">fabric Records — 17 April 2026</div>
+          <div class="credential-role">Current release. Campaign fuel.</div>
+        </div>
+        <div class="credential">
+          <div class="credential-venue">Visions ft Sarah Nimmo</div>
+          <div class="credential-detail">fabric Records — 14 May 2026</div>
+          <div class="credential-role">Big summer single. Peak momentum.</div>
+        </div>
+        <div class="credential">
+          <div class="credential-venue">Live from Pitch Festival</div>
+          <div class="credential-detail">Mix — Recorded live</div>
+          <div class="credential-role">Festival presence. Extended reach.</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── PARTNERSHIP ── -->
+    <div class="section">
+      <div class="section-label">Partnership</div>
+      <div class="section-title">Coordinating Our Efforts</div>
+
+      <div class="partnership">
+        <p class="partnership-intro">
+          We've built the plan. Ad budget committed, content production scheduled, studio sessions booked. To make sure we're not doubling up or leaving gaps, here's what we'd like to coordinate on.
+        </p>
+
+        <div class="partnership-grid">
+          <div class="partnership-col our-commitment">
+            <h4>Our Commitment</h4>
+            <ul>
+              <li>8-week content campaign (16-24 grid posts + stories)</li>
+              <li>&pound;675 paid media across four targeted campaigns</li>
+              <li>Professionally shot studio performance (cinema camera, full Hybrid Live rig)</li>
+              <li>Two fabric Records releases as campaign fuel (April + May) with Vespers dates in promo</li>
+              <li>Filmed content from Athens show with Caribou under the Acropolis</li>
+              <li>Buchla + synth session content from our studio</li>
+              <li>Personal WhatsApp outreach to our London network</li>
+              <li>Story shares and tagging from collaborators across the lineup</li>
+            </ul>
+          </div>
+          <div class="partnership-col their-plan">
+            <h4>Your Promotional Plan</h4>
+            <ul>
+              <li>Mailer schedule and list reach?</li>
+              <li>Paid media spend allocated to this show?</li>
+              <li>Social media promotion timeline?</li>
+              <li>RA event promotion and featuring?</li>
+              <li>Any other channels in play?</li>
+              <li>Cross-promotion with other Percolate events?</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FOOTER ── -->
+    <div class="footer">
+      <div style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;">Powered by</div>
+      <a href="https://signallabos.com" style="text-decoration: none; display: inline-block;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 48" fill="none" style="width: 280px; margin-bottom: 20px; opacity: 0.7;">
+          <g transform="translate(18, 0)">
+            <rect x="4" y="4" width="40" height="40" rx="10" fill="none" stroke="#ff3b30" stroke-width="1.2" opacity="0.25"/>
+            <polyline points="10,24 16,24 19,15 23,33 27,11 31,31 34,21 37,24 40,24"
+              stroke="#ff3b30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <text x="56" y="30" font-family="Unbounded, sans-serif" font-weight="200" font-size="22" fill="#f0ebe2" letter-spacing="1">Signal Lab <tspan fill="#8a8780" font-family="DM Mono, monospace" font-weight="300" font-size="14" dx="4" letter-spacing="2">OS</tspan></text>
+          </g>
+        </svg>
+      </a>
+      <div class="footer-handle">@nightmanoeuvres</div>
+      <div class="footer-prepared">Prepared April 2026</div>
+    </div>
+
+  </div>
+</body>
+</html>
