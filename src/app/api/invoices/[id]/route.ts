@@ -115,7 +115,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 <div class="invoice">
 
   <div class="header">
-    <div style="font-size:22px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding-top:4px">${artistName}</div>
+    <div style="padding-top:4px">
+      <img src="https://signallabos.com/nm-logo-bw.png" alt="NIGHT manoeuvres" class="logo" style="filter:invert(1);max-height:60px;width:auto" />
+    </div>
     <div style="text-align:right">
       <div class="invoice-label">${invoiceHeading}</div>
       <div class="invoice-number">${invoiceNumber}</div>
@@ -193,7 +195,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   <div class="footer">
     <p style="margin-bottom:8px">Please use <strong>${invoiceNumber}</strong> as your payment reference.</p>
-    <p style="margin-bottom:16px"><strong>Please pay in ${invoice.currency} only.</strong> Any foreign exchange charges incurred will be charged back to the payee.</p>
+    <p style="margin-bottom:16px"><strong>Please pay in ${invoice.currency} only.</strong>${invoice.currency !== 'GBP' && invoice.currency !== 'EUR' ? ' Any foreign exchange charges incurred will be charged back to the payee.' : ''}</p>
     <p style="margin-bottom:4px">Payment is due by the date shown above.</p>
     <p style="margin-bottom:2px">${artistName} &nbsp;|&nbsp; ${address.replace(/<br>/g, ', ')}</p>
     <p style="margin-bottom:2px">${(payment.email || profile.email || 'advancingabsolute@gmail.com').replace('@', '&#64;')}</p>
@@ -203,7 +205,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.5"/>
         <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
-      Signal Lab OS
+      Powered by Signal Lab OS
     </a>`}
   </div>
 
