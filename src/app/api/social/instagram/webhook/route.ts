@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { handleComment, handleDMReply } from '@/lib/instagram'
 
 // Simple in-memory dedup for webhook retries within the same instance
@@ -24,7 +25,20 @@ export async function GET(req: NextRequest) {
 // POST — Instagram webhook events (comments + DM replies)
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    // HMAC-SHA256 signature verification
+    const signature = req.headers.get('X-Hub-Signature-256')
+    const appSecret = process.env.META_APP_SECRET
+    let body: any
+    if (appSecret) {
+      const rawBody = await req.text()
+      const expectedSig = 'sha256=' + createHmac('sha256', appSecret).update(rawBody).digest('hex')
+      if (!signature || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      }
+      body = JSON.parse(rawBody)
+    } else {
+      body = await req.json()
+    }
     if (body.object !== 'instagram') return NextResponse.json({ ok: true })
 
     for (const entry of body.entry || []) {

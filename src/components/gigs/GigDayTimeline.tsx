@@ -190,13 +190,13 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
 
   const pulseKeyframes = `
     @keyframes timelinePulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(176, 141, 87, 0.4); }
-      50% { box-shadow: 0 0 0 8px rgba(176, 141, 87, 0); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 42, 26, 0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(255, 42, 26, 0); }
     }
   `
 
   return (
-    <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--text, #f0ebe2)' }}>
+    <div style={{ color: 'var(--text, #f2f2f2)' }}>
       <style>{pulseKeyframes}</style>
 
       <div style={{ position: 'relative' }}>
@@ -227,9 +227,11 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                   paddingRight: 12,
                   paddingTop: wp.isHero ? 0 : 1,
                   fontSize: wp.isHero ? (compact ? 20 : 18) : (compact ? 16 : 13),
-                  fontWeight: wp.isHero ? 500 : 400,
-                  color: wp.isHero ? 'var(--gold, #b08d57)' : 'var(--text-dim, #8a8780)',
-                  letterSpacing: '0.04em',
+                  fontWeight: wp.isHero ? 800 : 700,
+                  color: wp.isHero ? 'var(--gold, #ff2a1a)' : 'var(--text-dim, #8a8780)',
+                  letterSpacing: wp.isHero ? '-0.035em' : '0.04em',
+                  textTransform: wp.isHero ? 'uppercase' : undefined,
+                  lineHeight: wp.isHero ? 0.9 : undefined,
                 }}
               >
                 {wp.timeLabel}
@@ -256,7 +258,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                       transform: 'translateX(-50%)',
                       width: 2,
                       height: 28,
-                      backgroundColor: 'var(--border-dim, #2e2c29)',
+                      backgroundColor: 'var(--border-dim, #222222)',
                     }}
                   />
                 )}
@@ -283,7 +285,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                       width: wp.isHero ? 14 : 10,
                       height: wp.isHero ? 14 : 10,
                       borderRadius: '50%',
-                      backgroundColor: 'var(--gold, #b08d57)',
+                      backgroundColor: 'var(--gold, #ff2a1a)',
                       marginTop: wp.isHero ? 1 : 3,
                       animation: 'timelinePulse 2s ease-in-out infinite',
                     }}
@@ -295,7 +297,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                       height: 10,
                       borderRadius: '50%',
                       backgroundColor: 'transparent',
-                      border: '2px solid var(--border-dim, #2e2c29)',
+                      border: '2px solid var(--border-dim, #222222)',
                       marginTop: 3,
                       boxSizing: 'border-box',
                     }}
@@ -308,9 +310,11 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                 <div
                   style={{
                     fontSize: wp.isHero ? (compact ? 18 : 16) : 13,
-                    fontWeight: wp.isHero ? 500 : 400,
-                    color: wp.isHero ? 'var(--gold, #b08d57)' : 'var(--text, #f0ebe2)',
-                    letterSpacing: wp.isHero ? '0.12em' : '0.04em',
+                    fontWeight: wp.isHero ? 800 : 700,
+                    color: wp.isHero ? 'var(--gold, #ff2a1a)' : 'var(--text, #f2f2f2)',
+                    letterSpacing: wp.isHero ? '-0.035em' : '0.04em',
+                    textTransform: wp.isHero ? 'uppercase' : undefined,
+                    lineHeight: wp.isHero ? 0.9 : undefined,
                   }}
                 >
                   {wp.label}
@@ -340,7 +344,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                   <div
                     style={{
                       fontSize: 11,
-                      color: 'var(--gold, #b08d57)',
+                      color: 'var(--gold, #ff2a1a)',
                       letterSpacing: '0.15em',
                       marginTop: 4,
                       textTransform: 'uppercase',
@@ -354,7 +358,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                   <a
                     href={`tel:${wp.phone}`}
                     style={{
-                      color: 'var(--gold, #b08d57)',
+                      color: 'var(--gold, #ff2a1a)',
                       textDecoration: 'none',
                       fontSize: 12,
                       marginTop: 2,
@@ -382,7 +386,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
               textTransform: 'uppercase' as const,
               color: 'var(--text-dim, #8a8780)',
               marginBottom: 14,
-              fontWeight: 500,
+              fontWeight: 700,
             }}
           >
             Contacts
@@ -404,7 +408,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                 <a
                   href={`tel:${c.phone}`}
                   style={{
-                    color: 'var(--gold, #b08d57)',
+                    color: 'var(--gold, #ff2a1a)',
                     textDecoration: 'none',
                     fontSize: 13,
                     fontWeight: 400,

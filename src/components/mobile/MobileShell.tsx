@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMobile } from '@/hooks/useMobile'
 import GigDayTimeline from '@/components/gigs/GigDayTimeline'
+import { MobileTonightF } from '@/components/mobile/MobileTonightF'
 
 interface Gig {
   id: string
@@ -211,8 +212,8 @@ function NotificationTicker({ alerts }: { alerts: Alert[] }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 4px 4px' }}>
           {alerts.map(a => (
             <a key={a.id} href={a.href} style={{
-              background: a.urgency === 'urgent' ? 'rgba(138,74,58,0.08)' : 'rgba(176,141,87,0.05)',
-              border: `1px solid ${a.urgency === 'urgent' ? 'rgba(138,74,58,0.25)' : 'rgba(176,141,87,0.15)'}`,
+              background: a.urgency === 'urgent' ? 'rgba(138,74,58,0.08)' : 'rgba(255,42,26,0.05)',
+              border: `1px solid ${a.urgency === 'urgent' ? 'rgba(138,74,58,0.25)' : 'rgba(255,42,26,0.15)'}`,
               padding: '14px 16px', textDecoration: 'none', display: 'block',
             }}>
               <div style={{ fontSize: '13px', color: s.text, marginBottom: '4px' }}>{a.venue} · {a.date}</div>
@@ -234,7 +235,7 @@ function NotificationTicker({ alerts }: { alerts: Alert[] }) {
       <button
         onClick={() => setExpanded(true)}
         style={{
-          width: '100%', background: current.urgency === 'urgent' ? 'rgba(138,74,58,0.08)' : 'rgba(176,141,87,0.05)',
+          width: '100%', background: current.urgency === 'urgent' ? 'rgba(138,74,58,0.08)' : 'rgba(255,42,26,0.05)',
           border: 'none',
           padding: '14px 16px', textAlign: 'left', cursor: 'pointer',
           transition: 'opacity 0.3s ease',
@@ -437,7 +438,7 @@ export default function MobileShell() {
           <svg width="22" height="22" viewBox="0 0 64 64" fill="none">
             <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '20px', fontWeight: 300, letterSpacing: '0.02em', color: s.text }}>
+          <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '20px', fontWeight: 300, letterSpacing: '0.02em', color: s.text }}>
             Signal Lab
           </div>
         </div>
@@ -459,7 +460,7 @@ export default function MobileShell() {
               <span style={{
                 position: 'absolute', top: '6px', right: '6px',
                 minWidth: '16px', height: '16px', borderRadius: '8px',
-                background: s.gold, color: '#070706',
+                background: s.gold, color: '#050505',
                 fontSize: '9px', fontWeight: 700, fontFamily: s.font,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 lineHeight: 1, padding: '0 4px',
@@ -478,7 +479,7 @@ export default function MobileShell() {
             <button
               onClick={() => setShowHowTo(true)}
               style={{
-                width: '100%', background: 'linear-gradient(135deg, rgba(176,141,87,0.15) 0%, rgba(176,141,87,0.06) 100%)',
+                width: '100%', background: 'linear-gradient(135deg, rgba(255,42,26,0.15) 0%, rgba(255,42,26,0.06) 100%)',
                 border: `1px solid ${s.gold}50`, padding: '20px 20px',
                 fontFamily: s.font, cursor: 'pointer', textAlign: 'left',
               }}
@@ -491,7 +492,7 @@ export default function MobileShell() {
               </div>
             </button>
           ) : (
-            <div style={{ background: 'linear-gradient(135deg, rgba(176,141,87,0.12) 0%, rgba(176,141,87,0.04) 100%)', border: `1px solid ${s.gold}40`, padding: '24px 20px' }}>
+            <div style={{ background: 'linear-gradient(135deg, rgba(255,42,26,0.12) 0%, rgba(255,42,26,0.04) 100%)', border: `1px solid ${s.gold}40`, padding: '24px 20px' }}>
               <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '6px' }}>
                 Install Signal Lab
               </div>
@@ -523,51 +524,51 @@ export default function MobileShell() {
         </div>
       )}
 
-      {/* Tonight card */}
+      {/* Tonight card — BRT */}
       {tonightGig && (
-        <div style={{ margin: '0 16px 16px', background: 'linear-gradient(135deg, rgba(176,141,87,0.12) 0%, rgba(176,141,87,0.04) 100%)', border: `1px solid ${s.gold}40`, padding: '24px 20px' }}>
-          <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: s.gold, animation: 'pulse 2s ease-in-out infinite' }} />
-            Tonight
-          </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '26px', fontWeight: 300, marginBottom: '6px' }}>
-            {tonightGig.venue}
-          </div>
-          <div style={{ fontSize: '14px', color: s.dim, marginBottom: '16px' }}>
-            {tonightGig.city}
-            {tonightGig.set_time && ` · ${tonightGig.set_time}`}
-            {tonightGig.set_end_time && ` — ${tonightGig.set_end_time}`}
-          </div>
-          <GigDayTimeline
-            gig={{
-              venue: tonightGig.venue,
-              location: tonightGig.city,
-              date: tonightGig.date,
-              time: tonightGig.set_time || '',
-              set_time: tonightGig.set_time,
-              set_length: (tonightGig as any).set_length,
-              doors_time: (tonightGig as any).doors_time || (tonightGig as any).doors,
-              venue_address: tonightGig.venue_address || tonightGig.city,
-              al_name: tonightGig.al_name,
-              al_phone: tonightGig.al_phone,
-              promoter_email: tonightGig.promoter_email,
-              promoter_phone: (tonightGig as any).promoter_phone,
-              driver_name: (tonightGig as any).driver_name,
-              driver_phone: (tonightGig as any).driver_phone,
-            }}
-            travelBookings={tonightTravel}
-            compact
-          />
-          <a href={`/gig-pass/${tonightGig.id}`} style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            background: s.gold, color: '#070706', textDecoration: 'none',
-            padding: '12px 24px', fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase',
-            marginTop: '16px',
-          }}>
-            Open gig pass
-          </a>
-        </div>
+        <MobileTonightF tonightGig={tonightGig} tonightTravel={tonightTravel} />
       )}
+
+      {/* Quick actions — Track ID hero + scan/playlist/upload. On show day this sits below the Tonight card; otherwise it's at the top. */}
+      <div style={{ padding: '0 16px', marginBottom: '20px' }}>
+        <button
+          onClick={() => {
+            if (trackIdPhase === 'idle' || trackIdPhase === 'found' || trackIdPhase === 'not_found') startTrackId()
+            else cancelTrackId()
+          }}
+          style={{
+            width: '100%',
+            background: trackIdPhase === 'listening' ? 'rgba(200,155,60,0.15)' : trackIdPhase === 'found' ? 'rgba(80,200,120,0.1)' : s.panel,
+            border: `1px solid ${trackIdPhase === 'listening' ? s.gold : trackIdPhase === 'found' ? 'rgba(80,200,120,0.4)' : s.border}`,
+            padding: '28px 20px', textAlign: 'center', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px',
+            marginBottom: '10px',
+          }}
+        >
+          <div style={{ fontSize: '44px', lineHeight: 1, color: trackIdPhase === 'listening' ? s.gold : trackIdPhase === 'found' ? '#f2f2f2' : s.gold }}>
+            {trackIdPhase === 'listening' ? '●' : trackIdPhase === 'identifying' ? '⟳' : trackIdPhase === 'found' ? '✓' : '♪'}
+          </div>
+          <div style={{ fontSize: '13px', letterSpacing: '0.18em', color: s.text, textTransform: 'uppercase', fontWeight: 500 }}>
+            {trackIdPhase === 'idle' ? 'Track ID' : trackIdPhase === 'listening' ? `Listening ${trackIdCountdown}s` : trackIdPhase === 'identifying' ? 'Identifying…' : trackIdPhase === 'found' && trackIdResult ? trackIdResult.title.slice(0, 24) : trackIdPhase === 'not_found' ? 'Not found — tap to retry' : 'Track ID'}
+          </div>
+        </button>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+          {[
+            { label: 'Scan', href: '/setlab', icon: '◎' },
+            { label: 'Playlist', href: '/mobile/discoveries', icon: '♫' },
+            { label: 'Upload', href: '/broadcast', icon: '↑' },
+          ].map(action => (
+            <Link key={action.label} href={action.href} style={{
+              background: s.panel, border: `1px solid ${s.border}`,
+              padding: '20px 8px', textAlign: 'center', textDecoration: 'none',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+            }}>
+              <div style={{ fontSize: '24px', color: s.gold, lineHeight: 1 }}>{action.icon}</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: s.dim, textTransform: 'uppercase' }}>{action.label}</div>
+            </Link>
+          ))}
+        </div>
+      </div>
 
       {/* Next gig (if no tonight) */}
       {!tonightGig && nextGig && (() => {
@@ -597,8 +598,8 @@ export default function MobileShell() {
             {missing.length > 0 && (
               <div style={{
                 marginTop: '12px', padding: '10px 14px',
-                background: urgency === 'urgent' ? 'rgba(138,74,58,0.12)' : 'rgba(176,141,87,0.08)',
-                border: `1px solid ${urgency === 'urgent' ? 'rgba(138,74,58,0.3)' : 'rgba(176,141,87,0.2)'}`,
+                background: urgency === 'urgent' ? 'rgba(138,74,58,0.12)' : 'rgba(255,42,26,0.08)',
+                border: `1px solid ${urgency === 'urgent' ? 'rgba(138,74,58,0.3)' : 'rgba(255,42,26,0.2)'}`,
               }}>
                 <div style={{
                   fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase',
@@ -611,46 +612,6 @@ export default function MobileShell() {
           </div>
         )
       })()}
-
-      {/* Quick actions */}
-      <div style={{ padding: '0 16px', marginBottom: '24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
-          {[
-            { label: 'Scan', href: '/setlab', icon: '◎' },
-            { label: 'Upload', href: '/broadcast', icon: '↑' },
-            { label: 'Signal', href: '/signal?speak=1', icon: '∿' },
-          ].map(action => (
-            <Link key={action.label} href={action.href} style={{
-              background: s.panel, border: `1px solid ${s.border}`,
-              padding: '20px 8px', textAlign: 'center', textDecoration: 'none',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-            }}>
-              <div style={{ fontSize: '24px', color: s.gold, lineHeight: 1 }}>{action.icon}</div>
-              <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: s.dim, textTransform: 'uppercase' }}>{action.label}</div>
-            </Link>
-          ))}
-          {/* Track ID button with listening/identifying/found states */}
-          <button
-            onClick={() => {
-              if (trackIdPhase === 'idle' || trackIdPhase === 'found' || trackIdPhase === 'not_found') startTrackId()
-              else cancelTrackId()
-            }}
-            style={{
-              background: trackIdPhase === 'listening' ? 'rgba(200,155,60,0.15)' : trackIdPhase === 'found' ? 'rgba(80,200,120,0.1)' : s.panel,
-              border: `1px solid ${trackIdPhase === 'listening' ? s.gold : trackIdPhase === 'found' ? 'rgba(80,200,120,0.4)' : s.border}`,
-              padding: '20px 8px', textAlign: 'center', cursor: 'pointer',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-            }}
-          >
-            <div style={{ fontSize: '24px', lineHeight: 1, color: trackIdPhase === 'listening' ? s.gold : trackIdPhase === 'found' ? '#50c878' : s.gold }}>
-              {trackIdPhase === 'listening' ? '●' : trackIdPhase === 'identifying' ? '⟳' : trackIdPhase === 'found' ? '✓' : '♪'}
-            </div>
-            <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: s.dim, textTransform: 'uppercase' }}>
-              {trackIdPhase === 'idle' ? 'Track ID' : trackIdPhase === 'listening' ? `Listening ${trackIdCountdown}s` : trackIdPhase === 'identifying' ? 'Identifying...' : trackIdPhase === 'found' && trackIdResult ? trackIdResult.title.slice(0, 18) : trackIdPhase === 'not_found' ? 'Not found' : 'Track ID'}
-            </div>
-          </button>
-        </div>
-      </div>
 
       {/* Upcoming gigs — skip the hero gig already shown at top */}
       {(() => {

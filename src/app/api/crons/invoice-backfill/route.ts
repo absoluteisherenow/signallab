@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ran: true, created, checked: gigs.length })
   } catch (err: any) {
     console.error('Invoice backfill error:', err.message)
+    await createNotification({ type: 'cron_error', title: 'Invoice backfill failed', message: err instanceof Error ? err.message : 'Unknown error' })
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

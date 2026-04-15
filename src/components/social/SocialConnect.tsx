@@ -16,7 +16,7 @@ const PLATFORMS = [
     label: 'Instagram',
     description: 'Post photos and reels',
     icon: '◈',
-    color: '#b08d57',
+    color: '#ff2a1a',
     authPath: '/api/social/instagram/auth',
   },
   {
@@ -132,7 +132,7 @@ export default function SocialConnect() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1 }}>
                   <div style={{
                     width: 36, height: 36,
-                    border: `1px solid ${isConnected ? 'rgba(176,141,87,0.3)' : 'var(--border-dim)'}`,
+                    border: `1px solid ${isConnected ? 'rgba(255,42,26,0.3)' : 'var(--border-dim)'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 14,
                     color: isConnected ? 'var(--gold)' : 'var(--text-dimmer)',
@@ -164,8 +164,8 @@ export default function SocialConnect() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   {isConnected && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 8 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6aaa7a' }} />
-                      <span style={{ fontSize: 9, letterSpacing: '0.15em', color: '#6aaa7a', textTransform: 'uppercase' }}>Connected</span>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f2f2f2' }} />
+                      <span style={{ fontSize: 9, letterSpacing: '0.15em', color: '#f2f2f2', textTransform: 'uppercase' }}>Connected</span>
                     </div>
                   )}
 

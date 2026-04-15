@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { canRunArtistScan, recordArtistScanRun } from '@/lib/artistScanTiers'
+import { getUserTier } from '@/lib/scanTiers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
+
+// Resolve current user. Single-user app fallback: first row of artist_settings.
+async function resolveUserId(req: NextRequest): Promise<string | null> {
+  const auth = req.headers.get('authorization')
+  if (auth?.startsWith('Bearer ')) {
+    const { data: { user } } = await supabase.auth.getUser(auth.replace('Bearer ', ''))
+    if (user?.id) return user.id
+  }
+  const { data } = await supabase.from('artist_settings').select('user_id').limit(1)
+  return data?.[0]?.user_id || null
+}
 
 interface PostData {
   caption: string
@@ -411,10 +424,34 @@ export async function POST(req: NextRequest) {
     const { name, handle, manualCaptions } = await req.json()
     if (!name) return NextResponse.json({ success: false, error: 'Artist name required' }, { status: 400 })
 
+    // Tier-gate BEFORE any model call (Sonnet) to avoid token burn on a 402
+    const userId = await resolveUserId(req)
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'No user session' }, { status: 401 })
+    }
+    const gate = await canRunArtistScan(userId)
+    if (!gate.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Artist Scan limit reached',
+          message: gate.upgradeMessage,
+          used: gate.used,
+          limit: gate.limit,
+        },
+        { status: 402 }
+      )
+    }
+
     // Manual caption paste — text-only analysis (no images)
     if (manualCaptions && Array.isArray(manualCaptions) && manualCaptions.length > 0) {
       const profile = await analyseTextOnly(name, manualCaptions)
       const realStats = calcCaptionStats(manualCaptions)
+      // Ledger the run — manual paste still counts (Sonnet was called)
+      try {
+        const tierAtRun = await getUserTier(userId)
+        await recordArtistScanRun(userId, (handle || name).toLowerCase(), tierAtRun)
+      } catch (e) { console.error('[artist-scan] ledger failed', e) }
       return NextResponse.json({
         success: true,
         profile: {
@@ -481,6 +518,12 @@ export async function POST(req: NextRequest) {
       if (error) console.error(`[artist-scan] Failed to save ${name}:`, error.message)
       else console.log(`[artist-scan] Saved ${name} to artist_profiles`)
     })
+
+    // Ledger the run for tier accounting (after successful scrape + Sonnet only)
+    try {
+      const tierAtRun = await getUserTier(userId)
+      await recordArtistScanRun(userId, targetUsername, tierAtRun)
+    } catch (e) { console.error('[artist-scan] ledger failed', e) }
 
     return NextResponse.json({ success: true, profile: fullProfile })
   } catch (err: any) {

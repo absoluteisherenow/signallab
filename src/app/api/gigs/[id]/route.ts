@@ -73,7 +73,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           href: `/gigs/${params.id}`,
           gig_id: params.id,
           metadata: { old_time: current.time, new_time: body.time },
-          sendEmail: true,
+          // sendEmail removed — approve before send
         })
       }
 
@@ -86,7 +86,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           href: `/gigs/${params.id}`,
           gig_id: params.id,
           metadata: { old_date: current.date, new_date: body.date },
-          sendEmail: true,
+          // sendEmail removed — approve before send
         })
       }
 
@@ -98,7 +98,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           message: `${current.venue} · ${new Date(current.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
           href: `/gigs/${params.id}`,
           gig_id: params.id,
-          sendEmail: true,
+          // sendEmail removed — approve before send
         })
       }
     }

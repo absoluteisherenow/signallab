@@ -57,11 +57,11 @@ export function NotificationBell() {
           border: '1px solid transparent',
           cursor: 'pointer',
           padding: '10px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: ringing ? '#b08d57' : '#8a8780', transition: 'color 0.3s',
-          borderRadius: '6px',
+          color: ringing ? '#ff2a1a' : '#8a8780', transition: 'color 0.3s',
+          borderRadius: 0,
         }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#b08d57'; e.currentTarget.style.background = 'rgba(176,141,87,0.06)' }}
-        onMouseLeave={e => { e.currentTarget.style.color = ringing ? '#b08d57' : '#8a8780'; e.currentTarget.style.background = 'none' }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#ff2a1a'; e.currentTarget.style.background = 'rgba(255,42,26,0.06)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = ringing ? '#ff2a1a' : '#8a8780'; e.currentTarget.style.background = 'none' }}
         title="Notifications"
       >
         <svg
@@ -77,9 +77,9 @@ export function NotificationBell() {
         {unread > 0 && (
           <span style={{
             position: 'absolute', top: '0px', right: '0px',
-            minWidth: '20px', height: '20px', borderRadius: '10px',
-            background: '#b08d57', color: '#070706',
-            fontSize: '10px', fontWeight: 700, fontFamily: "'DM Mono', monospace",
+            minWidth: '20px', height: '20px', borderRadius: 0,
+            background: '#ff2a1a', color: '#050505',
+            fontSize: '10px', fontWeight: 700, letterSpacing: '0.22em',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             lineHeight: 1, padding: '0 5px',
             animation: ringing ? 'badge-pop 0.4s ease-out' : 'none',

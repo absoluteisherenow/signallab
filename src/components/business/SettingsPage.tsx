@@ -43,40 +43,40 @@ export function SettingsPage() {
       <div className="p-8">
         <div className="max-w-3xl mx-auto space-y-6">
           {/* Profile Section */}
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-night-silver mb-6 flex items-center gap-2">
+          <div className="bg-night-gray border border-night-dark-gray rounded-none p-6">
+            <h3 className="text-lg font-extrabold uppercase tracking-tight text-night-silver mb-6 flex items-center gap-2">
               <User className="w-5 h-5" />
               Profile
             </h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-night-dark-gray text-sm mb-2 font-semibold">Artist Name</label>
+                <label className="block text-night-dark-gray text-xs mb-2 font-bold uppercase tracking-widest">Artist Name</label>
                 <input
                   type="text"
                   value={settings.artistName}
                   onChange={(e) => handleChange('artistName', e.target.value)}
-                  className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded focus:outline-none focus:border-night-silver transition-colors"
+                  className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded-nonefocus:outline-none focus:border-night-silver transition-colors"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-night-dark-gray text-sm mb-2 font-semibold">Email</label>
+                  <label className="block text-night-dark-gray text-xs mb-2 font-bold uppercase tracking-widest">Email</label>
                   <input
                     type="email"
                     value={settings.email}
                     onChange={(e) => handleChange('email', e.target.value)}
-                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded focus:outline-none focus:border-night-silver transition-colors"
+                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded-nonefocus:outline-none focus:border-night-silver transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-night-dark-gray text-sm mb-2 font-semibold">Phone</label>
+                  <label className="block text-night-dark-gray text-xs mb-2 font-bold uppercase tracking-widest">Phone</label>
                   <input
                     type="tel"
                     value={settings.phone}
                     onChange={(e) => handleChange('phone', e.target.value)}
-                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded focus:outline-none focus:border-night-silver transition-colors"
+                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded-nonefocus:outline-none focus:border-night-silver transition-colors"
                   />
                 </div>
               </div>
@@ -84,8 +84,8 @@ export function SettingsPage() {
           </div>
 
           {/* Business Settings */}
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-night-silver mb-6 flex items-center gap-2">
+          <div className="bg-night-gray border border-night-dark-gray rounded-none p-6">
+            <h3 className="text-lg font-extrabold uppercase tracking-tight text-night-silver mb-6 flex items-center gap-2">
               <Building className="w-5 h-5" />
               Business
             </h3>
@@ -93,11 +93,11 @@ export function SettingsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-night-dark-gray text-sm mb-2 font-semibold">Default Currency</label>
+                  <label className="block text-night-dark-gray text-xs mb-2 font-bold uppercase tracking-widest">Default Currency</label>
                   <select
                     value={settings.currency}
                     onChange={(e) => handleChange('currency', e.target.value)}
-                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded focus:outline-none focus:border-night-silver transition-colors"
+                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded-nonefocus:outline-none focus:border-night-silver transition-colors"
                   >
                     <option>EUR</option>
                     <option>USD</option>
@@ -106,12 +106,12 @@ export function SettingsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-night-dark-gray text-sm mb-2 font-semibold">Default Fee (€)</label>
+                  <label className="block text-night-dark-gray text-xs mb-2 font-bold uppercase tracking-widest">Default Fee (€)</label>
                   <input
                     type="number"
                     value={settings.defaultFee}
                     onChange={(e) => handleChange('defaultFee', e.target.value)}
-                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded focus:outline-none focus:border-night-silver transition-colors"
+                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded-nonefocus:outline-none focus:border-night-silver transition-colors"
                   />
                 </div>
               </div>
@@ -119,14 +119,14 @@ export function SettingsPage() {
           </div>
 
           {/* Notifications */}
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-night-silver mb-6 flex items-center gap-2">
+          <div className="bg-night-gray border border-night-dark-gray rounded-none p-6">
+            <h3 className="text-lg font-extrabold uppercase tracking-tight text-night-silver mb-6 flex items-center gap-2">
               <Bell className="w-5 h-5" />
               Notifications
             </h3>
 
             <div className="space-y-4">
-              <label className="flex items-center gap-3 cursor-pointer hover:bg-night-dark-gray/50 p-3 rounded transition-colors">
+              <label className="flex items-center gap-3 cursor-pointer hover:bg-night-dark-gray/50 p-3 rounded-nonetransition-colors">
                 <input
                   type="checkbox"
                   checked={settings.notificationsEmail}
@@ -136,7 +136,7 @@ export function SettingsPage() {
                 <span className="text-night-light">Email notifications for new bookings</span>
               </label>
 
-              <label className="flex items-center gap-3 cursor-pointer hover:bg-night-dark-gray/50 p-3 rounded transition-colors">
+              <label className="flex items-center gap-3 cursor-pointer hover:bg-night-dark-gray/50 p-3 rounded-nonetransition-colors">
                 <input
                   type="checkbox"
                   checked={settings.notificationsSms}
@@ -149,19 +149,19 @@ export function SettingsPage() {
           </div>
 
           {/* Preferences */}
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-night-silver mb-6 flex items-center gap-2">
+          <div className="bg-night-gray border border-night-dark-gray rounded-none p-6">
+            <h3 className="text-lg font-extrabold uppercase tracking-tight text-night-silver mb-6 flex items-center gap-2">
               <Palette className="w-5 h-5" />
               Preferences
             </h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-night-dark-gray text-sm mb-2 font-semibold">Language</label>
+                <label className="block text-night-dark-gray text-xs mb-2 font-bold uppercase tracking-widest">Language</label>
                 <select
                   value={settings.language}
                   onChange={(e) => handleChange('language', e.target.value)}
-                  className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded focus:outline-none focus:border-night-silver transition-colors"
+                  className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-4 py-2 rounded-nonefocus:outline-none focus:border-night-silver transition-colors"
                 >
                   <option value="en">English</option>
                   <option value="de">Deutsch</option>
@@ -172,7 +172,7 @@ export function SettingsPage() {
           </div>
 
           {/* Connected Email Accounts */}
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
+          <div className="bg-night-gray border border-night-dark-gray rounded-none p-6">
             <h3 className="text-lg font-semibold text-night-silver mb-2 flex items-center gap-2">
               <Mail className="w-5 h-5" />
               Connected Accounts
@@ -204,7 +204,7 @@ export function SettingsPage() {
             {!showAddAccount ? (
               <button
                 onClick={() => setShowAddAccount(true)}
-                className="text-sm border border-night-dark-gray text-night-dark-gray hover:border-[#b08d57] hover:text-[#b08d57] transition-colors px-4 py-2 rounded"
+                className="text-sm border border-night-dark-gray text-night-dark-gray hover:border-[#ff2a1a] hover:text-[#ff2a1a] transition-colors px-4 py-2 rounded"
               >
                 + Connect account
               </button>
@@ -217,12 +217,12 @@ export function SettingsPage() {
                     value={newAccountLabel}
                     onChange={e => setNewAccountLabel(e.target.value)}
                     placeholder="e.g. Management, Bookings, Personal"
-                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-3 py-2 rounded text-sm focus:outline-none focus:border-night-silver"
+                    className="w-full bg-night-dark-gray border border-night-dark-gray text-night-light px-3 py-2 rounded-nonetext-sm focus:outline-none focus:border-night-silver"
                   />
                 </div>
                 <a
                   href={`/api/gmail/auth?label=${encodeURIComponent(newAccountLabel || 'Primary')}`}
-                  className="px-4 py-2 bg-[#b08d57] text-[#070706] rounded text-sm font-semibold hover:bg-[#c9a46e] transition-colors whitespace-nowrap"
+                  className="px-4 py-2 bg-[#ff2a1a] text-[#050505] rounded-nonetext-sm font-semibold hover:bg-[#ff5040] transition-colors whitespace-nowrap"
                 >
                   Connect Gmail →
                 </a>
@@ -234,19 +234,19 @@ export function SettingsPage() {
           </div>
 
           {/* Security */}
-          <div className="bg-night-gray border border-night-dark-gray rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-night-silver mb-6 flex items-center gap-2">
+          <div className="bg-night-gray border border-night-dark-gray rounded-none p-6">
+            <h3 className="text-lg font-extrabold uppercase tracking-tight text-night-silver mb-6 flex items-center gap-2">
               <Lock className="w-5 h-5" />
               Security
             </h3>
 
-            <button className="px-6 py-2 bg-night-dark-gray text-night-silver rounded hover:bg-night-dark-gray/70 transition-colors text-sm font-semibold">
+            <button className="px-6 py-2 bg-night-dark-gray text-night-silver rounded-nonehover:bg-night-dark-gray/70 transition-colors text-sm font-semibold">
               Change Password
             </button>
           </div>
 
           {/* Save Button */}
-          <button className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-night-silver text-night-black rounded-lg font-semibold hover:bg-night-light transition-colors">
+          <button className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-night-silver text-night-black rounded-none font-semibold hover:bg-night-light transition-colors">
             <Save className="w-5 h-5" />
             Save Settings
           </button>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -33,6 +33,147 @@ const f = {
   bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)', mid: 'var(--border)',
   gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)', dimmest: 'var(--text-dimmest)',
   green: 'var(--green)', font: 'var(--font-mono)',
+}
+
+function GigsIntelligencePanel({ gigs, advanceStatus }: { gigs: Gig[]; advanceStatus: Record<string, string> }) {
+  const todayStr = new Date().toISOString().slice(0, 10)
+
+  const insights = useMemo(() => {
+    const upcoming = gigs.filter(g => g.date >= todayStr)
+    const upcomingCount = upcoming.length
+
+    // Next gig
+    const sorted = [...upcoming].sort((a, b) => a.date.localeCompare(b.date))
+    const nextGig = sorted[0] || null
+    const daysUntilNext = nextGig
+      ? Math.ceil((new Date(nextGig.date).getTime() - Date.now()) / 86400000)
+      : null
+
+    // Average fee (from gigs that have a fee > 0)
+    const gigsWithFees = gigs.filter(g => g.fee > 0)
+    const avgFee = gigsWithFees.length > 0
+      ? Math.round(gigsWithFees.reduce((sum, g) => sum + g.fee, 0) / gigsWithFees.length)
+      : 0
+
+    // Advance completion rate — confirmed gigs with advance status 'complete'
+    const confirmed = gigs.filter(g => g.status === 'confirmed')
+    const completedAdvances = confirmed.filter(g => advanceStatus[g.id] === 'complete').length
+    const advanceRate = confirmed.length > 0
+      ? Math.round((completedAdvances / confirmed.length) * 100)
+      : 0
+
+    // Busiest month
+    const monthCounts: Record<string, number> = {}
+    upcoming.forEach(g => {
+      const d = new Date(g.date)
+      const key = d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+      monthCounts[key] = (monthCounts[key] || 0) + 1
+    })
+    const busiestMonth = Object.entries(monthCounts).sort((a, b) => b[1] - a[1])[0]
+
+    // Revenue pipeline — sum of upcoming gig fees
+    const pipeline = upcoming.reduce((sum, g) => sum + (g.fee || 0), 0)
+
+    return { upcomingCount, nextGig, daysUntilNext, avgFee, advanceRate, busiestMonth, pipeline }
+  }, [gigs, advanceStatus, todayStr])
+
+  const cardStyle: React.CSSProperties = {
+    background: f.panel,
+    border: `1px solid ${f.border}`,
+    padding: '20px',
+  }
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: '10px',
+    letterSpacing: '0.2em',
+    textTransform: 'uppercase',
+    color: f.dimmest,
+    marginBottom: '10px',
+  }
+
+  const valueStyle: React.CSSProperties = {
+    fontSize: '20px',
+    color: f.text,
+    lineHeight: 1.2,
+  }
+
+  const subStyle: React.CSSProperties = {
+    fontSize: '11px',
+    color: f.dimmer,
+    marginTop: '4px',
+  }
+
+  return (
+    <div className="gigs-intel-grid" style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(6, 1fr)',
+      gap: '2px',
+      marginBottom: '32px',
+    }}>
+      <style>{`
+        @media (max-width: 900px) {
+          .gigs-intel-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+        @media (max-width: 540px) {
+          .gigs-intel-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
+
+      <div style={cardStyle}>
+        <div style={labelStyle}>Upcoming gigs</div>
+        <div style={{ ...valueStyle, color: f.gold }}>{insights.upcomingCount}</div>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={labelStyle}>Next gig</div>
+        {insights.nextGig ? (
+          <>
+            <div style={{ ...valueStyle, fontSize: '15px' }}>{insights.nextGig.title}</div>
+            <div style={subStyle}>
+              {insights.daysUntilNext === 0 ? 'Today' : insights.daysUntilNext === 1 ? 'Tomorrow' : `${insights.daysUntilNext}d away`}
+            </div>
+          </>
+        ) : (
+          <div style={{ ...valueStyle, color: f.dimmer, fontSize: '14px' }}>None scheduled</div>
+        )}
+      </div>
+
+      <div style={cardStyle}>
+        <div style={labelStyle}>Average fee</div>
+        <div style={valueStyle}>
+          <BlurredAmount>{`£${insights.avgFee.toLocaleString()}`}</BlurredAmount>
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={labelStyle}>Advance completion</div>
+        <div style={{ ...valueStyle, color: insights.advanceRate === 100 ? f.green : insights.advanceRate >= 50 ? f.gold : f.text }}>
+          {insights.advanceRate}%
+        </div>
+        <div style={subStyle}>of confirmed gigs</div>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={labelStyle}>Busiest month</div>
+        {insights.busiestMonth ? (
+          <>
+            <div style={{ ...valueStyle, fontSize: '15px' }}>{insights.busiestMonth[0]}</div>
+            <div style={subStyle}>{insights.busiestMonth[1]} gig{insights.busiestMonth[1] !== 1 ? 's' : ''}</div>
+          </>
+        ) : (
+          <div style={{ ...valueStyle, color: f.dimmer, fontSize: '14px' }}>--</div>
+        )}
+      </div>
+
+      <div style={cardStyle}>
+        <div style={labelStyle}>Revenue pipeline</div>
+        <div style={{ ...valueStyle, color: f.gold }}>
+          <BlurredAmount>{`£${insights.pipeline.toLocaleString()}`}</BlurredAmount>
+        </div>
+        <div style={subStyle}>upcoming fees</div>
+      </div>
+    </div>
+  )
 }
 
 export function GigsList() {
@@ -134,6 +275,9 @@ export function GigsList() {
       />
 
       <div style={{ padding: '40px 48px' }}>
+
+      {/* INTELLIGENCE PANEL */}
+      {gigs !== null && gigs.length > 0 && <GigsIntelligencePanel gigs={gigs} advanceStatus={advanceStatus} />}
 
       {/* HEADERS */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 120px 150px 100px 80px 100px 160px', padding: '10px 24px', fontSize: '10px', letterSpacing: '0.18em', color: f.dimmer, textTransform: 'uppercase' }}>

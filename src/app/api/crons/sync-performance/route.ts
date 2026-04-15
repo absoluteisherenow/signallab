@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createNotification } from '@/lib/notifications'
 
 // Vercel cron: runs daily at 09:00 UTC
 // Fetches engagement for posted scheduled_posts not yet synced (24h+ after going live)
@@ -67,6 +68,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ synced, failed, total: posts.length })
   } catch (err: any) {
+    await createNotification({ type: 'cron_error', title: 'Sync performance failed', message: err instanceof Error ? err.message : 'Unknown error' })
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob'
+import { uploadFile } from '@/lib/storage'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
@@ -8,17 +8,13 @@ export async function POST(req: NextRequest) {
     if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 })
 
     const gigId = req.nextUrl.searchParams.get('gigId')
-    const ext = file.name.split('.').pop() || 'bin'
     const timestamp = Date.now()
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const prefix = gigId ? `media/gigs/${gigId}` : 'media'
-    const filename = `${prefix}/${timestamp}-${safeName}.${ext}`
+    const key = `${prefix}/${timestamp}-${safeName}`
 
-    const blob = await put(filename, file, {
-      access: 'public',
-      contentType: file.type || 'application/octet-stream',
-    })
-    return NextResponse.json({ url: blob.url })
+    const result = await uploadFile(file, key, file.type || 'application/octet-stream')
+    return NextResponse.json({ url: result.url, key: result.key })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

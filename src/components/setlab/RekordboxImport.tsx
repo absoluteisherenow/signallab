@@ -14,6 +14,8 @@ interface RekordboxTrack {
   playCount: number
   genre: string
   filePath: string
+  spotifyVerified?: boolean
+  spotify_url?: string
 }
 
 const KEY_TO_CAMELOT: Record<string, string> = {
@@ -67,6 +69,8 @@ export default function RekordboxImport() {
   const [needsAudio, setNeedsAudio] = useState<{ artist: string; title: string }[]>([])
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [verifyProgress, setVerifyProgress] = useState({ done: 0, total: 0 })
 
   const [screenshotDragging, setScreenshotDragging] = useState(false)
   const [screenshotParsing, setScreenshotParsing] = useState(false)
@@ -263,6 +267,42 @@ Four Tet | Teenage Birdsong | 130 | - | 5:12`,
       setImportedCount(selectedTracks.length)
       setImporting(false)
 
+      // Step 1.5: Verify BPM/key against Spotify (authoritative source)
+      setVerifying(true)
+      setVerifyProgress({ done: 0, total: selectedTracks.length })
+      const verifiedMap = new Map<string, { bpm: number; key: string; camelot: string; spotify_url: string }>()
+
+      for (let i = 0; i < selectedTracks.length; i += 3) {
+        const batch = selectedTracks.slice(i, i + 3)
+        await Promise.all(batch.map(async (t) => {
+          try {
+            const res = await fetch('/api/spotify/lookup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ artist: t.artist, title: t.name }),
+            })
+            const data = await res.json()
+            if (data.found && (data.bpm || data.key)) {
+              verifiedMap.set(t.id, {
+                bpm: data.bpm || t.bpm,
+                key: data.key || t.key,
+                camelot: data.camelot || t.camelot,
+                spotify_url: data.spotify_url || '',
+              })
+            }
+          } catch { /* Spotify lookup failure is non-critical */ }
+        }))
+        setVerifyProgress({ done: Math.min(i + 3, selectedTracks.length), total: selectedTracks.length })
+      }
+
+      // Update tracks with verified data
+      setTracks(prev => prev.map(t => {
+        const verified = verifiedMap.get(t.id)
+        if (verified) return { ...t, bpm: verified.bpm, key: verified.key, camelot: verified.camelot, spotify_url: verified.spotify_url, spotifyVerified: true }
+        return { ...t, spotifyVerified: false }
+      }))
+      setVerifying(false)
+
       // Step 2: Batch enrich with Claude (5 tracks at a time)
       setEnriching(true)
       const batchSize = 5
@@ -456,6 +496,9 @@ Return as JSON array: [{...}, {...}, ...]` }],
             </div>
             <div style={{ fontSize: '13px', color: s.dim, marginBottom: '8px' }}>
               {importedCount - needsAudio.length} enriched · {needsAudio.length > 0 ? `${needsAudio.length} need audio analysis` : 'all analysed'}
+              {tracks.some(t => t.spotifyVerified !== undefined) && (
+                <> · <span style={{ color: 'var(--green)' }}>{tracks.filter(t => t.spotifyVerified).length} Spotify-verified</span></>
+              )}
             </div>
             <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '28px' }}>
               Available in your Set Lab Library — start building sets
@@ -492,23 +535,28 @@ Return as JSON array: [{...}, {...}, ...]` }],
       ) : (
         <div>
           {/* Progress bar during enrichment */}
-          {(importing || enriching) && (
+          {(importing || verifying || enriching) && (
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '20px 24px', marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase' }}>
-                  {importing ? 'Saving tracks...' : `Analysing tracks — ${enrichProgress.done}/${enrichProgress.total}`}
+                  {importing ? 'Saving tracks...' : verifying ? `Verifying BPM + key via Spotify — ${verifyProgress.done}/${verifyProgress.total}` : `Analysing tracks — ${enrichProgress.done}/${enrichProgress.total}`}
                 </div>
                 <div style={{ fontSize: '10px', color: s.dim }}>
-                  {enriching ? `${Math.round((enrichProgress.done / enrichProgress.total) * 100)}%` : ''}
+                  {verifying ? `${Math.round((verifyProgress.done / verifyProgress.total) * 100)}%` : enriching ? `${Math.round((enrichProgress.done / enrichProgress.total) * 100)}%` : ''}
                 </div>
               </div>
               <div style={{ height: '4px', background: s.border, position: 'relative' }}>
                 <div style={{
                   position: 'absolute', top: 0, left: 0, height: '4px',
-                  width: enriching ? `${(enrichProgress.done / enrichProgress.total) * 100}%` : '100%',
+                  width: verifying ? `${(verifyProgress.done / verifyProgress.total) * 100}%` : enriching ? `${(enrichProgress.done / enrichProgress.total) * 100}%` : '100%',
                   background: s.setlab, transition: 'width 0.5s ease',
                 }} />
               </div>
+              {verifying && (
+                <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '8px' }}>
+                  Cross-referencing with Spotify for accurate BPM, key, and Camelot data...
+                </div>
+              )}
               {enriching && (
                 <div style={{ fontSize: '10px', color: s.dimmer, marginTop: '8px' }}>
                   Analysing energy, mix techniques, crowd reaction for each track...
@@ -527,17 +575,17 @@ Return as JSON array: [{...}, {...}, ...]` }],
               <button onClick={toggleAll} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dim, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer' }}>
                 {selected.size === filtered.length ? 'Deselect all' : 'Select all'}
               </button>
-              <button onClick={importSelected} disabled={selected.size === 0 || importing || enriching} style={{
-                background: selected.size > 0 && !importing && !enriching ? s.setlab : 'transparent',
+              <button onClick={importSelected} disabled={selected.size === 0 || importing || verifying || enriching} style={{
+                background: selected.size > 0 && !importing && !verifying && !enriching ? s.setlab : 'transparent',
                 border: `1px solid ${s.setlab}`,
-                color: selected.size > 0 && !importing && !enriching ? s.bg : s.setlab,
+                color: selected.size > 0 && !importing && !verifying && !enriching ? s.bg : s.setlab,
                 fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
                 padding: '8px 20px', cursor: 'pointer',
-                opacity: selected.size === 0 || importing || enriching ? 0.4 : 1,
+                opacity: selected.size === 0 || importing || verifying || enriching ? 0.4 : 1,
                 display: 'flex', alignItems: 'center', gap: '8px',
               }}>
-                {(importing || enriching) && <div style={{ width: '10px', height: '10px', border: '1px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
-                {importing ? 'Saving...' : enriching ? 'Enriching...' : `Import ${selected.size} tracks →`}
+                {(importing || verifying || enriching) && <div style={{ width: '10px', height: '10px', border: '1px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+                {importing ? 'Saving...' : verifying ? 'Verifying...' : enriching ? 'Enriching...' : `Import ${selected.size} tracks →`}
               </button>
             </div>
           </div>
@@ -567,8 +615,16 @@ Return as JSON array: [{...}, {...}, ...]` }],
                   </div>
                   <div style={{ fontSize: '13px', color: s.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</div>
                   <div style={{ fontSize: '12px', color: s.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist}</div>
-                  <div style={{ fontSize: '12px', color: s.gold }}>{track.bpm > 0 ? track.bpm.toFixed(0) : '—'}</div>
-                  <div style={{ fontSize: '11px', color: s.dim }}>{track.key || '—'}</div>
+                  <div style={{ fontSize: '12px', color: s.gold, display: 'flex', alignItems: 'center', gap: '4px' }} title={track.spotifyVerified ? 'Verified via Spotify' : track.spotifyVerified === false ? 'Unverified — not found on Spotify' : ''}>
+                    {track.bpm > 0 ? track.bpm.toFixed(0) : '—'}
+                    {track.spotifyVerified === true && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />}
+                    {track.spotifyVerified === false && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#4a2a1a', flexShrink: 0 }} />}
+                  </div>
+                  <div style={{ fontSize: '11px', color: s.dim, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {track.key || '—'}
+                    {track.spotifyVerified === true && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />}
+                    {track.spotifyVerified === false && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#4a2a1a', flexShrink: 0 }} />}
+                  </div>
                   <div style={{ fontSize: '11px', color: s.setlab, letterSpacing: '0.08em' }}>{track.camelot !== '?' ? track.camelot : '—'}</div>
                   <div style={{ fontSize: '11px', color: s.dimmer }}>{track.duration}</div>
                   <div style={{ fontSize: '11px', color: s.dimmer }}>{track.playCount > 0 ? track.playCount : '—'}</div>

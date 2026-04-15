@@ -331,10 +331,10 @@ export function FinancesPage() {
 
   // Shared input style matching the dark design system
   const inputStyle: React.CSSProperties = {
-    background: '#070706',
-    border: '1px solid #1a1917',
-    color: '#f0ebe2',
-    fontFamily: "'DM Mono', monospace",
+    background: '#050505',
+    border: '1px solid #1d1d1d',
+    color: '#f2f2f2',
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     fontSize: '13px',
     padding: '7px 10px',
     borderRadius: '4px',
@@ -345,7 +345,7 @@ export function FinancesPage() {
 
   const labelStyle: React.CSSProperties = {
     color: '#8a8780',
-    fontFamily: "'DM Mono', monospace",
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     fontSize: '11px',
     marginBottom: '4px',
     display: 'block',
@@ -365,7 +365,7 @@ export function FinancesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-night-dark-gray text-sm mb-2">Total Income</p>
-                  <p className="text-3xl font-bold text-green-400"><BlurredAmount>€{totalIncome.toLocaleString()}</BlurredAmount></p>
+                  <p className="text-3xl font-extrabold uppercase tracking-tight leading-none text-green-400"><BlurredAmount>€{totalIncome.toLocaleString()}</BlurredAmount></p>
                 </div>
                 <DollarSign className="w-8 h-8 text-green-400/50" />
               </div>
@@ -375,7 +375,7 @@ export function FinancesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-night-dark-gray text-sm mb-2">Total Expenses</p>
-                  <p className="text-3xl font-bold text-red-400"><BlurredAmount>€{totalExpenses.toLocaleString()}</BlurredAmount></p>
+                  <p className="text-3xl font-extrabold uppercase tracking-tight leading-none text-red-400"><BlurredAmount>€{totalExpenses.toLocaleString()}</BlurredAmount></p>
                 </div>
                 <BarChart3 className="w-8 h-8 text-red-400/50" />
               </div>
@@ -385,7 +385,7 @@ export function FinancesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-night-dark-gray text-sm mb-2">Total Profit</p>
-                  <p className="text-3xl font-bold text-night-silver"><BlurredAmount>€{totalProfit.toLocaleString()}</BlurredAmount></p>
+                  <p className="text-3xl font-extrabold uppercase tracking-tight leading-none text-night-silver"><BlurredAmount>€{totalProfit.toLocaleString()}</BlurredAmount></p>
                 </div>
                 <TrendingUp className="w-8 h-8 text-night-silver/50" />
               </div>
@@ -395,7 +395,7 @@ export function FinancesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-night-dark-gray text-sm mb-2">Average Profit</p>
-                  <p className="text-3xl font-bold text-night-silver"><BlurredAmount>€{avgProfit.toLocaleString()}</BlurredAmount></p>
+                  <p className="text-3xl font-extrabold uppercase tracking-tight leading-none text-night-silver"><BlurredAmount>€{avgProfit.toLocaleString()}</BlurredAmount></p>
                 </div>
                 <BarChart3 className="w-8 h-8 text-night-silver/50" />
               </div>
@@ -472,7 +472,7 @@ export function FinancesPage() {
                 <button
                   onClick={handleScanInvoices}
                   disabled={scanningInvoices}
-                  className="text-xs tracking-wider uppercase border border-night-dark-gray text-night-dark-gray px-3 py-1.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-xs tracking-wider uppercase border border-night-dark-gray text-night-dark-gray px-3 py-1.5 hover:border-[#ff2a1a] hover:text-[#ff2a1a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {scanningInvoices ? 'Scanning…' : 'Scan emails →'}
                 </button>
@@ -481,11 +481,11 @@ export function FinancesPage() {
 
             {draftInvoices.length > 0 && (
               <div className="mb-6 space-y-3">
-                <div className="text-xs tracking-widest uppercase text-[#b08d57] mb-3">
+                <div className="text-xs tracking-widest uppercase text-[#ff2a1a] mb-3">
                   Needs your approval — {draftInvoices.length} invoice request{draftInvoices.length > 1 ? 's' : ''}
                 </div>
                 {draftInvoices.map(invoice => (
-                  <div key={invoice.id} className="bg-[#0a0908] border border-[#b08d57]/30 p-4 flex items-start justify-between gap-4">
+                  <div key={invoice.id} className="bg-[#0a0908] border border-[#ff2a1a]/30 p-4 flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-night-light font-medium">{invoice.gig_title}</div>
                       {invoice.notes && <div className="text-xs text-night-dark-gray mt-1">{invoice.notes}</div>}
@@ -497,7 +497,7 @@ export function FinancesPage() {
                     <div className="flex gap-2 flex-shrink-0">
                       <button
                         onClick={() => approveInvoice(invoice.id!)}
-                        className="text-xs tracking-wider uppercase bg-[#b08d57] text-[#070706] px-3 py-1.5 hover:bg-[#c9a46e] transition-colors"
+                        className="text-xs tracking-wider uppercase bg-[#ff2a1a] text-[#050505] px-3 py-1.5 hover:bg-[#ff5040] transition-colors"
                       >
                         Approve
                       </button>
@@ -571,16 +571,16 @@ export function FinancesPage() {
           {/* Expenses — UK MTD */}
           <div
             style={{
-              background: '#0e0d0b',
-              border: '1px solid #1a1917',
+              background: '#0e0e0e',
+              border: '1px solid #1d1d1d',
               borderRadius: '8px',
               padding: '24px',
             }}
           >
             {/* Section header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '16px', fontWeight: 600, color: '#f0ebe2', fontFamily: "'DM Mono', monospace" }}>
-                <Receipt style={{ width: '18px', height: '18px', color: '#b08d57' }} />
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.035em', lineHeight: 0.9, color: '#f2f2f2' }}>
+                <Receipt style={{ width: '18px', height: '18px', color: '#ff2a1a' }} />
                 Expenses
                 <span style={{ fontSize: '11px', color: '#52504c', fontWeight: 400, marginLeft: '4px' }}>UK MTD</span>
               </h3>
@@ -589,9 +589,9 @@ export function FinancesPage() {
                   onClick={exportCSV}
                   style={{
                     background: 'transparent',
-                    border: '1px solid #1a1917',
+                    border: '1px solid #1d1d1d',
                     color: '#8a8780',
-                    fontFamily: "'DM Mono', monospace",
+                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '11px',
                     padding: '6px 12px',
                     borderRadius: '4px',
@@ -607,9 +607,9 @@ export function FinancesPage() {
                   disabled={scanningEmails}
                   style={{
                     background: 'transparent',
-                    border: '1px solid #1a1917',
+                    border: '1px solid #1d1d1d',
                     color: scanningEmails ? '#52504c' : '#8a8780',
-                    fontFamily: "'DM Mono', monospace",
+                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '11px',
                     padding: '6px 12px',
                     borderRadius: '4px',
@@ -633,9 +633,9 @@ export function FinancesPage() {
                   disabled={scanningReceipt}
                   style={{
                     background: 'transparent',
-                    border: '1px solid #1a1917',
+                    border: '1px solid #1d1d1d',
                     color: scanningReceipt ? '#52504c' : '#8a8780',
-                    fontFamily: "'DM Mono', monospace",
+                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '11px',
                     padding: '6px 12px',
                     borderRadius: '4px',
@@ -665,10 +665,10 @@ export function FinancesPage() {
                 <button
                   onClick={() => setShowForm(f => !f)}
                   style={{
-                    background: showForm ? '#1a1917' : 'transparent',
-                    border: '1px solid #b08d57',
-                    color: '#b08d57',
-                    fontFamily: "'DM Mono', monospace",
+                    background: showForm ? '#1d1d1d' : 'transparent',
+                    border: '1px solid #ff2a1a',
+                    color: '#ff2a1a',
+                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '11px',
                     padding: '6px 12px',
                     borderRadius: '4px',
@@ -687,11 +687,11 @@ export function FinancesPage() {
               <div style={{
                 marginBottom: '12px',
                 padding: '8px 12px',
-                background: '#070706',
-                border: '1px solid #1a1917',
+                background: '#050505',
+                border: '1px solid #1d1d1d',
                 borderRadius: '4px',
                 color: '#8a8780',
-                fontFamily: "'DM Mono', monospace",
+                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                 fontSize: '12px',
               }}>
                 {scanResult}
@@ -702,8 +702,8 @@ export function FinancesPage() {
             {showForm && (
               <div
                 style={{
-                  background: '#070706',
-                  border: '1px solid #1a1917',
+                  background: '#050505',
+                  border: '1px solid #1d1d1d',
                   borderRadius: '6px',
                   padding: '16px',
                   marginBottom: '20px',
@@ -775,10 +775,10 @@ export function FinancesPage() {
                     onClick={handleSaveExpense}
                     disabled={savingExpense}
                     style={{
-                      background: '#b08d57',
+                      background: '#ff2a1a',
                       border: 'none',
-                      color: '#070706',
-                      fontFamily: "'DM Mono', monospace",
+                      color: '#050505',
+                      fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                       fontSize: '12px',
                       fontWeight: 700,
                       padding: '8px 20px',
@@ -802,10 +802,10 @@ export function FinancesPage() {
                   key={q}
                   onClick={() => setActiveQuarter(q)}
                   style={{
-                    background: activeQuarter === q ? '#1a1917' : 'transparent',
-                    border: activeQuarter === q ? '1px solid #b08d57' : '1px solid #1a1917',
-                    color: activeQuarter === q ? '#b08d57' : '#52504c',
-                    fontFamily: "'DM Mono', monospace",
+                    background: activeQuarter === q ? '#1d1d1d' : 'transparent',
+                    border: activeQuarter === q ? '1px solid #ff2a1a' : '1px solid #1d1d1d',
+                    color: activeQuarter === q ? '#ff2a1a' : '#52504c',
+                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '11px',
                     padding: '5px 12px',
                     borderRadius: '4px',
@@ -822,14 +822,14 @@ export function FinancesPage() {
 
             {/* Expense table */}
             {filteredExpenses.length === 0 ? (
-              <p style={{ color: '#52504c', fontSize: '13px', fontFamily: "'DM Mono', monospace" }}>
+              <p style={{ color: '#52504c', fontSize: '13px', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
                 No expenses recorded for this period.
               </p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', fontFamily: "'DM Mono', monospace" }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #1a1917', color: '#52504c', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <tr style={{ borderBottom: '1px solid #1d1d1d', color: '#52504c', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500 }}>Date</th>
                       <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500 }}>Description</th>
                       <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500 }}>Category</th>
@@ -841,14 +841,14 @@ export function FinancesPage() {
                     {filteredExpenses.map((expense, i) => (
                       <tr
                         key={expense.id ?? i}
-                        style={{ borderBottom: '1px solid #1a1917' }}
+                        style={{ borderBottom: '1px solid #1d1d1d' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'rgba(26,25,23,0.5)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <td style={{ padding: '10px 12px', color: '#8a8780' }}>
                           {new Date(expense.date).toLocaleDateString('en-GB')}
                         </td>
-                        <td style={{ padding: '10px 12px', color: '#f0ebe2' }}>
+                        <td style={{ padding: '10px 12px', color: '#f2f2f2' }}>
                           {expense.description}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
@@ -857,7 +857,7 @@ export function FinancesPage() {
                               background: CATEGORY_COLORS[expense.category] + '22',
                               border: `1px solid ${CATEGORY_COLORS[expense.category]}55`,
                               color: CATEGORY_COLORS[expense.category],
-                              fontFamily: "'DM Mono', monospace",
+                              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                               fontSize: '10px',
                               padding: '2px 8px',
                               borderRadius: '3px',
@@ -868,7 +868,7 @@ export function FinancesPage() {
                             {expense.category}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right', color: '#f0ebe2', fontWeight: 600 }}>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', color: '#f2f2f2', fontWeight: 600 }}>
                           <BlurredAmount>{expense.currency} {expense.amount.toFixed(2)}</BlurredAmount>
                         </td>
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
@@ -880,7 +880,7 @@ export function FinancesPage() {
                                 border: 'none',
                                 color: '#52504c',
                                 cursor: 'pointer',
-                                fontFamily: "'DM Mono', monospace",
+                                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                                 fontSize: '11px',
                                 padding: '2px 6px',
                               }}
@@ -893,12 +893,12 @@ export function FinancesPage() {
                       </tr>
                     ))}
                     {/* Subtotal row */}
-                    <tr style={{ borderTop: '1px solid #b08d57' }}>
-                      <td colSpan={3} style={{ padding: '10px 12px', color: '#8a8780', fontFamily: "'DM Mono', monospace", fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <tr style={{ borderTop: '1px solid #ff2a1a' }}>
+                      <td colSpan={3} style={{ padding: '10px 12px', color: '#8a8780', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Subtotal — {activeQuarter === 'All' ? 'all periods' : QUARTER_LABELS[activeQuarter]}
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#b08d57', fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
-                        GBP {expenseSubtotal.toFixed(2)}
+                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#ff2a1a', fontWeight: 700, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
+                        <BlurredAmount>GBP {expenseSubtotal.toFixed(2)}</BlurredAmount>
                       </td>
                       <td></td>
                     </tr>

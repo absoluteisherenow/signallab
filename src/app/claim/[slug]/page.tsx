@@ -1,7 +1,9 @@
+'use client'
+
 import ClaimPageClient from './PageClient'
+import { useParams } from 'next/navigation'
 
-export function generateStaticParams() { return [] }
-
-export default function Page({ params }: { params: { slug: string } }) {
+export default function Page() {
+  const params = useParams<{ slug: string }>()
   return <ClaimPageClient params={params} />
 }

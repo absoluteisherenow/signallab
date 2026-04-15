@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { handleComment } from '@/lib/instagram'
+import { createNotification } from '@/lib/notifications'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
       try {
         // Fetch recent comments from Instagram Graph API
         const res = await fetch(
-          `https://graph.facebook.com/v19.0/${mediaId}/comments?fields=id,text,from&access_token=${account.token}&limit=50`,
+          `https://graph.facebook.com/v25.0/${mediaId}/comments?fields=id,text,from&access_token=${account.token}&limit=50`,
           { signal: AbortSignal.timeout(10000) }
         )
         if (!res.ok) continue
@@ -67,6 +68,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ checked, triggered })
   } catch (err: any) {
+    await createNotification({ type: 'cron_error', title: 'Comment check failed', message: err instanceof Error ? err.message : 'Unknown error' })
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

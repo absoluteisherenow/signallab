@@ -2,7 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Unbounded:wght@100;200;300;400;500&display=swap');
+/* Unbounded — BTR display face (brand guidelines, landing BTR sections) */
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700;800;900&display=swap');
+
+/* ── BRT THEME ── Brutalist · Circoloco red · Helvetica Black · scanlines + grain ── */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -11,31 +14,47 @@
 }
 
 :root {
-  --bg: #070706;
-  --panel: #0e0d0b;
-  --border-dim: #1a1917;
-  --border: #2e2c29;
-  --border-bright: #3a3835;
-  --gold: #b08d57;
-  --gold-bright: #c9a46e;
-  --gold-dim: #6a4e28;
-  --text: #f0ebe2;
-  --text-dim: #8a8780;
-  --text-dimmer: #8a8680;
-  --text-dimmest: #6a6862;
-  --green: #3d6b4a;
-  --amber: #8a6a3a;
-  --blue: #6a7a9a;
-  --red-brown: #9a6a5a;
-  --purple: #7a5a8a;
-  --accent-green: #3d6b4a;
-  --accent-red: #8a4a3a;
-  --accent-yellow: #8a6a3a;
-  --text-warm: #a89878;
-  --bg-input: #0e0d0b;
-  --font-mono: 'DM Mono', monospace;
-  --font-display: 'Unbounded', sans-serif;
-  --font-serif: Georgia, 'Times New Roman', serif;
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg: #050505;
+  --panel: #0e0e0e;
+  --panel-hi: #161616;
+  --bg-input: #0a0a0a;
+
+  /* Borders */
+  --border-dim: #1d1d1d;
+  --border: #222;
+  --border-bright: #2c2c2c;
+
+  /* Accent — bright Circoloco red (replaces gold) */
+  --gold: #ff2a1a;
+  --gold-bright: #ff5040;
+  --gold-dim: #a01510;
+  --red: #ff2a1a;
+  --red-deep: #a01510;
+
+  /* Ink */
+  --text: #f2f2f2;
+  --text-dim: #d8d8d8;
+  --text-dimmer: #b0b0b0;
+  --text-dimmest: #909090;
+  --text-warm: #f2f2f2;
+
+  /* Status — neutralised, no green clash */
+  --green: #f2f2f2;
+  --amber: #ff2a1a;
+  --blue: #777777;
+  --red-brown: #ff2a1a;
+  --purple: #777777;
+  --accent-green: #f2f2f2;
+  --accent-red: #ff2a1a;
+  --accent-yellow: #ff2a1a;
+
+  /* Type — everything Helvetica Black */
+  --font-mono: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-display: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-serif: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 html {
@@ -50,7 +69,56 @@ body {
   color: var(--text);
   font-family: var(--font-mono);
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.55;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  position: relative;
+}
+
+/* SCANLINES — site-wide overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: repeating-linear-gradient(0deg, transparent 0 2px, rgba(255,255,255,0.012) 2px 3px);
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* GRAIN — site-wide overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* BRT display helper — use for huge Helvetica Black headers */
+.brt-display {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.brt-label {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 9px;
+  color: var(--text-dimmer);
+}
+
+.brt-cell {
+  background: var(--panel);
+  border: 1px solid var(--border-dim);
+  padding: 18px;
 }
 
 /* SCROLLBAR */
@@ -114,9 +182,10 @@ a { color: inherit; }
 /* TYPOGRAPHY UTILITIES */
 .display {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+  text-transform: uppercase;
 }
 
 .label {
@@ -179,10 +248,11 @@ a { color: inherit; }
 
 .page-title {
   font-family: var(--font-display);
-  font-size: clamp(48px, 5.5vw, 72px);
-  font-weight: 300;
-  letter-spacing: -0.03em;
-  line-height: 1.0;
+  font-size: clamp(48px, 5.5vw, 80px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  text-transform: uppercase;
 }
 
 /* STATS BAR */
@@ -205,11 +275,12 @@ a { color: inherit; }
 
 .stat-block .stat-num {
   font-family: var(--font-display);
-  font-weight: 300;
-  font-size: clamp(32px, 3.5vw, 48px);
+  font-weight: 800;
+  font-size: clamp(32px, 3.5vw, 52px);
   letter-spacing: -0.04em;
-  line-height: 1;
+  line-height: 0.9;
   color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-block .stat-num.gold { color: var(--gold); }
@@ -326,11 +397,12 @@ a { color: inherit; }
 /* STAT BLOCK */
 .stat-value {
   font-family: var(--font-display);
-  font-size: clamp(36px, 4vw, 52px);
-  font-weight: 400;
+  font-size: clamp(36px, 4vw, 56px);
+  font-weight: 800;
   letter-spacing: -0.04em;
-  line-height: 1;
+  line-height: 0.9;
   margin: 10px 0 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-sub {
@@ -493,21 +565,21 @@ a { color: inherit; }
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
-  border-radius: 2px;
-  font-weight: 400;
+  border-radius: 0;
+  font-weight: 800;
 }
 
 /* PRIMARY BUTTON */
 .btn-primary {
-  background: rgba(176,141,87,0.15);
-  color: var(--gold-bright);
-  border: 1px solid rgba(176,141,87,0.35);
+  background: var(--gold);
+  color: var(--bg);
+  border: 1px solid var(--gold);
 }
 
 .btn-primary:hover {
-  background: rgba(176,141,87,0.25);
-  color: var(--text);
-  border-color: var(--gold);
+  background: var(--gold-bright);
+  color: var(--bg);
+  border-color: var(--gold-bright);
 }
 
 .btn-primary:disabled { opacity: 0.4; cursor: default; }

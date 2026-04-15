@@ -18,7 +18,7 @@ const DEVICES = [
     midi_in: 'Root note trigger',
     midi_out: 'Voiced chord',
     color: 'var(--gold)',
-    colorRaw: '#b08d57',
+    colorRaw: '#ff2a1a',
   },
   {
     id: 'energy-arc',
@@ -35,7 +35,7 @@ const DEVICES = [
     midi_in: 'Transport sync',
     midi_out: 'Arrangement markers',
     color: 'var(--green)',
-    colorRaw: '#3d6b4a',
+    colorRaw: '#f2f2f2',
   },
   {
     id: 'mix-chain',

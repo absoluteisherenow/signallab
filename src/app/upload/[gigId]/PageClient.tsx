@@ -34,6 +34,9 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
   const [files, setFiles] = useState<UploadFile[]>([])
   const [dragOver, setDragOver] = useState(false)
   const [allDone, setAllDone] = useState(false)
+  const [showLinkForm, setShowLinkForm] = useState(false)
+  const [externalLink, setExternalLink] = useState('')
+  const [linkSubmitted, setLinkSubmitted] = useState(false)
 
   useEffect(() => {
     if (!gigId) return
@@ -53,6 +56,9 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
     }
     fetchGig()
   }, [gigId])
+
+  const [scanningCount, setScanningCount] = useState(0)
+  const [scannedCount, setScannedCount] = useState(0)
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const additions: UploadFile[] = Array.from(newFiles).map(file => ({
@@ -79,12 +85,12 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
     }
   }, [addFiles])
 
-  const uploadFile = async (uploadFile: UploadFile) => {
-    setFiles(prev => prev.map(f => f.id === uploadFile.id ? { ...f, status: 'uploading' as const, progress: 10 } : f))
+  const uploadFile = async (uf: UploadFile): Promise<{ url: string; key: string } | null> => {
+    setFiles(prev => prev.map(f => f.id === uf.id ? { ...f, status: 'uploading' as const, progress: 10 } : f))
 
     try {
       const formData = new FormData()
-      formData.append('file', uploadFile.file)
+      formData.append('file', uf.file)
 
       const res = await fetch(`/api/upload?gigId=${gigId}`, {
         method: 'POST',
@@ -97,18 +103,51 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
       }
 
       const data = await res.json()
-      setFiles(prev => prev.map(f => f.id === uploadFile.id ? { ...f, status: 'done' as const, progress: 100, url: data.url } : f))
+      setFiles(prev => prev.map(f => f.id === uf.id ? { ...f, status: 'done' as const, progress: 100, url: data.url } : f))
+      return { url: data.url, key: data.key }
     } catch (err: any) {
-      setFiles(prev => prev.map(f => f.id === uploadFile.id ? { ...f, status: 'error' as const, error: err.message } : f))
+      setFiles(prev => prev.map(f => f.id === uf.id ? { ...f, status: 'error' as const, error: err.message } : f))
+      return null
     }
   }
 
   const uploadAll = async () => {
     const pending = files.filter(f => f.status === 'pending')
+    const scanPromises: Promise<unknown>[] = []
+    let uploadedCount = 0
+
     for (const f of pending) {
-      await uploadFile(f)
+      const result = await uploadFile(f)
+      if (result) {
+        uploadedCount++
+        // Auto-scan images via Sonnet vision (same pipeline as MediaScanner)
+        if (f.file.type.startsWith('image/')) {
+          setScanningCount(prev => prev + 1)
+          scanPromises.push(
+            fetch('/api/media/scan', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: result.url, key: result.key, gigId, fileName: f.file.name, mimeType: f.file.type }),
+            })
+              .then(() => setScannedCount(prev => prev + 1))
+              .catch(() => setScannedCount(prev => prev + 1))
+          )
+        }
+      }
     }
+
     setAllDone(true)
+
+    // Wait for all scans to complete, then notify (runs after success UI shows)
+    if (uploadedCount > 0) {
+      Promise.allSettled(scanPromises).then(() => {
+        fetch('/api/media/scan/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gigId, totalFiles: uploadedCount }),
+        }).catch(() => {})
+      })
+    }
   }
 
   const removeFile = (id: string) => {
@@ -168,10 +207,53 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
           <ul style={styles.briefList}>
             <li>Vertical 9:16 for stories / reels</li>
             <li>Landscape for feed posts</li>
-            <li>Minimum 1080p resolution</li>
+            <li>Minimum 1080p, raw files preferred</li>
             <li>Capture: crowd shots, booth shots, venue atmosphere, artist performing</li>
           </ul>
         </div>
+
+        {/* External link option */}
+        {linkSubmitted ? (
+          <div style={{ ...styles.briefBox, borderColor: 'rgba(61,107,74,0.4)', marginBottom: 20 }}>
+            <div style={{ color: 'var(--green)', fontSize: 13 }}>&#10003; Link received. We'll pull the files from there.</div>
+          </div>
+        ) : showLinkForm ? (
+          <div style={{ ...styles.briefBox, marginBottom: 20 }}>
+            <div style={styles.briefLabel}>Share a link</div>
+            <div style={{ fontSize: 12, color: 'var(--text-dimmer)', marginBottom: 12 }}>
+              Paste a Google Drive, Dropbox, or WeTransfer link below.
+            </div>
+            <input
+              value={externalLink}
+              onChange={e => setExternalLink(e.target.value)}
+              placeholder="https://drive.google.com/... or https://www.dropbox.com/..."
+              style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 13, padding: '10px 14px', outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={async () => {
+                  if (!externalLink.trim()) return
+                  try {
+                    await supabase.from('gig_content_links').insert({ gig_id: gigId, url: externalLink.trim(), source: 'upload_page' })
+                  } catch { /* table may not exist — still show success */ }
+                  setLinkSubmitted(true)
+                }}
+                style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', border: 'none', cursor: 'pointer' }}
+              >
+                Submit link
+              </button>
+              <button onClick={() => setShowLinkForm(false)} style={{ background: 'transparent', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '10px 16px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <button onClick={() => setShowLinkForm(true)} style={{ background: 'transparent', border: 'none', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', letterSpacing: '0.05em' }}>
+              Or share a Google Drive / Dropbox link instead
+            </button>
+          </div>
+        )}
 
         {/* Upload area */}
         {allDone && doneCount > 0 && pendingCount === 0 ? (
@@ -179,9 +261,17 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
             <div style={styles.successIcon}>&#10003;</div>
             <div style={styles.successTitle}>{doneCount} file{doneCount !== 1 ? 's' : ''} uploaded</div>
             <div style={styles.successSub}>Thank you. The content will be reviewed and added to the media library.</div>
+            {scanningCount > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--text-dimmer)', marginTop: 12, letterSpacing: '0.05em' }}>
+                {scannedCount < scanningCount
+                  ? `Analysing content... ${scannedCount}/${scanningCount}`
+                  : `${scanningCount} image${scanningCount !== 1 ? 's' : ''} analysed`
+                }
+              </div>
+            )}
             <button
               style={styles.btnSecondary}
-              onClick={() => { setFiles([]); setAllDone(false) }}
+              onClick={() => { setFiles([]); setAllDone(false); setScanningCount(0); setScannedCount(0) }}
             >
               Upload more
             </button>

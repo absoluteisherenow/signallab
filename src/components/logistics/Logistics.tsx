@@ -218,7 +218,7 @@ export default function Logistics() {
     }
   }
 
-  const statusColor = (s: string) => s === 'complete' ? '#3d6b4a' : s === 'sent' ? '#b08d57' : '#52504c'
+  const statusColor = (s: string) => s === 'complete' ? '#f2f2f2' : s === 'sent' ? '#ff2a1a' : '#52504c'
   const statusLabel = (s: string) => s === 'complete' ? 'Advance complete' : s === 'sent' ? 'Sent — awaiting' : 'Not sent'
 
   const inlineInput: React.CSSProperties = {
@@ -272,8 +272,8 @@ export default function Logistics() {
                 { label: 'Gigs needing travel', value: gigsNeedingTravel.length, color: gigsNeedingTravel.length > 0 ? '#c9614a' : 'var(--green)' },
               ].map(stat => (
                 <div key={stat.label} className="card">
-                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
-                  <div className="display" style={{ fontSize: '32px', color: stat.color }}>{stat.value}</div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.22em', fontWeight: 700, color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
+                  <div className="display" style={{ fontSize: '32px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.035em', lineHeight: 0.9, color: stat.color }}>{stat.value}</div>
                 </div>
               ))}
             </div>
@@ -281,7 +281,7 @@ export default function Logistics() {
             {/* BOOKED TRAVEL TIMELINE */}
             {allTravel.length > 0 && (
               <div style={{ marginBottom: '32px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Booked travel</div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.22em', fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Booked travel</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   {allTravel.map(b => (
                     <div key={b.id} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '16px 24px', display: 'grid', gridTemplateColumns: '32px 1fr 200px 160px', alignItems: 'center', gap: '16px' }}>
@@ -335,7 +335,7 @@ export default function Logistics() {
                         </div>
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <a href={searchFlightsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '6px 12px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                            style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--gold)', border: '1px solid rgba(255,42,26,0.25)', padding: '6px 12px', textDecoration: 'none', textTransform: 'uppercase' }}>
                             Flights ↗
                           </a>
                           <a href={searchTrainsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
@@ -385,7 +385,7 @@ export default function Logistics() {
               {/* ROW */}
               <div onClick={() => isOpen ? setSelected(null) : openGig(gig.id)} style={{
                 background: isOpen ? '#141310' : 'var(--panel)',
-                border: `1px solid ${isOpen ? 'rgba(176, 141, 87, 0.25)' : 'var(--border-dim)'}`,
+                border: `1px solid ${isOpen ? 'rgba(255, 42, 26, 0.25)' : 'var(--border-dim)'}`,
                 padding: '20px 28px',
                 cursor: 'pointer',
                 display: 'grid',
@@ -414,12 +414,12 @@ export default function Logistics() {
 
               {/* EXPANDED */}
               {isOpen && (
-                <div style={{ background: '#0a0906', border: '1px solid rgba(176, 141, 87, 0.125)', borderTop: 'none', padding: '32px 28px' }}>
+                <div style={{ background: '#0a0906', border: '1px solid rgba(255, 42, 26, 0.125)', borderTop: 'none', padding: '32px 28px' }}>
 
                   {/* SEARCH LINKS — prominent at top */}
                   <div style={{ display: 'flex', gap: '10px', marginBottom: '28px', flexWrap: 'wrap' }}>
                     <a href={searchFlightsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: '11px', letterSpacing: '0.12em', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.3)', padding: '10px 20px', textDecoration: 'none', textTransform: 'uppercase', background: 'rgba(176,141,87,0.06)' }}>
+                      style={{ fontSize: '11px', letterSpacing: '0.12em', color: 'var(--gold)', border: '1px solid rgba(255,42,26,0.3)', padding: '10px 20px', textDecoration: 'none', textTransform: 'uppercase', background: 'rgba(255,42,26,0.06)' }}>
                       ✈ Search flights to {gig.location?.split(',')[0]} ↗
                     </a>
                     <a href={searchTrainsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
@@ -459,7 +459,7 @@ export default function Logistics() {
                       {advStatus === 'complete' && (
                         <div>
                           <div style={{ fontSize: '13px', color: 'var(--green)', marginBottom: '16px' }}>✓ Advance received from promoter</div>
-                          <Link href={`/advance/${gig.id}`} target="_blank" style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--gold)', textDecoration: 'none', textTransform: 'uppercase', border: 'rgba(176, 141, 87, 0.25)', padding: '10px 18px', display: 'inline-block' }}>
+                          <Link href={`/advance/${gig.id}`} target="_blank" style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--gold)', textDecoration: 'none', textTransform: 'uppercase', border: 'rgba(255, 42, 26, 0.25)', padding: '10px 18px', display: 'inline-block' }}>
                             View advance sheet →
                           </Link>
                         </div>
@@ -515,11 +515,11 @@ export default function Logistics() {
                       <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '16px' }}>Quick actions</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <Link href={`/broadcast?gig=${gig.id}&title=${encodeURIComponent(gig.title)}&venue=${encodeURIComponent(gig.venue)}&location=${encodeURIComponent(gig.location)}&date=${gig.date}`}
-                          style={{ fontSize: '12px', color: 'var(--green)', textDecoration: 'none', padding: '12px 16px', border: 'rgba(61, 107, 74, 0.19)', display: 'block', transition: 'all 0.15s' }}>
+                          style={{ fontSize: '12px', color: 'var(--green)', textDecoration: 'none', padding: '12px 16px', border: 'rgba(242, 242, 242, 0.19)', display: 'block', transition: 'all 0.15s' }}>
                           Create post →
                         </Link>
                         <Link href="/contracts"
-                          style={{ fontSize: '12px', color: 'var(--gold)', textDecoration: 'none', padding: '12px 16px', border: 'rgba(176, 141, 87, 0.19)', display: 'block', transition: 'all 0.15s' }}>
+                          style={{ fontSize: '12px', color: 'var(--gold)', textDecoration: 'none', padding: '12px 16px', border: 'rgba(255, 42, 26, 0.19)', display: 'block', transition: 'all 0.15s' }}>
                           Upload contract →
                         </Link>
                         <Link href="/business/finances"
@@ -540,7 +540,7 @@ export default function Logistics() {
                     const isEditingContacts = editingContacts === gig.id
 
                     return (
-                      <div style={{ borderTop: '1px solid rgba(176,141,87,0.12)', marginTop: '28px', paddingTop: '28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+                      <div style={{ borderTop: '1px solid rgba(255,42,26,0.12)', marginTop: '28px', paddingTop: '28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
 
                         {/* TRAVEL */}
                         <div>
@@ -549,7 +549,7 @@ export default function Logistics() {
                           {/* Smart search links */}
                           <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
                             <a href={searchFlightsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
-                              style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '7px 14px', textDecoration: 'none', textTransform: 'uppercase' }}>
+                              style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--gold)', border: '1px solid rgba(255,42,26,0.25)', padding: '7px 14px', textDecoration: 'none', textTransform: 'uppercase' }}>
                               Search flights ↗
                             </a>
                             <a href={searchTrainsUrl(gig.location, gig.date, artistLocation)} target="_blank" rel="noopener noreferrer"
@@ -670,7 +670,7 @@ export default function Logistics() {
                               </div>
                               <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                                 <button onClick={() => saveTravel(gig.id)} disabled={savingTravel}
-                                  style={{ background: 'var(--gold)', color: '#070706', border: 'none', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '9px 18px', cursor: 'pointer' }}>
+                                  style={{ background: 'var(--gold)', color: '#050505', border: 'none', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '9px 18px', cursor: 'pointer' }}>
                                   {savingTravel ? 'Saving...' : 'Save'}
                                 </button>
                                 <button onClick={() => { setAddingTravel(null); setTravelForm({}) }}
@@ -731,7 +731,7 @@ export default function Logistics() {
                               </div>
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <button onClick={() => saveContacts(gig.id)} disabled={savingContacts}
-                                  style={{ background: 'var(--gold)', color: '#070706', border: 'none', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer' }}>
+                                  style={{ background: 'var(--gold)', color: '#050505', border: 'none', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer' }}>
                                   {savingContacts ? 'Saving...' : 'Save'}
                                 </button>
                                 <button onClick={() => { setEditingContacts(null); setContactForm({}) }}
@@ -779,7 +779,7 @@ export default function Logistics() {
         {(gigs?.length ?? 0) > 0 && (
           <div style={{
             background: 'var(--panel)',
-            border: 'rgba(176, 141, 87, 0.25)',
+            border: 'rgba(255, 42, 26, 0.25)',
             padding: '20px 28px',
             display: 'grid',
             gridTemplateColumns: '2fr 140px 100px 180px 80px',

@@ -37,7 +37,7 @@ async function buildEmailData(id: string, toOverride?: string) {
   const payment = settings?.payment || {}
   const artistName = invoice.artist_name || payment.legal_name || profile.name || 'Artist'
   const invoiceNumber = `INV-${id.slice(-6).toUpperCase()}`
-  const invoiceUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://signal-lab-rebuild.vercel.app'}/api/invoices/${id}`
+  const invoiceUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'}/api/invoices/${id}`
   const dueDate = invoice.due_date
     ? new Date(invoice.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'On receipt'

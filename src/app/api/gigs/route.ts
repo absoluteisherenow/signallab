@@ -57,7 +57,9 @@ export async function POST(req: NextRequest) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ gigId: gig.id }),
-        }).catch(() => { /* silent — content drafts are a bonus, not blocking */ })
+        }).catch(async (error) => {
+          await createNotification({ type: 'cron_error', title: 'Gig content generation failed', message: error instanceof Error ? error.message : 'Unknown error' })
+        })
       }
 
       // Auto-create invoice if fee is set (with duplicate check)

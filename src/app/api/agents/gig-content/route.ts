@@ -119,7 +119,7 @@ Write exactly 3 captions. Keep each under 30 words. Lowercase. No hashtags. No e
 
     if (saved > 0) {
       await createNotification({
-        type: 'system',
+        type: 'content_review',
         title: `${saved} content drafts created — ${venue}`,
         message: `Pre-show hype, day-of story, and post-show recap ready to review in Broadcast.`,
         href: '/broadcast',
@@ -129,6 +129,7 @@ Write exactly 3 captions. Keep each under 30 words. Lowercase. No hashtags. No e
 
     return NextResponse.json({ success: true, saved, gigId, venue })
   } catch (err: any) {
+    await createNotification({ type: 'cron_error', title: 'Gig content agent failed', message: err instanceof Error ? err.message : 'Unknown error' })
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

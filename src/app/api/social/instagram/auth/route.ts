@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://signal-lab-rebuild.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'
 
 export async function GET(req: NextRequest) {
   const appId = process.env.INSTAGRAM_APP_ID

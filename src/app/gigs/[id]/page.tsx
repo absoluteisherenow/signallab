@@ -1,7 +1,9 @@
+'use client'
+
 import { GigDetail } from '@/components/gigs/GigDetail'
+import { useParams } from 'next/navigation'
 
-export function generateStaticParams() { return [] }
-
-export default function GigPage({ params }: { params: { id: string } }) {
-  return <GigDetail gigId={params.id} />
+export default function GigPage() {
+  const { id } = useParams<{ id: string }>()
+  return <GigDetail gigId={id} />
 }

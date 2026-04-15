@@ -1,7 +1,9 @@
+'use client'
+
 import UploadPageClient from './PageClient'
+import { useParams } from 'next/navigation'
 
-export function generateStaticParams() { return [] }
-
-export default function Page({ params }: { params: { gigId: string } }) {
+export default function Page() {
+  const params = useParams<{ gigId: string }>()
   return <UploadPageClient params={params} />
 }

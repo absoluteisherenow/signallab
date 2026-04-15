@@ -1,7 +1,9 @@
+'use client'
+
 import CampaignPageClient from './PageClient'
+import { useParams } from 'next/navigation'
 
-export function generateStaticParams() { return [] }
-
-export default function Page({ params }: { params: { id: string } }) {
+export default function Page() {
+  const params = useParams<{ id: string }>()
   return <CampaignPageClient params={params} />
 }

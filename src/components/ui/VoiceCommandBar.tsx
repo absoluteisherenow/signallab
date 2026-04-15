@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
+import { BlurredAmount } from '@/components/ui/BlurredAmount'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -536,14 +537,14 @@ function TextResult({ result }: { result: AssistantResult }) {
                 {item.status === 'pending' && <span style={{ fontSize: '8px', color: '#c9a46e', letterSpacing: '0.1em' }}>UNPAID</span>}
               </span>
               <span style={{ color: item.status === 'paid' ? '#4ecb71' : '#e8c98a' }}>
-                {result.currency} {item.amount?.toLocaleString()}
+                <BlurredAmount>{result.currency} {item.amount?.toLocaleString()}</BlurredAmount>
               </span>
             </div>
           ))}
           {result.total !== undefined && (
             <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '10px', fontSize: '13px' }}>
               <span style={{ color: '#5a4a38', fontSize: '9px', letterSpacing: '0.12em' }}>TOTAL OUTSTANDING</span>
-              <span style={{ color: '#e8c98a' }}>{result.currency} {result.total?.toLocaleString()}</span>
+              <span style={{ color: '#e8c98a' }}><BlurredAmount>{result.currency} {result.total?.toLocaleString()}</BlurredAmount></span>
             </div>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { list, del, put } from '@vercel/blob'
+import { uploadFile, listFiles, deleteFile } from '@/lib/storage'
 import { NextRequest, NextResponse } from 'next/server'
 
 const MEDIA_CATEGORIES = ['promo', 'crowd', 'studio', 'artwork', 'bts', 'travel', 'other'] as const
@@ -62,17 +62,14 @@ export async function POST(req: NextRequest) {
     if (isImage) {
       const bytes = await file.arrayBuffer()
       category = await classifyImage(bytes, file.type)
-      // Re-create file from bytes for upload
-      const ext = file.name.split('.').pop() || 'bin'
-      const filename = `media/${category}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const blob = await put(filename, Buffer.from(bytes), { access: 'public', contentType: file.type })
-      return NextResponse.json({ url: blob.url, category, pathname: blob.pathname })
+      const key = `media/${category}/${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const result = await uploadFile(Buffer.from(bytes), key, file.type)
+      return NextResponse.json({ url: result.url, category, key: result.key })
     } else {
       category = 'other'
-      const ext = file.name.split('.').pop() || 'bin'
-      const filename = `media/${category}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const blob = await put(filename, file, { access: 'public' })
-      return NextResponse.json({ url: blob.url, category, pathname: blob.pathname })
+      const key = `media/${category}/${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const result = await uploadFile(file, key)
+      return NextResponse.json({ url: result.url, category, key: result.key })
     }
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
@@ -83,13 +80,19 @@ export async function GET(req: NextRequest) {
   try {
     const category = req.nextUrl.searchParams.get('category')
     const prefix = category ? `media/${category}/` : 'media/'
-    const { blobs } = await list({ prefix })
-    const items = blobs.map(b => {
-      const parts = b.pathname.split('/')
+    const items = await listFiles(prefix)
+    const blobs = items.map(item => {
+      const parts = item.key.split('/')
       const cat = parts.length >= 2 ? parts[1] : 'other'
-      return { ...b, category: MEDIA_CATEGORIES.includes(cat as MediaCategory) ? cat : 'other' }
+      return {
+        url: item.url,
+        key: item.key,
+        size: item.size,
+        uploadedAt: item.uploaded,
+        category: MEDIA_CATEGORIES.includes(cat as MediaCategory) ? cat : 'other',
+      }
     })
-    return NextResponse.json({ blobs: items })
+    return NextResponse.json({ blobs })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
@@ -97,9 +100,9 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { url } = await req.json()
-    if (!url) return NextResponse.json({ error: 'No URL provided' }, { status: 400 })
-    await del(url)
+    const { key } = await req.json()
+    if (!key) return NextResponse.json({ error: 'No key provided' }, { status: 400 })
+    await deleteFile(key)
     return NextResponse.json({ success: true })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

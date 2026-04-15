@@ -952,6 +952,18 @@ Rules:
   const pathname = usePathname()
   if (deviceType === 'unknown') return null
   if (pathname.startsWith('/go/')) return null
+  // Hide on public marketing surfaces
+  if (
+    pathname === '/' ||
+    pathname === '/login' ||
+    pathname === '/landing' ||
+    pathname === '/pricing' ||
+    pathname === '/pricing-preview' ||
+    pathname === '/join' ||
+    pathname === '/waitlist' ||
+    pathname === '/privacy' ||
+    pathname.startsWith('/upload')
+  ) return null
 
   // Mobile: floating mic centred above the toolbar
   if (deviceType === 'mobile') {

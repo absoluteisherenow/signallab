@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://signal-lab-rebuild.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'
 
 export async function GET(req: NextRequest) {
   const clientKey = process.env.TIKTOK_CLIENT_KEY

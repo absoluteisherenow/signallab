@@ -247,6 +247,7 @@ Return ONLY valid JSON, no markdown:
       },
     })
   } catch (err: any) {
+    await createNotification({ type: 'cron_error', title: 'Weekly content agent failed', message: err instanceof Error ? err.message : 'Unknown error' })
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

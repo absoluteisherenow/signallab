@@ -89,19 +89,19 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className="relative bg-[#0e0d0b] border border-white/10 w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-[#0e0e0e] border border-white/10 w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/7">
-          <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57]">Media library</div>
-          <button onClick={onClose} className="text-[#8a8780] hover:text-[#f0ebe2] text-lg leading-none">×</button>
+          <div className="text-[10px] tracking-[.22em] uppercase text-[#ff2a1a]">Media library</div>
+          <button onClick={onClose} className="text-[#8a8780] hover:text-[#f2f2f2] text-lg leading-none">×</button>
         </div>
 
         {/* Categories */}
         <div className="flex gap-1.5 px-5 py-3 border-b border-white/7 overflow-x-auto">
           {CATEGORIES.map(c => (
             <button key={c.key} onClick={() => setCategory(c.key)}
-              className={`text-[9px] tracking-[.14em] uppercase px-3 py-1.5 border whitespace-nowrap transition-colors ${category === c.key ? 'border-[#b08d57] text-[#b08d57]' : 'border-white/10 text-[#52504c] hover:border-white/20'}`}>
+              className={`text-[11px] font-medium tracking-[.12em] uppercase px-3 py-1.5 border whitespace-nowrap transition-colors ${category === c.key ? 'border-[#ff2a1a] text-[#ff2a1a]' : 'border-white/10 text-[#a09d95] hover:border-white/20'}`}>
               {c.label}
             </button>
           ))}
@@ -118,22 +118,22 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
           ) : items.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-[11px] text-[#8a8780] mb-2">No media{category !== 'all' ? ` in ${CATEGORIES.find(c => c.key === category)?.label}` : ''}</div>
-              <div className="text-[10px] text-[#2e2c29]">Upload files to get started</div>
+              <div className="text-[10px] text-[#a09d95]">Upload files to get started</div>
             </div>
           ) : (
             <div className="grid grid-cols-5 gap-2">
               {items.map(item => (
                 <button key={item.url} onClick={() => toggleSelect(item.url)}
-                  className={`aspect-square relative overflow-hidden border-2 transition-colors group ${selected.includes(item.url) ? 'border-[#b08d57]' : 'border-transparent hover:border-white/20'}`}>
+                  className={`aspect-square relative overflow-hidden border-2 transition-colors group ${selected.includes(item.url) ? 'border-[#ff2a1a]' : 'border-transparent hover:border-white/20'}`}>
                   {isVideo(item.pathname) ? (
-                    <div className="w-full h-full bg-[#1a1917] flex items-center justify-center">
+                    <div className="w-full h-full bg-[#1d1d1d] flex items-center justify-center">
                       <span className="text-[#8a8780] text-xs">▶</span>
                     </div>
                   ) : (
                     <img src={item.url} alt="" className="w-full h-full object-cover" />
                   )}
                   {selected.includes(item.url) && (
-                    <div className="absolute top-1 right-1 w-5 h-5 bg-[#b08d57] rounded-full flex items-center justify-center text-[#070706] text-[9px] font-bold">
+                    <div className="absolute top-1 right-1 w-5 h-5 bg-[#ff2a1a] rounded-full flex items-center justify-center text-[#050505] text-[9px] font-bold">
                       ✓
                     </div>
                   )}
@@ -152,17 +152,17 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
             <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden"
               onChange={e => { if (e.target.files?.length) upload(e.target.files) }} />
             <button onClick={() => fileRef.current?.click()} disabled={uploading}
-              className="text-[9px] tracking-[.14em] uppercase border border-white/10 text-[#8a8780] px-3 py-1.5 hover:border-[#b08d57] hover:text-[#b08d57] transition-colors disabled:opacity-40">
+              className="text-[11px] font-medium tracking-[.12em] uppercase border border-white/10 text-[#8a8780] px-3 py-1.5 hover:border-[#ff2a1a] hover:text-[#ff2a1a] transition-colors disabled:opacity-40">
               {uploading ? 'Auto-sorting...' : 'Upload new'}
             </button>
-            {uploading && <span className="text-[8px] text-[#52504c]">Categorising with vision</span>}
+            {uploading && <span className="text-[8px] text-[#a09d95]">Categorising with vision</span>}
           </div>
           <div className="flex items-center gap-3">
             {selected.length > 0 && (
-              <span className="text-[10px] text-[#52504c]">{selected.length} selected</span>
+              <span className="text-[10px] text-[#a09d95]">{selected.length} selected</span>
             )}
             <button onClick={confirm} disabled={selected.length === 0}
-              className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2 hover:bg-[#c9a46e] transition-colors disabled:opacity-30">
+              className="text-[10px] tracking-[.16em] uppercase bg-[#ff2a1a] text-[#050505] px-5 py-2 hover:bg-[#ff5040] transition-colors disabled:opacity-30">
               Attach{selected.length > 0 ? ` (${selected.length})` : ''}
             </button>
           </div>

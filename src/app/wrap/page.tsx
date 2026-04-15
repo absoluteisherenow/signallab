@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { BlurredAmount } from '@/components/ui/BlurredAmount'
 
 type Period = 'q1' | 'q2' | 'q3' | 'q4' | 'year'
 
@@ -335,7 +336,7 @@ function WrapContent() {
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '24px 0', borderBottom: `1px solid ${s.border}` }}>
                 <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.dimmer }}>Invoiced</div>
                 <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 300, color: s.text, lineHeight: 1 }}>
-                  {stats.currency}{Math.round(stats.revenue).toLocaleString()}
+                  <BlurredAmount>{stats.currency}{Math.round(stats.revenue).toLocaleString()}</BlurredAmount>
                 </div>
               </div>
             ) : null}

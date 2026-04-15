@@ -116,7 +116,6 @@ export async function GET() {
             message: `Invoice still pending after the show. Send a reminder to ${gig.promoter_email || 'promoter'}.`,
             href: '/business/finances',
             gig_id: gig.id,
-            sendEmail: true,
           })
         }
 
@@ -174,7 +173,6 @@ export async function GET() {
             message: recap.message,
             href: `/gigs/${gig.id}`,
             gig_id: gig.id,
-            sendEmail: true,
           })
 
           // Save suggested post as draft
@@ -212,6 +210,7 @@ export async function GET() {
       recaps: results,
     })
   } catch (err: any) {
+    await createNotification({ type: 'cron_error', title: 'Post-gig agent failed', message: err instanceof Error ? err.message : 'Unknown error' })
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

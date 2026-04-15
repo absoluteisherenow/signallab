@@ -29,6 +29,8 @@ const TYPE_COLOR: Record<string, string> = {
   invoice_overdue: '#8a4a3a',
   payment_received: 'var(--green)',
   system: 'var(--text-dimmer)',
+  cron_error: '#8a4a3a',
+  content_review: 'var(--gold)',
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -42,6 +44,8 @@ const TYPE_LABEL: Record<string, string> = {
   invoice_overdue: 'Finance',
   payment_received: 'Finance',
   system: 'System',
+  cron_error: 'System',
+  content_review: 'Content',
 }
 
 function timeAgo(iso: string) {
@@ -56,7 +60,7 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
-const FILTERS = ['All', 'Unread', 'Logistics', 'Gig', 'Advance', 'Finance']
+const FILTERS = ['All', 'Unread', 'Logistics', 'Gig', 'Advance', 'Finance', 'Content']
 
 export default function NotificationsPage() {
   const router = useRouter()

@@ -17,6 +17,8 @@ export type NotificationType =
   | 'invoice_overdue'
   | 'invoice_request'
   | 'payment_received'
+  | 'cron_error'
+  | 'content_review'
   | 'system'
 
 // Money-critical notification types — these get SMS + email by default
@@ -31,6 +33,7 @@ const SMS_CRITICAL_TYPES: Set<NotificationType> = new Set([
 ])
 
 interface CreateNotificationOptions {
+  user_id?: string
   type: NotificationType
   title: string
   message?: string
@@ -42,13 +45,15 @@ interface CreateNotificationOptions {
 }
 
 export async function createNotification(opts: CreateNotificationOptions) {
-  const { type, title, message, href, gig_id, metadata, sendEmail } = opts
+  const { user_id, type, title, message, href, gig_id, metadata, sendEmail } = opts
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'
 
   // 1. Write to DB (in-app notification)
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     await supabase.from('notifications').insert([{
+      ...(user_id != null ? { user_id } : {}),
       type,
       title,
       message: message || null,
@@ -57,8 +62,8 @@ export async function createNotification(opts: CreateNotificationOptions) {
       metadata: metadata || null,
       read: false,
     }])
-  } catch {
-    // Table may not exist yet — fail silently
+  } catch (err) {
+    console.error('[notifications] DB insert failed:', err)
   }
 
   // 2. Send email if requested
@@ -79,8 +84,8 @@ export async function createNotification(opts: CreateNotificationOptions) {
             ${href ? `<a href="${appUrl}${href}" style="display:inline-block;background:#ff2a1a;color:#050505;padding:12px 24px;text-decoration:none;font-size:11px;letter-spacing:0.15em;text-transform:uppercase">View →</a>` : ''}
           </div>`,
       })
-    } catch {
-      // Email failure is non-critical
+    } catch (err) {
+      console.error('[notifications] Email send failed:', err)
     }
   }
 
@@ -96,8 +101,8 @@ export async function createNotification(opts: CreateNotificationOptions) {
         to: process.env.ARTIST_PHONE,
         body: smsBody.slice(0, 160),
       })
-    } catch {
-      // SMS failure is non-critical
+    } catch (err) {
+      console.error('[notifications] SMS send failed:', err)
     }
   }
 }

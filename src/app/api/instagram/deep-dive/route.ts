@@ -1,10 +1,23 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { canRunDeepDive, recordDeepDiveRun } from '@/lib/deepDiveTiers'
+import { getUserTier } from '@/lib/scanTiers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
+
+// Resolve current user. Single-user app fallback: first row of artist_settings.
+async function resolveUserId(req: NextRequest): Promise<string | null> {
+  const auth = req.headers.get('authorization')
+  if (auth?.startsWith('Bearer ')) {
+    const { data: { user } } = await supabase.auth.getUser(auth.replace('Bearer ', ''))
+    if (user?.id) return user.id
+  }
+  const { data } = await supabase.from('artist_settings').select('user_id').limit(1)
+  return data?.[0]?.user_id || null
+}
 
 async function fetchIG(url: string, timeoutMs = 8000) {
   const controller = new AbortController()
@@ -17,8 +30,28 @@ async function fetchIG(url: string, timeoutMs = 8000) {
 }
 
 // Pull the user's own Instagram data + run Opus deep dive
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
+    // 0. Resolve user + tier-gate BEFORE the Opus call (no token burn on a 402)
+    const userId = await resolveUserId(req)
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'No user session' }, { status: 401 })
+    }
+    const gate = await canRunDeepDive(userId)
+    if (!gate.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Deep Dive limit reached',
+          message: gate.upgradeMessage,
+          used: gate.used,
+          limit: gate.limit,
+          window: gate.windowLabel,
+        },
+        { status: 402 }
+      )
+    }
+
     // 1. Get connected account
     const { data: accounts } = await supabase
       .from('connected_social_accounts')
@@ -225,6 +258,14 @@ Return this exact JSON:
       save_rate: parseFloat(saveRate) || null,
       scanned_at: new Date().toISOString(),
     }, { onConflict: 'handle' })
+
+    // 10. Ledger the run for tier accounting (after successful Opus return only)
+    try {
+      const tierAtRun = await getUserTier(userId)
+      await recordDeepDiveRun(userId, tierAtRun)
+    } catch (logErr) {
+      console.error('[deep-dive] failed to ledger run', logErr)
+    }
 
     return NextResponse.json({
       success: true,

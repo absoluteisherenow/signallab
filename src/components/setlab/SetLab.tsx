@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabaseBrowser'
 import { analyseAudioFile } from '@/lib/audioAnalysis'
 import { ScanPulse } from '@/components/ui/ScanPulse'
 import { isTauri, apiBase, getTracks as tauriGetTracks, getSets as tauriGetSets, upsertTrack as tauriUpsertTrack, deleteTrack as tauriDeleteTrack, saveSet as tauriSaveSet, deleteSet as tauriDeleteSet, importRekordbox as tauriImportRekordbox, getPlaylists as tauriGetPlaylists, readAudioFile, rescanTagsForTracks, scanFolderTags, type TauriTrack, type TauriPlaylist, type AudioTags } from '@/lib/tauri'
 import { CollectionSidebar } from '@/components/setlab/CollectionSidebar'
 import { WaveformDisplay, extractPeaks, extractPeaksFromFile } from '@/components/setlab/WaveformDisplay'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800, model = 'claude-haiku-4-5-20251001'): Promise<string> {
   const res = await fetch('/api/claude', {
@@ -173,16 +174,33 @@ function getFlowScore(prev: Track, next: Track): number {
 }
 
 function getCompatibilityColor(score: number): string {
-  if (score >= 80) return '#3d6b4a'
-  if (score >= 60) return '#b08d57'
+  if (score >= 80) return '#f2f2f2'
+  if (score >= 60) return '#ff2a1a'
   return '#9a6a5a'
+}
+
+// Clean Discogs-formatted artist/title for external searches (Bandcamp etc.)
+// Strips disambiguation numbers "(2)" and mix-tag suffixes. Keeps "EP"/"LP"
+// because those are part of real release names on Bandcamp.
+// Orders as "title artist" which tends to match Bandcamp's release-first indexing.
+function cleanForExternalSearch(artist: string, title: string): string {
+  const cleanArtist = (artist || '')
+    .replace(/\s*\(\d+\)\s*/g, ' ') // "Max Watts (2)" -> "Max Watts"
+    .replace(/\s+/g, ' ')
+    .trim()
+  const cleanTitle = (title || '')
+    .replace(/\s*[\(\[][^\)\]]*(mix|edit|version|remaster|dub|instrumental)[^\)\]]*[\)\]]/gi, '')
+    .replace(/\s+(EP|LP|Single|Album)\s*$/i, '') // Discogs adds these; safer to drop
+    .replace(/\s+/g, ' ')
+    .trim()
+  return `${cleanTitle} ${cleanArtist}`.trim()
 }
 
 function getMomentColor(type: string): string {
   switch (type) {
     case 'opener': return '#6a7a9a'
-    case 'builder': return '#3d6b4a'
-    case 'peak': return '#b08d57'
+    case 'builder': return '#f2f2f2'
+    case 'peak': return '#ff2a1a'
     case 'breakdown': return '#7a5a8a'
     case 'closer': return '#6a7a9a'
     default: return '#52504c'
@@ -203,7 +221,7 @@ const SAMPLE_LIBRARY: Track[] = [
 
 
 export function SetLab() {
-  const [activeTab, setActiveTab] = useState<'library' | 'builder' | 'history' | 'discover' | 'scanner' | 'intelligence'>('library')
+  const [activeTab, setActiveTab] = useState<'library' | 'builder' | 'history' | 'discover' | 'scanner' | 'intelligence'>('library') // scanner parked
   const [library, setLibrary] = useState<Track[]>([])
   const [libraryLoading, setLibraryLoading] = useState(true)
   const [editingTrack, setEditingTrack] = useState<Track | null>(null)
@@ -259,7 +277,31 @@ export function SetLab() {
   const [crateDigLoading, setCrateDigLoading] = useState(false)
   const [crateDigError, setCrateDigError] = useState('')
   const [crateDigMeta, setCrateDigMeta] = useState<{ label_name?: string; artist_name?: string; style?: string; year_range?: string; credits?: any[]; release_title?: string } | null>(null)
+  const [crateDigYearFrom, setCrateDigYearFrom] = useState<string>('')
+  const [crateDigYearTo, setCrateDigYearTo] = useState<string>('')
+  const [crateDigDepth, setCrateDigDepth] = useState<'rare' | 'underground' | 'known' | 'all'>('all')
+  const [crateDigPreview, setCrateDigPreview] = useState<{ release_id: number; title: string; artist: string; videos: Array<{ id: string; title: string }>; activeIdx: number; loading: boolean; error?: string } | null>(null)
   const crateDigResolveCache = useRef<Map<string, any>>(new Map())
+
+  async function openCrateDigPreview(release: any) {
+    setCrateDigPreview({ release_id: release.id, title: release.title || '', artist: release.artist || '', videos: [], activeIdx: 0, loading: true })
+    try {
+      const res = await fetch('/api/discogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'preview', release_id: release.id }),
+      })
+      if (!res.ok) throw new Error(`Preview lookup failed (${res.status})`)
+      const data = await res.json()
+      if (!data.has_preview || !data.videos?.length) {
+        setCrateDigPreview({ release_id: release.id, title: data.title || release.title || '', artist: data.artist || release.artist || '', videos: [], activeIdx: 0, loading: false, error: 'No preview available for this release' })
+        return
+      }
+      setCrateDigPreview({ release_id: release.id, title: data.title || release.title || '', artist: data.artist || release.artist || '', videos: data.videos, activeIdx: 0, loading: false })
+    } catch (err: any) {
+      setCrateDigPreview(p => p ? { ...p, loading: false, error: err.message } : null)
+    }
+  }
   const [crateTrackSearch, setCrateTrackSearch] = useState('')
   const [crateTrackDropdown, setCrateTrackDropdown] = useState(false)
   // ── Wantlist state ─────────────────────────────────────────────────────
@@ -2206,9 +2248,18 @@ Return ONLY valid JSON, no markdown.`
           break
         }
         case 'style': {
-          const style = resolved.styles?.[0]
-          if (!style) { setCrateDigError('No style data found for this release'); setCrateDigLoading(false); return }
-          digResult = await digFetch({ action: 'style-dig', style, year: resolved.year || 2020 })
+          const styleList = resolved.styles || []
+          if (styleList.length === 0) { setCrateDigError('No style data found for this release'); setCrateDigLoading(false); return }
+          const yf = crateDigYearFrom ? parseInt(crateDigYearFrom, 10) : undefined
+          const yt = crateDigYearTo ? parseInt(crateDigYearTo, 10) : undefined
+          digResult = await digFetch({
+            action: 'style-dig',
+            styles: styleList,
+            genre: resolved.genre,
+            year: resolved.year || 2020,
+            year_from: Number.isFinite(yf) ? yf : undefined,
+            year_to: Number.isFinite(yt) ? yt : undefined,
+          })
           setCrateDigMeta({ style: digResult.style, year_range: digResult.year_range })
           break
         }
@@ -2435,7 +2486,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
       // Tab switching: Cmd+1-6
       if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '6') {
         e.preventDefault()
-        const tabs: Array<typeof activeTab> = ['library', 'builder', 'history', 'discover', 'scanner', 'intelligence']
+        const tabs: Array<typeof activeTab> = ['library', 'discover', 'builder', 'intelligence']
         const idx = parseInt(e.key) - 1
         if (tabs[idx]) setActiveTab(tabs[idx])
         return
@@ -2945,48 +2996,29 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
 
       {/* HEADER — sticky */}
-      <div style={{ flexShrink: 0, padding: isDesktop ? '24px 36px 0' : '40px 48px 0', borderBottom: `1px solid ${s.border}`, background: s.bg, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: isDesktop ? '14px' : '20px' }}>
-          <div>
-            {!isDesktop && <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '12px' }}>Set Lab</div>}
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: isDesktop ? 'clamp(24px, 3vw, 36px)' : 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, color: s.text }}>
-              {activeTab === 'library' ? 'Library' : activeTab === 'builder' ? 'Set Builder' : activeTab === 'history' ? 'History' : activeTab === 'discover' ? 'Discover' : activeTab === 'scanner' ? 'Scanner' : activeTab === 'intelligence' ? 'Intelligence' : 'Your sets'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '4px' }}>
-            <div style={{ fontSize: '12px', color: s.textDim, marginRight: '8px' }}>
-              {library.length} tracks · {set.length} in set · {setLength}min
-            </div>
-            <button onClick={saveSet} className="btn-secondary" style={{ fontSize: '10px', height: '36px', padding: '0 18px' }}>Save set</button>
-            <button onClick={exportToRekordbox} className="btn-primary" style={{ fontSize: '10px', height: '36px', padding: '0 18px' }}>
-              Export →
-            </button>
-          </div>
-        </div>
+      <div style={{ flexShrink: 0, background: s.bg, zIndex: 10 }}>
+        <PageHeader
+          section="Set Lab"
+          title={activeTab === 'library' ? 'Library' : activeTab === 'builder' ? 'Set Builder' : activeTab === 'history' ? 'History' : activeTab === 'intelligence' ? 'Intelligence' : 'Your sets'}
+          right={
+            <>
+              <div style={{ fontSize: '12px', color: s.textDim, marginRight: '8px' }}>
+                {library.length} tracks · {set.length} in set · {setLength}min
+              </div>
+              <button onClick={saveSet} className="btn-secondary" style={{ fontSize: '10px', height: '36px', padding: '0 18px' }}>Save set</button>
+              <button onClick={exportToRekordbox} className="btn-primary" style={{ fontSize: '10px', height: '36px', padding: '0 18px' }}>
+                Export →
+              </button>
+            </>
+          }
+          tabs={(['library', 'discover', 'builder', 'intelligence'] as const).map(tab => ({
+            label: { library: 'library', discover: 'crate dig', builder: 'set builder', intelligence: 'intelligence' }[tab],
+            active: activeTab === tab,
+            onClick: () => setActiveTab(tab),
+          }))}
+        />
 
-        {/* Tabs — underline style */}
-        <div style={{ display: 'flex', gap: '0' }}>
-          {(isDesktop
-            ? (['library', 'discover', 'builder'] as const)
-            : (['library', 'builder', 'history', 'discover', 'scanner', 'intelligence'] as const)
-          ).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              background: 'none',
-              border: 'none',
-              borderBottom: activeTab === tab ? `2px solid ${s.gold}` : '2px solid transparent',
-              color: activeTab === tab ? s.text : s.textDim,
-              fontFamily: s.font,
-              fontSize: '11px',
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
-              padding: '0 20px 10px',
-              cursor: 'pointer',
-              transition: 'color 0.15s',
-              marginBottom: '-1px',
-            }}>{{ builder: 'set builder', discover: 'discover', library: 'library', history: 'history', scanner: 'scanner', intelligence: 'intelligence' }[tab]}</button>
-          ))}
-        </div>
-
+      <div style={{ padding: isDesktop ? '0 36px' : '0 48px', borderBottom: `1px solid ${s.border}` }}>
         {/* Underground depth bar — desktop global filter */}
         {isDesktop && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0 10px' }}>
@@ -2999,11 +3031,11 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   position: 'relative', zIndex: 2,
                 }}
               />
-              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', transform: 'translateY(-50%)', background: 'rgba(176,141,87,0.1)', pointerEvents: 'none' }}>
-                <div style={{ height: '100%', width: `${depthFilter}%`, background: depthFilter < 25 ? '#9a6a5a' : depthFilter < 50 ? s.gold : depthFilter < 70 ? '#3d6b4a' : 'rgba(176,141,87,0.25)', transition: 'width 0.1s, background 0.2s' }} />
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', transform: 'translateY(-50%)', background: 'rgba(255,42,26,0.1)', pointerEvents: 'none' }}>
+                <div style={{ height: '100%', width: `${depthFilter}%`, background: depthFilter < 25 ? '#9a6a5a' : depthFilter < 50 ? s.gold : depthFilter < 70 ? '#f2f2f2' : 'rgba(255,42,26,0.25)', transition: 'width 0.1s, background 0.2s' }} />
               </div>
             </div>
-            <span style={{ fontSize: '10px', color: depthFilter < 25 ? '#9a6a5a' : depthFilter < 50 ? s.gold : depthFilter < 70 ? '#3d6b4a' : s.textDim, letterSpacing: '0.06em', whiteSpace: 'nowrap', minWidth: '80px', textAlign: 'right' }}>
+            <span style={{ fontSize: '10px', color: depthFilter < 25 ? '#9a6a5a' : depthFilter < 50 ? s.gold : depthFilter < 70 ? '#f2f2f2' : s.textDim, letterSpacing: '0.06em', whiteSpace: 'nowrap', minWidth: '80px', textAlign: 'right' }}>
               {depthFilter >= 100 ? 'All' : depthFilter < 25 ? 'Deep cuts' : depthFilter < 50 ? 'Underground' : depthFilter < 70 ? 'Known' : 'Popular'}
               {depthFilter < 100 && <span style={{ color: s.textDimmer }}> · {depthFiltered.length}</span>}
             </span>
@@ -3044,24 +3076,27 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
               )}
             </div>
 
-            {/* Moment type filter pills */}
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              {['all', 'opener', 'builder', 'peak', 'breakdown', 'closer'].map(type => (
-                <button key={type} onClick={() => setSearchQuery(type === 'all' ? '' : type)}
-                  style={{
-                    fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
-                    padding: '6px 14px', cursor: 'pointer',
-                    background: (type === 'all' && !searchQuery) || searchQuery === type ? getMomentColor(type) : 'transparent',
-                    border: `1px solid ${(type === 'all' && !searchQuery) || searchQuery === type ? getMomentColor(type) : s.border}`,
-                    color: (type === 'all' && !searchQuery) || searchQuery === type ? s.bg : s.textDimmer,
-                  }}>{type}</button>
-              ))}
-            </div>
+            {/* Moment type filter pills — hidden until tracks have moment data */}
+            {library.some(t => t.moment_type) && (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {['all', 'opener', 'builder', 'peak', 'breakdown', 'closer'].map(type => (
+                  <button key={type} onClick={() => setSearchQuery(type === 'all' ? '' : type)}
+                    style={{
+                      fontFamily: s.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                      padding: '6px 14px', cursor: 'pointer',
+                      background: (type === 'all' && !searchQuery) || searchQuery === type ? getMomentColor(type) : 'transparent',
+                      border: `1px solid ${(type === 'all' && !searchQuery) || searchQuery === type ? getMomentColor(type) : s.border}`,
+                      color: (type === 'all' && !searchQuery) || searchQuery === type ? s.bg : s.textDimmer,
+                    }}>{type}</button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {/* Header divider line */}
         <div style={{ height: '1px', background: s.border }} />
+      </div>
       </div>
 
       <div ref={trackListRef} onScroll={e => {
@@ -3245,14 +3280,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   </button>
                 </div>
               </div>
-            ) : (
-              <button onClick={() => setPasteMode(true)}
-                style={{ width: '100%', background: s.panel, border: `1px dashed ${s.border}`, color: s.textDim, fontFamily: s.font, fontSize: '12px', padding: '14px', cursor: 'pointer', textAlign: 'center', transition: 'border-color 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = s.gold)}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
-                Paste a tracklist
-              </button>
-            )}
+            ) : null}
 
             {/* Audio drop zone — drag MP3/WAV/FLAC to add tracks */}
             <div
@@ -3279,26 +3307,13 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   <div style={{ fontSize: '12px', color: s.setlab }}>{audioProgress}</div>
                 </div>
               ) : (
-                <div>
-                  <div style={{ fontSize: '13px', color: dragOver ? s.setlab : s.textDim, marginBottom: '4px' }}>
-                    {dragOver ? 'Drop audio files here' : 'Drop MP3, WAV, or FLAC files here — or click to browse'}
-                  </div>
-                  <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                    Extracts BPM from audio waveform · adds key, energy, mix techniques, crowd reaction
-                  </div>
+                <div style={{ fontSize: '13px', color: dragOver ? s.setlab : s.textDim }}>
+                  {dragOver ? 'Drop audio files here' : 'Drop MP3, WAV, or FLAC files here — or click to browse'}
                 </div>
               )}
             </div>
 
-            {/* Link music folder for playback */}
-            <button onClick={linkMusicFolder} disabled={linkingFolder}
-              style={{ width: '100%', background: musicFolderName ? `${s.gold}10` : s.panel, border: `1px dashed ${musicFolderName ? s.gold + '60' : s.border}`, color: musicFolderName ? s.gold : s.textDim, fontFamily: s.font, fontSize: '12px', padding: '14px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = s.gold)}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = musicFolderName ? s.gold + '60' : s.border)}>
-              {linkingFolder ? 'Scanning folder...' : musicFolderName ? `♪ Linked: ${musicFolderName} — click to change` : '♪ Link music folder for playback'}
-            </button>
-
-            {/* Screenshot import zone — snap a photo of Traktor/Rekordbox tracklist */}
+            {/* Screenshot import zone — Track ID */}
             <div
               onDragOver={e => { e.preventDefault(); setScreenshotImportDrag(true) }}
               onDragLeave={() => setScreenshotImportDrag(false)}
@@ -3328,13 +3343,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   <div style={{ fontSize: '12px', color: s.setlab }}>{screenshotImportProgress}</div>
                 </div>
               ) : (
-                <div>
-                  <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: screenshotImportDrag ? s.setlab : s.textDim, marginBottom: '4px' }}>
-                    {screenshotImportDrag ? 'Drop screenshot here' : 'Import from screenshot'}
-                  </div>
-                  <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                    Drop a photo of any tracklist — DJ software, Instagram clips, Spotify playlists, handwritten notes
-                  </div>
+                <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: screenshotImportDrag ? s.setlab : s.textDim }}>
+                  {screenshotImportDrag ? 'Drop screenshot here' : 'Track ID — drop a photo of any track name'}
                 </div>
               )}
             </div>
@@ -3353,13 +3363,13 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   <div style={{ display: 'flex', gap: '8px' }}>
                     {isTauri() && (
                       <button onClick={rescanFromFiles} disabled={rescanning}
-                        style={{ fontSize: '10px', color: s.gold, background: 'rgba(176,141,87,0.08)', border: '1px solid rgba(176,141,87,0.3)', padding: '4px 12px', cursor: rescanning ? 'wait' : 'pointer', fontFamily: s.font, letterSpacing: '0.1em', opacity: rescanning ? 0.6 : 1 }}>
+                        style={{ fontSize: '10px', color: s.gold, background: 'rgba(255,42,26,0.08)', border: '1px solid rgba(255,42,26,0.3)', padding: '4px 12px', cursor: rescanning ? 'wait' : 'pointer', fontFamily: s.font, letterSpacing: '0.1em', opacity: rescanning ? 0.6 : 1 }}>
                         {rescanning ? 'Scanning...' : 'Rescan Tags'}
                       </button>
                     )}
                     {isTauri() && missingKey.some(t => t.file_path) && (
                       <button onClick={exportForMIK}
-                        style={{ fontSize: '10px', color: s.text, background: 'rgba(176,141,87,0.12)', border: '1px solid rgba(176,141,87,0.3)', padding: '4px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}>
+                        style={{ fontSize: '10px', color: s.text, background: 'rgba(255,42,26,0.12)', border: '1px solid rgba(255,42,26,0.3)', padding: '4px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}>
                         Export for MIK
                       </button>
                     )}
@@ -3377,13 +3387,13 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
               const noArt = filteredLibrary.filter(t => !t.album_art && t.artist && t.title)
               if (noArt.length === 0) return null
               return (
-                <div style={{ padding: '8px 20px', background: 'rgba(176,141,87,0.04)', border: `1px solid rgba(176,141,87,0.15)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div style={{ padding: '8px 20px', background: 'rgba(255,42,26,0.04)', border: `1px solid rgba(255,42,26,0.15)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <div style={{ fontSize: '11px', color: s.gold, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '13px' }}>♪</span>
                     <span>{noArt.length} track{noArt.length !== 1 ? 's' : ''} missing artwork</span>
                   </div>
                   <button onClick={() => batchSpotifyEnrich(library)}
-                    style={{ fontSize: '10px', color: s.gold, background: 'rgba(176,141,87,0.08)', border: '1px solid rgba(176,141,87,0.3)', padding: '4px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}>
+                    style={{ fontSize: '10px', color: s.gold, background: 'rgba(255,42,26,0.08)', border: '1px solid rgba(255,42,26,0.3)', padding: '4px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}>
                     Fetch artwork
                   </button>
                 </div>
@@ -3394,12 +3404,13 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
             <div style={{ background: s.panel, border: `1px solid ${s.border}` }}>
               <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 2fr 1.2fr 65px 65px 55px 90px 80px', gap: '0', padding: '6px 20px', borderBottom: `1px solid ${s.border}`, alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <input type="checkbox" checked={selectedTracks.size > 0 && filteredLibrary.every(t => selectedTracks.has(t.id))}
-                    onChange={() => {
+                  <div onClick={() => {
                       if (filteredLibrary.every(t => selectedTracks.has(t.id))) setSelectedTracks(new Set())
                       else setSelectedTracks(new Set(filteredLibrary.map(t => t.id)))
                     }}
-                    style={{ cursor: 'pointer', accentColor: s.gold }} />
+                    style={{ width: '14px', height: '14px', border: `1px solid ${selectedTracks.size > 0 && filteredLibrary.every(t => selectedTracks.has(t.id)) ? s.gold : s.border}`, background: selectedTracks.size > 0 && filteredLibrary.every(t => selectedTracks.has(t.id)) ? `${s.gold}30` : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', borderRadius: 0 }}>
+                    {selectedTracks.size > 0 && filteredLibrary.every(t => selectedTracks.has(t.id)) && <div style={{ width: '6px', height: '6px', background: s.gold, borderRadius: 0 }} />}
+                  </div>
                 </div>
                 <div />
                 {['Track', 'Artist', 'BPM', 'Key', 'Energy', 'Moment', ''].map(h => (
@@ -3423,8 +3434,9 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     onMouseEnter={e => { if (!isSelected && !selectedTracks.has(track.id)) e.currentTarget.style.background = s.bg }}
                     onMouseLeave={e => { e.currentTarget.style.background = isSelected ? `${s.setlab}15` : selectedTracks.has(track.id) ? `${s.gold}08` : 'transparent' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); toggleTrackSelection(track.id) }}>
-                      <input type="checkbox" checked={selectedTracks.has(track.id)} readOnly
-                        style={{ cursor: 'pointer', accentColor: s.gold }} />
+                      <div style={{ width: '14px', height: '14px', border: `1px solid ${selectedTracks.has(track.id) ? s.gold : s.border}`, background: selectedTracks.has(track.id) ? `${s.gold}30` : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', borderRadius: 0, cursor: 'pointer' }}>
+                        {selectedTracks.has(track.id) && <div style={{ width: '6px', height: '6px', background: s.gold, borderRadius: 0 }} />}
+                      </div>
                     </div>
                     <div className="track-art-cell" style={{ display: 'flex', alignItems: 'center', position: 'relative' }} onClick={e => {
                       e.stopPropagation()
@@ -3459,7 +3471,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     <div style={{ fontSize: '12px', fontWeight: 400, display: 'flex', alignItems: 'center', color: (track.camelot || track.key) ? s.gold : '#ff6b6b' }} title={!(track.camelot || track.key) ? 'Missing key — run through Mixed In Key' : ''}>{track.camelot || track.key || '?'}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <div style={{ flex: 1, height: '3px', background: s.border, position: 'relative' }}>
-                        <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : track.energy > 4 ? '#3d6b4a' : '#52504c' }} />
+                        <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : track.energy > 4 ? '#f2f2f2' : '#52504c' }} />
                       </div>
                       <span style={{ fontSize: '10px', color: s.textDimmer }}>{track.energy}</span>
                     </div>
@@ -3531,8 +3543,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                           height={36}
                           barWidth={2}
                           barGap={1}
-                          color="rgba(176, 141, 87, 0.25)"
-                          progressColor="rgba(176, 141, 87, 0.85)"
+                          color="rgba(255, 42, 26, 0.25)"
+                          progressColor="rgba(255, 42, 26, 0.85)"
                         />
                       </div>
                       <div style={{ fontSize: '10px', color: s.textDimmer, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
@@ -3884,7 +3896,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       <div key={t.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                         <div style={{
                           width: '100%', height: `${(t.energy / 10) * 52}px`,
-                          background: t.energy > 7 ? s.gold : t.energy > 4 ? '#3d6b4a' : '#52504c',
+                          background: t.energy > 7 ? s.gold : t.energy > 4 ? '#f2f2f2' : '#52504c',
                           border: '1px solid rgba(201,164,110,0.15)', transition: 'height 0.4s ease',
                         }} />
                         <div style={{ fontSize: '10px', color: s.textDimmer }}>{i + 1}</div>
@@ -3919,7 +3931,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                           <div style={{ fontSize: '12px', color: s.gold, display: 'flex', alignItems: 'center' }}>{track.camelot}</div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                             <div style={{ width: '24px', height: '3px', background: s.border, position: 'relative' }}>
-                              <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : '#3d6b4a' }} />
+                              <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : '#f2f2f2' }} />
                             </div>
                             <span style={{ fontSize: '10px', color: s.textDimmer }}>{track.energy}</span>
                           </div>
@@ -3939,9 +3951,9 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                           const tKey = `${track.id}::${next.id}`
                           const advice = transitionAdvice[tKey]
                           const isLoading = loadingTransition === tKey
-                          const flowColor = nextFlow !== null && nextFlow < 45 ? '#9a6a5a' : nextFlow !== null && nextFlow < 65 ? '#b08d57' : '#3d6b4a'
+                          const flowColor = nextFlow !== null && nextFlow < 45 ? '#9a6a5a' : nextFlow !== null && nextFlow < 65 ? '#ff2a1a' : '#f2f2f2'
                           return (
-                            <div style={{ padding: '8px 16px 8px 44px', background: advice ? 'rgba(61,107,74,0.06)' : nextFlow !== null && nextFlow < 65 ? 'rgba(154,106,90,0.08)' : 'transparent', borderBottom: `1px solid ${s.border}`, borderLeft: `2px solid ${flowColor}` }}>
+                            <div style={{ padding: '8px 16px 8px 44px', background: advice ? 'rgba(242,242,242,0.06)' : nextFlow !== null && nextFlow < 65 ? 'rgba(154,106,90,0.08)' : 'transparent', borderBottom: `1px solid ${s.border}`, borderLeft: `2px solid ${flowColor}` }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
                                 <span style={{ color: flowColor, fontVariantNumeric: 'tabular-nums', minWidth: '32px' }}>{nextFlow}%</span>
                                 <span style={{ color: s.textDimmer }}>{track.camelot} → {next.camelot}</span>
@@ -4137,7 +4149,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       const none = historyMatches.filter(m => m.confidence === 'none').length
                       return (
                         <>
-                          {exact > 0 && <span style={{ color: '#3d6b4a' }}>{exact} in library</span>}
+                          {exact > 0 && <span style={{ color: '#f2f2f2' }}>{exact} in library</span>}
                           {partial > 0 && <span style={{ color: s.gold }}>{partial} partial</span>}
                           {none > 0 && <span style={{ color: s.textDimmer }}>{none} new</span>}
                         </>
@@ -4161,7 +4173,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                 {/* Track list */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '20px' }}>
                   {historyMatches.map((match, i) => {
-                    const dotColor = match.confidence === 'exact' ? '#3d6b4a' : match.confidence === 'partial' ? '#b08d57' : '#52504c'
+                    const dotColor = match.confidence === 'exact' ? '#f2f2f2' : match.confidence === 'partial' ? '#ff2a1a' : '#52504c'
                     return (
                       <div key={i} style={{
                         display: 'flex', alignItems: 'center', gap: '12px',
@@ -4299,7 +4311,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
             {/* Mode toggle */}
             <div style={{ display: 'flex', gap: '0' }}>
-              {(['describe', 'beatport', 'crate'] as const).map(mode => (
+              {(['describe', 'crate'] as const).map(mode => (
                 <button key={mode} onClick={() => setDiscoverMode(mode)} style={{
                   fontFamily: s.font, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase',
                   padding: '10px 24px', cursor: 'pointer', border: `1px solid ${s.border}`,
@@ -4307,7 +4319,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   color: discoverMode === mode ? s.text : s.textDimmer,
                   borderBottom: discoverMode === mode ? `2px solid ${s.setlab}` : `1px solid ${s.border}`,
                 }}>
-                  {mode === 'describe' ? 'Describe' : mode === 'beatport' ? 'Beatport x RA' : 'Crate Dig'}
+                  {mode === 'describe' ? 'Describe' : 'Crate Dig'}
                 </button>
               ))}
             </div>
@@ -4316,7 +4328,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
             {discoverMode === 'describe' && (
               <>
                 <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '28px 28px 24px' }}>
-                  <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '15px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, marginBottom: '8px' }}>DESCRIBE</div>
+                  <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '15px', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.setlab, marginBottom: '8px' }}>DESCRIBE</div>
                   <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6', marginBottom: '20px' }}>
                     Describe the track you're looking for — searches your library first, then Beatport &amp; Bandcamp.
                   </div>
@@ -4416,8 +4428,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   </div>
                 )}
 
-                {/* Results — Beatport */}
-                {describeResults.beatport.length > 0 && (
+                {/* Results — Beatport (hidden until credentials available) */}
+                {false && describeResults.beatport.length > 0 && (
                   <div>
                     <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: '#f7a500', textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginBottom: '8px' }}>
                       Beatport ({describeResults.beatport.length} results)
@@ -4520,12 +4532,12 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                 )}
 
                 {/* Empty state */}
-                {!describeLoading && describeResults.library.length === 0 && describeResults.beatport.length === 0 && describeResults.bandcamp.length === 0 && !describeError && (
+                {!describeLoading && describeResults.library.length === 0 && describeResults.bandcamp.length === 0 && !describeError && (
                   <div style={{ textAlign: 'center', padding: '60px 32px', color: s.textDimmer }}>
                     <div style={{ fontSize: '32px', marginBottom: '16px', opacity: 0.3 }}>&#9906;</div>
                     <div style={{ fontSize: '13px', letterSpacing: '0.12em', marginBottom: '8px' }}>Describe the track you need</div>
                     <div style={{ fontSize: '11px', color: s.textDimmer, lineHeight: '1.6' }}>
-                      Searches your library first, then Beatport &amp; Bandcamp<br/>
+                      Searches your library first, then Discogs &amp; Bandcamp<br/>
                       Try: "dark minimal techno for a 3am warehouse set"
                     </div>
                   </div>
@@ -4539,7 +4551,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                 <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
                     <div>
-                      <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, marginBottom: '6px' }}>DISCOVER</div>
+                      <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '13px', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.setlab, marginBottom: '6px' }}>DISCOVER</div>
                       <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
                         Real tracks from Beatport x RA charts — filtered to your key, BPM, and underground depth.<br/>
                         {discoverMeta && <span style={{ color: s.goldDim }}>Matching {discoverMeta.targetCamelot} · ~{discoverMeta.targetBpm} BPM</span>}
@@ -4568,8 +4580,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                         const rect = e.currentTarget.getBoundingClientRect()
                         setMaxPopularity(Math.round(((e.clientX - rect.left) / rect.width) * 100))
                       }}>
-                      <div style={{ position: 'absolute', top: 0, left: 0, height: '4px', width: `${maxPopularity}%`, background: maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#3d6b4a', transition: 'width 0.15s' }} />
-                      <div style={{ position: 'absolute', top: '50%', left: `${maxPopularity}%`, transform: 'translate(-50%, -50%)', width: '14px', height: '14px', background: s.panel, border: `2px solid ${maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#3d6b4a'}`, borderRadius: '50%', cursor: 'grab' }} />
+                      <div style={{ position: 'absolute', top: 0, left: 0, height: '4px', width: `${maxPopularity}%`, background: maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#f2f2f2', transition: 'width 0.15s' }} />
+                      <div style={{ position: 'absolute', top: '50%', left: `${maxPopularity}%`, transform: 'translate(-50%, -50%)', width: '14px', height: '14px', background: s.panel, border: `2px solid ${maxPopularity < 25 ? '#9a6a5a' : maxPopularity < 50 ? s.gold : '#f2f2f2'}`, borderRadius: '50%', cursor: 'grab' }} />
                     </div>
                     <input type="range" min={5} max={100} value={maxPopularity}
                       onChange={e => setMaxPopularity(Number(e.target.value))}
@@ -4627,7 +4639,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     </div>
                     {discoverResults.filter((t: any) => !raOnlyFilter || t.ra_charted).map((track: any) => {
                       const popLabel = track.popularity < 20 ? 'Rare' : track.popularity < 40 ? 'Underground' : track.popularity < 65 ? 'Known' : 'Popular'
-                      const popColor = track.popularity < 20 ? '#9a6a5a' : track.popularity < 40 ? s.gold : track.popularity < 65 ? '#3d6b4a' : s.textDimmer
+                      const popColor = track.popularity < 20 ? '#9a6a5a' : track.popularity < 40 ? s.gold : track.popularity < 65 ? '#f2f2f2' : s.textDimmer
                       const alreadyInLib = library.some(t => t.title.toLowerCase() === track.title.toLowerCase() && t.artist.toLowerCase() === track.artist.toLowerCase())
                       return (
                         <div key={track.id} style={{ background: s.panel, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 18px', transition: 'border-color 0.15s' }}
@@ -4697,7 +4709,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                 <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px 28px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
                     <div>
-                      <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.2em', color: s.setlab, marginBottom: '6px' }}>CRATE DIG</div>
+                      <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '13px', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.setlab, marginBottom: '6px' }}>CRATE DIG</div>
                       <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
                         Pick a track from your library and dig through Discogs — by label, artist, style, or credits.
                       </div>
@@ -4781,6 +4793,81 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     </div>
                   )}
 
+                  {/* Style-only filters: year range + underground depth */}
+                  {crateDigTrack && crateDigAxis === 'style' && (
+                    <div style={{ marginBottom: '20px', padding: '16px 18px', border: `1px solid ${s.border}`, background: 'rgba(0,0,0,0.15)' }}>
+                      {/* Year range */}
+                      <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.textDimmer, marginBottom: '8px' }}>
+                          Year range <span style={{ color: s.textDimmer, textTransform: 'none', letterSpacing: '0.05em', fontSize: '9px' }}>— leave blank to auto-match source track ±2</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                          <input
+                            type="number"
+                            placeholder="From"
+                            min={1950}
+                            max={2100}
+                            value={crateDigYearFrom}
+                            onChange={e => setCrateDigYearFrom(e.target.value)}
+                            style={{
+                              fontFamily: s.font, fontSize: '12px', letterSpacing: '0.1em', color: s.text,
+                              background: s.panel, border: `1px solid ${s.border}`, padding: '8px 12px', width: '90px',
+                              outline: 'none',
+                            }}
+                          />
+                          <span style={{ color: s.textDimmer, fontSize: '10px' }}>→</span>
+                          <input
+                            type="number"
+                            placeholder="To"
+                            min={1950}
+                            max={2100}
+                            value={crateDigYearTo}
+                            onChange={e => setCrateDigYearTo(e.target.value)}
+                            style={{
+                              fontFamily: s.font, fontSize: '12px', letterSpacing: '0.1em', color: s.text,
+                              background: s.panel, border: `1px solid ${s.border}`, padding: '8px 12px', width: '90px',
+                              outline: 'none',
+                            }}
+                          />
+                          {(crateDigYearFrom || crateDigYearTo) && (
+                            <button onClick={() => { setCrateDigYearFrom(''); setCrateDigYearTo('') }}
+                              style={{ fontFamily: s.font, fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: s.textDimmer, background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 8px' }}>
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Underground depth */}
+                      <div>
+                        <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.textDimmer, marginBottom: '8px' }}>
+                          Underground depth
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          {([
+                            { key: 'rare' as const, label: 'Rare', hint: '≤100 owned' },
+                            { key: 'underground' as const, label: 'Underground', hint: '≤500' },
+                            { key: 'known' as const, label: 'Known', hint: '≤2000' },
+                            { key: 'all' as const, label: 'All', hint: 'no cap' },
+                          ]).map(d => (
+                            <button key={d.key} onClick={() => setCrateDigDepth(d.key)}
+                              title={d.hint}
+                              style={{
+                                fontFamily: s.font, fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase',
+                                padding: '8px 14px', cursor: 'pointer', flex: 1,
+                                background: crateDigDepth === d.key ? `${s.setlab}20` : 'transparent',
+                                border: `1px solid ${crateDigDepth === d.key ? s.setlab : s.border}`,
+                                color: crateDigDepth === d.key ? s.setlab : s.textDimmer,
+                                transition: 'all 0.15s',
+                              }}>
+                              {d.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Dig button */}
                   {crateDigTrack && (
                     <button onClick={() => crateDigFrom(crateDigTrack, crateDigAxis)} disabled={crateDigLoading}
@@ -4803,7 +4890,13 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                 </div>
 
                 {/* Crate Dig results */}
-                {crateDigResults.length > 0 && (
+                {crateDigResults.length > 0 && (() => {
+                  const depthCap: Record<string, number> = { rare: 100, underground: 500, known: 2000, all: Number.POSITIVE_INFINITY }
+                  const cap = depthCap[crateDigDepth] ?? Number.POSITIVE_INFINITY
+                  const visibleResults = crateDigAxis === 'style' && crateDigDepth !== 'all'
+                    ? crateDigResults.filter((r: any) => (r.community_have || 0) <= cap)
+                    : crateDigResults
+                  return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {/* Context header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: `1px solid ${s.border}` }}>
@@ -4814,11 +4907,19 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                         {crateDigAxis === 'credit' && crateDigMeta?.release_title && `Credits from ${crateDigMeta.release_title}`}
                       </div>
                       <div style={{ fontSize: '10px', color: s.textDimmer }}>
-                        {crateDigResults.length} releases — sorted by demand
+                        {crateDigAxis === 'style' && crateDigDepth !== 'all'
+                          ? `${visibleResults.length} of ${crateDigResults.length} at ${crateDigDepth} depth`
+                          : `${crateDigResults.length} releases — sorted by demand`}
                       </div>
                     </div>
 
-                    {crateDigResults.map((release: any, idx: number) => {
+                    {visibleResults.length === 0 && (
+                      <div style={{ padding: '24px', fontSize: '11px', color: s.textDimmer, textAlign: 'center', border: `1px dashed ${s.border}` }}>
+                        No releases match this depth — try widening to "Known" or "All".
+                      </div>
+                    )}
+
+                    {visibleResults.map((release: any, idx: number) => {
                       const alreadyInLib = library.some(t => t.title.toLowerCase() === (release.title || '').toLowerCase() && t.artist.toLowerCase() === (release.artist || '').toLowerCase())
                       const alreadyInWantlist = wantlist.some(w => w.discogs_release_id === String(release.id))
                       const wantHaveLabel = release.want_have_ratio > 2 ? 'High demand' : release.want_have_ratio > 0.5 ? 'Sought after' : ''
@@ -4830,10 +4931,21 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                           onMouseEnter={e => (e.currentTarget.style.borderColor = s.borderBright)}
                           onMouseLeave={e => (e.currentTarget.style.borderColor = s.border)}>
 
-                          {/* Thumbnail */}
-                          {release.thumb
-                            ? <img src={release.thumb} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', flexShrink: 0 }} />
-                            : <div style={{ width: '52px', height: '52px', background: s.bg, border: `1px solid ${s.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: s.textDimmer }}>&#9835;</div>}
+                          {/* Thumbnail — click to preview */}
+                          <button
+                            onClick={() => openCrateDigPreview(release)}
+                            title="Preview"
+                            style={{ position: 'relative', width: '52px', height: '52px', flexShrink: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                            onMouseEnter={e => { const o = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement | null; if (o) o.style.opacity = '1' }}
+                            onMouseLeave={e => { const o = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement | null; if (o) o.style.opacity = '0' }}
+                          >
+                            {release.thumb
+                              ? <img src={release.thumb} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', display: 'block' }} />
+                              : <div style={{ width: '52px', height: '52px', background: s.bg, border: `1px solid ${s.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: s.textDimmer }}>&#9835;</div>}
+                            <div data-play-overlay style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.15s', pointerEvents: 'none' }}>
+                              <div style={{ width: 0, height: 0, borderTop: '8px solid transparent', borderBottom: '8px solid transparent', borderLeft: `12px solid ${s.setlab}`, marginLeft: '3px' }} />
+                            </div>
+                          </button>
 
                           {/* Info */}
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -4859,6 +4971,10 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                                 Discogs ↗
                               </a>
                             )}
+                            <a href={`https://bandcamp.com/search?q=${encodeURIComponent(cleanForExternalSearch(release.artist, release.title))}`} target="_blank" rel="noreferrer"
+                              style={{ fontSize: '10px', color: '#1da0c3', textDecoration: 'none', letterSpacing: '0.1em', border: '1px solid rgba(29,160,195,0.4)', padding: '5px 10px', whiteSpace: 'nowrap' }}>
+                              Buy ↗
+                            </a>
                             <button onClick={async () => {
                               const t: Track = { id: alreadyInLib ? library.find(l => l.title.toLowerCase() === (release.title || '').toLowerCase() && l.artist.toLowerCase() === (release.artist || '').toLowerCase())?.id || `discogs-${release.id}` : `discogs-${release.id}`, title: release.title, artist: release.artist, bpm: 0, key: '', camelot: '', energy: 0,
                                 genre: '', duration: '', notes: '', analysed: false, moment_type: '', position_score: '', mix_in: '', mix_out: '', crowd_reaction: '', similar_to: '', producer_style: '' }
@@ -4883,7 +4999,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       )
                     })}
                   </div>
-                )}
+                  )
+                })()}
 
                 {/* Crate Dig empty state */}
                 {!crateDigLoading && crateDigResults.length === 0 && !crateDigError && crateDigTrack && (
@@ -4900,6 +5017,89 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     <div style={{ fontSize: '11px', color: s.textDimmer }}>Search your library above to start crate digging</div>
                   </div>
                 )}
+
+                {/* In-app preview modal — never navigates away */}
+                {crateDigPreview && (
+                  <div
+                    onClick={() => setCrateDigPreview(null)}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px' }}
+                  >
+                    <div
+                      onClick={e => e.stopPropagation()}
+                      style={{ background: s.bg, border: `1px solid ${s.borderBright}`, maxWidth: '720px', width: '100%', maxHeight: '90vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }}
+                    >
+                      {/* Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${s.border}` }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.setlab, marginBottom: '4px' }}>Preview</div>
+                          <div style={{ fontSize: '14px', color: s.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{crateDigPreview.title}</div>
+                          <div style={{ fontSize: '11px', color: s.textDim, marginTop: '2px' }}>{crateDigPreview.artist}</div>
+                        </div>
+                        <button
+                          onClick={() => setCrateDigPreview(null)}
+                          style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.textDim, fontSize: '14px', padding: '6px 12px', cursor: 'pointer', fontFamily: s.font, letterSpacing: '0.1em' }}
+                        >
+                          ✕ CLOSE
+                        </button>
+                      </div>
+
+                      {/* Player area */}
+                      <div style={{ padding: '20px' }}>
+                        {crateDigPreview.loading && (
+                          <div style={{ aspectRatio: '16 / 9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.textDimmer, fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                            Loading preview…
+                          </div>
+                        )}
+                        {!crateDigPreview.loading && crateDigPreview.error && (
+                          <div style={{ padding: '40px 20px', textAlign: 'center', color: s.textDimmer, fontSize: '12px' }}>
+                            {crateDigPreview.error}
+                          </div>
+                        )}
+                        {!crateDigPreview.loading && !crateDigPreview.error && crateDigPreview.videos.length > 0 && (
+                          <>
+                            <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#000' }}>
+                              <iframe
+                                key={crateDigPreview.videos[crateDigPreview.activeIdx].id}
+                                src={`https://www.youtube.com/embed/${crateDigPreview.videos[crateDigPreview.activeIdx].id}?autoplay=1&rel=0`}
+                                title={crateDigPreview.videos[crateDigPreview.activeIdx].title}
+                                allow="autoplay; encrypted-media; picture-in-picture"
+                                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+                              />
+                            </div>
+
+                            {/* Track list — switches the embed in place */}
+                            {crateDigPreview.videos.length > 1 && (
+                              <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '180px', overflowY: 'auto' }}>
+                                <div style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: s.textDimmer, marginBottom: '4px' }}>
+                                  {crateDigPreview.videos.length} tracks on this release
+                                </div>
+                                {crateDigPreview.videos.map((v, i) => {
+                                  const active = i === crateDigPreview.activeIdx
+                                  return (
+                                    <button
+                                      key={v.id}
+                                      onClick={() => setCrateDigPreview(p => p ? { ...p, activeIdx: i } : null)}
+                                      style={{
+                                        textAlign: 'left', fontFamily: s.font, fontSize: '11px', letterSpacing: '0.05em',
+                                        padding: '8px 12px', cursor: 'pointer',
+                                        background: active ? `${s.setlab}20` : 'transparent',
+                                        border: `1px solid ${active ? s.setlab : s.border}`,
+                                        color: active ? s.setlab : s.textDim,
+                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                      }}
+                                    >
+                                      {active ? '▶ ' : '  '}{v.title}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -4913,7 +5113,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, letterSpacing: '0.25em', color: s.setlab, marginBottom: '6px' }}>MIX SCANNER</div>
+                <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '13px', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.setlab, marginBottom: '6px' }}>MIX SCANNER</div>
                 <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.05em', lineHeight: '1.6' }}>
                   Upload a screenshot of your tracklist · Track-by-track feedback, curation analysis · Rated out of 10
                 </div>
@@ -5259,7 +5459,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
                 {/* Data quality banner */}
                 {scanResult.data_quality === 'amplitude-only' && (
-                  <div style={{ background: 'rgba(176,141,87,0.06)', border: `1px solid rgba(176,141,87,0.2)`, padding: '12px 16px', fontSize: '11px', color: s.textDim, lineHeight: '1.6' }}>
+                  <div style={{ background: 'rgba(255,42,26,0.06)', border: `1px solid rgba(255,42,26,0.2)`, padding: '12px 16px', fontSize: '11px', color: s.textDim, lineHeight: '1.6' }}>
                     No tracklist provided — for track-by-track feedback, key mixing analysis and curation scoring, re-run with your tracklist filled in.
                   </div>
                 )}
@@ -5269,16 +5469,15 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   {/* Big score */}
                   <div style={{ textAlign: 'center', flexShrink: 0 }}>
                     <div style={{
-                      fontFamily: "'Unbounded', sans-serif",
-                      fontSize: '64px', fontWeight: 300, letterSpacing: '-0.02em',
+                      fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                      fontSize: '64px', fontWeight: 800, letterSpacing: '-0.035em', textTransform: 'uppercase', lineHeight: 0.9,
                       color: scanResult.overall_score >= 8 ? '#4ecb71' : scanResult.overall_score >= 6 ? s.gold : scanResult.overall_score >= 4 ? '#c09030' : '#c04040',
-                      lineHeight: 1,
                     }}>
                       {scanResult.overall_score?.toFixed(1)}
                     </div>
                     <div style={{ fontSize: '11px', color: s.textDimmer, letterSpacing: '0.15em', marginTop: '8px' }}>OUT OF 10</div>
                     {scanResult.grade && (
-                      <div style={{ fontSize: '20px', color: s.gold, marginTop: '8px', fontFamily: "'Unbounded', sans-serif", fontWeight: 300 }}>
+                      <div style={{ fontSize: '20px', color: s.gold, marginTop: '8px', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.035em', lineHeight: 0.9 }}>
                         {scanResult.grade}
                       </div>
                     )}
@@ -5552,110 +5751,24 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
           const cardStyle: React.CSSProperties = {
             background: s.panel, border: `1px solid ${s.border}`,
-            padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '8px',
+            padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '6px',
           }
           const labelStyle: React.CSSProperties = {
             fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase',
             color: s.gold, fontFamily: s.font,
           }
           const bigNumStyle: React.CSSProperties = {
-            fontFamily: "'Unbounded', sans-serif", fontSize: '40px',
-            fontWeight: 300, letterSpacing: '-0.02em', color: s.text, lineHeight: 1,
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '32px',
+            fontWeight: 800, letterSpacing: '-0.035em', color: s.text, lineHeight: 0.9,
           }
           const descStyle: React.CSSProperties = {
             fontSize: '11px', color: s.textDimmer, lineHeight: 1.5, fontFamily: s.font,
           }
 
           return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: s.textDimmer, fontFamily: s.font }}>
-                Computed from {library.length} track{library.length !== 1 ? 's' : ''} in your library
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-
-                {/* Your Openers */}
-                <div style={cardStyle}>
-                  <div style={labelStyle}>Your Openers</div>
-                  <div style={bigNumStyle}>{openers.length}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '48px' }}>
-                    {openers.slice(0, 4).map(t => (
-                      <div key={t.id} style={{ fontSize: '11px', color: s.textDim, fontFamily: s.font, display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{t.artist} — {t.title}</span>
-                        {(t.crowd_hits || 0) > 0 && <span style={{ color: s.gold, marginLeft: '8px', flexShrink: 0 }}>{t.crowd_hits}×</span>}
-                      </div>
-                    ))}
-                    {openers.length === 0 && <div style={descStyle}>No opener-tagged tracks yet</div>}
-                  </div>
-                  <div style={descStyle}>Tracks tagged as openers, ranked by crowd hits</div>
-                </div>
-
-                {/* Crowd Favourites */}
-                <div style={cardStyle}>
-                  <div style={labelStyle}>Crowd Favourites</div>
-                  <div style={bigNumStyle}>{crowdFavourites.length}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '48px' }}>
-                    {crowdFavourites.slice(0, 4).map(t => (
-                      <div key={t.id} style={{ fontSize: '11px', color: s.textDim, fontFamily: s.font, display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{t.artist} — {t.title}</span>
-                        <span style={{ color: s.gold, marginLeft: '8px', flexShrink: 0 }}>{t.crowd_hits}×</span>
-                      </div>
-                    ))}
-                    {crowdFavourites.length === 0 && <div style={descStyle}>No gig debriefs logged yet</div>}
-                  </div>
-                  <div style={descStyle}>Top 10 tracks by crowd hit count across all gigs</div>
-                </div>
-
-                {/* BPM Range */}
-                <div style={cardStyle}>
-                  <div style={labelStyle}>BPM Range</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                    <div style={bigNumStyle}>{bpmMin || '—'}</div>
-                    {bpmMin > 0 && <div style={{ fontSize: '20px', color: s.textDimmer, fontFamily: "'Unbounded', sans-serif", fontWeight: 300 }}>– {bpmMax}</div>}
-                  </div>
-                  {bpmAvg > 0 && <div style={{ fontSize: '12px', color: s.gold, fontFamily: s.font }}>avg {bpmAvg} BPM</div>}
-                  <div style={descStyle}>Min / max / average BPM across your library</div>
-                </div>
-
-                {/* Keys You Gravitate Toward — spans 2 cols */}
-                <div style={{ ...cardStyle, gridColumn: 'span 2' }}>
-                  <div style={labelStyle}>Keys You Gravitate Toward</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', minHeight: '48px', alignItems: 'flex-start', paddingTop: '4px' }}>
-                    {keyDist.map(([key, count]) => {
-                      const maxCount = keyDist[0]?.[1] || 1
-                      const intensity = Math.min(0.05 + (count / maxCount) * 0.25, 0.3)
-                      return (
-                        <div key={key} style={{
-                          background: `rgba(176,141,87,${intensity})`,
-                          border: `1px solid rgba(176,141,87,${Math.min(intensity * 2.5, 0.7)})`,
-                          padding: '6px 14px', display: 'flex', alignItems: 'baseline', gap: '6px',
-                        }}>
-                          <span style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '13px', fontWeight: 300, color: s.gold }}>{key}</span>
-                          <span style={{ fontSize: '11px', color: s.textDim, fontFamily: s.font }}>{count}</span>
-                        </div>
-                      )
-                    })}
-                    {keyDist.length === 0 && <div style={descStyle}>Analyse your tracks to see key distribution</div>}
-                  </div>
-                  <div style={descStyle}>Camelot key distribution — size reflects track count</div>
-                </div>
-
-                {/* Underplayed Gems */}
-                <div style={cardStyle}>
-                  <div style={labelStyle}>Underplayed Gems</div>
-                  <div style={bigNumStyle}>{underplayed.length}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '48px' }}>
-                    {underplayed.slice(0, 3).map(t => (
-                      <div key={t.id} style={{ fontSize: '11px', color: s.textDim, fontFamily: s.font, display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{t.artist} — {t.title}</span>
-                        <span style={{ color: s.textDimmer, marginLeft: '8px', flexShrink: 0 }}>e{t.energy}</span>
-                      </div>
-                    ))}
-                    {underplayed.length === 0 && <div style={descStyle}>Everything's been tested — nice</div>}
-                  </div>
-                  <div style={descStyle}>High energy (7+) tracks never tested on a crowd</div>
-                </div>
-
+                {library.length} track{library.length !== 1 ? 's' : ''} in your library
               </div>
 
               {/* ── Camelot Wheel Visualizer ── */}
@@ -5678,14 +5791,14 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                 const cx = 150, cy = 150, rOuter = 130, rInner = 80
 
                 return (
-                  <div style={{ ...cardStyle, gridColumn: 'span 3' }}>
+                  <div style={cardStyle}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={labelStyle}>Harmonic Mixing Wheel</div>
-                      <div style={{ fontSize: '10px', color: s.textDimmer }}>Click a key to highlight compatible tracks</div>
+                      <div style={{ fontSize: '10px', color: s.textDimmer }}>Click a key to filter</div>
                     </div>
-                    <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', marginTop: '8px' }}>
                       {/* Wheel */}
-                      <svg viewBox="0 0 300 300" style={{ width: '300px', height: '300px', flexShrink: 0 }}>
+                      <svg viewBox="0 0 300 300" style={{ width: '240px', height: '240px', flexShrink: 0 }}>
                         {/* Minor keys (outer ring) */}
                         {camelotPositions.slice(0, 12).map((key, i) => {
                           const angle = (i * 30 - 90) * Math.PI / 180
@@ -5708,8 +5821,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                                 }
                               }}>
                               <circle cx={x} cy={y} r={isActive ? 20 : 16}
-                                fill={isHighlighted ? 'rgba(176,141,87,0.3)' : `rgba(154,106,90,${opacity * 0.4})`}
-                                stroke={isActive ? s.gold : isHighlighted ? 'rgba(176,141,87,0.6)' : `rgba(154,106,90,${opacity * 0.5})`}
+                                fill={isHighlighted ? 'rgba(255,42,26,0.3)' : `rgba(154,106,90,${opacity * 0.4})`}
+                                stroke={isActive ? s.gold : isHighlighted ? 'rgba(255,42,26,0.6)' : `rgba(154,106,90,${opacity * 0.5})`}
                                 strokeWidth={isActive ? 2 : 1} />
                               <text x={x} y={y - 3} textAnchor="middle" fill={count > 0 ? s.text : s.textDimmer}
                                 style={{ fontSize: '10px', fontFamily: 'var(--font-mono)' }}>{key}</text>
@@ -5741,8 +5854,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                                 }
                               }}>
                               <circle cx={x} cy={y} r={isActive ? 18 : 14}
-                                fill={isHighlighted ? 'rgba(61,107,74,0.3)' : `rgba(61,107,74,${opacity * 0.4})`}
-                                stroke={isActive ? '#4d9970' : isHighlighted ? 'rgba(61,107,74,0.6)' : `rgba(61,107,74,${opacity * 0.5})`}
+                                fill={isHighlighted ? 'rgba(242,242,242,0.3)' : `rgba(242,242,242,${opacity * 0.4})`}
+                                stroke={isActive ? '#4d9970' : isHighlighted ? 'rgba(242,242,242,0.6)' : `rgba(242,242,242,${opacity * 0.5})`}
                                 strokeWidth={isActive ? 2 : 1} />
                               <text x={x} y={y - 3} textAnchor="middle" fill={count > 0 ? s.text : s.textDimmer}
                                 style={{ fontSize: '9px', fontFamily: 'var(--font-mono)' }}>{key}</text>
@@ -5760,31 +5873,95 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                           style={{ fontSize: '7px', letterSpacing: '0.15em', fontFamily: 'var(--font-mono)' }}>outer</text>
                       </svg>
 
-                      {/* Compatible tracks list when a key is selected */}
-                      {wheelHighlight && (
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.gold, textTransform: 'uppercase', marginBottom: '8px' }}>
-                            Compatible with {wheelHighlight}
+                      {/* Right side: compatible tracks when key selected, otherwise most played + openers */}
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {wheelHighlight ? (
+                          <div>
+                            <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: s.gold, textTransform: 'uppercase', marginBottom: '8px' }}>
+                              Compatible with {wheelHighlight}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '240px', overflowY: 'auto' }}>
+                              {library.filter(t => highlightKeys.includes(t.camelot)).slice(0, 20).map(t => (
+                                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer', transition: 'background 0.1s' }}
+                                  onClick={() => playTrack(t)}
+                                  onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
+                                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                  <span style={{ color: s.gold, minWidth: '28px', fontSize: '10px' }}>{t.camelot}</span>
+                                  <span style={{ color: s.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                                  <span style={{ color: s.textDimmer, fontSize: '10px' }}>{t.artist}</span>
+                                  <span style={{ color: s.textDimmer, fontSize: '10px' }}>{t.bpm}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '240px', overflowY: 'auto' }}>
-                            {library.filter(t => highlightKeys.includes(t.camelot)).slice(0, 20).map(t => (
-                              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer', transition: 'background 0.1s' }}
-                                onClick={() => playTrack(t)}
-                                onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                                <span style={{ color: s.gold, minWidth: '28px', fontSize: '10px' }}>{t.camelot}</span>
-                                <span style={{ color: s.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
-                                <span style={{ color: s.textDimmer, fontSize: '10px' }}>{t.artist}</span>
-                                <span style={{ color: s.textDimmer, fontSize: '10px' }}>{t.bpm}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                        ) : (
+                          <>
+                            {/* Most Played */}
+                            <div>
+                              <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '8px' }}>Most Played</div>
+                              {crowdFavourites.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                  {crowdFavourites.slice(0, 5).map((t, i) => (
+                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', fontSize: '11px' }}>
+                                      <span style={{ color: s.textDimmer, minWidth: '16px', fontSize: '10px' }}>{i + 1}.</span>
+                                      <span style={{ color: s.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                                      <span style={{ color: s.textDimmer, fontSize: '10px' }}>{t.artist}</span>
+                                      <span style={{ color: s.gold, fontSize: '10px', flexShrink: 0 }}>{t.crowd_hits}×</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div style={descStyle}>Play data builds after gig debriefs</div>
+                              )}
+                            </div>
+
+                            {/* Openers */}
+                            <div>
+                              <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: s.setlab, textTransform: 'uppercase', marginBottom: '8px' }}>Your Openers</div>
+                              {openers.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                  {openers.slice(0, 5).map(t => (
+                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', fontSize: '11px' }}>
+                                      <span style={{ color: s.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                                      <span style={{ color: s.textDimmer, fontSize: '10px' }}>{t.artist}</span>
+                                      {(t.crowd_hits || 0) > 0 && <span style={{ color: s.gold, fontSize: '10px', flexShrink: 0 }}>{t.crowd_hits}×</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div style={descStyle}>Tag tracks as openers in your library</div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
               })()}
+
+              {/* Key Distribution — compact row */}
+              {keyDist.length > 0 && (
+                <div style={cardStyle}>
+                  <div style={labelStyle}>Key Distribution</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'flex-start', paddingTop: '4px' }}>
+                    {keyDist.map(([key, count]) => {
+                      const maxCount = keyDist[0]?.[1] || 1
+                      const intensity = Math.min(0.05 + (count / maxCount) * 0.25, 0.3)
+                      return (
+                        <div key={key} style={{
+                          background: `rgba(255,42,26,${intensity})`,
+                          border: `1px solid rgba(255,42,26,${Math.min(intensity * 2.5, 0.7)})`,
+                          padding: '4px 10px', display: 'flex', alignItems: 'baseline', gap: '5px',
+                        }}>
+                          <span style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '12px', fontWeight: 300, color: s.gold }}>{key}</span>
+                          <span style={{ fontSize: '10px', color: s.textDim, fontFamily: s.font }}>{count}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Energy Arc bar chart */}
               {library.length >= 3 && (() => {
@@ -5804,7 +5981,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       {arc.map(({ label, value }) => (
                         <div key={label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
                           <div style={{ fontSize: '10px', color: s.gold, fontFamily: s.font }}>{value}</div>
-                          <div style={{ width: '100%', background: 'rgba(176,141,87,0.75)', height: `${(value / 10) * 60}px`, minHeight: '4px' }} />
+                          <div style={{ width: '100%', background: 'rgba(255,42,26,0.75)', height: `${(value / 10) * 60}px`, minHeight: '4px' }} />
                           <div style={{ fontSize: '9px', color: s.textDimmer, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: s.font }}>{label}</div>
                         </div>
                       ))}
@@ -5816,7 +5993,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
               {/* ── Venue Intelligence ── */}
               {pastSets.length > 0 && (
-                <div style={{ ...cardStyle, gridColumn: 'span 2' }}>
+                <div style={cardStyle}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={labelStyle}>Venue Intelligence</div>
                     <button onClick={() => { buildVenueProfiles(); setShowVenuePanel(true) }}
@@ -5857,7 +6034,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
 
               {/* ── Crowd Pattern Recognition ── */}
               {pastSets.length >= 3 && (
-                <div style={{ ...cardStyle, gridColumn: 'span 3' }}>
+                <div style={cardStyle}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={labelStyle}>Crowd Pattern Recognition</div>
                     <button onClick={analyseCrowdPatterns} disabled={crowdPatternsLoading}
@@ -6079,7 +6256,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
                     <div style={{ fontSize: '10px', color: s.gold, fontFamily: s.font }}>{val}</div>
                     <div style={{
-                      width: '100%', background: `rgba(176,141,87,${0.3 + (val / 10) * 0.7})`,
+                      width: '100%', background: `rgba(255,42,26,${0.3 + (val / 10) * 0.7})`,
                       height: `${(val / 10) * 100}px`, minHeight: '4px', cursor: 'ns-resize',
                     }}
                       onWheel={e => {
@@ -6121,7 +6298,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
         let debriefTracks: Track[] = []
         try { debriefTracks = JSON.parse(debriefSet.tracks || '[]') } catch {}
         const ratingOptions: Array<{ value: TrackDebrief['rating']; label: string; color: string }> = [
-          { value: 'peaked', label: 'Peaked', color: '#b08d57' },
+          { value: 'peaked', label: 'Peaked', color: '#ff2a1a' },
           { value: 'kept', label: 'Kept', color: '#4d9970' },
           { value: 'dropped', label: 'Dropped', color: '#9a6a5a' },
           { value: 'missed', label: 'Missed', color: '#666' },
@@ -6243,7 +6420,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     </div>
                     <WaveformDisplay peaks={deckBPeaks} progress={deckBDuration > 0 ? deckBTime / deckBDuration : 0}
                       onSeek={pos => { if (deckBRef.current) deckBRef.current.currentTime = pos * deckBDuration }}
-                      height={40} color="rgba(61,107,74,0.4)" progressColor="rgba(61,107,74,0.9)" />
+                      height={40} color="rgba(242,242,242,0.4)" progressColor="rgba(242,242,242,0.9)" />
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
                       <button onClick={toggleDeckB}
                         style={{ ...btn('#4d9970'), fontSize: '10px', padding: '6px 20px' }}>
@@ -6263,7 +6440,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '120px', overflowY: 'auto' }}>
                       {set.map(t => (
                         <button key={t.id} onClick={() => loadDeckB(t)}
-                          style={{ background: deckB?.id === t.id ? `rgba(61,107,74,0.15)` : 'transparent', border: 'none', padding: '4px 8px', cursor: 'pointer', textAlign: 'left', color: s.text, fontFamily: s.font, fontSize: '10px', display: 'flex', gap: '8px' }}>
+                          style={{ background: deckB?.id === t.id ? `rgba(242,242,242,0.15)` : 'transparent', border: 'none', padding: '4px 8px', cursor: 'pointer', textAlign: 'left', color: s.text, fontFamily: s.font, fontSize: '10px', display: 'flex', gap: '8px' }}>
                           <span style={{ color: s.textDimmer }}>{t.position}.</span>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
                         </button>
@@ -6311,7 +6488,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
       />
 
       {toast && (
-        <div style={{ position: 'fixed', top: '20px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 9999, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)', borderRadius: '4px' }}>
+        <div style={{ position: 'fixed', top: '20px', right: '28px', background: 'rgba(20,16,8,0.96)', border: `1px solid ${s.border}`, padding: '14px 20px', fontSize: '12px', letterSpacing: '0.07em', color: s.text, zIndex: 9999, maxWidth: '300px', lineHeight: '1.55', backdropFilter: 'blur(12px)', borderRadius: 0 }}>
           <div style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: s.setlab, marginBottom: '4px' }}>{toast.tag}</div>
           {toast.msg}
         </div>

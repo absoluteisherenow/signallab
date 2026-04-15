@@ -134,7 +134,7 @@ export function MediaLibrary() {
               )}
               {/* Delete button */}
               <button
-                onClick={e => { e.stopPropagation(); deleteItem(item.url) }}
+                onClick={e => { e.stopPropagation(); if (!window.confirm('Delete this media?')) return; deleteItem(item.url) }}
                 disabled={deleting.has(item.url)}
                 style={{
                   position: 'absolute', top: '8px', left: '8px',

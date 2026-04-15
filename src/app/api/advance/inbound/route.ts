@@ -162,7 +162,6 @@ ${contentForExtraction}`
         message: `${senderEmail} replied with show details`,
         href: `/advance/${gigId}`,
         gig_id: gigId,
-        sendEmail: true,
       })
     } else {
       // No matching advance request found — still notify

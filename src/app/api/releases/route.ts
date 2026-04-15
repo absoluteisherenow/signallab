@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createNotification } from '@/lib/notifications'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,6 +38,15 @@ export async function POST(req: NextRequest) {
       notes: notes || null, source: source || 'manual',
       created_at: new Date().toISOString(),
     }]).select()
+
+    if (!error && data?.[0]) {
+      await createNotification({
+        type: 'content_review',
+        title: 'Release campaign ready to plan',
+        message: 'New release created — generate a campaign?',
+        href: `/releases/${data[0].id}/campaign`,
+      })
+    }
 
     if (error) {
       if (error.code === '42P01') {

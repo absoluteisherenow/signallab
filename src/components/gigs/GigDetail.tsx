@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BlurredAmount } from '@/components/ui/BlurredAmount'
+import { PulseLoader } from '@/components/ui/PulseLoader'
 
 interface Gig {
   id: string
@@ -61,7 +62,7 @@ function currencyFromLocation(location: string): string {
 }
 
 const s = {
-  label: { fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase' as const, marginBottom: '6px' },
+  label: { fontSize: '10px', letterSpacing: '0.22em', fontWeight: 700, color: 'var(--text-dimmer)', textTransform: 'uppercase' as const, marginBottom: '6px' },
   value: { fontSize: '14px', color: 'var(--text)', lineHeight: 1.4 },
   input: {
     width: '100%', background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)',
@@ -107,6 +108,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [advanceStatus, setAdvanceStatus] = useState<string | null>(null)
+  const [advanceRiderType, setAdvanceRiderType] = useState<string | null>(null)
   const [sendingAdvance, setSendingAdvance] = useState(false)
   const [showRiderPicker, setShowRiderPicker] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -120,6 +122,13 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const [showAddTravel, setShowAddTravel] = useState(false)
   const [addingTravel, setAddingTravel] = useState(false)
   const [travelType, setTravelType] = useState<'flight' | 'hotel' | 'train'>('flight')
+
+  // Guest list state
+  const [glSlug, setGlSlug] = useState<string | null>(null)
+  const [glResponses, setGlResponses] = useState<any[]>([])
+  const [glLoading, setGlLoading] = useState(false)
+  const [glCreating, setGlCreating] = useState(false)
+  const [glCopied, setGlCopied] = useState(false)
 
   // Parse rider sections from notes
   function parseRider(notes: string | null): { tech: string | null; hospitality: string | null; confirmed: boolean } | null {
@@ -154,6 +163,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
       .then(d => {
         if (d.requests?.length > 0) {
           setAdvanceStatus(d.requests[0].completed ? 'complete' : 'sent')
+          setAdvanceRiderType(d.requests[0].rider_type || null)
         }
       })
       .catch(() => {})
@@ -162,6 +172,22 @@ export function GigDetail({ gigId }: GigDetailProps) {
       .then(r => r.json())
       .then(d => setTravelBookings(d.bookings || []))
       .catch(() => {})
+
+    // Check for existing guest list invite
+    fetch('/api/guest-list')
+      .then(r => r.json())
+      .then(d => {
+        const invite = (d.invites || []).find((i: any) => i.gig_id === gigId)
+        if (invite) {
+          setGlSlug(invite.slug)
+          // Fetch responses
+          fetch(`/api/guest-list/${invite.slug}/responses`)
+            .then(r => r.json())
+            .then(rd => setGlResponses(rd.responses || []))
+            .catch(() => {})
+        }
+      })
+      .catch(() => {})
   }, [gigId])
 
   function showToast(msg: string) {
@@ -169,15 +195,66 @@ export function GigDetail({ gigId }: GigDetailProps) {
     setTimeout(() => setToast(''), 3000)
   }
 
+  async function createGuestList() {
+    setGlCreating(true)
+    try {
+      const res = await fetch('/api/guest-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gig_id: gigId }),
+      })
+      const data = await res.json()
+      if (data.success && data.invite) {
+        setGlSlug(data.invite.slug)
+        showToast('Guest list created')
+      }
+    } catch { showToast('Failed to create guest list') }
+    finally { setGlCreating(false) }
+  }
+
+  async function toggleGlConfirmed(responseId: string, confirmed: boolean) {
+    try {
+      await fetch(`/api/guest-list/${glSlug}/responses`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: responseId, confirmed }),
+      })
+      setGlResponses(prev => prev.map(r => r.id === responseId ? { ...r, confirmed } : r))
+    } catch {}
+  }
+
+  function copyGlLink() {
+    if (!glSlug) return
+    const url = `${window.location.origin}/gl/${glSlug}`
+    navigator.clipboard.writeText(url)
+    setGlCopied(true)
+    setTimeout(() => setGlCopied(false), 2000)
+  }
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!gig) return
     setSaving(true)
     const fd = new FormData(e.currentTarget)
-    const updates = Object.fromEntries(fd.entries()) as Record<string, string>
+    const updates = Object.fromEntries(fd.entries()) as Record<string, any>
     // Auto-detect currency from location — always override
     if (updates.location) {
       updates.currency = currencyFromLocation(updates.location)
+    }
+    // Strip @ from handle fields
+    for (const k of ['venue_handle', 'promoter_handle', 'photographer_handle']) {
+      if (typeof updates[k] === 'string') updates[k] = updates[k].replace(/^@/, '').trim() || null
+    }
+    // Convert lineup_csv → lineup jsonb
+    if ('lineup_csv' in updates) {
+      const csv = String(updates.lineup_csv || '')
+      updates.lineup = csv.split(',').map(x => x.trim()).filter(Boolean).map(entry => {
+        const m = entry.match(/^(.+?)\s*[@(]\s*@?([\w._]+)\s*\)?$/)
+        if (m) return { name: m[1].trim(), handle: m[2].replace(/^@/, '') }
+        if (entry.startsWith('@')) return { name: entry.slice(1), handle: entry.slice(1) }
+        return { name: entry }
+      })
+      delete updates.lineup_csv
     }
     try {
       const res = await fetch(`/api/gigs/${gigId}`, {
@@ -323,7 +400,9 @@ export function GigDetail({ gigId }: GigDetailProps) {
   }
 
   if (loading) return (
-    <div style={{ padding: '80px 56px', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '12px', letterSpacing: '0.1em' }}>Loading…</div>
+    <div style={{ padding: '120px 56px', display: 'flex', justifyContent: 'center' }}>
+      <PulseLoader size="lg" label="Loading gig" />
+    </div>
   )
 
   if (!gig) return (
@@ -354,13 +433,13 @@ export function GigDetail({ gigId }: GigDetailProps) {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
             {artworkPreview && !editing && (
-              <img src={artworkPreview} alt="" style={{ width: '80px', height: '80px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-dim)', borderRadius: '2px' }} />
+              <img src={artworkPreview} alt="" style={{ width: '80px', height: '80px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-dim)', borderRadius: 0 }} />
             )}
             <div>
               <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '12px' }}>
                 {gig.status === 'confirmed' ? '● Confirmed' : gig.status === 'cancelled' ? '○ Cancelled' : '◎ Pending'}
               </div>
-              <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 46px)', lineHeight: 1.0, marginBottom: '10px' }}>{gig.title}</div>
+              <div className="display" style={{ fontSize: 'clamp(28px, 3.5vw, 46px)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.035em', lineHeight: 0.9, marginBottom: '10px' }}>{gig.title}</div>
               <div style={{ fontSize: '14px', color: 'var(--text-dim)' }}>{gig.venue} · {gig.location}</div>
             </div>
           </div>
@@ -390,8 +469,8 @@ export function GigDetail({ gigId }: GigDetailProps) {
             { label: 'Capacity', value: (gig.audience || 0).toLocaleString() },
           ].map((stat: any) => (
             <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '24px 28px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
-              <div className="display" style={{ fontSize: '26px', lineHeight: 1, color: 'var(--text)' }}>{stat.blur ? <BlurredAmount>{stat.value}</BlurredAmount> : stat.value}</div>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', fontWeight: 700, color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '10px' }}>{stat.label}</div>
+              <div className="display" style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.035em', lineHeight: 0.9, color: 'var(--text)' }}>{stat.blur ? <BlurredAmount>{stat.value}</BlurredAmount> : stat.value}</div>
             </div>
           ))}
         </div>
@@ -433,6 +512,37 @@ export function GigDetail({ gigId }: GigDetailProps) {
             </div>
           </div>
 
+          {/* TAGS & CONTENT */}
+          <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '6px' }}>Tags & content</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '20px', lineHeight: 1.6 }}>
+              Auto-suggests tags, collaborators and locations on every post for this gig.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <Field label="Venue Instagram" value={(gig as any).venue_handle || ''} edit={editing} name="venue_handle" />
+              <Field label="Promoter Instagram" value={(gig as any).promoter_handle || ''} edit={editing} name="promoter_handle" />
+              <Field label="Photographer name" value={(gig as any).photographer_name || ''} edit={editing} name="photographer_name" />
+              <Field label="Photographer Instagram" value={(gig as any).photographer_handle || ''} edit={editing} name="photographer_handle" />
+            </div>
+            <div style={{ marginTop: '20px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Line-up (other artists)</div>
+              {editing ? (
+                <input
+                  name="lineup_csv"
+                  defaultValue={Array.isArray((gig as any).lineup) ? (gig as any).lineup.map((l: any) => l.handle ? `${l.name} @${l.handle}` : l.name).join(', ') : ''}
+                  placeholder="Artist One @artistone, Artist Two @artisttwo"
+                  style={{ ...s.input, display: 'block', width: '100%' }}
+                />
+              ) : (
+                <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
+                  {Array.isArray((gig as any).lineup) && (gig as any).lineup.length > 0
+                    ? (gig as any).lineup.map((l: any) => l.handle ? `${l.name} (@${l.handle})` : l.name).join(' · ')
+                    : '—'}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Notes — strip rider sections for display */}
           <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
             <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Notes</div>
@@ -451,14 +561,14 @@ export function GigDetail({ gigId }: GigDetailProps) {
             const rider = parseRider(gig.notes)
             if (!rider) return null
             return (
-              <div className="card" style={{ padding: '32px', marginBottom: '20px', borderColor: rider.confirmed ? 'rgba(61,107,74,0.3)' : 'rgba(176,141,87,0.25)' }}>
+              <div className="card" style={{ padding: '32px', marginBottom: '20px', borderColor: rider.confirmed ? 'rgba(242,242,242,0.3)' : 'rgba(255,42,26,0.25)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                   <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Rider</div>
                   {rider.confirmed ? (
-                    <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--green)', background: 'rgba(61,107,74,0.1)', padding: '4px 12px' }}>✓ Confirmed</span>
+                    <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--green)', background: 'rgba(242,242,242,0.1)', padding: '4px 12px' }}>✓ Confirmed</span>
                   ) : (
                     <button onClick={confirmRider}
-                      style={{ background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer' }}>
+                      style={{ background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(242,242,242,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer' }}>
                       Confirm rider →
                     </button>
                   )}
@@ -598,10 +708,30 @@ export function GigDetail({ gigId }: GigDetailProps) {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
                         <span style={{ fontSize: '14px' }}>✈</span>
-                        <span style={{ fontSize: '13px', color: 'var(--text)', letterSpacing: '0.05em' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--text)', letterSpacing: '0.05em', flex: 1 }}>
                           {b.flight_number && <span style={{ color: 'var(--gold)', marginRight: '8px' }}>{b.flight_number}</span>}
                           {b.name || 'Flight'}
                         </span>
+                        {b.flight_number && (
+                          <a
+                            href={`https://flightaware.com/live/flight/${encodeURIComponent(b.flight_number.replace(/\s+/g, ''))}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize: '10px',
+                              letterSpacing: '0.15em',
+                              textTransform: 'uppercase',
+                              color: 'var(--gold)',
+                              textDecoration: 'none',
+                              border: '1px solid var(--gold)',
+                              padding: '6px 12px',
+                              borderRadius: 0,
+                              fontWeight: 700,
+                            }}
+                          >
+                            Track live →
+                          </a>
+                        )}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         {(b.from_location || b.to_location) && (
@@ -840,7 +970,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
             <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Advance</div>
             {advanceStatus && (
-              <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: advanceStatus === 'complete' ? 'var(--green)' : 'var(--gold)', background: advanceStatus === 'complete' ? 'rgba(61,107,74,0.1)' : 'rgba(176,141,87,0.1)', padding: '4px 12px' }}>
+              <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: advanceStatus === 'complete' ? 'var(--green)' : 'var(--gold)', background: advanceStatus === 'complete' ? 'rgba(242,242,242,0.1)' : 'rgba(255,42,26,0.1)', padding: '4px 12px' }}>
                 {advanceStatus === 'complete' ? '✓ Complete' : '⟳ Sent'}
               </span>
             )}
@@ -854,23 +984,60 @@ export function GigDetail({ gigId }: GigDetailProps) {
                   </div>
                   <button onClick={() => { if (!gig.promoter_email) { showToast('Add a promoter email first'); return } setShowRiderPicker(true) }}
                     disabled={sendingAdvance || !gig.promoter_email}
-                    style={{ background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: gig.promoter_email ? 'pointer' : 'not-allowed', opacity: sendingAdvance || !gig.promoter_email ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+                    style={{ background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(242,242,242,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '12px 22px', cursor: gig.promoter_email ? 'pointer' : 'not-allowed', opacity: sendingAdvance || !gig.promoter_email ? 0.5 : 1, whiteSpace: 'nowrap' }}>
                     {sendingAdvance ? 'Sending…' : 'Send advance'}
                   </button>
                 </div>
               ) : (
                 <div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px' }}>Which rider for this show?</div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => handleSendAdvance('DJ Set')}
-                      style={{ flex: 1, background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '14px 16px', cursor: 'pointer' }}>
-                      DJ Set
-                    </button>
-                    <button onClick={() => handleSendAdvance('Hybrid Live')}
-                      style={{ flex: 1, background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(61,107,74,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '14px 16px', cursor: 'pointer' }}>
-                      Hybrid Live
-                    </button>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '14px' }}>Preview — confirm before sending</div>
+                  {(() => {
+                    const isLondon = (gig.location || '').toLowerCase().includes('london')
+                    const riderType = isLondon ? 'Hometown' : 'Touring'
+                    const appUrl = (typeof window !== 'undefined' ? window.location.origin : 'https://signal-lab-os.absoluteishere.workers.dev')
+                    const formUrl = `${appUrl}/advance/${gigId}`
+                    const gigDate = gig.date ? new Date(gig.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''
+                    return (
+                  <div>
+                    {/* Email headers */}
+                    <div style={{ background: '#0a0a09', border: '1px solid var(--border-dim)', padding: '16px 20px', marginBottom: '0', fontSize: '11px', lineHeight: '1.8' }}>
+                      <div style={{ color: 'var(--text-dimmer)' }}>From: <span style={{ color: 'var(--text-dim)' }}>NIGHT manoeuvres &lt;bookings@signallabos.com&gt;</span></div>
+                      <div style={{ color: 'var(--text-dimmer)' }}>To: <span style={{ color: 'var(--text-dim)' }}>{gig.promoter_email}</span></div>
+                      <div style={{ color: 'var(--text-dimmer)' }}>Subject: <span style={{ color: 'var(--text-dim)' }}>Advance sheet request — {gig.title} at {gig.venue}</span></div>
+                      <div style={{ color: 'var(--text-dimmer)' }}>Rider preset: <span style={{ color: 'var(--gold)' }}>{riderType}</span></div>
+                    </div>
+
+                    {/* Actual rendered email body — matches /api/advance POST html exactly */}
+                    <div style={{ border: '1px solid var(--border-dim)', borderTop: 'none', marginBottom: '12px', background: '#050505' }}>
+                      <div style={{ fontFamily: 'monospace', color: '#f2f2f2', padding: '32px' }}>
+                        <div style={{ color: '#ff2a1a', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '20px' }}>NIGHT manoeuvres — ADVANCE REQUEST</div>
+                        <div style={{ fontSize: '20px', marginBottom: '6px', color: '#f2f2f2' }}>{gig.title}</div>
+                        <div style={{ color: '#8a8780', fontSize: '13px', marginBottom: '18px' }}>{gig.venue} · {gigDate}</div>
+                        <div style={{ color: '#d4d0c7', fontSize: '13px', marginBottom: '22px', lineHeight: '1.6' }}>Please complete the advance form for this show.</div>
+                        <div style={{ display: 'inline-block', background: '#ff2a1a', color: '#050505', padding: '14px 28px', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 500 }}>Complete advance form</div>
+                        <div style={{ marginTop: '32px', paddingTop: '16px', borderTop: '1px solid #1d1d1d', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#6a6760' }}>Signal Lab OS · Tailored Artist OS · signallabos.com</div>
+                      </div>
+                    </div>
+
+                    {/* Link footer — exact URL the promoter clicks */}
+                    <div style={{ background: '#0a0a09', border: '1px solid var(--border-dim)', padding: '12px 16px', marginBottom: '16px', fontSize: '10px', lineHeight: '1.6' }}>
+                      <div style={{ color: 'var(--text-dimmer)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px', fontSize: '9px' }}>Button links to</div>
+                      <div style={{ color: 'var(--gold)', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '11px' }}>{formUrl}</div>
+                      <a href={formUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '8px', color: 'var(--text-dimmer)', fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', textDecoration: 'underline' }}>Test the link →</a>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button onClick={() => setShowRiderPicker(false)}
+                        style={{ flex: 1, background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 16px', cursor: 'pointer' }}>
+                        Cancel
+                      </button>
+                      <button onClick={() => { handleSendAdvance(riderType); setShowRiderPicker(false) }}
+                        disabled={sendingAdvance}
+                        style={{ flex: 1, background: 'linear-gradient(180deg, #1e2e1e 0%, #141f14 100%)', border: '1px solid rgba(242,242,242,0.4)', color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 16px', cursor: 'pointer' }}>
+                        {sendingAdvance ? 'Sending…' : 'Confirm & send'}
+                      </button>
+                    </div>
                   </div>
+                  ); })()}
                 </div>
               )}
             </div>
@@ -879,9 +1046,92 @@ export function GigDetail({ gigId }: GigDetailProps) {
               <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
                 {advanceStatus === 'complete' ? 'All advance information received from promoter.' : 'Advance form sent — waiting for promoter to complete.'}
               </div>
-              <Link href={`/advance/${gigId}`} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '10px 18px', textDecoration: 'none' }}>
-                View form →
-              </Link>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    const rt = advanceRiderType || ((gig?.location || '').toLowerCase().includes('london') ? 'Hometown' : 'Touring')
+                    handleSendAdvance(rt)
+                    setAdvanceStatus('sent')
+                  }}
+                  disabled={sendingAdvance}
+                  style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 18px', cursor: 'pointer', opacity: sendingAdvance ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+                  {sendingAdvance ? 'Sending…' : 'Resend advance'}
+                </button>
+                <Link href={`/advance/${gigId}`} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '10px 18px', textDecoration: 'none' }}>
+                  View form →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Guest List */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={s.label}>Guest List</div>
+          {!glSlug ? (
+            <button onClick={createGuestList} disabled={glCreating}
+              style={{ marginTop: '8px', background: 'none', border: '1px solid var(--border-dim)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 20px', cursor: 'pointer', opacity: glCreating ? 0.5 : 1 }}>
+              {glCreating ? 'Creating...' : 'Create guest list'}
+            </button>
+          ) : (
+            <div style={{ marginTop: '8px' }}>
+              {/* Share link */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px' }}>
+                <button onClick={copyGlLink}
+                  style={{ background: 'none', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 16px', cursor: 'pointer' }}>
+                  {glCopied ? 'Copied' : 'Copy link'}
+                </button>
+                <a href={`https://wa.me/?text=${encodeURIComponent(`You're invited! ${window.location.origin}/gl/${glSlug}`)}`} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '10px 16px', textDecoration: 'none' }}>
+                  Share via WhatsApp
+                </a>
+                <Link href={`/gl/${glSlug}`}
+                  style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '10px 16px', textDecoration: 'none' }}>
+                  View page
+                </Link>
+              </div>
+
+              {/* Response counts */}
+              {glResponses.length > 0 && (
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '8px' }}>
+                    {glResponses.length} response{glResponses.length !== 1 ? 's' : ''} &middot;{' '}
+                    {glResponses.filter(r => r.response === 'coming').length} coming &middot;{' '}
+                    {glResponses.filter(r => r.response === 'guestlist').length} guest list &middot;{' '}
+                    {glResponses.reduce((sum: number, r: any) => sum + (r.plus_ones || 0), 0)} +1s &middot;{' '}
+                    {glResponses.filter(r => r.confirmed).length} confirmed
+                  </div>
+                </div>
+              )}
+
+              {/* Response list */}
+              {glResponses.length > 0 && (
+                <div style={{ border: '1px solid var(--border-dim)' }}>
+                  {glResponses.map((r, i) => (
+                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: i < glResponses.length - 1 ? '1px solid var(--border-dim)' : 'none', background: r.confirmed ? 'rgba(74,122,58,0.08)' : 'transparent' }}>
+                      <div>
+                        <div style={{ fontSize: '13px', color: 'var(--text)' }}>
+                          {r.name}{r.plus_ones > 0 ? ` +${r.plus_ones}` : ''}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', marginTop: '2px' }}>
+                          {r.response === 'guestlist' ? 'GL' : r.response} &middot; {r.instagram ? `@${r.instagram}` : r.phone || r.email}
+                          {r.notes ? ` · ${r.notes}` : ''}
+                        </div>
+                      </div>
+                      <button onClick={() => toggleGlConfirmed(r.id, !r.confirmed)}
+                        style={{ background: 'none', border: `1px solid ${r.confirmed ? 'var(--green)' : 'var(--border-dim)'}`, color: r.confirmed ? 'var(--green)' : 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 12px', cursor: 'pointer' }}>
+                        {r.confirmed ? 'Confirmed' : 'Confirm'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {glResponses.length === 0 && (
+                <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', fontStyle: 'italic' }}>
+                  No responses yet. Share the link with your mates.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -889,15 +1139,15 @@ export function GigDetail({ gigId }: GigDetailProps) {
         {/* Quick actions */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <Link href={`/broadcast?gig=${gig.id}&title=${encodeURIComponent(gig.title)}&date=${gig.date}`}
-            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--green)', border: '1px solid rgba(61,107,74,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
+            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--green)', border: '1px solid rgba(242,242,242,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
             Create post
           </Link>
           <a href={`/api/gigs/${gig.id}/wallet`} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
-            Wallet pass
+            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(255,42,26,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
+            Add to Wallet
           </a>
           <Link href={`/gig-pass/${gig.id}`}
-            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
+            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(255,42,26,0.25)', padding: '12px 20px', textDecoration: 'none' }}>
             Gig pass
           </Link>
           <Link href="/business/finances"

@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://signal-lab-rebuild.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'
 
 function popupResult(status: 'connected' | 'error', data: Record<string, string> = {}) {
   const payload = JSON.stringify({ platform: 'instagram', status, ...data })

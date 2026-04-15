@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob'
+import { uploadFile } from '@/lib/storage'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
@@ -14,15 +14,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No valid image file provided' }, { status: 400 })
     }
 
-    // Upload to Vercel Blob
+    // Upload to R2
     const timestamp = Date.now()
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const filename = `setlab/screenshots/${timestamp}-${safeName}`
+    const key = `setlab/screenshots/${timestamp}-${safeName}`
 
-    const blob = await put(filename, file, {
-      access: 'public',
-      contentType: file.type,
-    })
+    const stored = await uploadFile(file, key, file.type)
 
     // Convert to base64 for Claude Vision
     const buffer = await file.arrayBuffer()
@@ -102,7 +99,7 @@ Rules:
       return NextResponse.json({
         error: 'Could not extract tracks from this image',
         raw_text: rawText,
-        imageUrl: blob.url,
+        imageUrl: stored.url,
         tracks: [],
       })
     }
@@ -114,7 +111,7 @@ Rules:
       return NextResponse.json({
         error: 'Failed to parse extracted tracks',
         raw_text: rawText,
-        imageUrl: blob.url,
+        imageUrl: stored.url,
         tracks: [],
       })
     }
@@ -127,7 +124,7 @@ Rules:
 
     return NextResponse.json({
       tracks,
-      imageUrl: blob.url,
+      imageUrl: stored.url,
       raw_text: rawText,
     })
   } catch (err: any) {

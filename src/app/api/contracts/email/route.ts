@@ -250,19 +250,18 @@ Night Manoeuvres
 Signal Lab OS — signallabos.com
       `.trim()
 
+      // In-app notification only — no auto-send email (approve before send)
       try {
-        const emailClient = getResend()
-        if (emailClient) {
-          await emailClient.emails.send({
-            from: 'Artist OS <bookings@nightmanoeuvres.com>',
-            to: process.env.ARTIST_EMAIL || 'bookings@nightmanoeuvres.com',
-            subject: `New gig confirmed: ${gig.title} on ${gigDate}`,
-            text: notificationEmail,
-          })
-        }
+        const { createNotification } = await import('@/lib/notifications')
+        await createNotification({
+          type: 'system',
+          title: `New gig confirmed: ${gig.title}`,
+          message: `${gig.venue} · ${gigDate}`,
+          href: `/gigs/${gig.id}`,
+          gig_id: gig.id,
+        })
       } catch {
-        // Email failure is non-critical
-        // Don't fail the whole request if email fails
+        // Notification failure is non-critical
       }
     }
 

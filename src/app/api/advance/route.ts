@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       await supabase.from('advance_requests').upsert({ gig_id: gigId, rider_type: riderType, completed: false }, { onConflict: 'gig_id' })
     }
 
-    const formUrl = `https://signal-lab-rebuild.vercel.app/advance/${gigId}`
+    const formUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'}/advance/${gigId}`
     await resend.emails.send({
       from: 'NIGHT manoeuvres <onboarding@resend.dev>',
       to: promoterEmail,
