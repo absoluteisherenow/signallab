@@ -3,7 +3,10 @@ const nextConfig = {
   reactStrictMode: false,
   swcMinify: true,
   // Static export for Tauri production builds (dev mode uses Next.js dev server)
-  ...(process.env.TAURI_BUILD === '1' ? { output: 'export' } : {}),
+  // Standalone output for Cloudflare Workers (OpenNext) production builds
+  ...(process.env.TAURI_BUILD === '1'
+    ? { output: 'export' }
+    : { output: 'standalone' }),
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
