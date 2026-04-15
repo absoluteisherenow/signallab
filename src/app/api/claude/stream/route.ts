@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
-export const runtime = 'edge'
+// Runs on Cloudflare Workers via OpenNext — native streaming support; no
+// explicit edge-runtime directive needed (and it conflicts with bundling).
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY

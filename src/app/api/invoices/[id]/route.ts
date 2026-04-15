@@ -45,8 +45,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const address = (payment.address || '160DL Studios, Dalston Lane\nLondon E8 1NG').replace(/\n/g, '<br>')
     const vatNumber = payment.vat_number || profile.vatNumber || ''
     const paymentTerms = payment.payment_terms || '30'
-    // Bank accounts stored in profile.bankAccounts (camelCase) from onboarding
+    // Source of truth: profile.bankAccounts (camelCase). Legacy payment.bank_accounts
+    // kept as fallback for rows not yet migrated — safe to remove once migration confirmed.
     const bankAccounts: Array<Record<string, string>> = profile.bankAccounts || payment.bank_accounts || []
+    // NOTE: also check that payment.bank_accounts isn't stale-duplicated — settings page now writes only to profile.bankAccounts.
 
     // Find matching bank account by currency, or use default
     const matchingBank = bankAccounts.find((b: Record<string, string>) => b.currency === invoice.currency)
@@ -63,17 +65,34 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const invoiceHeading = isAUD ? 'Tax Invoice' : 'Invoice'
 
     const payToName = payment.legal_name || (matchingBank?.accountName || matchingBank?.account_name) || artistName
+
+    // ── HARD RULE: bank detail display by invoice currency ────────────────────
+    // GBP (domestic UK): sort code + account number ONLY — no IBAN/BIC/intermediary
+    // EUR (SEPA): IBAN + SWIFT/BIC ONLY — no intermediary
+    // AUD/USD: IBAN + SWIFT/BIC + intermediary BIC
+    // See memory rule_invoice_bank_details.md — invoices bring in finances, must be right.
+    const currency = invoice.currency
+    const showGBPRails = currency === 'GBP'
+    const showIBAN    = currency === 'EUR' || currency === 'AUD' || currency === 'USD'
+    const showBIC     = currency === 'EUR' || currency === 'AUD' || currency === 'USD'
+    const showIntermediary = currency === 'AUD' || currency === 'USD'
+
+    const sortCodeVal      = matchingBank?.sortCode || matchingBank?.sort_code
+    const accountNumberVal = matchingBank?.accountNumber || matchingBank?.account_number
+    const bicVal           = matchingBank?.bic || matchingBank?.swift_bic
+    const intermediaryVal  = matchingBank?.intermediaryBic || matchingBank?.intermediary_bic
+
     const bankSection = matchingBank ? `
       <div class="section">
         <div class="section-title">Payment details</div>
         <div class="row"><span>Pay to</span><span style="font-weight:500">${payToName}</span></div>
         ${(matchingBank.bankName || matchingBank.bank_name) ? `<div class="row"><span>Bank</span><span>${matchingBank.bankName || matchingBank.bank_name}</span></div>` : ''}
-        ${matchingBank.currency ? `<div class="row"><span>Currency</span><span>${matchingBank.currency}</span></div>` : ''}
-        ${(matchingBank.sortCode || matchingBank.sort_code) ? `<div class="row"><span>Sort code</span><span>${matchingBank.sortCode || matchingBank.sort_code}</span></div>` : ''}
-        ${(matchingBank.accountNumber || matchingBank.account_number) ? `<div class="row"><span>Account number</span><span>${matchingBank.accountNumber || matchingBank.account_number}</span></div>` : ''}
-        ${matchingBank.iban ? `<div class="row"><span>IBAN</span><span>${matchingBank.iban}</span></div>` : ''}
-        ${(matchingBank.bic || matchingBank.swift_bic) ? `<div class="row"><span>SWIFT / BIC</span><span>${matchingBank.bic || matchingBank.swift_bic}</span></div>` : ''}
-        ${(matchingBank.intermediaryBic || matchingBank.intermediary_bic) ? `<div class="row"><span>Intermediary BIC</span><span>${matchingBank.intermediaryBic || matchingBank.intermediary_bic}</span></div>` : ''}
+        <div class="row"><span>Currency</span><span>${currency}</span></div>
+        ${showGBPRails && sortCodeVal ? `<div class="row"><span>Sort code</span><span>${sortCodeVal}</span></div>` : ''}
+        ${showGBPRails && accountNumberVal ? `<div class="row"><span>Account number</span><span>${accountNumberVal}</span></div>` : ''}
+        ${showIBAN && matchingBank.iban ? `<div class="row"><span>IBAN</span><span>${matchingBank.iban}</span></div>` : ''}
+        ${showBIC && bicVal ? `<div class="row"><span>SWIFT / BIC</span><span>${bicVal}</span></div>` : ''}
+        ${showIntermediary && intermediaryVal ? `<div class="row"><span>Intermediary BIC</span><span>${intermediaryVal}</span></div>` : ''}
       </div>
     ` : '<p style="color:#888;font-size:13px">No bank account configured — add payment details in Settings.</p>'
 
@@ -116,7 +135,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   <div class="header">
     <div style="padding-top:4px">
-      <img src="https://signallabos.com/nm-logo-bw.png" alt="NIGHT manoeuvres" class="logo" style="filter:invert(1);max-height:60px;width:auto" />
+      <img src="https://signallabos.com/nm-logo-bw.png" alt="NIGHT manoeuvres" class="logo" style="max-height:72px;width:auto;display:block" />
     </div>
     <div style="text-align:right">
       <div class="invoice-label">${invoiceHeading}</div>

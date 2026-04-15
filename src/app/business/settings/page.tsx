@@ -379,6 +379,43 @@ export default function Settings() {
     }
   }
 
+  // ── Bank account shape converters ──────────────────────────────────────────
+  // Source of truth: `profile.bankAccounts` (camelCase, matches onboarding).
+  // Settings UI uses snake_case locally for historical reasons — we convert on load/save.
+  // `payment.bank_accounts` is deprecated and no longer written.
+  function camelToSnakeBank(b: any): BankAccount {
+    return {
+      id: b.id || crypto.randomUUID(),
+      currency: b.currency || '',
+      account_name: b.accountName || b.account_name || '',
+      bank_name: b.bankName || b.bank_name || '',
+      is_default: b.isDefault ?? b.is_default ?? false,
+      sort_code: b.sortCode || b.sort_code || '',
+      account_number: b.accountNumber || b.account_number || '',
+      iban: b.iban || '',
+      swift_bic: b.bic || b.swift_bic || '',
+      intermediary_bic: b.intermediaryBic || b.intermediary_bic || '',
+      recipient_address: b.recipientAddress || b.recipient_address || '',
+      bank_address: b.bankAddress || b.bank_address || '',
+    }
+  }
+  function snakeToCamelBank(b: BankAccount): Record<string, any> {
+    return {
+      id: b.id,
+      currency: b.currency,
+      accountName: b.account_name,
+      bankName: b.bank_name,
+      isDefault: b.is_default,
+      sortCode: b.sort_code || '',
+      accountNumber: b.account_number || '',
+      iban: b.iban || '',
+      bic: b.swift_bic || '',
+      intermediaryBic: b.intermediary_bic || '',
+      recipientAddress: b.recipient_address || '',
+      bankAddress: b.bank_address || '',
+    }
+  }
+
   // Load settings from Supabase
   useEffect(() => {
     loadSettings()
@@ -394,18 +431,34 @@ export default function Settings() {
         // Keep default team roles if none saved yet
         if (data.settings.team && data.settings.team.length > 0) setTeam(data.settings.team)
         if (data.settings.advance) setAdvance(data.settings.advance)
+
+        // Bank accounts: single source of truth is profile.bankAccounts (camelCase).
+        // Fall back to legacy payment.bank_accounts only if profile is empty (data not yet migrated).
+        const profileBanks = (data.settings.profile?.bankAccounts || []) as any[]
+        const legacyPaymentBanks = (data.settings.payment?.bank_accounts || []) as any[]
+        const sourceBanks = profileBanks.length > 0 ? profileBanks : legacyPaymentBanks
+        const resolvedBanks: BankAccount[] = sourceBanks.map(camelToSnakeBank)
+
         if (data.settings.payment) {
-          // Bank accounts may be stored in profile.bankAccounts (camelCase, from onboarding)
-          // or payment.bank_accounts (snake_case, from settings). Check both.
-          const profileBanks = data.settings.profile?.bankAccounts || []
-          const paymentBanks = data.settings.payment.bank_accounts || []
-          const resolvedBanks = paymentBanks.length > 0 ? paymentBanks : profileBanks
-          setPayment(p => ({ ...p, ...data.settings.payment, bank_accounts: resolvedBanks.length > 0 ? resolvedBanks : p.bank_accounts || [] }))
-        } else if (data.settings.profile?.bankAccounts?.length > 0) {
-          // Payment object missing entirely but profile has bank accounts from onboarding
-          setPayment(p => ({ ...p, bank_accounts: data.settings.profile.bankAccounts }))
+          setPayment(p => ({ ...p, ...data.settings.payment, bank_accounts: resolvedBanks }))
+        } else if (resolvedBanks.length > 0) {
+          setPayment(p => ({ ...p, bank_accounts: resolvedBanks }))
         }
-        if (data.settings.aliases) setAliases(data.settings.aliases)
+
+        // Aliases: normalise nested payment.bank_accounts → top-level bankAccounts (camelCase)
+        if (data.settings.aliases) {
+          const normalisedAliases = data.settings.aliases.map((a: any) => {
+            const aliasBanks = (a.bankAccounts || a.payment?.bank_accounts || []) as any[]
+            return {
+              ...a,
+              payment: {
+                ...(a.payment || {}),
+                bank_accounts: aliasBanks.map(camelToSnakeBank),
+              },
+            }
+          })
+          setAliases(normalisedAliases)
+        }
         if (data.settings.tier) setTier(data.settings.tier)
         if (data.settings.promo_list) setPromoList(data.settings.promo_list)
       }
@@ -419,10 +472,23 @@ export default function Settings() {
   async function save() {
     setIsSaving(true)
     try {
+      // Write bank accounts to profile.bankAccounts (camelCase) as source of truth.
+      // Strip bank_accounts from payment payload — deprecated, no longer stored there.
+      const profileToSave = {
+        ...profile,
+        bankAccounts: (payment.bank_accounts || []).map(snakeToCamelBank),
+      }
+      const { bank_accounts: _stripMain, ...paymentToSave } = payment as any
+      const aliasesToSave = aliases.map(a => ({
+        ...a,
+        bankAccounts: (a.payment?.bank_accounts || []).map(snakeToCamelBank),
+        payment: { vat_number: a.payment?.vat_number || '' },
+      }))
+
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile, team, advance, payment, aliases }),
+        body: JSON.stringify({ profile: profileToSave, team, advance, payment: paymentToSave, aliases: aliasesToSave }),
       })
       const data = await res.json()
       if (data.success) {
