@@ -410,10 +410,10 @@ export default function BRTLandingPage() {
               lineHeight: 0.95, letterSpacing: '-0.04em', color: BRT.ink,
               textTransform: 'uppercase', marginTop: 20, marginBottom: 20,
             }}>
-              Step inside.
+              Waitlist.
             </h2>
             <p style={{ fontSize: 15, lineHeight: 1.7, color: BRT.inkSoft, marginBottom: 32 }}>
-              Every artist onboarded personally. Drop your email.
+              We open in small groups. We'll email when there's a spot.
             </p>
 
             {status === 'success' ? (

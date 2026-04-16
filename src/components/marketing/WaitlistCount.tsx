@@ -35,7 +35,7 @@ export default async function WaitlistCount() {
           className="block h-1.5 w-1.5"
           style={{ background: BRT.red }}
         />
-        Private beta <span style={{ color: BRT.inkDim }}>·</span> personal onboarding <span style={{ color: BRT.inkDim }}>·</span> no spam
+        Private beta <span style={{ color: BRT.inkDim }}>·</span> small groups <span style={{ color: BRT.inkDim }}>·</span> no spam
       </div>
     )
   }

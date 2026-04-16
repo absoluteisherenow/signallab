@@ -115,11 +115,13 @@ body { font-family: 'DM Mono', 'Courier New', monospace; color: #070706; backgro
   ${payment.vat_number ? `VAT / Tax: ${payment.vat_number}<br>` : ''}
 </div>
 <div style="margin-top:24px;padding-top:20px;border-top:1px solid #e8e3da;text-align:center">
-  <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
-    <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.25"/>
-    <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  </svg>
-  <span style="font-family:'Unbounded',Arial,sans-serif;font-weight:200;font-size:10px;color:#b08d57;letter-spacing:0.12em;text-transform:uppercase;margin-left:6px;vertical-align:middle">Signal Lab OS</span>
+  <a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none">
+    <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
+      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.25"/>
+      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <span style="font-family:'Unbounded',Arial,sans-serif;font-weight:200;font-size:10px;color:#b08d57;letter-spacing:0.12em;text-transform:uppercase;vertical-align:middle">Signal Lab OS</span>
+  </a>
   <div style="font-size:9px;color:#8a8780;margin-top:6px;font-weight:300">Tailored Artist OS platform for electronic music</div>
 </div>
 </body>

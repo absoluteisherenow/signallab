@@ -305,7 +305,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     <div style="margin:0 24px">
       <div style="background:#0d0d0b;border:1px solid #1a1917;border-top:none;border-radius:0 0 12px 12px;padding:24px 28px 28px;text-align:center">
         <div style="width:48px;height:1px;background:#1a1917;margin:0 auto 16px"></div>
-        <div style="font-size:8px;letter-spacing:0.35em;text-transform:uppercase;color:#2a2a28">Signal Lab OS &middot; signallabos.com</div>
+        <a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:5px;font-size:8px;letter-spacing:0.35em;text-transform:uppercase;color:#2a2a28;text-decoration:none"><svg width="10" height="10" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.4"/><polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Powered by Signal Lab OS</a>
       </div>
     </div>
 
