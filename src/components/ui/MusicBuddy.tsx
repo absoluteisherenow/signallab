@@ -79,7 +79,7 @@ export function MusicBuddy() {
   }
 
   const btnBase: React.CSSProperties = {
-    fontFamily: "'DM Mono', monospace",
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     cursor: 'pointer',
     transition: 'all 0.15s',
   }
@@ -99,23 +99,23 @@ export function MusicBuddy() {
             width: '44px',
             height: '44px',
             background: '#0a0908',
-            border: '1.5px solid #b08d57',
-            color: '#b08d57',
+            border: '1.5px solid #ff2a1a',
+            color: '#ff2a1a',
             fontSize: '20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 9990,
             borderRadius: '4px',
-            boxShadow: '0 0 0 1px rgba(176,141,87,0.12), 0 4px 16px rgba(0,0,0,0.7)',
+            boxShadow: '0 0 0 1px rgba(255,42,26,0.12), 0 4px 16px rgba(0,0,0,0.7)',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.background = '#141310'
-            e.currentTarget.style.boxShadow = '0 0 0 2px rgba(176,141,87,0.3), 0 4px 16px rgba(0,0,0,0.7)'
+            e.currentTarget.style.boxShadow = '0 0 0 2px rgba(255,42,26,0.3), 0 4px 16px rgba(0,0,0,0.7)'
           }}
           onMouseLeave={e => {
             e.currentTarget.style.background = '#0a0908'
-            e.currentTarget.style.boxShadow = '0 0 0 1px rgba(176,141,87,0.12), 0 4px 16px rgba(0,0,0,0.7)'
+            e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255,42,26,0.12), 0 4px 16px rgba(0,0,0,0.7)'
           }}
         >
           ≋
@@ -135,28 +135,28 @@ export function MusicBuddy() {
           zIndex: 9990,
           display: 'flex',
           flexDirection: 'column',
-          fontFamily: "'DM Mono', monospace",
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
           boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
         }}>
 
           {/* Header */}
-          <div style={{ padding: '13px 16px 11px', borderBottom: '1px solid #1a1917', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ padding: '13px 16px 11px', borderBottom: '1px solid #1d1d1d', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-              <span style={{ fontSize: '10px', letterSpacing: '0.22em', color: '#b08d57', textTransform: 'uppercase' }}>Sonix</span>
-              <span style={{ fontSize: '9px', color: '#2e2c29', letterSpacing: '0.1em' }}>music buddy</span>
+              <span style={{ fontSize: '10px', letterSpacing: '0.22em', color: '#ff2a1a', textTransform: 'uppercase' }}>Sonix</span>
+              <span style={{ fontSize: '9px', color: '#222222', letterSpacing: '0.1em' }}>music buddy</span>
             </div>
             <button
               onClick={() => setOpen(false)}
-              style={{ ...btnBase, background: 'none', border: 'none', color: '#2e2c29', fontSize: '18px', lineHeight: 1, padding: '2px 4px' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#8a8780'}
-              onMouseLeave={e => e.currentTarget.style.color = '#2e2c29'}
+              style={{ ...btnBase, background: 'none', border: 'none', color: '#222222', fontSize: '18px', lineHeight: 1, padding: '2px 4px' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#909090'}
+              onMouseLeave={e => e.currentTarget.style.color = '#222222'}
             >×</button>
           </div>
 
           {/* Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {messages.length === 0 && (
-              <div style={{ fontSize: '11px', color: '#2e2c29', lineHeight: 1.7, marginBottom: '4px' }}>
+              <div style={{ fontSize: '11px', color: '#222222', lineHeight: 1.7, marginBottom: '4px' }}>
                 Mixing, sound design, theory — ask anything.
               </div>
             )}
@@ -167,9 +167,9 @@ export function MusicBuddy() {
                   fontSize: '12px',
                   lineHeight: 1.65,
                   maxWidth: '88%',
-                  color: m.role === 'user' ? '#52504c' : '#d8d3ca',
+                  color: m.role === 'user' ? '#909090' : '#d8d3ca',
                   background: m.role === 'buddy' ? '#141310' : 'transparent',
-                  border: m.role === 'buddy' ? '1px solid #1a1917' : 'none',
+                  border: m.role === 'buddy' ? '1px solid #1d1d1d' : 'none',
                   padding: m.role === 'buddy' ? '10px 13px' : '0',
                 }}>
                   {m.text}
@@ -179,9 +179,9 @@ export function MusicBuddy() {
 
             {/* Typing indicator */}
             {loading && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px 13px', background: '#141310', border: '1px solid #1a1917', width: 'fit-content' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px 13px', background: '#141310', border: '1px solid #1d1d1d', width: 'fit-content' }}>
                 {[0, 1, 2].map(i => (
-                  <div key={i} style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#b08d57', animation: `mb-pulse 1.2s ease-in-out ${i * 0.18}s infinite` }} />
+                  <div key={i} style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ff2a1a', animation: `mb-pulse 1.2s ease-in-out ${i * 0.18}s infinite` }} />
                 ))}
               </div>
             )}
@@ -200,13 +200,13 @@ export function MusicBuddy() {
                     ...btnBase,
                     fontSize: '9px',
                     letterSpacing: '0.07em',
-                    color: '#52504c',
+                    color: '#909090',
                     background: 'none',
-                    border: '1px solid #1a1917',
+                    border: '1px solid #1d1d1d',
                     padding: '5px 9px',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#b08d57'; e.currentTarget.style.color = '#b08d57' }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#1a1917'; e.currentTarget.style.color = '#52504c' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#ff2a1a'; e.currentTarget.style.color = '#ff2a1a' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#1d1d1d'; e.currentTarget.style.color = '#909090' }}
                 >
                   {chip}
                 </button>
@@ -215,7 +215,7 @@ export function MusicBuddy() {
           )}
 
           {/* Input row */}
-          <div style={{ padding: '10px 14px 12px', borderTop: '1px solid #1a1917', display: 'flex', gap: '7px', flexShrink: 0 }}>
+          <div style={{ padding: '10px 14px 12px', borderTop: '1px solid #1d1d1d', display: 'flex', gap: '7px', flexShrink: 0 }}>
             <input
               ref={inputRef}
               value={input}
@@ -225,24 +225,24 @@ export function MusicBuddy() {
               style={{
                 flex: 1,
                 background: '#141310',
-                border: '1px solid #1a1917',
-                color: '#f0ebe2',
-                fontFamily: "'DM Mono', monospace",
+                border: '1px solid #1d1d1d',
+                color: '#f2f2f2',
+                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                 fontSize: '11px',
                 padding: '8px 11px',
                 outline: 'none',
               }}
               onFocus={e => e.target.style.borderColor = '#3a3830'}
-              onBlur={e => e.target.style.borderColor = '#1a1917'}
+              onBlur={e => e.target.style.borderColor = '#1d1d1d'}
             />
             <button
               onClick={() => ask(input)}
               disabled={!input.trim() || loading}
               style={{
                 ...btnBase,
-                background: input.trim() && !loading ? '#b08d57' : '#1a1917',
+                background: input.trim() && !loading ? '#ff2a1a' : '#1d1d1d',
                 border: 'none',
-                color: input.trim() && !loading ? '#070706' : '#3a3830',
+                color: input.trim() && !loading ? '#050505' : '#3a3830',
                 fontSize: '13px',
                 padding: '0 14px',
                 fontWeight: 500,

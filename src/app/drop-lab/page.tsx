@@ -165,17 +165,17 @@ export default function DropLab() {
     }
     return true
   })
-  const input = "w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors placeholder-[#4a4845]"
+  const input = "w-full bg-[#1d1d1d] border border-white/7 text-[#f2f2f2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#ff2a1a] transition-colors placeholder-[#4a4845]"
 
   return (
-    <div className="min-h-screen bg-[#070706] text-[#f0ebe2] font-mono flex flex-col">
+    <div className="min-h-screen bg-[#050505] text-[#f2f2f2] font-mono flex flex-col">
       <SignalLabHeader right={
         <a href="/releases" style={{
           display: 'inline-flex', alignItems: 'center', height: '32px', padding: '0 16px',
           background: 'transparent', color: '#6a6862',
           border: '1px solid rgba(255,255,255,0.07)', borderRadius: '2px',
           fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
-          fontFamily: "'DM Mono', monospace", textDecoration: 'none',
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", textDecoration: 'none',
         }}>Release planner →</a>
       } />
 
@@ -186,13 +186,13 @@ export default function DropLab() {
 
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-5">
-              <div className="text-[10px] tracking-[.22em] uppercase text-[#b08d57]">
+              <div className="text-[10px] tracking-[.22em] uppercase text-[#ff2a1a]">
                 DJ / Promoter contacts
               </div>
               <div className="flex gap-1.5">
                 {(['all', ...TIERS] as const).map(t => (
                   <button key={t} onClick={() => setFilterTier(t)}
-                    className={`text-[9px] tracking-[.12em] uppercase px-2.5 py-1 border transition-colors ${filterTier === t ? 'border-[#b08d57]/50 text-[#b08d57]' : 'border-white/10 text-[#6a6862] hover:border-white/20'}`}>
+                    className={`text-[9px] tracking-[.12em] uppercase px-2.5 py-1 border transition-colors ${filterTier === t ? 'border-[#ff2a1a]/50 text-[#ff2a1a]' : 'border-white/10 text-[#6a6862] hover:border-white/20'}`}>
                     {t}
                   </button>
                 ))}
@@ -201,21 +201,21 @@ export default function DropLab() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search contacts..."
-                className="bg-transparent border border-white/10 text-[#f0ebe2] font-mono text-[10px] px-3 py-1.5 outline-none focus:border-[#b08d57]/50 transition-colors placeholder-[#4a4845] w-40"
+                className="bg-transparent border border-white/10 text-[#f2f2f2] font-mono text-[10px] px-3 py-1.5 outline-none focus:border-[#ff2a1a]/50 transition-colors placeholder-[#4a4845] w-40"
               />
             </div>
             <div className="flex items-center gap-3">
               {selected.size > 0 && (
                 <button onClick={() => setShowBlast(true)}
-                  className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2 hover:bg-[#c9a46e] transition-colors">
+                  className="text-[10px] tracking-[.16em] uppercase bg-[#ff2a1a] text-[#050505] px-5 py-2 hover:bg-[#ff2a1a] transition-colors">
                   Send promo to {selected.size} →
                 </button>
               )}
               <button onClick={() => setAdding(true)}
-                className="text-[9px] tracking-[.16em] uppercase text-[#6a6862] hover:text-[#b08d57] border border-white/10 px-3 py-2 transition-colors">
+                className="text-[9px] tracking-[.16em] uppercase text-[#6a6862] hover:text-[#ff2a1a] border border-white/10 px-3 py-2 transition-colors">
                 + Add contact
               </button>
-              <label className="text-[9px] tracking-[.16em] uppercase text-[#6a6862] hover:text-[#b08d57] border border-white/10 px-3 py-2 transition-colors cursor-pointer">
+              <label className="text-[9px] tracking-[.16em] uppercase text-[#6a6862] hover:text-[#ff2a1a] border border-white/10 px-3 py-2 transition-colors cursor-pointer">
                 {importing ? 'Importing...' : '↑ Import CSV'}
                 <input type="file" accept=".csv" onChange={handleCSVImport} className="hidden" />
               </label>
@@ -224,7 +224,7 @@ export default function DropLab() {
 
           {/* Add form */}
           {adding && (
-            <div className="bg-[#0e0d0b] border border-white/7 p-6 mb-5">
+            <div className="bg-[#0e0e0e] border border-white/7 p-6 mb-5">
               <div className="grid grid-cols-3 gap-3 mb-4">
                 {[
                   { label: 'Name', key: 'name', placeholder: 'DJ Name', required: true },
@@ -248,7 +248,7 @@ export default function DropLab() {
               </div>
               <div className="flex gap-3">
                 <button onClick={addContact} disabled={saving || !form.name}
-                  className="text-[10px] tracking-[.16em] uppercase bg-[#b08d57] text-[#070706] px-5 py-2 hover:bg-[#c9a46e] disabled:opacity-40 transition-colors flex items-center gap-2">
+                  className="text-[10px] tracking-[.16em] uppercase bg-[#ff2a1a] text-[#050505] px-5 py-2 hover:bg-[#ff2a1a] disabled:opacity-40 transition-colors flex items-center gap-2">
                   {saving && <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />}
                   {saving ? 'Saving...' : 'Add →'}
                 </button>
@@ -263,21 +263,21 @@ export default function DropLab() {
           {/* Table */}
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1 h-1 rounded-full bg-[#b08d57] animate-pulse" style={{ animationDelay: `${i*0.2}s` }} />)}</div>
+              <div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1 h-1 rounded-full bg-[#ff2a1a] animate-pulse" style={{ animationDelay: `${i*0.2}s` }} />)}</div>
             </div>
           ) : filtered.length === 0 ? (
             <div className="border border-dashed border-white/10 p-16 text-center">
               <div className="text-[11px] text-[#6a6862] mb-4">No contacts yet</div>
               <div className="text-[10px] text-[#5a5850] mb-5">Add DJs, promoters and labels you want to send promos to</div>
-              <button onClick={() => setAdding(true)} className="text-[9px] tracking-[.18em] uppercase text-[#b08d57]">Add first contact →</button>
+              <button onClick={() => setAdding(true)} className="text-[9px] tracking-[.18em] uppercase text-[#ff2a1a]">Add first contact →</button>
             </div>
           ) : (
             <div className="border border-white/7">
               <div className="grid grid-cols-6 px-4 py-2.5 bg-white/3 border-b border-white/7">
                 <div className="flex items-center gap-2.5 col-span-2">
                   <button onClick={selectAll}
-                    className={`w-3.5 h-3.5 border flex-shrink-0 flex items-center justify-center transition-colors ${selected.size === filtered.length && filtered.length > 0 ? 'border-[#b08d57] bg-[#b08d57]' : 'border-white/20 hover:border-white/40'}`}>
-                    {selected.size === filtered.length && filtered.length > 0 && <div className="w-1.5 h-1.5 bg-[#070706]" />}
+                    className={`w-3.5 h-3.5 border flex-shrink-0 flex items-center justify-center transition-colors ${selected.size === filtered.length && filtered.length > 0 ? 'border-[#ff2a1a] bg-[#ff2a1a]' : 'border-white/20 hover:border-white/40'}`}>
+                    {selected.size === filtered.length && filtered.length > 0 && <div className="w-1.5 h-1.5 bg-[#050505]" />}
                   </button>
                   <span className="text-[8px] tracking-[.2em] uppercase text-[#6a6862]">Name</span>
                 </div>
@@ -287,21 +287,21 @@ export default function DropLab() {
               </div>
               {filtered.map(c => (
                 <div key={c.id}
-                  className={`grid grid-cols-6 px-4 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/3 transition-colors group ${selected.has(c.id) ? 'bg-[#b08d57]/5' : ''}`}>
+                  className={`grid grid-cols-6 px-4 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/3 transition-colors group ${selected.has(c.id) ? 'bg-[#ff2a1a]/5' : ''}`}>
                   <div className="flex items-center gap-2.5 col-span-2">
                     <button onClick={() => toggleSelect(c.id)}
-                      className={`w-3.5 h-3.5 border flex-shrink-0 flex items-center justify-center transition-colors ${selected.has(c.id) ? 'border-[#b08d57] bg-[#b08d57]' : 'border-white/20 hover:border-white/40'}`}>
-                      {selected.has(c.id) && <div className="w-1.5 h-1.5 bg-[#070706]" />}
+                      className={`w-3.5 h-3.5 border flex-shrink-0 flex items-center justify-center transition-colors ${selected.has(c.id) ? 'border-[#ff2a1a] bg-[#ff2a1a]' : 'border-white/20 hover:border-white/40'}`}>
+                      {selected.has(c.id) && <div className="w-1.5 h-1.5 bg-[#050505]" />}
                     </button>
                     <div>
                       <div className="text-[11px] tracking-[.04em]">{c.name}</div>
                       {c.notes && <div className="text-[9px] text-[#5a5850] truncate max-w-[150px]">{c.notes}</div>}
                     </div>
                   </div>
-                  <div className="text-[10px] text-[#8a8780] flex items-center">{c.instagram_handle ? `@${c.instagram_handle}` : '—'}</div>
-                  <div className="text-[10px] text-[#8a8780] flex items-center">{c.genre || '—'}</div>
+                  <div className="text-[10px] text-[#909090] flex items-center">{c.instagram_handle ? `@${c.instagram_handle}` : '—'}</div>
+                  <div className="text-[10px] text-[#909090] flex items-center">{c.genre || '—'}</div>
                   <div className="flex items-center">
-                    <span className={`text-[8px] tracking-[.12em] uppercase px-1.5 py-0.5 ${c.tier === 'priority' ? 'text-[#b08d57] bg-[#b08d57]/10' : c.tier === 'new' ? 'text-[#3d6b4a] bg-[#3d6b4a]/10' : 'text-[#6a6862] bg-white/5'}`}>
+                    <span className={`text-[8px] tracking-[.12em] uppercase px-1.5 py-0.5 ${c.tier === 'priority' ? 'text-[#ff2a1a] bg-[#ff2a1a]/10' : c.tier === 'new' ? 'text-[#3d6b4a] bg-[#3d6b4a]/10' : 'text-[#6a6862] bg-white/5'}`}>
                       {c.tier}
                     </span>
                   </div>
@@ -322,7 +322,7 @@ export default function DropLab() {
         {showBlast && (
           <div className="w-80 border-l border-white/7 flex flex-col flex-shrink-0">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/7">
-              <div className="text-[9px] tracking-[.22em] uppercase text-[#b08d57]">Send promo — {selected.size} selected</div>
+              <div className="text-[9px] tracking-[.22em] uppercase text-[#ff2a1a]">Send promo — {selected.size} selected</div>
               <button onClick={() => { setShowBlast(false); setBlastResult(null) }} className="text-[#6a6862] hover:text-white/60 text-sm">×</button>
             </div>
             <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
@@ -330,13 +330,13 @@ export default function DropLab() {
                 <label className="block text-[9px] tracking-[.18em] uppercase text-[#6a6862] mb-2">Private SoundCloud URL</label>
                 <input value={blastUrl} onChange={e => setBlastUrl(e.target.value)}
                   placeholder="https://soundcloud.com/..."
-                  className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors placeholder-[#4a4845]" />
+                  className="w-full bg-[#1d1d1d] border border-white/7 text-[#f2f2f2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#ff2a1a] transition-colors placeholder-[#4a4845]" />
               </div>
               <div>
                 <label className="block text-[9px] tracking-[.18em] uppercase text-[#6a6862] mb-2">Message</label>
                 <textarea value={blastMessage} onChange={e => setBlastMessage(e.target.value)} rows={6}
                   placeholder={"hey — new EP out on fabric Records April 17. private link below, would love your support 🖤"}
-                  className="w-full bg-[#1a1917] border border-white/7 text-[#f0ebe2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#b08d57] transition-colors placeholder-[#4a4845] resize-none" />
+                  className="w-full bg-[#1d1d1d] border border-white/7 text-[#f2f2f2] font-mono text-[11px] px-3 py-2.5 outline-none focus:border-[#ff2a1a] transition-colors placeholder-[#4a4845] resize-none" />
                 <div className="text-right text-[9px] text-[#5a5850] mt-1">
                   <span className={blastMessage.length > 1000 ? 'text-red-400' : ''}>{blastMessage.length}</span>/1000
                 </div>
@@ -349,22 +349,22 @@ export default function DropLab() {
                   ).map(c => c.id)
                   setSelected(new Set(failedIds))
                 }}
-                  className="text-[9px] tracking-[.16em] uppercase text-[#b08d57] border border-[#b08d57]/30 px-4 py-2 hover:border-[#b08d57]/60 transition-colors">
+                  className="text-[9px] tracking-[.16em] uppercase text-[#ff2a1a] border border-[#ff2a1a]/30 px-4 py-2 hover:border-[#ff2a1a]/60 transition-colors">
                   Select {blastResult.failed} failed to retry →
                 </button>
               )}
 
               {blastResult && (
-                <div className={`p-4 border text-[10px] leading-relaxed ${blastResult.failed === 0 ? 'bg-[#3d6b4a]/10 border-[#3d6b4a]/30 text-[#3d6b4a]' : 'bg-[#b08d57]/10 border-[#b08d57]/30 text-[#b08d57]'}`}>
+                <div className={`p-4 border text-[10px] leading-relaxed ${blastResult.failed === 0 ? 'bg-[#3d6b4a]/10 border-[#3d6b4a]/30 text-[#3d6b4a]' : 'bg-[#ff2a1a]/10 border-[#ff2a1a]/30 text-[#ff2a1a]'}`}>
                   <div className="mb-2 font-medium">{blastResult.sent} sent · {blastResult.failed} failed</div>
                   {blastResult.results?.filter(r => !r.sent).map((r, i) => (
-                    <div key={i} className="text-[9px] text-[#8a8780]">× {r.name}: {r.error}</div>
+                    <div key={i} className="text-[9px] text-[#909090]">× {r.name}: {r.error}</div>
                   ))}
                 </div>
               )}
 
               <button onClick={sendBlast} disabled={blasting || !blastMessage || selected.size === 0}
-                className="text-[10px] tracking-[.18em] uppercase bg-[#b08d57] text-[#070706] px-5 py-3 hover:bg-[#c9a46e] disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
+                className="text-[10px] tracking-[.18em] uppercase bg-[#ff2a1a] text-[#050505] px-5 py-3 hover:bg-[#ff2a1a] disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
                 {blasting && <div className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" />}
                 {blasting ? 'Sending...' : 'Send via Instagram DM →'}
               </button>

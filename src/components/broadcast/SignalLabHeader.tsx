@@ -4,12 +4,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const TABS = [
+  { label: 'Quick Post', href: '/broadcast/quick-post' },
   { label: 'Artist Voice', href: '/broadcast' },
   { label: 'Calendar', href: '/broadcast/calendar' },
-  { label: 'Content Intelligence', href: '/broadcast/scanner' },
-  { label: 'Content Strategy', href: '/broadcast/strategy' },
-  { label: 'Insta DM Campaign', href: '/broadcast/automations' },
-  { label: 'Ad Amplifier', href: '/broadcast/ads' },
+  { label: 'Scanner', href: '/broadcast/scanner' },
+  { label: 'Media', href: '/broadcast/media' },
+  { label: 'Ideas', href: '/broadcast/ideas' },
+  { label: 'Strategy', href: '/broadcast/strategy' },
+  { label: 'Ads', href: '/broadcast/ads' },
 ]
 
 interface SignalLabHeaderProps {
@@ -23,6 +25,8 @@ export function SignalLabHeader({ right }: SignalLabHeaderProps) {
     if (href === '/broadcast') return pathname === '/broadcast'
     return pathname === href || pathname.startsWith(href + '/')
   }
+
+  const activeTab = TABS.find(t => isActive(t.href)) ?? TABS[0]
 
   const s = {
     gold: 'var(--gold)',
@@ -38,8 +42,8 @@ export function SignalLabHeader({ right }: SignalLabHeaderProps) {
           <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px', fontFamily: s.font }}>
             Broadcast Lab
           </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, color: s.text }}>
-            Your content
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 7vw, 96px)', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 0.9, textTransform: 'uppercase', color: s.text }}>
+            {activeTab.label}
           </div>
         </div>
         {right && (

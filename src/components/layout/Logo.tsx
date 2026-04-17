@@ -6,7 +6,7 @@ interface LogoIconProps {
   className?: string
 }
 
-export function LogoIcon({ size = 32, color = '#b08d57', className }: LogoIconProps) {
+export function LogoIcon({ size = 32, color = '#ff2a1a', className }: LogoIconProps) {
   return (
     <svg
       width={size}
@@ -49,19 +49,19 @@ export function Logo({ size = 'md', className }: LogoProps) {
     <div className={`flex ${isHero ? 'flex-col items-center gap-4' : 'items-center gap-2.5'} ${className ?? ''}`}>
       <LogoIcon size={s.icon} />
       <div className={isHero ? 'text-center' : ''}>
-        <div className={`font-unbounded font-extralight tracking-wider ${s.title}`} style={{ color: '#f0ebe2' }}>
+        <div className={`font-unbounded font-extralight tracking-wider ${s.title}`} style={{ color: '#f2f2f2' }}>
           Signal Lab{' '}
           {isHero ? (
-            <span className="font-light" style={{ color: '#b08d57' }}>OS</span>
+            <span className="font-light" style={{ color: '#ff2a1a' }}>OS</span>
           ) : null}
         </div>
         {!isHero && (
-          <div className={`font-mono font-light tracking-widest ${s.os}`} style={{ color: '#52504c' }}>
+          <div className={`font-mono font-light tracking-widest ${s.os}`} style={{ color: '#909090' }}>
             OS
           </div>
         )}
         {isHero && (
-          <div className="font-mono font-light text-[15px] tracking-wide mt-2" style={{ color: '#8a8780' }}>
+          <div className="font-mono font-light text-[15px] tracking-wide mt-2" style={{ color: '#909090' }}>
             Tailored Artist OS
           </div>
         )}

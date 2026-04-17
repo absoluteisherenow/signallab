@@ -94,7 +94,7 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/7">
           <div className="text-[10px] tracking-[.22em] uppercase text-[#ff2a1a]">Media library</div>
-          <button onClick={onClose} className="text-[#8a8780] hover:text-[#f2f2f2] text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[#909090] hover:text-[#f2f2f2] text-lg leading-none">×</button>
         </div>
 
         {/* Categories */}
@@ -117,7 +117,7 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
             </div>
           ) : items.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-[11px] text-[#8a8780] mb-2">No media{category !== 'all' ? ` in ${CATEGORIES.find(c => c.key === category)?.label}` : ''}</div>
+              <div className="text-[11px] text-[#909090] mb-2">No media{category !== 'all' ? ` in ${CATEGORIES.find(c => c.key === category)?.label}` : ''}</div>
               <div className="text-[10px] text-[#a09d95]">Upload files to get started</div>
             </div>
           ) : (
@@ -127,7 +127,7 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
                   className={`aspect-square relative overflow-hidden border-2 transition-colors group ${selected.includes(item.url) ? 'border-[#ff2a1a]' : 'border-transparent hover:border-white/20'}`}>
                   {isVideo(item.pathname) ? (
                     <div className="w-full h-full bg-[#1d1d1d] flex items-center justify-center">
-                      <span className="text-[#8a8780] text-xs">▶</span>
+                      <span className="text-[#909090] text-xs">▶</span>
                     </div>
                   ) : (
                     <img src={item.url} alt="" className="w-full h-full object-cover" />
@@ -138,7 +138,7 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
                     </div>
                   )}
                   <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="text-[8px] text-[#8a8780] truncate">{item.category}</div>
+                    <div className="text-[8px] text-[#909090] truncate">{item.category}</div>
                   </div>
                 </button>
               ))}
@@ -152,7 +152,7 @@ export function MediaPicker({ open, onClose, onSelect, multiple = true }: MediaP
             <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden"
               onChange={e => { if (e.target.files?.length) upload(e.target.files) }} />
             <button onClick={() => fileRef.current?.click()} disabled={uploading}
-              className="text-[11px] font-medium tracking-[.12em] uppercase border border-white/10 text-[#8a8780] px-3 py-1.5 hover:border-[#ff2a1a] hover:text-[#ff2a1a] transition-colors disabled:opacity-40">
+              className="text-[11px] font-medium tracking-[.12em] uppercase border border-white/10 text-[#909090] px-3 py-1.5 hover:border-[#ff2a1a] hover:text-[#ff2a1a] transition-colors disabled:opacity-40">
               {uploading ? 'Auto-sorting...' : 'Upload new'}
             </button>
             {uploading && <span className="text-[8px] text-[#a09d95]">Categorising with vision</span>}

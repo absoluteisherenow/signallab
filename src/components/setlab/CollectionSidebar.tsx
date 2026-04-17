@@ -59,14 +59,14 @@ export function CollectionSidebar({
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         width: '100%', padding: '7px 16px 7px ' + (16 + indent * 16) + 'px',
-        background: activeSection === key ? 'rgba(176, 141, 87, 0.08)' : 'transparent',
+        background: activeSection === key ? 'rgba(255, 42, 26, 0.08)' : 'transparent',
         border: 'none', borderLeft: activeSection === key ? '2px solid ' + s.setlab : '2px solid transparent',
         color: activeSection === key ? s.text : s.text,
         fontFamily: s.font, fontSize: '11px', letterSpacing: '0.04em',
         cursor: 'pointer', textAlign: 'left',
         transition: 'all 0.12s',
       }}
-      onMouseEnter={e => { if (activeSection !== key) (e.currentTarget.style.background = 'rgba(176, 141, 87, 0.04)') }}
+      onMouseEnter={e => { if (activeSection !== key) (e.currentTarget.style.background = 'rgba(255, 42, 26, 0.04)') }}
       onMouseLeave={e => { if (activeSection !== key) (e.currentTarget.style.background = 'transparent') }}
     >
       <span>{label}</span>
@@ -253,14 +253,14 @@ export function CollectionSidebar({
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
               width: '100%', padding: '8px 16px',
-              background: intelligenceActive ? 'rgba(176, 141, 87, 0.08)' : 'transparent',
+              background: intelligenceActive ? 'rgba(255, 42, 26, 0.08)' : 'transparent',
               border: 'none', borderLeft: intelligenceActive ? '2px solid ' + s.gold : '2px solid transparent',
               color: intelligenceActive ? s.text : s.text,
               fontFamily: s.font, fontSize: '11px', letterSpacing: '0.04em',
               cursor: 'pointer', textAlign: 'left',
               transition: 'all 0.12s',
             }}
-            onMouseEnter={e => { if (!intelligenceActive) (e.currentTarget.style.background = 'rgba(176, 141, 87, 0.04)') }}
+            onMouseEnter={e => { if (!intelligenceActive) (e.currentTarget.style.background = 'rgba(255, 42, 26, 0.04)') }}
             onMouseLeave={e => { if (!intelligenceActive) (e.currentTarget.style.background = 'transparent') }}
           >
             <span style={{ fontSize: '10px', opacity: 0.5 }}>◇</span>

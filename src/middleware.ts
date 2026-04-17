@@ -4,21 +4,26 @@ import type { NextRequest } from 'next/server'
 // Paths accessible without a login session
 const PUBLIC_PATHS = [
   '/login',
-  '/join',      // legacy → redirects to /landing
-  '/waitlist',  // legacy → redirects to /landing
-  '/pricing',   // legacy → redirects to /landing (canonical marketing URL is /landing)
-  '/landing',   // canonical public marketing page (pricing tiers + waitlist CTA)
+  '/waitlist',  // canonical public marketing page (animated hero + waitlist form)
   '/advance',   // external advance request forms (promoters/venues fill these in)
   '/upload',    // public media upload links (pre-show briefs)
   '/privacy',   // public privacy policy (required for Meta App Review)
   '/go',        // promo landing pages for DJs (reaction-gated download)
-  '/pricing-preview', // temporary: restored deleted pricing page for review
   '/brt',       // brutalist marketing landing (preview)
+  '/nm-pitch',  // NM visual identity pitch doc (shareable, no login required)
   '/gl',        // public guest-list signup pages (/gl/<slug>)
 ]
 
+// Legacy marketing URLs → canonical /waitlist
+const LEGACY_MARKETING_REDIRECTS = ['/join', '/landing', '/landing/pricing', '/pricing']
+
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
+
+  // ── Legacy marketing URL redirects ───────────────────────────────────────
+  if (LEGACY_MARKETING_REDIRECTS.some(p => pathname === p)) {
+    return NextResponse.redirect(new URL('/waitlist', req.url))
+  }
 
   // ── Root `/` ─────────────────────────────────────────────────────────────
   // Marketing page for unauth visitors. Authed users skip the marketing page
@@ -26,18 +31,16 @@ export function middleware(req: NextRequest) {
   // pitch every time they open the app.
   // `?preview=1` lets authed users review the marketing page without logging out.
   if (pathname === '/') {
-    if (req.nextUrl.searchParams.has('preview')) {
-      return NextResponse.next()
-    }
     const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0] || ''
     const hasSession =
       req.cookies.get('sb-access-token')?.value ||
       req.cookies.get(`sb-${projectRef}-auth-token`)?.value ||
       req.cookies.get(`sb-${projectRef}-auth-token.0`)?.value
     if (hasSession) {
-      return NextResponse.redirect(new URL('/dashboard', req.url))
+      return NextResponse.redirect(new URL('/today', req.url))
     }
-    return NextResponse.next()
+    // Unauthed → canonical marketing page
+    return NextResponse.redirect(new URL('/waitlist', req.url))
   }
 
   const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))

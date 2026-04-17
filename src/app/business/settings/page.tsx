@@ -540,7 +540,7 @@ export default function Settings() {
             {profile.profile_pic_url ? (
               <img src={profile.profile_pic_url} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
             ) : (
-              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--bg-light, #1a1917)', border: '2px solid var(--border-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--bg-light, #1d1d1d)', border: '2px solid var(--border-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>
                 {profile.name ? profile.name.charAt(0).toUpperCase() : '?'}
               </div>
             )}
@@ -690,7 +690,7 @@ export default function Settings() {
               <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Gmail</div>
               {connectedAccounts.length > 0 && (
                 <button onClick={scanGmail} disabled={scanning}
-                  style={{ background: scanning ? 'rgba(176,141,87,0.1)' : 'rgba(176,141,87,0.15)', border: '1px solid rgba(176,141,87,0.4)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 16px', cursor: scanning ? 'not-allowed' : 'pointer', opacity: scanning ? 0.7 : 1 }}>
+                  style={{ background: scanning ? 'rgba(255,42,26,0.1)' : 'rgba(255,42,26,0.15)', border: '1px solid rgba(255,42,26,0.4)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 16px', cursor: scanning ? 'not-allowed' : 'pointer', opacity: scanning ? 0.7 : 1 }}>
                   {scanning ? 'Scanning...' : 'Scan inbox'}
                 </button>
               )}
@@ -701,7 +701,7 @@ export default function Settings() {
               </div>
             )}
             {scanResult && (
-              <div style={{ padding: '10px 14px', background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.2)', marginBottom: '16px', fontSize: '11px', color: 'var(--text-dim)' }}>
+              <div style={{ padding: '10px 14px', background: 'rgba(255,42,26,0.06)', border: '1px solid rgba(255,42,26,0.2)', marginBottom: '16px', fontSize: '11px', color: 'var(--text-dim)' }}>
                 {scanResult.processed > 0
                   ? `Found and processed ${scanResult.processed} email${scanResult.processed !== 1 ? 's' : ''}`
                   : 'No new emails to process'}
@@ -748,7 +748,7 @@ export default function Settings() {
                     style={inputStyle} />
                 </div>
                 <a href={`/api/gmail/auth?label=${encodeURIComponent(newAccountLabel || 'Primary')}`}
-                  style={{ background: 'var(--gold)', color: '#070706', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '13px 18px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                  style={{ background: 'var(--gold)', color: '#050505', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '13px 18px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                   Connect Gmail →
                 </a>
                 <button onClick={() => { setShowAddAccount(false); setNewAccountLabel('') }}
@@ -1052,8 +1052,8 @@ export default function Settings() {
                 <button
                   onClick={() => { localStorage.removeItem('activeAliasId'); window.location.reload() }}
                   style={{
-                    background: !localStorage.getItem('activeAliasId') ? 'rgba(176,141,87,0.15)' : 'transparent',
-                    border: `1px solid ${!localStorage.getItem('activeAliasId') ? 'rgba(176,141,87,0.5)' : 'var(--border-dim)'}`,
+                    background: !localStorage.getItem('activeAliasId') ? 'rgba(255,42,26,0.15)' : 'transparent',
+                    border: `1px solid ${!localStorage.getItem('activeAliasId') ? 'rgba(255,42,26,0.5)' : 'var(--border-dim)'}`,
                     color: !localStorage.getItem('activeAliasId') ? 'var(--gold)' : 'var(--text-dimmer)',
                     fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.08em',
                     padding: '8px 16px', cursor: 'pointer', transition: 'all 0.15s',
@@ -1068,8 +1068,8 @@ export default function Settings() {
                       key={alias.id}
                       onClick={() => { localStorage.setItem('activeAliasId', alias.id); window.location.reload() }}
                       style={{
-                        background: isActive ? 'rgba(176,141,87,0.15)' : 'transparent',
-                        border: `1px solid ${isActive ? 'rgba(176,141,87,0.5)' : 'var(--border-dim)'}`,
+                        background: isActive ? 'rgba(255,42,26,0.15)' : 'transparent',
+                        border: `1px solid ${isActive ? 'rgba(255,42,26,0.5)' : 'var(--border-dim)'}`,
                         color: isActive ? 'var(--gold)' : 'var(--text-dimmer)',
                         fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.08em',
                         padding: '8px 16px', cursor: 'pointer', transition: 'all 0.15s',
@@ -1211,7 +1211,7 @@ export default function Settings() {
           ))}
 
           {/* Add new alias form */}
-          <div className="card" style={{ border: '1px solid rgba(176,141,87,0.2)' }}>
+          <div className="card" style={{ border: '1px solid rgba(255,42,26,0.2)' }}>
             <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>Add alias</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div>
@@ -1290,7 +1290,7 @@ export default function Settings() {
               onClick={() => fileInputRef.current?.click()}
               style={{
                 border: `1px dashed ${dragOver ? 'var(--gold)' : 'var(--border-dim)'}`,
-                background: dragOver ? 'rgba(176,141,87,0.06)' : 'transparent',
+                background: dragOver ? 'rgba(255,42,26,0.06)' : 'transparent',
                 padding: '32px',
                 textAlign: 'center',
                 cursor: 'pointer',
@@ -1472,7 +1472,7 @@ export default function Settings() {
                     }}
                     style={{
                       background: promoForm.name.trim() ? 'var(--gold)' : 'var(--border-dim)',
-                      color: '#070706', border: 'none', padding: '10px 20px',
+                      color: '#050505', border: 'none', padding: '10px 20px',
                       fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
                       cursor: promoForm.name.trim() ? 'pointer' : 'not-allowed',
                       fontFamily: 'var(--font-mono)',
@@ -1504,7 +1504,7 @@ export default function Settings() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                         <span style={{ fontSize: '12px', color: 'var(--text)' }}>{contact.name}</span>
                         {contact.tag && (
-                          <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(176,141,87,0.3)', padding: '2px 6px' }}>
+                          <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(255,42,26,0.3)', padding: '2px 6px' }}>
                             {contact.tag}
                           </span>
                         )}

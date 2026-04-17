@@ -217,7 +217,7 @@ function WrapContent() {
           <div style={{ fontSize: 10, color: s.gold, letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: 10 }}>
             {artistName}
           </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(26px, 5vw, 44px)', fontWeight: 300, lineHeight: 1.1 }}>
+          <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(26px, 5vw, 44px)', fontWeight: 300, lineHeight: 1.1 }}>
             {isPublic ? 'Artist overview' : 'Your quarter'}<br />
             <span style={{ color: s.gold }}>{label}</span>
           </div>
@@ -237,7 +237,7 @@ function WrapContent() {
                 onClick={() => setPeriod(p.key)}
                 style={{
                   background: period === p.key ? s.gold : 'transparent',
-                  color: period === p.key ? '#070706' : s.dimmer,
+                  color: period === p.key ? '#050505' : s.dimmer,
                   border: `1px solid ${period === p.key ? s.gold : s.border}`,
                   padding: '7px 14px', cursor: 'pointer',
                   fontFamily: s.font, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
@@ -268,7 +268,7 @@ function WrapContent() {
             {stats?.gigs ? (
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '24px 0', borderBottom: `1px solid ${s.border}` }}>
                 <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.dimmer }}>Shows</div>
-                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 300, color: s.gold, lineHeight: 1 }}>{stats.gigs}</div>
+                <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 300, color: s.gold, lineHeight: 1 }}>{stats.gigs}</div>
               </div>
             ) : null}
 
@@ -276,7 +276,7 @@ function WrapContent() {
               <div style={{ padding: '24px 0', borderBottom: `1px solid ${s.border}` }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: stats.cities.length > 1 ? 10 : 0 }}>
                   <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.dimmer }}>Cities</div>
-                  <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 300, color: s.text, lineHeight: 1 }}>{stats.cities.length}</div>
+                  <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 300, color: s.text, lineHeight: 1 }}>{stats.cities.length}</div>
                 </div>
                 {stats.cities.length > 0 && (
                   <div style={{ fontSize: 11, color: s.dimmer, textAlign: 'right' }}>{stats.cities.join(' · ')}</div>
@@ -287,7 +287,7 @@ function WrapContent() {
             {stats?.boothHours ? (
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '24px 0', borderBottom: `1px solid ${s.border}` }}>
                 <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.dimmer }}>Hours in booth</div>
-                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 300, color: s.text, lineHeight: 1 }}>~{stats.boothHours}</div>
+                <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 300, color: s.text, lineHeight: 1 }}>~{stats.boothHours}</div>
               </div>
             ) : null}
 
@@ -328,14 +328,14 @@ function WrapContent() {
             {stats?.posts && !isPublic ? (
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '24px 0', borderBottom: `1px solid ${s.border}` }}>
                 <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.dimmer }}>Posts published</div>
-                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 300, color: s.text, lineHeight: 1 }}>{stats.posts}</div>
+                <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 300, color: s.text, lineHeight: 1 }}>{stats.posts}</div>
               </div>
             ) : null}
 
             {stats?.revenue && !isPublic ? (
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '24px 0', borderBottom: `1px solid ${s.border}` }}>
                 <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: s.dimmer }}>Invoiced</div>
-                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 300, color: s.text, lineHeight: 1 }}>
+                <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 300, color: s.text, lineHeight: 1 }}>
                   <BlurredAmount>{stats.currency}{Math.round(stats.revenue).toLocaleString()}</BlurredAmount>
                 </div>
               </div>
@@ -350,7 +350,7 @@ function WrapContent() {
               {bookingEmail && (
                 <a
                   href={`mailto:${bookingEmail}?subject=Booking enquiry — ${artistName}`}
-                  style={{ background: s.gold, color: '#070706', padding: '14px 28px', textDecoration: 'none', fontFamily: s.font, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}
+                  style={{ background: s.gold, color: '#050505', padding: '14px 28px', textDecoration: 'none', fontFamily: s.font, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}
                 >
                   Booking enquiry →
                 </a>
@@ -368,7 +368,7 @@ function WrapContent() {
               )}
               <button
                 onClick={handleCopyShare}
-                style={{ background: s.gold, color: '#070706', border: 'none', padding: '12px 24px', cursor: 'pointer', fontFamily: s.font, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}
+                style={{ background: s.gold, color: '#050505', border: 'none', padding: '12px 24px', cursor: 'pointer', fontFamily: s.font, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}
               >
                 {linkCopied ? 'Link copied ✓' : 'Share with promoter →'}
               </button>
@@ -384,8 +384,8 @@ function WrapContent() {
 export default function WrapPage() {
   return (
     <Suspense fallback={
-      <div style={{ background: '#070706', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono', monospace" }}>
-        <div style={{ color: '#52504c', fontSize: 11, letterSpacing: '0.2em' }}>Loading...</div>
+      <div style={{ background: '#050505', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
+        <div style={{ color: '#909090', fontSize: 11, letterSpacing: '0.2em' }}>Loading...</div>
       </div>
     }>
       <WrapContent />

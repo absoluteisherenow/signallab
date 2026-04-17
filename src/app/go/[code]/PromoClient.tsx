@@ -87,7 +87,7 @@ export default function PromoClient() {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <p style={{ color: '#8a4a3a', fontFamily: "'DM Mono', monospace", fontSize: '0.85rem' }}>
+          <p style={{ color: '#8a4a3a', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '0.85rem' }}>
             {error || 'Link not found'}
           </p>
         </div>
@@ -177,11 +177,11 @@ export default function PromoClient() {
 
         {/* Footer */}
         <div style={styles.footer}>
-          <a href="/join" target="_blank" rel="noopener noreferrer" style={styles.footerLink}>
+          <a href="/waitlist" target="_blank" rel="noopener noreferrer" style={styles.footerLink}>
             <span style={styles.footerText}>Powered by</span>
             <svg width={20} height={20} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.5 }}>
-              <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" strokeWidth="1.5" opacity="0.25" />
-              <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" strokeWidth="1.5" opacity="0.25" />
+              <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
             <span style={styles.footerBrand}>Signal Lab OS</span>
           </a>
@@ -194,18 +194,18 @@ export default function PromoClient() {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: '100vh',
-    background: '#070706',
+    background: '#050505',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: '24px 16px',
-    fontFamily: "'DM Mono', monospace",
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
   },
   card: {
     width: '100%',
     maxWidth: 480,
-    background: '#0e0d0b',
-    border: '1px solid #2e2c29',
+    background: '#0e0e0e',
+    border: '1px solid #222222',
     borderRadius: 16,
     padding: '32px 28px',
     display: 'flex',
@@ -218,22 +218,22 @@ const styles: Record<string, React.CSSProperties> = {
   greeting: {
     marginTop: 8,
     fontSize: '0.8rem',
-    color: '#8a8780',
+    color: '#909090',
   },
   trackInfo: {
     textAlign: 'center',
   },
   trackTitle: {
-    fontFamily: "'Unbounded', sans-serif",
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     fontSize: '1.3rem',
     fontWeight: 300,
-    color: '#f0ebe2',
+    color: '#f2f2f2',
     lineHeight: 1.3,
   },
   trackArtist: {
     marginTop: 6,
     fontSize: '0.85rem',
-    color: '#8a8780',
+    color: '#909090',
   },
   trackLabel: {
     marginTop: 4,
@@ -254,7 +254,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   reactionPrompt: {
     fontSize: '0.85rem',
-    color: '#8a8780',
+    color: '#909090',
     textAlign: 'center',
     lineHeight: 1.5,
   },
@@ -269,22 +269,22 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '14px 8px',
-    background: '#1a1917',
-    border: '1px solid #2e2c29',
+    background: '#1d1d1d',
+    border: '1px solid #222222',
     borderRadius: 12,
     cursor: 'pointer',
     transition: 'all 0.2s',
-    color: '#f0ebe2',
-    fontFamily: "'DM Mono', monospace",
+    color: '#f2f2f2',
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
   },
   reactionButtonActive: {
     background: '#2a2520',
-    borderColor: '#b08d57',
-    boxShadow: '0 0 20px rgba(176, 141, 87, 0.15)',
+    borderColor: '#ff2a1a',
+    boxShadow: '0 0 20px rgba(255, 42, 26, 0.15)',
   },
   reactionLabel: {
     fontSize: '0.75rem',
-    color: '#8a8780',
+    color: '#909090',
     textAlign: 'center',
     letterSpacing: '0.05em',
   },
@@ -297,8 +297,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   thanksText: {
     fontSize: '0.9rem',
-    color: '#f0ebe2',
-    fontFamily: "'Unbounded', sans-serif",
+    color: '#f2f2f2',
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     fontWeight: 300,
   },
   downloadButton: {
@@ -306,11 +306,11 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 8,
     padding: '14px 32px',
-    background: '#b08d57',
-    color: '#070706',
+    background: '#ff2a1a',
+    color: '#050505',
     borderRadius: 10,
     fontSize: '0.85rem',
-    fontFamily: "'DM Mono', monospace",
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     fontWeight: 500,
     textDecoration: 'none',
     transition: 'all 0.2s',
@@ -319,7 +319,7 @@ const styles: Record<string, React.CSSProperties> = {
   footer: {
     textAlign: 'center',
     paddingTop: 8,
-    borderTop: '1px solid #1a1917',
+    borderTop: '1px solid #1d1d1d',
   },
   footerLink: {
     display: 'flex',
@@ -337,7 +337,7 @@ const styles: Record<string, React.CSSProperties> = {
   footerBrand: {
     fontSize: '0.65rem',
     color: '#6a6862',
-    fontFamily: "'Unbounded', sans-serif",
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     fontWeight: 300,
     letterSpacing: '0.05em',
   },
@@ -345,7 +345,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: 40,
     height: 40,
     borderRadius: '50%',
-    background: '#b08d57',
+    background: '#ff2a1a',
     opacity: 0.3,
     margin: '60px auto',
     animation: 'pulse 1.5s ease-in-out infinite',

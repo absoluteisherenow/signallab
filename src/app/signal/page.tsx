@@ -174,7 +174,7 @@ function SignalInner() {
   }
 
   const micColor = phase === 'listening' ? '#c83c3c' : phase === 'speaking' ? s.gold : s.dimmer
-  const ringColor = phase === 'listening' ? 'rgba(200,60,60,0.4)' : phase === 'speaking' ? 'rgba(176,141,87,0.4)' : 'rgba(176,141,87,0.2)'
+  const ringColor = phase === 'listening' ? 'rgba(200,60,60,0.4)' : phase === 'speaking' ? 'rgba(255,42,26,0.4)' : 'rgba(255,42,26,0.2)'
   const pulseRing = phase === 'listening' || phase === 'speaking'
 
   return (
@@ -226,7 +226,7 @@ function SignalInner() {
           onKeyDown={e => { if (e.key === 'Enter') handleMicTap() }}
           style={{
             width: 120, height: 120, borderRadius: '50%',
-            background: phase === 'listening' ? 'rgba(200,60,60,0.1)' : 'rgba(176,141,87,0.06)',
+            background: phase === 'listening' ? 'rgba(200,60,60,0.1)' : 'rgba(255,42,26,0.06)',
             border: `2px solid ${ringColor}`,
             color: micColor,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -270,7 +270,7 @@ function SignalInner() {
               onClick={() => ask(prompt)}
               onKeyDown={e => { if (e.key === 'Enter') ask(prompt) }}
               style={{
-                background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.12)',
+                background: 'rgba(255,42,26,0.06)', border: '1px solid rgba(255,42,26,0.12)',
                 padding: '10px 16px', fontSize: '12px', color: s.dim,
                 fontFamily: s.font, cursor: 'pointer',
                 WebkitTapHighlightColor: 'transparent',

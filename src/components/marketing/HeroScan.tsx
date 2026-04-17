@@ -2,7 +2,7 @@
 
 // ── HeroScan ────────────────────────────────────────────────────────────────
 // Looping CSS animation of the Broadcast Lab scan verdict.
-// BRT styling: Circoloco red accent, Helvetica 900 uppercase labels, DM Mono
+// BRT styling: Circoloco red accent, Helvetica 900 uppercase labels, Helvetica Neue
 // values. The "illustrative" tag stays visible at all times so we never imply
 // the numbers are anyone's actual scores.
 //

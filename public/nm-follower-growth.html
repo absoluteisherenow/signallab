@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIGHT manoeuvres — Follower Growth Plan</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0a;
+    --bg2: #111111;
+    --bg3: #181818;
+    --border: #242424;
+    --gold: #c8a96e;
+    --gold-dim: rgba(200,169,110,0.15);
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --text-muted: #555;
+    --kill: #c0392b;
+    --scale: #27ae60;
+    --font: 'Courier New', Courier, 'Lucida Console', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 40px 24px 80px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* HEADER */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+  .header h1 span { color: var(--gold); }
+  .header .sub {
+    margin-top: 6px;
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+
+  /* SECTION LABELS */
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  section {
+    margin-bottom: 52px;
+  }
+
+  /* FUNNEL */
+  .funnel {
+    display: grid;
+    grid-template-columns: 1fr 40px 1fr;
+    align-items: center;
+    gap: 0;
+  }
+  .stage {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 20px 22px;
+  }
+  .stage-num {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .stage-title {
+    font-size: 15px;
+    font-weight: normal;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .stage-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .stage-row .key {
+    color: var(--text-muted);
+    min-width: 68px;
+    flex-shrink: 0;
+  }
+  .stage-row .val { color: var(--text-dim); }
+  .funnel-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--gold);
+    font-size: 18px;
+  }
+  .funnel-arrow .arrow-label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* ROADMAP */
+  .roadmap {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--border);
+  }
+  .roadmap-row {
+    display: grid;
+    grid-template-columns: 80px 60px 80px 1fr;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    gap: 16px;
+    transition: background 0.15s;
+  }
+  .roadmap-row:last-child { border-bottom: none; }
+  .roadmap-row:hover { background: var(--bg3); }
+  .rm-month {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+  .rm-period {
+    font-size: 12px;
+    color: var(--gold);
+  }
+  .rm-budget {
+    font-size: 13px;
+    color: var(--text);
+  }
+  .rm-budget-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .bar-track {
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    position: relative;
+  }
+  .bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--gold);
+    opacity: 0.6;
+  }
+  .rm-focus {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: 8px;
+  }
+
+  /* CHART */
+  .chart-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 24px;
+  }
+  .chart-inner {
+    position: relative;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+  .chart-axis-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  /* CONTENT + CAPTURE */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 18px 20px;
+  }
+  .box-title {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+  .box ul { list-style: none; }
+  .box ul li {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+  .box ul li:last-child { border-bottom: none; }
+  .box ul li .date {
+    color: var(--gold);
+    min-width: 52px;
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+
+  /* KILL / SCALE */
+  .rules-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .rule-box {
+    border: 1px solid var(--border);
+    padding: 18px 20px;
+  }
+  .rule-box.kill { border-top: 2px solid var(--kill); }
+  .rule-box.scale { border-top: 2px solid var(--scale); }
+  .rule-title {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .rule-box.kill .rule-title { color: var(--kill); }
+  .rule-box.scale .rule-title { color: var(--scale); }
+  .rule-item {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .rule-item:last-child { border-bottom: none; }
+  .rule-item .trigger {
+    font-size: 11px;
+    font-family: var(--font);
+    color: var(--text);
+  }
+  .rule-item .action {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* FOOTER */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+  }
+
+  @media (max-width: 600px) {
+    .funnel { grid-template-columns: 1fr; }
+    .funnel-arrow { transform: rotate(90deg); margin: 8px 0; }
+    .two-col, .rules-grid { grid-template-columns: 1fr; }
+    .roadmap-row { grid-template-columns: 60px 50px 1fr; }
+    .rm-budget { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>NIGHT manoeuvres — <span>1,318 → 10K</span></h1>
+  <div class="sub">Instagram &nbsp;·&nbsp; ~£205 &nbsp;·&nbsp; 6 months &nbsp;·&nbsp; Apr–Sep 2026</div>
+</div>
+
+<!-- FUNNEL -->
+<section>
+  <div class="label">The Funnel</div>
+  <div class="funnel">
+    <div class="stage">
+      <div class="stage-num">Stage 1</div>
+      <div class="stage-title">Reach</div>
+      <div class="stage-row"><span class="key">Objective</span><span class="val">Video Views</span></div>
+      <div class="stage-row"><span class="key">Audience</span><span class="val">Cold — RA, Boiler Room, fabric, Percolate. Age 22–38.</span></div>
+      <div class="stage-row"><span class="key">Output</span><span class="val">Pool of 75%+ video viewers</span></div>
+      <div class="stage-row"><span class="key">Cost</span><span class="val">~£0.01–0.03 / view</span></div>
+    </div>
+    <div class="funnel-arrow">
+      <span>→</span>
+      <span class="arrow-label">7–14<br>days</span>
+    </div>
+    <div class="stage">
+      <div class="stage-num">Stage 2</div>
+      <div class="stage-title">Convert</div>
+      <div class="stage-row"><span class="key">Objective</span><span class="val">Engagement</span></div>
+      <div class="stage-row"><span class="key">Audience</span><span class="val">Warm — retarget 75%+ viewers from Stage 1</span></div>
+      <div class="stage-row"><span class="key">Output</span><span class="val">Organic follows</span></div>
+      <div class="stage-row"><span class="key">Cost</span><span class="val">~£0.05–0.15 / engagement</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section>
+  <div class="label">6-Month Roadmap</div>
+  <div class="roadmap" id="roadmap"></div>
+</section>
+
+<!-- PROJECTIONS -->
+<section>
+  <div class="label">Follower Projection — Realistic Path</div>
+  <div class="chart-wrap">
+    <canvas id="chart" height="180"></canvas>
+  </div>
+</section>
+
+<!-- CONTENT + CAPTURE -->
+<section>
+  <div class="label">Content Requirements &amp; Capture Moments</div>
+  <div class="two-col">
+    <div class="box">
+      <div class="box-title">Minimum Content</div>
+      <ul>
+        <li><span>2 Reels / week minimum</span></li>
+        <li><span>New ad creative every 7–10 days</span></li>
+        <li><span>Pull from organic — never create ads from scratch</span></li>
+        <li><span>1 carousel every 2 weeks (save engine)</span></li>
+      </ul>
+    </div>
+    <div class="box">
+      <div class="box-title">Key Capture Moments</div>
+      <ul>
+        <li><span class="date">Apr 10</span><span>Soho House set clips</span></li>
+        <li><span class="date">Apr 17</span><span>EP release visuals</span></li>
+        <li><span class="date">May 14</span><span>Athens / Caribou footage</span></li>
+        <li><span class="date">Jun 12</span><span>Vespers</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- KILL / SCALE -->
+<section>
+  <div class="label">Performance Rules</div>
+  <div class="rules-grid">
+    <div class="rule-box kill">
+      <div class="rule-title">Kill</div>
+      <div class="rule-item">
+        <div class="trigger">View-through &lt;10% after 48h</div>
+        <div class="action">→ kill creative, swap to next best post</div>
+      </div>
+      <div class="rule-item">
+        <div class="trigger">CPM &gt;£15</div>
+        <div class="action">→ audience saturated, rotate lookalike seed</div>
+      </div>
+      <div class="rule-item">
+        <div class="trigger">Frequency &gt;3.0</div>
+        <div class="action">→ creative fatigue, swap immediately</div>
+      </div>
+    </div>
+    <div class="rule-box scale">
+      <div class="rule-title">Scale</div>
+      <div class="rule-item">
+        <div class="trigger">CTR &gt;2% after 72h</div>
+        <div class="action">→ increase daily budget by 20%</div>
+      </div>
+      <div class="rule-item">
+        <div class="trigger">Engagement rate &gt;5%</div>
+        <div class="action">→ expand to lookalike audience</div>
+      </div>
+      <div class="rule-item">
+        <div class="trigger">Cost per follower &lt;£0.50</div>
+        <div class="action">→ scale aggressively</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="footer">Pre-flight before any spend: /ads competitor → /ads meta → /ads math → validate against ads-manager-engine</div>
+
+<script>
+  // ROADMAP
+  const months = [
+    { num: 'M1', period: 'Apr', budget: 25, focus: 'Always-on seeding. Build retargeting pool.' },
+    { num: 'M2', period: 'May', budget: 30, focus: 'Add Stage 2 retargeting.' },
+    { num: 'M3', period: 'Jun', budget: 35, focus: 'Scale what\'s working.' },
+    { num: 'M4', period: 'Jul', budget: 35, focus: 'Double down on top creatives.' },
+    { num: 'M5', period: 'Aug', budget: 40, focus: 'Peak content window.' },
+    { num: 'M6', period: 'Sep', budget: 40, focus: 'Final push to 10K.' },
+  ];
+  const maxBudget = Math.max(...months.map(m => m.budget));
+  const roadmap = document.getElementById('roadmap');
+  months.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'roadmap-row';
+    row.innerHTML = `
+      <span class="rm-month">${m.num}</span>
+      <span class="rm-period">${m.period}</span>
+      <span class="rm-budget">£${m.budget}</span>
+      <div class="rm-budget-bar">
+        <div class="bar-track"><div class="bar-fill" style="width:${(m.budget/maxBudget)*100}%"></div></div>
+        <span class="rm-focus">${m.focus}</span>
+      </div>
+    `;
+    roadmap.appendChild(row);
+  });
+
+  // CHART
+  const canvas = document.getElementById('chart');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth - 48;
+  const H = 180;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const data = [
+    { label: 'Apr', val: 2000 },
+    { label: 'May', val: 2800 },
+    { label: 'Jun', val: 3800 },
+    { label: 'Jul', val: 5200 },
+    { label: 'Aug', val: 7000 },
+    { label: 'Sep', val: 10000 },
+  ];
+  const baseline = 1318;
+  const allVals = [baseline, ...data.map(d => d.val)];
+  const allLabels = ['Now', ...data.map(d => d.label)];
+  const allPoints = allVals.length;
+
+  const padL = 52, padR = 16, padT = 16, padB = 32;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const maxVal = 11000;
+  const minVal = 0;
+
+  const xPos = i => padL + (i / (allPoints - 1)) * plotW;
+  const yPos = v => padT + plotH - ((v - minVal) / (maxVal - minVal)) * plotH;
+
+  // Grid lines
+  const gridVals = [0, 2500, 5000, 7500, 10000];
+  ctx.strokeStyle = '#1e1e1e';
+  ctx.lineWidth = 1;
+  gridVals.forEach(v => {
+    const y = yPos(v);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.fillStyle = '#444';
+    ctx.font = '10px Courier New, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(v >= 1000 ? (v/1000).toFixed(v%1000===0?0:1)+'K' : v, padL - 6, y + 3.5);
+  });
+
+  // Area fill
+  ctx.beginPath();
+  allVals.forEach((v, i) => {
+    const x = xPos(i), y = yPos(v);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo(xPos(allPoints - 1), yPos(0));
+  ctx.lineTo(xPos(0), yPos(0));
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+  grad.addColorStop(0, 'rgba(200,169,110,0.12)');
+  grad.addColorStop(1, 'rgba(200,169,110,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  allVals.forEach((v, i) => {
+    const x = xPos(i), y = yPos(v);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#c8a96e';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Dots + labels
+  allVals.forEach((v, i) => {
+    const x = xPos(i), y = yPos(v);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#c8a96e';
+    ctx.fill();
+    // x labels
+    ctx.fillStyle = '#555';
+    ctx.font = '10px Courier New, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(allLabels[i], x, H - 6);
+    // value labels on last point
+    if (i === allPoints - 1) {
+      ctx.fillStyle = '#c8a96e';
+      ctx.font = '11px Courier New, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('10K', x + 6, y + 4);
+    }
+    if (i === 0) {
+      ctx.fillStyle = '#555';
+      ctx.font = '10px Courier New, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('1,318', x, y - 7);
+    }
+  });
+</script>
+</body>
+</html>

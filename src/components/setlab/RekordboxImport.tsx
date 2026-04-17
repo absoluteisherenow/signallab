@@ -402,7 +402,7 @@ Return as JSON array: [{...}, {...}, ...]` }],
         <span style={{ display: 'block', width: '28px', height: '1px', background: s.setlab }} />
         Set Lab — Import
       </div>
-      <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '14px' }}>Import any playlist or setlist</div>
+      <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '28px', fontWeight: 300, letterSpacing: '0.04em', marginBottom: '14px' }}>Import any playlist or setlist</div>
 
       {/* Feature sell — three columns */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', marginBottom: '32px' }}>
@@ -491,7 +491,7 @@ Return as JSON array: [{...}, {...}, ...]` }],
       ) : imported ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ background: s.panel, border: `1px solid ${s.setlab}40`, padding: '40px', textAlign: 'center' }}>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, color: s.setlab, marginBottom: '12px' }}>
+            <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '22px', fontWeight: 300, color: s.setlab, marginBottom: '12px' }}>
               {importedCount} tracks imported
             </div>
             <div style={{ fontSize: '13px', color: s.dim, marginBottom: '8px' }}>

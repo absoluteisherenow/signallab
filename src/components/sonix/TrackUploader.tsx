@@ -43,7 +43,7 @@ export function TrackUploader() {
     textDim: 'var(--text-dim)',
     textDimmer: 'var(--text-dimmer)',
     black: 'var(--bg-input)',
-    font: "'DM Mono', monospace",
+    font: "'Helvetica Neue', Helvetica, Arial, sans-serif",
   }
 
   async function analyse() {

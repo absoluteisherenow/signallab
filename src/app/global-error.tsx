@@ -33,7 +33,7 @@ export default function GlobalError({
 
         <div style={{
           fontSize: 13,
-          color: '#8a8780',
+          color: '#909090',
           lineHeight: 1.6,
           letterSpacing: '0.02em',
           marginBottom: 32,

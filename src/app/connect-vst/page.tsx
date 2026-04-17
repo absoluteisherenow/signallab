@@ -45,9 +45,9 @@ export default function ConnectVST() {
   return (
     <div
       style={{
-        background: '#070706',
+        background: '#050505',
         color: '#e8e4dc',
-        fontFamily: '"DM Mono", "Courier New", monospace',
+        fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -63,7 +63,7 @@ export default function ConnectVST() {
             style={{
               fontSize: '10px',
               letterSpacing: '0.3em',
-              color: '#b08d57',
+              color: '#ff2a1a',
               textTransform: 'uppercase',
               display: 'flex',
               alignItems: 'center',
@@ -71,7 +71,7 @@ export default function ConnectVST() {
               marginBottom: '20px',
             }}
           >
-            <span style={{ display: 'block', width: '28px', height: '1px', background: '#b08d57' }} />
+            <span style={{ display: 'block', width: '28px', height: '1px', background: '#ff2a1a' }} />
             Sonix Lab — VST Authentication
           </div>
           <h1
@@ -109,9 +109,9 @@ export default function ConnectVST() {
               background: loading
                 ? 'transparent'
                 : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
-              border: '1px solid #b08d57',
-              color: '#b08d57',
-              fontFamily: '"DM Mono", "Courier New", monospace',
+              border: '1px solid #ff2a1a',
+              color: '#ff2a1a',
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontSize: '10px',
               letterSpacing: '0.25em',
               textTransform: 'uppercase',
@@ -146,7 +146,7 @@ export default function ConnectVST() {
                 style={{
                   fontSize: '10px',
                   letterSpacing: '0.22em',
-                  color: '#b08d57',
+                  color: '#ff2a1a',
                   textTransform: 'uppercase',
                   marginBottom: '16px',
                 }}
@@ -158,7 +158,7 @@ export default function ConnectVST() {
             {/* Token box */}
             <div
               style={{
-                background: '#0e0d0b',
+                background: '#0e0e0e',
                 border: '1px solid #2a2520',
                 padding: '20px 24px',
                 marginBottom: '12px',
@@ -191,7 +191,7 @@ export default function ConnectVST() {
                     : '#2a2520'
                 }`,
                 color: copied ? '#5a9a68' : copyFailed ? '#8a4a3a' : '#7a7570',
-                fontFamily: '"DM Mono", "Courier New", monospace',
+                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                 fontSize: '10px',
                 letterSpacing: '0.25em',
                 textTransform: 'uppercase',
@@ -212,7 +212,7 @@ export default function ConnectVST() {
                 background: 'transparent',
                 border: 'none',
                 color: '#4a4540',
-                fontFamily: '"DM Mono", "Courier New", monospace',
+                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                 fontSize: '10px',
                 letterSpacing: '0.2em',
                 textTransform: 'uppercase',
@@ -236,7 +236,7 @@ export default function ConnectVST() {
             style={{
               fontSize: '10px',
               letterSpacing: '0.22em',
-              color: '#b08d57',
+              color: '#ff2a1a',
               textTransform: 'uppercase',
               marginBottom: '20px',
             }}
@@ -265,7 +265,7 @@ export default function ConnectVST() {
                 style={{
                   fontSize: '10px',
                   letterSpacing: '0.15em',
-                  color: '#b08d57',
+                  color: '#ff2a1a',
                   minWidth: '24px',
                   marginTop: '1px',
                 }}

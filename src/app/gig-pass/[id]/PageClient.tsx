@@ -173,20 +173,20 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
 
   // --- Styles ---
   const colors = {
-    bg: '#070706',
-    gold: '#b08d57',
-    text: '#f0ebe2',
-    dim: '#8a8780',
-    dimmer: '#52504c',
+    bg: '#050505',
+    gold: '#ff2a1a',
+    text: '#f2f2f2',
+    dim: '#909090',
+    dimmer: '#909090',
     green: '#3d6b4a',
-    border: '#2e2c29',
+    border: '#222222',
   }
 
   const pageStyle: React.CSSProperties = {
     background: colors.bg,
     color: colors.text,
     minHeight: '100vh',
-    fontFamily: '"DM Mono", monospace',
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     padding: '0 0 80px 0',
   }
 
@@ -222,7 +222,7 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
     borderRadius: 6,
     background: 'transparent',
     color: colors.gold,
-    fontFamily: '"DM Mono", monospace',
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     fontSize: 16,
     fontWeight: 500,
     textDecoration: 'none',
@@ -247,7 +247,7 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
     return (
       <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 18, color: colors.dim, fontFamily: '"DM Mono", monospace' }}>
+          <div style={{ fontSize: 18, color: colors.dim, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
             Loading gig pass...
           </div>
         </div>
@@ -260,7 +260,7 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
     return (
       <div style={{ ...pageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 20, color: colors.dim, fontFamily: '"DM Mono", monospace', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 20, color: colors.dim, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", lineHeight: 1.5 }}>
             No gig data available. Connect to the internet and try again.
           </div>
         </div>
@@ -280,7 +280,7 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
       badgeColor = colors.text
       label = 'Complete'
     } else if (s === 'sent') {
-      badgeBg = 'rgba(176, 141, 87, 0.2)'
+      badgeBg = 'rgba(255, 42, 26, 0.2)'
       badgeColor = colors.gold
       label = 'Sent'
     }
@@ -314,12 +314,12 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
             left: 0,
             right: 0,
             zIndex: 100,
-            background: 'rgba(176, 141, 87, 0.15)',
+            background: 'rgba(255, 42, 26, 0.15)',
             color: colors.gold,
             textAlign: 'center',
             padding: '10px 16px',
             fontSize: 14,
-            fontFamily: '"DM Mono", monospace',
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
             fontWeight: 500,
           }}
         >
@@ -335,7 +335,7 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
           </div>
           <a
             href="/dashboard"
-            style={{ fontSize: 14, color: colors.dim, textDecoration: 'none', fontFamily: '"DM Mono", monospace' }}
+            style={{ fontSize: 14, color: colors.dim, textDecoration: 'none', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
           >
             ← Dashboard
           </a>
@@ -529,7 +529,7 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
                 marginTop: 8,
                 padding: '4px 12px',
                 borderRadius: 4,
-                background: 'rgba(176, 141, 87, 0.15)',
+                background: 'rgba(255, 42, 26, 0.15)',
                 color: colors.gold,
                 fontSize: 12,
                 fontWeight: 500,

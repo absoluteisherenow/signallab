@@ -160,7 +160,7 @@ export default function NotificationsPage() {
                     gap: '18px', alignItems: 'flex-start',
                     padding: '20px 24px',
                     background: n.read ? 'var(--panel)' : '#0a0906',
-                    border: `1px solid ${n.read ? 'var(--border-dim)' : '#1a1917'}`,
+                    border: `1px solid ${n.read ? 'var(--border-dim)' : '#1d1d1d'}`,
                     cursor: n.href ? 'pointer' : 'default',
                     transition: 'background 0.1s',
                   }}

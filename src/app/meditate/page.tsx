@@ -279,13 +279,13 @@ export default function MeditatePage() {
   const holdEndPct = mode ? ((mode.breatheIn + mode.hold) / cycleDuration) * 100 : 66
 
   if (!mounted) return (
-    <div style={{ minHeight: '100vh', background: '#070706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: '#52504c', textTransform: 'uppercase' }}>Mind</div>
+    <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: '#909090', textTransform: 'uppercase' }}>Mind</div>
     </div>
   )
 
   if (!mobile) return (
-    <div style={{ minHeight: '100vh', background: '#070706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px', fontFamily: s.font }}>
+    <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px', fontFamily: s.font }}>
       <div style={{ fontSize: '13px', letterSpacing: '0.12em', color: s.dim, textTransform: 'uppercase' }}>Mind</div>
       <div style={{ fontSize: '11px', color: s.dimmer, maxWidth: '280px', textAlign: 'center', lineHeight: 1.6 }}>Open this on your phone for the full guided meditation experience.</div>
     </div>
@@ -402,7 +402,7 @@ export default function MeditatePage() {
         onClick={togglePause}
         style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: '#070706', fontFamily: s.font, color: s.text,
+          background: '#050505', fontFamily: s.font, color: s.text,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none',
           zIndex: 10000, overflow: 'hidden',
@@ -415,7 +415,7 @@ export default function MeditatePage() {
           onClick={e => { e.stopPropagation(); exitSession() }}
           onTouchEnd={e => { e.stopPropagation(); e.preventDefault(); exitSession() }}
           style={{
-            position: 'absolute', top: 20, right: 20, color: '#8a8780',
+            position: 'absolute', top: 20, right: 20, color: '#909090',
             fontSize: '20px', cursor: 'pointer', padding: 16, lineHeight: 1, zIndex: 10,
             minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
@@ -426,7 +426,7 @@ export default function MeditatePage() {
         {/* Mode label */}
         <div style={{
           position: 'absolute', top: 28, left: 0, right: 0, textAlign: 'center',
-          fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8a8780',
+          fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#909090',
         }}>
           {mode.subtitle}
         </div>
@@ -453,7 +453,7 @@ export default function MeditatePage() {
         {/* Timer */}
         <div style={{
           position: 'absolute', bottom: 40, left: 0, right: 0, textAlign: 'center',
-          fontSize: '18px', fontFamily: s.font, color: '#8a8780', letterSpacing: '0.08em',
+          fontSize: '18px', fontFamily: s.font, color: '#909090', letterSpacing: '0.08em',
         }}>
           {formatTime(remaining)}
         </div>

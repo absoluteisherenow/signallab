@@ -1,16 +1,16 @@
 const C = {
-  bg: '#070706',
-  panel: '#0e0d0b',
-  border: '#1a1917',
-  gold: '#b08d57',
-  text: '#f0ebe2',
-  dim: '#8a8780',
-  dimmer: '#52504c',
+  bg: '#050505',
+  panel: '#0e0e0e',
+  border: '#1d1d1d',
+  gold: '#ff2a1a',
+  text: '#f2f2f2',
+  dim: '#909090',
+  dimmer: '#909090',
 }
 
 export default function PrivacyPage() {
   return (
-    <div style={{ background: C.bg, color: C.text, fontFamily: "'DM Mono', monospace", minHeight: '100vh' }}>
+    <div style={{ background: C.bg, color: C.text, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", minHeight: '100vh' }}>
 
       {/* NAV */}
       <nav style={{
@@ -19,7 +19,7 @@ export default function PrivacyPage() {
         padding: '18px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         backdropFilter: 'blur(12px)',
       }}>
-        <a href="/" style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '11px', fontWeight: 300, letterSpacing: '0.2em', color: C.gold, textDecoration: 'none' }}>
+        <a href="/" style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '11px', fontWeight: 300, letterSpacing: '0.2em', color: C.gold, textDecoration: 'none' }}>
           SIGNAL LAB OS
         </a>
       </nav>
@@ -31,7 +31,7 @@ export default function PrivacyPage() {
           Legal
         </div>
         <h1 style={{
-          fontFamily: "'Unbounded', sans-serif",
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
           fontSize: 'clamp(22px, 3vw, 32px)',
           fontWeight: 300, letterSpacing: '0.04em',
           marginBottom: '8px',
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
 
           <section>
-            <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
+            <h2 style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
               Who We Are
             </h2>
             <p style={{ fontSize: '12px', color: C.dim, lineHeight: '1.9', letterSpacing: '0.03em' }}>
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
           <div style={{ width: '100%', height: '1px', background: C.border }} />
 
           <section>
-            <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
+            <h2 style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
               What Data We Collect
             </h2>
             <div style={{ fontSize: '12px', color: C.dim, lineHeight: '1.9', letterSpacing: '0.03em', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
           <div style={{ width: '100%', height: '1px', background: C.border }} />
 
           <section>
-            <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
+            <h2 style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
               How We Use Your Data
             </h2>
             <div style={{ fontSize: '12px', color: C.dim, lineHeight: '1.9', letterSpacing: '0.03em', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -86,7 +86,7 @@ export default function PrivacyPage() {
           <div style={{ width: '100%', height: '1px', background: C.border }} />
 
           <section>
-            <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
+            <h2 style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
               Instagram / Meta Data
             </h2>
             <div style={{ fontSize: '12px', color: C.dim, lineHeight: '1.9', letterSpacing: '0.03em', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -100,7 +100,7 @@ export default function PrivacyPage() {
           <div style={{ width: '100%', height: '1px', background: C.border }} />
 
           <section>
-            <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
+            <h2 style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
               Data Retention
             </h2>
             <p style={{ fontSize: '12px', color: C.dim, lineHeight: '1.9', letterSpacing: '0.03em' }}>
@@ -111,7 +111,7 @@ export default function PrivacyPage() {
           <div style={{ width: '100%', height: '1px', background: C.border }} />
 
           <section>
-            <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
+            <h2 style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
               Your Rights
             </h2>
             <p style={{ fontSize: '12px', color: C.dim, lineHeight: '1.9', letterSpacing: '0.03em' }}>
@@ -122,7 +122,7 @@ export default function PrivacyPage() {
           <div style={{ width: '100%', height: '1px', background: C.border }} />
 
           <section>
-            <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
+            <h2 style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '12px', fontWeight: 300, letterSpacing: '0.14em', color: C.gold, textTransform: 'uppercase', marginBottom: '16px' }}>
               Contact
             </h2>
             <p style={{ fontSize: '12px', color: C.dim, lineHeight: '1.9', letterSpacing: '0.03em' }}>
@@ -140,7 +140,7 @@ export default function PrivacyPage() {
         fontSize: '10px', color: C.dimmer, letterSpacing: '0.08em',
         marginTop: '40px',
       }}>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '10px', fontWeight: 300, letterSpacing: '0.14em' }}>
+        <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '10px', fontWeight: 300, letterSpacing: '0.14em' }}>
           SIGNAL LAB OS
         </div>
         <div>signallabos.com</div>

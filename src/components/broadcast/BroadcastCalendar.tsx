@@ -1291,7 +1291,7 @@ export function BroadcastCalendar() {
             const st = selectedPost.status
             const map: Record<string, { label: string; color: string; bg: string }> = {
               draft:     { label: 'Draft',                color: '#9a8c6f', bg: 'rgba(154,140,111,0.10)' },
-              scheduled: { label: 'Awaiting approval',    color: s.gold,    bg: 'rgba(176,141,87,0.12)'  },
+              scheduled: { label: 'Awaiting approval',    color: s.gold,    bg: 'rgba(255,42,26,0.12)'  },
               approved:  { label: 'Approved · queued',    color: '#3d6b4a', bg: 'rgba(61,107,74,0.14)'   },
               posted:    { label: 'Posted',               color: '#3d6b4a', bg: 'rgba(61,107,74,0.18)'   },
               failed:    { label: 'Failed',               color: '#b43c3c', bg: 'rgba(180,60,60,0.14)'   },
@@ -1398,7 +1398,7 @@ export function BroadcastCalendar() {
                     linked.lineup.filter(l => l.handle).forEach(l => candidates.push({ label: l.name, handle: l.handle!, kind: 'lineup' }))
                   }
                   return (
-                    <div style={{ background: 'rgba(176,141,87,0.06)', border: `1px solid ${s.border}`, padding: '12px' }}>
+                    <div style={{ background: 'rgba(255,42,26,0.06)', border: `1px solid ${s.border}`, padding: '12px' }}>
                       <div style={{ fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: s.gold, marginBottom: '8px' }}>Suggested · one click to add</div>
                       {candidates.length === 0 && (
                         <div style={{ fontSize: '12px', color: s.dimmer, fontStyle: 'italic' }}>

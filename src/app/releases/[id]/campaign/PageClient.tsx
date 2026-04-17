@@ -286,7 +286,7 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
             </div>
             {release ? (
               <>
-                <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 300, letterSpacing: '0.03em' }}>
+                <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '28px', fontWeight: 300, letterSpacing: '0.03em' }}>
                   {release.title}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginTop: '6px' }}>
@@ -307,7 +307,7 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
               disabled={generating}
               style={{
                 background: generating ? 'transparent' : 'var(--gold)',
-                color: generating ? 'var(--gold)' : '#070706',
+                color: generating ? 'var(--gold)' : '#050505',
                 border: generating ? '1px solid var(--gold-dim)' : 'none',
                 padding: '0 28px', height: '40px', fontSize: '10px',
                 letterSpacing: '0.16em', textTransform: 'uppercase', cursor: generating ? 'wait' : 'pointer',
@@ -452,7 +452,7 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
               onClick={() => parseImportedCampaign(importText)}
               disabled={!importText.trim() || importingFromText}
               style={{
-                background: 'var(--gold)', color: '#070706', border: 'none',
+                background: 'var(--gold)', color: '#050505', border: 'none',
                 padding: '0 28px', height: '40px', fontSize: '10px',
                 letterSpacing: '0.16em', textTransform: 'uppercase',
                 cursor: !importText.trim() || importingFromText ? 'not-allowed' : 'pointer',
@@ -567,7 +567,7 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
                     </div>
                     {post.dm_reply && (
                       <div style={{
-                        background: 'rgba(176,141,87,0.06)', border: '1px solid rgba(176,141,87,0.18)',
+                        background: 'rgba(255,42,26,0.06)', border: '1px solid rgba(255,42,26,0.18)',
                         padding: '10px 14px', display: 'flex', gap: '12px', alignItems: 'flex-start',
                       }}>
                         <div style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)', flexShrink: 0, paddingTop: '1px' }}>
@@ -590,7 +590,7 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
                 onClick={saveToSignalLab}
                 disabled={saving}
                 style={{
-                  background: 'var(--gold)', color: '#070706', border: 'none',
+                  background: 'var(--gold)', color: '#050505', border: 'none',
                   padding: '0 28px', height: '40px', fontSize: '10px',
                   letterSpacing: '0.16em', textTransform: 'uppercase', cursor: saving ? 'wait' : 'pointer',
                   fontFamily: 'var(--font-mono)',
@@ -613,7 +613,7 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
             <span style={{ display: 'block', width: '20px', height: '1px', background: 'var(--gold)' }} />
             Promo
           </div>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '16px', fontWeight: 300, letterSpacing: '0.03em', marginBottom: '6px' }}>
+          <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '16px', fontWeight: 300, letterSpacing: '0.03em', marginBottom: '6px' }}>
             Service this release
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-dimmer)', marginBottom: '28px' }}>
@@ -635,7 +635,7 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
                       padding: '8px 20px', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
                       fontFamily: 'var(--font-mono)', cursor: 'pointer',
                       background: promoChannel === ch ? 'var(--gold)' : 'none',
-                      color: promoChannel === ch ? '#070706' : 'var(--text-dimmer)',
+                      color: promoChannel === ch ? '#050505' : 'var(--text-dimmer)',
                       border: promoChannel === ch ? 'none' : '1px solid var(--border-dim)',
                     }}
                   >
@@ -678,8 +678,8 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
                         }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '12px',
-                          padding: '10px 14px', border: `1px solid ${isSelected ? 'rgba(176,141,87,0.4)' : 'var(--border-dim)'}`,
-                          background: isSelected ? 'rgba(176,141,87,0.05)' : 'var(--panel)',
+                          padding: '10px 14px', border: `1px solid ${isSelected ? 'rgba(255,42,26,0.4)' : 'var(--border-dim)'}`,
+                          background: isSelected ? 'rgba(255,42,26,0.05)' : 'var(--panel)',
                           cursor: hasChannel ? 'pointer' : 'default',
                           opacity: hasChannel ? 1 : 0.4,
                         }}
@@ -689,7 +689,7 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
                           background: isSelected ? 'var(--gold)' : 'transparent', flexShrink: 0,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                          {isSelected && <span style={{ fontSize: '8px', color: '#070706', fontWeight: 'bold' }}>✓</span>}
+                          {isSelected && <span style={{ fontSize: '8px', color: '#050505', fontWeight: 'bold' }}>✓</span>}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -762,7 +762,7 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
                       }}
                       disabled={promoSending}
                       style={{
-                        background: 'var(--gold)', color: '#070706', border: 'none',
+                        background: 'var(--gold)', color: '#050505', border: 'none',
                         padding: '0 28px', height: '40px', fontSize: '10px',
                         letterSpacing: '0.16em', textTransform: 'uppercase',
                         cursor: promoSending ? 'wait' : 'pointer', fontFamily: 'var(--font-mono)',

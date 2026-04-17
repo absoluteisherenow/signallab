@@ -956,11 +956,8 @@ Rules:
   if (
     pathname === '/' ||
     pathname === '/login' ||
-    pathname === '/landing' ||
-    pathname === '/pricing' ||
-    pathname === '/pricing-preview' ||
-    pathname === '/join' ||
     pathname === '/waitlist' ||
+    pathname === '/brt' ||
     pathname === '/privacy' ||
     pathname.startsWith('/upload')
   ) return null

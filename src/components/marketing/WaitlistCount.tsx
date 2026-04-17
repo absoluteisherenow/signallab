@@ -2,7 +2,7 @@
 // Server component. Honest social proof. If the real count is under 50, we
 // suppress the number and show a personal-onboarding line instead. We never
 // fabricate the number.
-// BRT styling: red dot, DM Mono uppercase.
+// BRT styling: red dot, Helvetica Neue uppercase.
 
 import { BRT } from '@/lib/design/brt'
 

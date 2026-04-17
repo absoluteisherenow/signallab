@@ -102,24 +102,24 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
 
   // ── SUBMITTED STATE ──
   if (submitted) return (
-    <div style={{ minHeight: '100vh', background: '#070706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono', 'Courier New', monospace" }}>
-      <div style={{ textAlign: 'center', color: '#f0ebe2', padding: '24px' }}>
+    <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
+      <div style={{ textAlign: 'center', color: '#f2f2f2', padding: '24px' }}>
         <img src="/nm-emblem.png" alt="Night Manoeuvres" style={{ width: '80px', height: '80px', marginBottom: '40px', objectFit: 'contain' }} />
-        <div style={{ color: '#b08d57', fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '20px' }}>Advance confirmed</div>
+        <div style={{ color: '#ff2a1a', fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '20px' }}>Advance confirmed</div>
         <div style={{ fontSize: '28px', fontWeight: 300, marginBottom: '16px', lineHeight: 1.3 }}>Thank you</div>
         {gig && (
-          <div style={{ color: '#f0ebe2', fontSize: '15px', lineHeight: 1.6, marginBottom: '12px' }}>
+          <div style={{ color: '#f2f2f2', fontSize: '15px', lineHeight: 1.6, marginBottom: '12px' }}>
             {gig.title}
           </div>
         )}
-        <div style={{ color: '#8a8780', fontSize: '14px', lineHeight: 1.6 }}>We've got everything we need.<br />See you at the show.</div>
+        <div style={{ color: '#909090', fontSize: '14px', lineHeight: 1.6 }}>We've got everything we need.<br />See you at the show.</div>
       </div>
     </div>
   )
 
   // ── MAIN FORM ──
   return (
-    <div style={{ minHeight: '100vh', background: '#070706', color: '#f0ebe2', fontFamily: "'DM Mono', 'Courier New', monospace", padding: '48px 24px' }}>
+    <div style={{ minHeight: '100vh', background: '#050505', color: '#f2f2f2', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", padding: '48px 24px' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 
         {/* NM Emblem */}
@@ -129,7 +129,7 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
 
         {/* Header */}
         <div style={{ marginBottom: '48px' }}>
-          <div style={{ color: '#c9a46e', fontSize: '12px', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '12px' }}>Show advance</div>
+          <div style={{ color: '#ff2a1a', fontSize: '12px', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '12px' }}>Show advance</div>
           {gig ? (
             <>
               <div style={{ fontSize: '24px', fontWeight: 400, marginBottom: '10px', lineHeight: 1.3, color: '#ffffff' }}>{gig.title}</div>
@@ -171,7 +171,7 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
               {/* We bring */}
               {weBringLines && (
                 <>
-                  <div style={{ fontSize: '11px', letterSpacing: '0.15em', color: '#8a8780', textTransform: 'uppercase', marginBottom: '10px', marginTop: '20px' }}>We bring (no action needed)</div>
+                  <div style={{ fontSize: '11px', letterSpacing: '0.15em', color: '#909090', textTransform: 'uppercase', marginBottom: '10px', marginTop: '20px' }}>We bring (no action needed)</div>
                   <div style={{ ...riderBox, opacity: 0.7, borderStyle: 'dashed' as const }}>
                     {weBringLines.split('\n').filter(l => l.trim()).map((line, i) => (
                       <div key={i} style={{ padding: '6px 0', fontSize: '14px', lineHeight: 1.7, color: '#b0ada6' }}>
@@ -179,7 +179,7 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                       </div>
                     ))}
                     {synthSpec && (
-                      <div style={{ padding: '10px 0 2px', fontSize: '12px', color: '#6a6862', borderTop: '1px solid #2e2c29', marginTop: '8px' }}>
+                      <div style={{ padding: '10px 0 2px', fontSize: '12px', color: '#6a6862', borderTop: '1px solid #222222', marginTop: '8px' }}>
                         Synth dimensions: {synthSpec}
                       </div>
                     )}
@@ -190,10 +190,10 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
               <label style={confirmRow} onClick={() => setTechConfirmed(!techConfirmed)}>
                 <div style={{
                   ...checkbox,
-                  background: techConfirmed ? '#b08d57' : 'transparent',
-                  borderColor: techConfirmed ? '#b08d57' : '#3a3835',
+                  background: techConfirmed ? '#ff2a1a' : 'transparent',
+                  borderColor: techConfirmed ? '#ff2a1a' : '#3a3835',
                 }}>
-                  {techConfirmed && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
+                  {techConfirmed && <span style={{ fontSize: '12px', color: '#050505', fontWeight: 700 }}>✓</span>}
                 </div>
                 <span style={{ fontSize: '14px', color: techConfirmed ? '#ffffff' : '#b0ada6' }}>
                   Confirmed — we can provide this
@@ -217,10 +217,10 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
             <label style={confirmRow} onClick={() => setHospoConfirmed(!hospoConfirmed)}>
               <div style={{
                 ...checkbox,
-                background: hospoConfirmed ? '#b08d57' : 'transparent',
-                borderColor: hospoConfirmed ? '#b08d57' : '#3a3835',
+                background: hospoConfirmed ? '#ff2a1a' : 'transparent',
+                borderColor: hospoConfirmed ? '#ff2a1a' : '#3a3835',
               }}>
-                {hospoConfirmed && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
+                {hospoConfirmed && <span style={{ fontSize: '12px', color: '#050505', fontWeight: 700 }}>✓</span>}
               </div>
               <span style={{ fontSize: '14px', color: hospoConfirmed ? '#ffffff' : '#b0ada6' }}>
                 Confirmed — we can provide this
@@ -245,8 +245,8 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                       onChange={e => setForm(p => ({ ...p, [field.key]: e.target.value }))}
                       placeholder={field.placeholder}
                       style={inputStyle}
-                      onFocus={e => e.target.style.borderColor = '#b08d57'}
-                      onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                      onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                      onBlur={e => e.target.style.borderColor = '#222222'}
                     />
                   </div>
                 ))}
@@ -264,10 +264,10 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
               <label style={confirmRow} onClick={() => setAccomProvided(!accomProvided)}>
                 <div style={{
                   ...checkbox,
-                  background: accomProvided ? '#b08d57' : 'transparent',
-                  borderColor: accomProvided ? '#b08d57' : '#3a3835',
+                  background: accomProvided ? '#ff2a1a' : 'transparent',
+                  borderColor: accomProvided ? '#ff2a1a' : '#3a3835',
                 }}>
-                  {accomProvided && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
+                  {accomProvided && <span style={{ fontSize: '12px', color: '#050505', fontWeight: 700 }}>✓</span>}
                 </div>
                 <span style={{ fontSize: '14px', color: accomProvided ? '#ffffff' : '#b0ada6' }}>
                   Is accommodation being provided?
@@ -288,8 +288,8 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                         onChange={e => setForm(p => ({ ...p, [field.key]: e.target.value }))}
                         placeholder={field.placeholder}
                         style={inputStyle}
-                        onFocus={e => e.target.style.borderColor = '#b08d57'}
-                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                        onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                        onBlur={e => e.target.style.borderColor = '#222222'}
                       />
                     </div>
                   ))}
@@ -303,8 +303,8 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                         value={form.hotel_checkin_date || ''}
                         onChange={e => setForm(p => ({ ...p, hotel_checkin_date: e.target.value }))}
                         style={{ ...inputStyle, colorScheme: 'dark' }}
-                        onFocus={e => e.target.style.borderColor = '#b08d57'}
-                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                        onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                        onBlur={e => e.target.style.borderColor = '#222222'}
                       />
                     </div>
                     <div style={{ flex: 1 }}>
@@ -316,8 +316,8 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                         onChange={e => setForm(p => ({ ...p, hotel_checkin_time: e.target.value }))}
                         placeholder="e.g. 14:00"
                         style={inputStyle}
-                        onFocus={e => e.target.style.borderColor = '#b08d57'}
-                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                        onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                        onBlur={e => e.target.style.borderColor = '#222222'}
                       />
                     </div>
                   </div>
@@ -330,8 +330,8 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                       onChange={e => setForm(p => ({ ...p, hotel_reference: e.target.value }))}
                       placeholder="Booking reference"
                       style={inputStyle}
-                      onFocus={e => e.target.style.borderColor = '#b08d57'}
-                      onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                      onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                      onBlur={e => e.target.style.borderColor = '#222222'}
                     />
                   </div>
                 </div>
@@ -344,10 +344,10 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
               <label style={confirmRow} onClick={() => setTransferProvided(!transferProvided)}>
                 <div style={{
                   ...checkbox,
-                  background: transferProvided ? '#b08d57' : 'transparent',
-                  borderColor: transferProvided ? '#b08d57' : '#3a3835',
+                  background: transferProvided ? '#ff2a1a' : 'transparent',
+                  borderColor: transferProvided ? '#ff2a1a' : '#3a3835',
                 }}>
-                  {transferProvided && <span style={{ fontSize: '12px', color: '#070706', fontWeight: 700 }}>✓</span>}
+                  {transferProvided && <span style={{ fontSize: '12px', color: '#050505', fontWeight: 700 }}>✓</span>}
                 </div>
                 <span style={{ fontSize: '14px', color: transferProvided ? '#ffffff' : '#b0ada6' }}>
                   Is a pickup being arranged?
@@ -365,8 +365,8 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                         onChange={e => setForm(p => ({ ...p, transfer_driver_name: e.target.value }))}
                         placeholder="Name"
                         style={inputStyle}
-                        onFocus={e => e.target.style.borderColor = '#b08d57'}
-                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                        onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                        onBlur={e => e.target.style.borderColor = '#222222'}
                       />
                     </div>
                     <div style={{ flex: 1 }}>
@@ -378,8 +378,8 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                         onChange={e => setForm(p => ({ ...p, transfer_driver_phone: e.target.value }))}
                         placeholder="+44 7700 000000"
                         style={inputStyle}
-                        onFocus={e => e.target.style.borderColor = '#b08d57'}
-                        onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                        onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                        onBlur={e => e.target.style.borderColor = '#222222'}
                       />
                     </div>
                   </div>
@@ -392,8 +392,8 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                       onChange={e => setForm(p => ({ ...p, transfer_pickup_location: e.target.value }))}
                       placeholder="e.g. Berlin Tegel arrivals"
                       style={inputStyle}
-                      onFocus={e => e.target.style.borderColor = '#b08d57'}
-                      onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                      onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                      onBlur={e => e.target.style.borderColor = '#222222'}
                     />
                   </div>
                   <div>
@@ -405,8 +405,8 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                       onChange={e => setForm(p => ({ ...p, transfer_pickup_time: e.target.value }))}
                       placeholder="e.g. 14:30"
                       style={inputStyle}
-                      onFocus={e => e.target.style.borderColor = '#b08d57'}
-                      onBlur={e => e.target.style.borderColor = '#2e2c29'}
+                      onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                      onBlur={e => e.target.style.borderColor = '#222222'}
                     />
                   </div>
                 </div>
@@ -421,10 +421,10 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
           disabled={submitting || !allConfirmed || !hasRequiredFields}
           style={{
             width: '100%',
-            background: (allConfirmed && hasRequiredFields) ? '#b08d57' : '#2e2c29',
-            color: (allConfirmed && hasRequiredFields) ? '#070706' : '#6a6862',
+            background: (allConfirmed && hasRequiredFields) ? '#ff2a1a' : '#222222',
+            color: (allConfirmed && hasRequiredFields) ? '#050505' : '#6a6862',
             border: 'none',
-            fontFamily: "'DM Mono', 'Courier New', monospace",
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
             fontSize: '12px',
             letterSpacing: '0.2em',
             textTransform: 'uppercase',
@@ -439,17 +439,17 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
         </button>
 
         {/* Signal Lab OS footer */}
-        <div style={{ marginTop: '64px', paddingTop: '24px', borderTop: '1px solid #1a1917', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: '48px' }}>
-          <div style={{ fontSize: '9px', color: '#52504c', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '10px' }}>Powered by</div>
+        <div style={{ marginTop: '64px', paddingTop: '24px', borderTop: '1px solid #1d1d1d', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: '48px' }}>
+          <div style={{ fontSize: '9px', color: '#909090', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '10px' }}>Powered by</div>
           <a href="https://signallabos.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" strokeWidth="1.5" opacity="0.25"/>
-                <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" strokeWidth="1.5" opacity="0.25"/>
+                <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </svg>
-              <span style={{ fontFamily: "'Unbounded', Arial, sans-serif", fontWeight: 200, fontSize: '10px', color: '#b08d57', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Signal Lab OS</span>
+              <span style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontWeight: 200, fontSize: '10px', color: '#ff2a1a', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Signal Lab OS</span>
             </div>
-            <span style={{ fontSize: '9px', color: '#52504c', letterSpacing: '0.1em' }}>Join the waitlist</span>
+            <span style={{ fontSize: '9px', color: '#909090', letterSpacing: '0.1em' }}>Join the waitlist</span>
           </a>
         </div>
       </div>
@@ -462,7 +462,7 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
 const sectionHeader: React.CSSProperties = {
   fontSize: '12px',
   letterSpacing: '0.25em',
-  color: '#c9a46e',
+  color: '#ff2a1a',
   textTransform: 'uppercase',
   marginBottom: '16px',
   paddingBottom: '12px',
@@ -500,7 +500,7 @@ const inputStyle: React.CSSProperties = {
   background: '#141310',
   border: '1px solid #3a3835',
   color: '#ffffff',
-  fontFamily: "'DM Mono', 'Courier New', monospace",
+  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
   fontSize: '14px',
   padding: '14px 16px',
   outline: 'none',

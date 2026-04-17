@@ -18,9 +18,13 @@ interface R2Object {
 interface R2ObjectBody extends R2Object {
   body: ReadableStream
 }
+interface R2GetOptions {
+  range?: { offset?: number; length?: number; suffix?: number }
+}
 interface R2Bucket {
   put(key: string, value: ArrayBuffer | ReadableStream, options?: { httpMetadata?: { contentType?: string } }): Promise<R2Object>
-  get(key: string): Promise<R2ObjectBody | null>
+  get(key: string, options?: R2GetOptions): Promise<R2ObjectBody | null>
+  head(key: string): Promise<R2Object | null>
   list(options?: { prefix?: string }): Promise<{ objects: R2Object[] }>
   delete(key: string): Promise<void>
 }
@@ -127,6 +131,72 @@ export async function getFile(key: string): Promise<{ body: ReadableStream; cont
   }
 
   return getFromSupabaseFallback(key)
+}
+
+/**
+ * Range-aware stream fetch for audio streaming.
+ * If `range` is provided, returns the partial object with status 206 fields.
+ * Falls back to Supabase Storage in dev (serves full body regardless of range).
+ */
+export async function getR2Stream(
+  key: string,
+  range?: { offset: number; length?: number }
+): Promise<{
+  body: ReadableStream
+  contentType: string
+  totalSize: number
+  rangeStart: number
+  rangeEnd: number
+  isPartial: boolean
+} | null> {
+  const bucket = await getBucket()
+
+  if (bucket) {
+    // First HEAD for total size
+    const head = await bucket.head(key)
+    if (!head) return null
+    const totalSize = head.size
+    const contentType = head.httpMetadata?.contentType || 'application/octet-stream'
+
+    if (range) {
+      const offset = Math.max(0, range.offset)
+      const length = range.length ?? totalSize - offset
+      const end = Math.min(totalSize - 1, offset + length - 1)
+      const obj = await bucket.get(key, { range: { offset, length: end - offset + 1 } })
+      if (!obj) return null
+      return {
+        body: obj.body as unknown as ReadableStream,
+        contentType,
+        totalSize,
+        rangeStart: offset,
+        rangeEnd: end,
+        isPartial: true,
+      }
+    }
+
+    const obj = await bucket.get(key)
+    if (!obj) return null
+    return {
+      body: obj.body as unknown as ReadableStream,
+      contentType,
+      totalSize,
+      rangeStart: 0,
+      rangeEnd: totalSize - 1,
+      isPartial: false,
+    }
+  }
+
+  // Dev fallback: serve whole file, ignore range
+  const fallback = await getFromSupabaseFallback(key)
+  if (!fallback) return null
+  return {
+    body: fallback.body,
+    contentType: fallback.contentType,
+    totalSize: 0,
+    rangeStart: 0,
+    rangeEnd: 0,
+    isPartial: false,
+  }
 }
 
 // ── Supabase Storage fallback (dev only) ─────────────────────────────────────

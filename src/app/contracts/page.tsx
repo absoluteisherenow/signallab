@@ -143,7 +143,7 @@ export default function Contracts() {
       <div style={{padding:'32px 48px'}}>
 
       {/* EMAIL WORKFLOW BANNER */}
-      <div style={{background:'rgba(176, 141, 87, 0.06)',border:'1px solid rgba(176, 141, 87, 0.25)',padding:'16px 24px',marginBottom:'20px',borderRadius:'4px'}}>
+      <div style={{background:'rgba(255, 42, 26, 0.06)',border:'1px solid rgba(255, 42, 26, 0.25)',padding:'16px 24px',marginBottom:'20px',borderRadius:'4px'}}>
         <div style={{fontSize:'10px',letterSpacing:'0.15em',color:'var(--gold)',textTransform:'uppercase',marginBottom:'8px'}}>💌 Faster way</div>
         <div style={{fontSize:'12px',color:'var(--text)',lineHeight:'1.6'}}>
           Forward booking emails to your Signal Lab inbox — gigs and invoices are created automatically in Tour Lab. No copy/paste needed.

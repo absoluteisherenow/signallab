@@ -57,11 +57,11 @@ export function NotificationBell() {
           border: '1px solid transparent',
           cursor: 'pointer',
           padding: '10px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: ringing ? '#ff2a1a' : '#8a8780', transition: 'color 0.3s',
+          color: ringing ? '#ff2a1a' : '#909090', transition: 'color 0.3s',
           borderRadius: 0,
         }}
         onMouseEnter={e => { e.currentTarget.style.color = '#ff2a1a'; e.currentTarget.style.background = 'rgba(255,42,26,0.06)' }}
-        onMouseLeave={e => { e.currentTarget.style.color = ringing ? '#ff2a1a' : '#8a8780'; e.currentTarget.style.background = 'none' }}
+        onMouseLeave={e => { e.currentTarget.style.color = ringing ? '#ff2a1a' : '#909090'; e.currentTarget.style.background = 'none' }}
         title="Notifications"
       >
         <svg

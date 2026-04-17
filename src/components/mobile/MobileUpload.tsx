@@ -46,7 +46,7 @@ export default function MobileUpload() {
     <div style={{ background: s.bg, minHeight: '100vh', fontFamily: s.font, color: s.text, paddingBottom: '80px' }}>
 
       <div style={{ padding: '20px 16px 16px' }}>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '26px', fontWeight: 300, marginBottom: '6px' }}>
+        <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '26px', fontWeight: 300, marginBottom: '6px' }}>
           Content
         </div>
         <div style={{ fontSize: '12px', color: s.dimmer }}>

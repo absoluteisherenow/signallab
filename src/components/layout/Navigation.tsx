@@ -19,22 +19,22 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: '',
     items: [
-      { label: 'Dashboard', href: '/dashboard', sub: [] },
+      { label: 'Today', href: '/today', sub: [] },
     ],
   },
   {
     label: '',
     items: [
       { label: 'Broadcast Lab', href: '/broadcast', sub: [] },
-      { label: 'Set Lab', href: '/setlab', sub: [] },
-      { label: 'SONIX Lab', href: '/sonix', sub: [] },
       { label: 'Tour Lab', href: '/gigs', sub: [] },
+      { label: 'Set Lab', href: '/setlab', sub: [] },
+      { label: 'Sonix Lab', href: '/sonix', sub: [] },
       { label: 'Drop Lab', href: '/releases', sub: [] },
     ],
   },
 ]
 
-const HIDDEN_ROUTES = ['/', '/pricing', '/pricing-preview', '/brt', '/login', '/onboarding', '/mobile', '/join', '/privacy', '/upload']
+const HIDDEN_ROUTES = ['/', '/waitlist', '/brt', '/login', '/onboarding', '/mobile', '/privacy', '/upload', '/nm-pitch']
 
 export function Navigation() {
   const pathname = usePathname()
@@ -92,7 +92,7 @@ export function Navigation() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith('/join/') || pathname.startsWith('/go/')) {
+  if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith('/go/')) {
     return null
   }
 
@@ -152,8 +152,8 @@ export function Navigation() {
               onClick={() => setShowAliasSwitcher(!showAliasSwitcher)}
               style={{
                 width: '100%',
-                background: 'rgba(176,141,87,0.06)',
-                border: '1px solid rgba(176,141,87,0.2)',
+                background: 'rgba(255,42,26,0.06)',
+                border: '1px solid rgba(255,42,26,0.2)',
                 padding: '8px 12px',
                 display: 'flex',
                 alignItems: 'center',
@@ -191,7 +191,7 @@ export function Navigation() {
                   style={{
                     width: '100%',
                     padding: '10px 14px',
-                    background: !activeAliasId ? 'rgba(176,141,87,0.08)' : 'transparent',
+                    background: !activeAliasId ? 'rgba(255,42,26,0.08)' : 'transparent',
                     border: 'none',
                     borderBottom: '1px solid var(--border-dim)',
                     color: !activeAliasId ? 'var(--gold)' : 'var(--text-dimmer)',
@@ -202,8 +202,8 @@ export function Navigation() {
                     cursor: 'pointer',
                     transition: 'background 0.12s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(176,141,87,0.06)'}
-                  onMouseLeave={e => e.currentTarget.style.background = !activeAliasId ? 'rgba(176,141,87,0.08)' : 'transparent'}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,42,26,0.06)'}
+                  onMouseLeave={e => e.currentTarget.style.background = !activeAliasId ? 'rgba(255,42,26,0.08)' : 'transparent'}
                 >
                   {artistName} <span style={{ color: 'var(--text-dimmest)', fontSize: 9 }}>(primary)</span>
                 </button>
@@ -221,7 +221,7 @@ export function Navigation() {
                       style={{
                         width: '100%',
                         padding: '10px 14px',
-                        background: isActive ? 'rgba(176,141,87,0.08)' : 'transparent',
+                        background: isActive ? 'rgba(255,42,26,0.08)' : 'transparent',
                         border: 'none',
                         borderBottom: '1px solid var(--border-dim)',
                         color: isActive ? 'var(--gold)' : 'var(--text-dimmer)',
@@ -232,8 +232,8 @@ export function Navigation() {
                         cursor: 'pointer',
                         transition: 'background 0.12s',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(176,141,87,0.06)'}
-                      onMouseLeave={e => e.currentTarget.style.background = isActive ? 'rgba(176,141,87,0.08)' : 'transparent'}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,42,26,0.06)'}
+                      onMouseLeave={e => e.currentTarget.style.background = isActive ? 'rgba(255,42,26,0.08)' : 'transparent'}
                     >
                       {alias.name} {alias.genre && <span style={{ color: 'var(--text-dimmest)', fontSize: 9 }}>({alias.genre})</span>}
                     </button>

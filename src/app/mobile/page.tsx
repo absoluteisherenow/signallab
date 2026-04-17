@@ -38,7 +38,7 @@ export default function MobilePage() {
           <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
             <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>
+          <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>
             Signal Lab Mobile
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function MobilePage() {
           </div>
         </div>
 
-        <div style={{ background: 'linear-gradient(135deg, rgba(176,141,87,0.08) 0%, rgba(176,141,87,0.02) 100%)', border: `1px solid ${s.gold}30`, padding: '32px' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(255,42,26,0.08) 0%, rgba(255,42,26,0.02) 100%)', border: `1px solid ${s.gold}30`, padding: '32px' }}>
           <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px' }}>
             Get it on your phone
           </div>
@@ -91,7 +91,7 @@ export default function MobilePage() {
               {appUrl}
             </div>
             <button onClick={copyLink} style={{
-              background: s.gold, color: '#070706', border: 'none',
+              background: s.gold, color: '#050505', border: 'none',
               padding: '12px 20px', fontSize: '10px', letterSpacing: '0.14em',
               textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer', flexShrink: 0,
             }}>

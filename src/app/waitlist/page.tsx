@@ -1,6 +1,6 @@
 // ── Marketing page (canonical /) ────────────────────────────────────────────
 // BRT design language (src/lib/design/brt.ts). Helvetica 900 uppercase display,
-// DM Mono body, Circoloco red accent, ticket-style cards with hairline gutters.
+// Helvetica Neue body, Circoloco red accent, ticket-style cards with hairline gutters.
 // Composed of the canonical /brt sections + the new additions from the plan:
 // 5 hero moments with LIVE/BETA honesty, animated scan demo, 3-field waitlist,
 // live count, flow diagram, hard pricing limits, closing slab.

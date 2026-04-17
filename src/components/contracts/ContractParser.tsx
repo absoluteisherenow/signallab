@@ -35,7 +35,7 @@ export default function ContractParser() {
   const s = {
     bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
     gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)',
-    font: "'DM Mono', monospace",
+    font: "'Helvetica Neue', Helvetica, Arial, sans-serif",
   }
 
   const inputStyle = {
@@ -194,7 +194,7 @@ If any field is not found, use null for strings and 0 for numbers.`
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
           Tour Lab — Contracts
         </div>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '8px' }}>
+        <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '8px' }}>
           Contract <span style={{ color: s.gold }}>parser</span>
         </div>
         <div style={{ fontSize: '14px', color: s.dimmer, lineHeight: '1.7' }}>
@@ -204,7 +204,7 @@ If any field is not found, use null for strings and 0 for numbers.`
 
       {done ? (
         <div style={{ background: s.panel, border: `1px solid ${s.gold}40`, padding: '48px', textAlign: 'center', maxWidth: '600px' }}>
-          <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '22px', fontWeight: 300, color: s.gold, marginBottom: '12px' }}>
+          <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '22px', fontWeight: 300, color: s.gold, marginBottom: '12px' }}>
             Done — gig and invoices created
           </div>
           <div style={{ fontSize: '13px', color: s.dim, marginBottom: '32px', lineHeight: '1.7' }}>
@@ -213,7 +213,7 @@ If any field is not found, use null for strings and 0 for numbers.`
              (contract?.deposit_amount ?? 0) > 0 ? 'a deposit invoice' : 'an invoice'} ready to track.
           </div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <button onClick={() => router.push('/gigs')} style={{ background: s.gold, color: '#070706', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer' }}>
+            <button onClick={() => router.push('/gigs')} style={{ background: s.gold, color: '#050505', border: 'none', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer' }}>
               View gigs →
             </button>
             <button onClick={() => router.push('/business/finances')} style={{ background: 'transparent', color: s.dim, border: `1px solid ${s.border}`, fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer' }}>
@@ -251,7 +251,7 @@ If any field is not found, use null for strings and 0 for numbers.`
 
           <button onClick={parseContract} disabled={!file || parsing} style={{
             background: file && !parsing ? s.gold : 'transparent',
-            color: file && !parsing ? '#070706' : s.dimmer,
+            color: file && !parsing ? '#050505' : s.dimmer,
             border: `1px solid ${file && !parsing ? s.gold : s.border}`,
             fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
             textTransform: 'uppercase', padding: '16px 36px',
@@ -259,7 +259,7 @@ If any field is not found, use null for strings and 0 for numbers.`
             display: 'flex', alignItems: 'center', gap: '12px',
             width: '100%', justifyContent: 'center',
           }}>
-            {parsing && <div style={{ width: '12px', height: '12px', border: `1px solid #070706`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+            {parsing && <div style={{ width: '12px', height: '12px', border: `1px solid #050505`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
             {parsing ? 'Reading contract...' : 'Parse contract →'}
           </button>
 
@@ -342,7 +342,7 @@ If any field is not found, use null for strings and 0 for numbers.`
           <div style={{ display: 'flex', gap: '12px' }}>
             <button onClick={createFromContract} disabled={creating} style={{
               background: creating ? s.panel : s.gold,
-              color: creating ? s.dimmer : '#070706',
+              color: creating ? s.dimmer : '#050505',
               border: `1px solid ${creating ? s.border : s.gold}`,
               fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
               textTransform: 'uppercase', padding: '16px 36px',

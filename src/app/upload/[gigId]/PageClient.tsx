@@ -283,7 +283,7 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
               style={{
                 ...styles.dropZone,
                 borderColor: dragOver ? 'var(--gold)' : 'var(--border)',
-                background: dragOver ? 'rgba(176,141,87,0.06)' : 'var(--bg)',
+                background: dragOver ? 'rgba(255,42,26,0.06)' : 'var(--bg)',
               }}
               onDragOver={e => { e.preventDefault(); setDragOver(true) }}
               onDragLeave={() => setDragOver(false)}
@@ -504,9 +504,9 @@ const styles: Record<string, React.CSSProperties> = {
   btnPrimary: {
     width: '100%',
     height: 44,
-    background: 'rgba(176,141,87,0.15)',
+    background: 'rgba(255,42,26,0.15)',
     color: 'var(--gold-bright)',
-    border: '1px solid rgba(176,141,87,0.35)',
+    border: '1px solid rgba(255,42,26,0.35)',
     fontFamily: 'var(--font-mono)',
     fontSize: 10,
     letterSpacing: '0.16em',

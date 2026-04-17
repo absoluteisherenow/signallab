@@ -228,7 +228,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                   paddingTop: wp.isHero ? 0 : 1,
                   fontSize: wp.isHero ? (compact ? 20 : 18) : (compact ? 16 : 13),
                   fontWeight: wp.isHero ? 800 : 700,
-                  color: wp.isHero ? 'var(--gold, #ff2a1a)' : 'var(--text-dim, #8a8780)',
+                  color: wp.isHero ? 'var(--gold, #ff2a1a)' : 'var(--text-dim, #909090)',
                   letterSpacing: wp.isHero ? '-0.035em' : '0.04em',
                   textTransform: wp.isHero ? 'uppercase' : undefined,
                   lineHeight: wp.isHero ? 0.9 : undefined,
@@ -273,7 +273,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: 9,
-                      color: 'var(--text-dimmer, #52504c)',
+                      color: 'var(--text-dimmer, #909090)',
                       marginTop: 3,
                     }}
                   >
@@ -321,14 +321,14 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
                 </div>
 
                 {!compact && wp.detail && (
-                  <div style={{ fontSize: 12, color: 'var(--text-dim, #8a8780)', marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim, #909090)', marginTop: 2 }}>
                     {wp.detailLink ? (
                       <a
                         href={wp.detailLink}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
-                          color: 'var(--text-dim, #8a8780)',
+                          color: 'var(--text-dim, #909090)',
                           textDecoration: 'none',
                         }}
                       >
@@ -384,7 +384,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
               fontSize: 10,
               letterSpacing: '0.22em',
               textTransform: 'uppercase' as const,
-              color: 'var(--text-dim, #8a8780)',
+              color: 'var(--text-dim, #909090)',
               marginBottom: 14,
               fontWeight: 700,
             }}
@@ -402,7 +402,7 @@ export default function GigDayTimeline({ gig, travelBookings, compact = false }:
           >
             {contacts.map((c) => (
               <div key={c.phone} style={{ minHeight: compact ? 44 : undefined }}>
-                <div style={{ fontSize: 12, color: 'var(--text-dim, #8a8780)', marginBottom: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-dim, #909090)', marginBottom: 2 }}>
                   {c.role}
                 </div>
                 <a

@@ -67,26 +67,26 @@ async function buildEmailData(id: string, toOverride?: string) {
   const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@200;300&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
 <style>
-body { font-family: 'DM Mono', 'Courier New', monospace; color: #070706; background: #fff; padding: 40px; max-width: 600px; margin: 0 auto; font-size: 14px; font-weight: 400; }
-.header { border-bottom: 1.5px solid #070706; padding-bottom: 16px; margin-bottom: 28px; }
-.artist { font-family: 'Unbounded', Arial, sans-serif; font-weight: 200; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: #070706; }
-.body-text { font-size: 14px; line-height: 1.8; color: #52504c; margin-bottom: 28px; font-weight: 300; }
-.body-text strong { color: #070706; font-weight: 500; }
-.box { background: #070706; color: #f0ebe2; padding: 20px 24px; margin: 24px 0; display: flex; justify-content: space-between; align-items: flex-start; border-top: 2px solid #b08d57; }
-.box-label { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(240,235,226,0.45); margin-bottom: 4px; font-weight: 300; }
-.box-value { font-family: 'Unbounded', Arial, sans-serif; font-weight: 300; font-size: 22px; color: #f0ebe2; }
-.box-meta { font-size: 11px; color: rgba(240,235,226,0.45); margin-top: 4px; font-weight: 300; }
-.btn { display: inline-block; background: #070706; color: #f0ebe2; text-decoration: none; padding: 14px 28px; font-family: 'DM Mono', 'Courier New', monospace; font-size: 11px; font-weight: 300; letter-spacing: 0.18em; text-transform: uppercase; margin: 8px 0; border-left: 3px solid #b08d57; }
-.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e8e3da; font-size: 10px; color: #8a8780; line-height: 1.8; font-weight: 300; }
+body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #050505; background: #fff; padding: 40px; max-width: 600px; margin: 0 auto; font-size: 14px; font-weight: 400; }
+.header { border-bottom: 1.5px solid #050505; padding-bottom: 16px; margin-bottom: 28px; }
+.artist { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 200; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: #050505; }
+.body-text { font-size: 14px; line-height: 1.8; color: #909090; margin-bottom: 28px; font-weight: 300; }
+.body-text strong { color: #050505; font-weight: 500; }
+.box { background: #050505; color: #f2f2f2; padding: 20px 24px; margin: 24px 0; display: flex; justify-content: space-between; align-items: flex-start; border-top: 2px solid #ff2a1a; }
+.box-label { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(242,242,242,0.45); margin-bottom: 4px; font-weight: 300; }
+.box-value { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 300; font-size: 22px; color: #f2f2f2; }
+.box-meta { font-size: 11px; color: rgba(242,242,242,0.45); margin-top: 4px; font-weight: 300; }
+.btn { display: inline-block; background: #050505; color: #f2f2f2; text-decoration: none; padding: 14px 28px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 300; letter-spacing: 0.18em; text-transform: uppercase; margin: 8px 0; border-left: 3px solid #ff2a1a; }
+.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #222; font-size: 10px; color: #909090; line-height: 1.8; font-weight: 300; }
 </style></head>
 <body>
 <div class="header">
   <div style="display:flex;align-items:center;gap:12px">
     <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#070706" stroke-width="1.2" opacity="0.12"/>
-      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#070706" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#050505" stroke-width="1.2" opacity="0.12"/>
+      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#050505" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </svg>
     <div class="artist">${artistName}</div>
   </div>
@@ -104,25 +104,25 @@ body { font-family: 'DM Mono', 'Courier New', monospace; color: #070706; backgro
   </div>
   <div style="text-align:right">
     <div class="box-label">Due</div>
-    <div style="font-size:14px;color:#c9a96e;margin-top:4px;font-weight:500">${dueDate}</div>
+    <div style="font-size:14px;color:#ff2a1a;margin-top:4px;font-weight:500">${dueDate}</div>
   </div>
 </div>
-<p style="margin:24px 0 8px;font-size:13px;color:#52504c;font-weight:300">View full invoice with payment details:</p>
+<p style="margin:24px 0 8px;font-size:13px;color:#909090;font-weight:300">View full invoice with payment details:</p>
 <a href="${invoiceUrl}" class="btn">View Invoice →</a>
 <div class="footer">
   Reference: ${invoiceNumber}<br>
   ${payment.address ? payment.address.replace(/\n/g, ' · ') + '<br>' : ''}
   ${payment.vat_number ? `VAT / Tax: ${payment.vat_number}<br>` : ''}
 </div>
-<div style="margin-top:24px;padding-top:20px;border-top:1px solid #e8e3da;text-align:center">
+<div style="margin-top:24px;padding-top:20px;border-top:1px solid #222;text-align:center">
   <a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none">
     <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
-      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.25"/>
-      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" stroke-width="1.5" opacity="0.25"/>
+      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </svg>
-    <span style="font-family:'Unbounded',Arial,sans-serif;font-weight:200;font-size:10px;color:#b08d57;letter-spacing:0.12em;text-transform:uppercase;vertical-align:middle">Signal Lab OS</span>
+    <span style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:200;font-size:10px;color:#ff2a1a;letter-spacing:0.12em;text-transform:uppercase;vertical-align:middle">Signal Lab OS</span>
   </a>
-  <div style="font-size:9px;color:#8a8780;margin-top:6px;font-weight:300">Tailored Artist OS platform for electronic music</div>
+  <div style="font-size:9px;color:#909090;margin-top:6px;font-weight:300">Tailored Artist OS platform for electronic music</div>
 </div>
 </body>
 </html>`

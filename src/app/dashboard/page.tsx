@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import SignalBar from '@/components/SignalBar'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { useMobile } from '@/hooks/useMobile'
 import MobileShell from '@/components/mobile/MobileShell'
@@ -163,6 +162,11 @@ export default function Dashboard() {
   const [chaseToast, setChaseToast] = useState<string | null>(null)
   const [chasingGigId, setChasingGigId] = useState<string | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [tasks, setTasks] = useState<{ id: string; text: string; done: boolean }[]>([])
+  const [addingTask, setAddingTask] = useState(false)
+  const [newTask, setNewTask] = useState('')
+  const [tracksCount, setTracksCount] = useState(0)
+  const [releasesCount, setReleasesCount] = useState(0)
 
   // Track ID state
   const [trackIdPhase, setTrackIdPhase] = useState<'idle' | 'listening' | 'identifying' | 'found' | 'not_found'>('idle')
@@ -297,6 +301,14 @@ export default function Dashboard() {
         setUnreadCount(d.unread || 0)
       }).catch(() => {}),
 
+      fetch('/api/tracks').then(r => r.json()).then(d => {
+        setTracksCount((d.tracks || []).length)
+      }).catch(() => {}),
+
+      fetch('/api/releases').then(r => r.json()).then(d => {
+        setReleasesCount((d.releases || []).length)
+      }).catch(() => {}),
+
       fetch('/api/schedule').then(r => r.json()).then(d => {
         const posts: ScheduledPost[] = d.posts || []
         setAllPosts(posts)
@@ -402,6 +414,13 @@ export default function Dashboard() {
       } catch { /* silent */ }
     }
     loadSets()
+  }, [])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('dashboard-tasks')
+      if (stored) setTasks(JSON.parse(stored))
+    } catch { /* silent */ }
   }, [])
 
   const greeting = !now ? '' : now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
@@ -777,7 +796,7 @@ export default function Dashboard() {
               rel="noopener noreferrer"
               style={{
                 display: 'inline-block',
-                border: '1px solid rgba(176,141,87,0.3)',
+                border: '1px solid rgba(255,42,26,0.3)',
                 color: 'var(--gold)',
                 padding: '14px 28px',
                 fontSize: '11px',
@@ -793,7 +812,7 @@ export default function Dashboard() {
               href={`/gig-pass/${tonightGig.id}`}
               style={{
                 display: 'inline-block',
-                border: '1px solid rgba(176,141,87,0.3)',
+                border: '1px solid rgba(255,42,26,0.3)',
                 color: 'var(--gold)',
                 padding: '14px 28px',
                 fontSize: '11px',
@@ -814,286 +833,314 @@ export default function Dashboard() {
     )
   }
 
-  // ── Build contextual status for each card ──
-  const nextGig = upcomingGigs[0]
-  const nextGigLabel = nextGig
-    ? `${nextGig.venue || nextGig.title} · ${daysUntil(nextGig.date) === 0 ? 'Tonight' : daysUntil(nextGig.date) === 1 ? 'Tomorrow' : `${daysUntil(nextGig.date)} days`}`
-    : null
-  const invoiceAlert = overdueInvoices.length > 0
-    ? `${overdueInvoices.length} overdue`
-    : null
-
-  const launchCards: { href: string; label: string; title: string; desc: string; accent: string; status?: string; statusColor?: string }[] = [
-    {
-      href: nextGig ? `/gigs/${nextGig.id}` : '/gigs/new',
-      label: 'Tour Lab', accent: 'var(--gold)',
-      title: nextGig ? nextGig.venue || nextGig.title : 'Book your next gig',
-      desc: nextGig
-        ? `${fmtGigDate(nextGig.date)} · ${nextGig.time || 'TBC'}${!advanceMap[nextGig.id] ? ' · Advance not sent' : ''}`
-        : 'Offers, contracts, advance, travel, invoicing.',
-      status: nextGigLabel || undefined,
-      statusColor: nextGig && daysUntil(nextGig.date) <= 3 ? 'var(--gold)' : 'var(--text-dim)',
-    },
-    {
-      href: '/broadcast', label: 'Broadcast Lab', accent: 'var(--green)',
-      title: weekPosts.length > 0 ? `${weekPosts.length} post${weekPosts.length !== 1 ? 's' : ''} scheduled` : 'Plan your content',
-      desc: weekPosts.length > 0
-        ? 'Content queued and ready to go this week.'
-        : 'Captions in your voice, scheduled across every channel.',
-      status: weekPosts.length > 0 ? 'This week' : undefined,
-      statusColor: 'var(--green)',
-    },
-    {
-      href: '/setlab', label: 'Set Lab', accent: '#6b8aad',
-      title: 'Analyse your sets',
-      desc: 'Key analysis, energy arc, play history, track intelligence.',
-    },
-    {
-      href: '/sonix', label: 'SONIX Lab', accent: '#ad6b8a',
-      title: 'Analyse a track',
-      desc: 'BPM, key, production techniques, mix character — actionable.',
-    },
-    {
-      href: '/drop-lab', label: 'Drop Lab', accent: '#8aad6b',
-      title: 'DJ promo & release contacts',
-      desc: 'Private SoundCloud blasts to your DJ list via Instagram DM.',
-    },
-    {
-      href: '/business/finances', label: 'Finances', accent: '#ad8a6b',
-      title: invoiceAlert ? `${overdueInvoices.length} invoice${overdueInvoices.length !== 1 ? 's' : ''} overdue` : 'Track your money',
-      desc: invoiceAlert
-        ? `Oldest ${daysSince(overdueInvoices.reduce((a, b) => a.due_date < b.due_date ? a : b).due_date)} days. Chase or mark paid.`
-        : 'Invoices, expenses, revenue forecast, smart chasing.',
-      status: invoiceAlert || undefined,
-      statusColor: overdueInvoices.length > 0 ? '#ff6b4a' : 'var(--text-dim)',
-    },
-  ]
-
-  // ── ATTENTION ITEMS ──
-  const attentionItems: { label: string; detail: React.ReactNode; href: string }[] = []
-  if (!loading) {
-    // Overdue invoices
-    if (overdueInvoices.length > 0) {
-      const total = overdueInvoices.reduce((s, inv) => s + (inv.amount || 0), 0)
-      const currency = overdueInvoices[0]?.currency || '£'
-      const symbol = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : '£'
-      attentionItems.push({
-        label: `${overdueInvoices.length} overdue invoice${overdueInvoices.length !== 1 ? 's' : ''}`,
-        detail: <><BlurredAmount>{symbol}{total.toLocaleString()}</BlurredAmount> outstanding</>,
-        href: '/business/finances',
-      })
-    }
-    // Gigs in next 7 days without advance sent
-    const todayStr = new Date().toISOString().slice(0, 10)
-    const in7Str = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
-    const next7Gigs = allGigs.filter(g => g.date >= todayStr && g.date <= in7Str && g.status !== 'cancelled')
-    const noAdvanceGigs = next7Gigs.filter(g => !advanceMap[g.id])
-    if (noAdvanceGigs.length > 0) {
-      attentionItems.push({
-        label: `${noAdvanceGigs.length} gig${noAdvanceGigs.length !== 1 ? 's' : ''} this week without advance`,
-        detail: noAdvanceGigs.map(g => g.venue || g.title).join(', '),
-        href: noAdvanceGigs.length === 1 ? `/gigs/${noAdvanceGigs[0].id}` : '/gigs',
-      })
-    }
-    // Unread notifications
-    if (unreadCount > 0) {
-      attentionItems.push({
-        label: `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`,
-        detail: 'New activity since you last checked',
-        href: '/notifications',
-      })
-    }
-    // Gigs without promoter email (upcoming only)
-    const noPromoterGigs = next7Gigs.filter(g => !g.promoter_email)
-    if (noPromoterGigs.length > 0) {
-      attentionItems.push({
-        label: `${noPromoterGigs.length} gig${noPromoterGigs.length !== 1 ? 's' : ''} missing promoter email`,
-        detail: noPromoterGigs.map(g => g.venue || g.title).join(', '),
-        href: noPromoterGigs.length === 1 ? `/gigs/${noPromoterGigs[0].id}` : '/gigs',
-      })
-    }
-  }
-
   if (mobile) return <MobileShell />
+
+  const todayStr2 = new Date().toISOString().slice(0, 10)
+  // Next gig = nearest upcoming, any date window
+  const nextGig = allGigs
+    .filter(g => g.date >= todayStr2 && g.status !== 'cancelled')
+    .sort((a, b) => a.date.localeCompare(b.date))[0] || null
+  const confirmedGigsCount = allGigs.filter(g => g.status === 'confirmed' && g.date >= todayStr2).length
+  const queuedPostsCount = allPosts.filter(p => p.status === 'scheduled').length
 
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ── TOP BAR ── */}
-      <div style={{ padding: '16px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-        <div style={{ fontSize: '11px', letterSpacing: '0.35em', color: 'var(--gold)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }} suppressHydrationWarning>
-          {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+      <div style={{ padding: '16px 48px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: 'var(--gold)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', paddingTop: '4px' }}>
+          Signal Lab OS
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button
-            onClick={trackIdPhase === 'listening' ? cancelTrackId : startTrackId}
-            disabled={trackIdPhase === 'identifying'}
-            className="btn-secondary btn-sm"
-            style={{
-              border: trackIdPhase === 'listening' ? '1px solid var(--gold)' : undefined,
-              color: trackIdPhase === 'listening' ? 'var(--gold)' : undefined,
-              position: 'relative',
-            }}
-          >
-            {trackIdPhase === 'idle' && '♫ Track ID'}
-            {trackIdPhase === 'listening' && `Listening... ${trackIdCountdown}s`}
-            {trackIdPhase === 'identifying' && 'Identifying...'}
-            {trackIdPhase === 'found' && `✓ ${trackIdResult?.artist} — ${trackIdResult?.title}`}
-            {trackIdPhase === 'not_found' && 'Not found — try again'}
-          </button>
-          <Link href="/gigs/new" className="btn-primary btn-sm" style={{ textDecoration: 'none' }}>+ New gig</Link>
-          <Link href="/broadcast" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ New post</Link>
-          <Link href="/releases/new" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ New release</Link>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <button
+              onClick={trackIdPhase === 'listening' ? cancelTrackId : startTrackId}
+              disabled={trackIdPhase === 'identifying'}
+              className="btn-secondary btn-sm"
+              style={{ border: trackIdPhase === 'listening' ? '1px solid var(--gold)' : undefined, color: trackIdPhase === 'listening' ? 'var(--gold)' : undefined }}
+            >
+              {trackIdPhase === 'idle' && '♫ Track ID'}
+              {trackIdPhase === 'listening' && `Listening... ${trackIdCountdown}s`}
+              {trackIdPhase === 'identifying' && 'Identifying...'}
+              {trackIdPhase === 'found' && `✓ ${trackIdResult?.artist} — ${trackIdResult?.title}`}
+              {trackIdPhase === 'not_found' && 'Not found — try again'}
+            </button>
+            <Link href="/gigs/new" className="btn-primary btn-sm" style={{ textDecoration: 'none' }}>+ GIG</Link>
+            <Link href="/broadcast" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ POST</Link>
+            <Link href="/business/finances" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ INVOICE</Link>
+            <Link href="/releases/new" className="btn-secondary btn-sm" style={{ textDecoration: 'none' }}>+ RELEASE</Link>
+            <button onClick={() => setAddingTask(true)} className="btn-secondary btn-sm">+ TASK</button>
+          </div>
+          {/* Week strip */}
+          {now && (
+            <div style={{ display: 'flex', gap: '2px' }}>
+              {Array.from({ length: 7 }, (_, i) => {
+                const d = new Date(now)
+                d.setDate(d.getDate() + i)
+                const key = d.toISOString().slice(0, 10)
+                const isToday = key === todayStr2
+                const hasGig = allGigs.some(g => g.date === key)
+                return (
+                  <div key={i} style={{
+                    background: isToday ? 'var(--gold)' : 'transparent',
+                    color: isToday ? 'var(--bg)' : 'var(--text-dimmer)',
+                    padding: '5px 8px',
+                    textAlign: 'center',
+                    fontFamily: 'var(--font-mono)',
+                    minWidth: '36px',
+                    position: 'relative',
+                  }}>
+                    <div style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {d.toLocaleDateString('en-GB', { weekday: 'short' })}
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.2 }}>{d.getDate()}</div>
+                    {hasGig && !isToday && (
+                      <div style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--gold)', margin: '2px auto 0' }} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── GREETING + BRIEF ── */}
-      <div style={{ padding: '0 48px', flexShrink: 0, marginBottom: '12px' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(36px, 4vw, 48px)', fontWeight: 300, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--text)', marginBottom: brief ? '10px' : '0' }} suppressHydrationWarning>
+      {/* ── GREETING + SUBTITLE ── */}
+      <div style={{ padding: '4px 48px 0', flexShrink: 0 }}>
+        <div
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(56px, 8vw, 120px)',
+            fontWeight: 900,
+            lineHeight: 0.88,
+            letterSpacing: '-0.05em',
+            color: 'var(--text)',
+            textTransform: 'uppercase',
+          }}
+          suppressHydrationWarning
+        >
           {greeting}.
         </div>
-        {!loading && brief && (
-          <div style={{ maxWidth: '640px', fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            {brief}
-          </div>
-        )}
+        <div style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--text-dimmer)', letterSpacing: '0.04em', marginTop: '8px' }} suppressHydrationWarning>
+          {!loading && now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {!loading && nextGig && ` · ${daysUntil(nextGig.date) === 0 ? 'tonight' : `${daysUntil(nextGig.date)}d`} to ${nextGig.venue || nextGig.title}`}
+          {!loading && overdueInvoices.length > 0 && ` · ${overdueInvoices.length} invoice${overdueInvoices.length !== 1 ? 's' : ''} overdue`}
+          {!loading && queuedPostsCount > 0 && ` · ${queuedPostsCount} posts queued`}
+        </div>
       </div>
 
-      {/* ── SIGNAL BAR ── */}
-      <div style={{ padding: '0 48px', flexShrink: 0, marginBottom: '12px' }}>
-        <SignalBar onAction={() => router.refresh()} />
+      {/* ── THE LABS — count cards ── */}
+      <div style={{ padding: '12px 48px 0', flexShrink: 0 }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text)', marginBottom: '6px' }}>
+          The Labs
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1px' }}>
+          {[
+            { href: '/gigs', label: 'GIGS', count: confirmedGigsCount, unit: 'CONFIRMED' },
+            { href: '/broadcast', label: 'CONTENT', count: queuedPostsCount, unit: 'QUEUED' },
+            { href: '/setlab', label: 'SETS', count: djSets.length, unit: 'SETS' },
+            { href: '/sonix', label: 'TRACKS', count: tracksCount, unit: 'TRACKS' },
+            { href: '/releases', label: 'RELEASES', count: releasesCount, unit: 'RELEASES' },
+          ].map(card => (
+            <Link key={card.href} href={card.href} style={{
+              display: 'block', background: 'var(--panel)', border: '1px solid var(--border-dim)',
+              padding: '12px 16px', textDecoration: 'none', transition: 'background 0.15s',
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#111' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--panel)' }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 900, letterSpacing: '-0.01em', color: 'var(--text)', textTransform: 'uppercase' }}>
+                {card.label}
+              </div>
+              <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-dimmer)', letterSpacing: '0.06em', marginTop: '2px' }}>
+                {loading ? '—' : `${card.count} ${card.unit}`}
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
 
-      {/* ── ATTENTION PANEL ── */}
-      {attentionItems.length > 0 && (
-        <div style={{
-          padding: '0 48px',
-          flexShrink: 0,
-          marginBottom: '12px',
-        }}>
-          <div style={{
-            background: 'var(--panel)',
-            border: '1px solid var(--border-dim)',
-            borderLeft: '3px solid var(--gold)',
-            padding: '16px 20px',
-          }}>
-            <div style={{
-              fontSize: '9px',
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-              color: 'var(--gold)',
-              fontFamily: 'var(--font-mono)',
-              marginBottom: '12px',
-            }}>
-              Needs your attention
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {attentionItems.map((item, i) => (
-                <Link
-                  key={i}
-                  href={item.href}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                    textDecoration: 'none',
-                    padding: '6px 8px',
-                    marginLeft: '-8px',
-                    marginRight: '-8px',
-                    borderRadius: '2px',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(176,141,87,0.06)' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', minWidth: 0 }}>
-                    <div style={{
-                      width: '5px',
-                      height: '5px',
-                      borderRadius: '50%',
-                      background: 'var(--gold)',
-                      flexShrink: 0,
-                      position: 'relative',
-                      top: '-1px',
-                    }} />
-                    <span style={{
-                      fontSize: '12px',
-                      fontFamily: 'var(--font-mono)',
-                      color: 'var(--text)',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {item.label}
-                    </span>
-                    <span style={{
-                      fontSize: '11px',
-                      color: 'var(--text-dimmer)',
-                      fontFamily: 'var(--font-mono)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {item.detail}
-                    </span>
-                  </div>
-                  <span style={{
-                    fontSize: '10px',
-                    letterSpacing: '0.1em',
-                    color: 'var(--text-dim)',
+      {/* ── MAIN 2-COL: gig hero + tasks ── */}
+      <div style={{ flex: 1, display: 'flex', padding: '12px 48px 16px', gap: '32px', minHeight: 0, overflow: 'hidden' }}>
+
+        {/* LEFT: Next gig hero */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', overflow: 'hidden' }}>
+          {loading ? null : nextGig ? (
+            <>
+              <div style={{ fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--gold)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>
+                Next Gig · {daysUntil(nextGig.date) === 0 ? 'Tonight' : daysUntil(nextGig.date) === 1 ? 'Tomorrow' : `In ${daysUntil(nextGig.date)} Days`}
+              </div>
+              <Link href={`/gigs/${nextGig.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+                <div style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 'clamp(48px, 8.5vw, 130px)',
+                  fontWeight: 900,
+                  lineHeight: 0.88,
+                  letterSpacing: '-0.04em',
+                  textTransform: 'uppercase',
+                  color: 'var(--text)',
+                }}>
+                  {nextGig.venue || nextGig.title}
+                </div>
+                {nextGig.location && (
+                  <div style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 'clamp(24px, 4vw, 60px)',
+                    fontWeight: 900,
+                    lineHeight: 0.9,
+                    letterSpacing: '-0.03em',
                     textTransform: 'uppercase',
-                    fontFamily: 'var(--font-mono)',
-                    flexShrink: 0,
-                    marginLeft: '16px',
+                    color: 'var(--text-dimmer)',
+                    marginTop: '2px',
                   }}>
-                    View →
+                    {nextGig.location}
+                  </div>
+                )}
+              </Link>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
+                <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-dimmer)', letterSpacing: '0.04em' }}>
+                  {fmtGigDate(nextGig.date).toUpperCase()}
+                </span>
+                <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', border: `1px solid ${nextGig.status === 'confirmed' ? 'var(--gold)' : 'var(--border)'}`, color: nextGig.status === 'confirmed' ? 'var(--gold)' : 'var(--text-dimmer)', padding: '2px 8px' }}>
+                  {nextGig.status}
+                </span>
+                {!advanceMap[nextGig.id] && (
+                  <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', border: '1px solid rgba(255,160,30,0.5)', color: 'rgba(255,160,30,0.8)', padding: '2px 8px' }}>
+                    Advance Needed
                   </span>
+                )}
+                {!nextGig.set_time && !nextGig.time && (
+                  <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', border: '1px solid rgba(255,160,30,0.5)', color: 'rgba(255,160,30,0.8)', padding: '2px 8px' }}>
+                    Set Time Needed
+                  </span>
+                )}
+              </div>
+              {/* Next scheduled post preview */}
+              {weekPosts[0] && (
+                <div style={{ marginTop: '12px', background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '12px 14px', maxWidth: '520px' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--text-dimmer)', marginBottom: '4px' }}>
+                    Next Post · {weekPosts[0].platform}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text)', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                    {weekPosts[0].caption}
+                  </div>
+                  <div style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-dimmer)', marginTop: '4px' }}>
+                    {new Date(weekPosts[0].scheduled_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at {new Date(weekPosts[0].scheduled_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <Link href="/gigs/new" style={{ textDecoration: 'none', display: 'block' }}>
+              <div style={{ fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>
+                Next Gig
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 8.5vw, 130px)', fontWeight: 900, lineHeight: 0.88, letterSpacing: '-0.04em', textTransform: 'uppercase', color: 'var(--text-dimmer)' }}>
+                No Shows<br />Booked
+              </div>
+              <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-dimmer)', marginTop: '8px' }}>Add a gig →</div>
+            </Link>
+          )}
+        </div>
+
+        {/* RIGHT: Tasks + Attention */}
+        <div style={{ width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0', overflowY: 'auto' }}>
+
+          {/* TO DO */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text)' }}>
+                To Do
+              </span>
+              {tasks.length > 3 && (
+                <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-dimmer)', letterSpacing: '0.06em' }}>
+                  All {tasks.length} →
+                </span>
+              )}
+            </div>
+            {tasks.length === 0 && !addingTask && (
+              <div style={{ fontSize: '12px', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)' }}>No tasks</div>
+            )}
+            {tasks.slice(0, 5).map((t) => (
+              <div key={t.id} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <button
+                  onClick={() => {
+                    const updated = tasks.map(x => x.id === t.id ? { ...x, done: !x.done } : x)
+                    setTasks(updated)
+                    localStorage.setItem('dashboard-tasks', JSON.stringify(updated))
+                  }}
+                  style={{ background: 'none', border: '1px solid var(--border)', width: '12px', height: '12px', flexShrink: 0, cursor: 'pointer', marginTop: '3px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {t.done && <span style={{ fontSize: '8px', color: 'var(--gold)', lineHeight: 1 }}>✓</span>}
+                </button>
+                <span style={{ fontSize: '12px', color: t.done ? 'var(--text-dimmer)' : 'var(--text)', fontFamily: 'var(--font-mono)', textDecoration: t.done ? 'line-through' : 'none', flex: 1, lineHeight: 1.5 }}>
+                  {t.text}
+                </span>
+                <button
+                  onClick={() => {
+                    const updated = tasks.filter(x => x.id !== t.id)
+                    setTasks(updated)
+                    localStorage.setItem('dashboard-tasks', JSON.stringify(updated))
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-dimmer)', cursor: 'pointer', fontSize: '14px', padding: '0 2px', flexShrink: 0 }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {addingTask ? (
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                if (!newTask.trim()) { setAddingTask(false); return }
+                const updated = [...tasks, { id: Date.now().toString(), text: newTask.trim(), done: false }]
+                setTasks(updated)
+                localStorage.setItem('dashboard-tasks', JSON.stringify(updated))
+                setNewTask('')
+                setAddingTask(false)
+              }} style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                <input
+                  autoFocus
+                  value={newTask}
+                  onChange={e => setNewTask(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Escape') { setAddingTask(false); setNewTask('') } }}
+                  placeholder="New task…"
+                  style={{ flex: 1, background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', padding: '4px 8px', fontSize: '11px', fontFamily: 'var(--font-mono)', outline: 'none' }}
+                />
+                <button type="submit" className="btn-primary btn-sm" style={{ padding: '4px 8px', fontSize: '10px' }}>Add</button>
+              </form>
+            ) : (
+              <button
+                onClick={() => setAddingTask(true)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-dimmer)', cursor: 'pointer', fontSize: '11px', fontFamily: 'var(--font-mono)', padding: '4px 0', textAlign: 'left' }}
+              >
+                + Add task
+              </button>
+            )}
+          </div>
+
+          {/* NEEDS ATTENTION */}
+          {!loading && (overdueInvoices.length > 0 || briefingItems.some(i => i.dot === 'gold' || i.dot === 'red' || i.dot === 'redflag')) && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text)', marginBottom: '10px' }}>
+                Needs Attention
+              </div>
+              {overdueInvoices.length > 0 && (
+                <Link href="/business/finances" style={{ textDecoration: 'none', display: 'block', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--gold)' }}>
+                    {overdueInvoices.length} overdue invoice{overdueInvoices.length !== 1 ? 's' : ''}
+                  </span>
+                </Link>
+              )}
+              {briefingItems.filter(i => i.dot === 'gold' || i.dot === 'amber').slice(0, 2).map(item => (
+                <Link key={item.key} href={item.href} style={{ textDecoration: 'none', display: 'block', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', lineHeight: 1.4 }}>{item.text}</span>
                 </Link>
               ))}
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* ── LAUNCHPAD — always visible, fills viewport ── */}
-      <div style={{ flex: 1, padding: '0 48px 16px', minHeight: 0 }}>
-        {loading ? (
-          <SkeletonRows count={3} />
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: '1fr 1fr', gap: '1px', height: '100%' }}>
-            {launchCards.map(card => (
-              <Link key={card.href} href={card.href} style={{
-                background: 'var(--panel)', border: '1px solid var(--border-dim)',
-                padding: '20px 24px 16px', textDecoration: 'none',
-                transition: 'border-color 0.2s, background 0.2s',
-                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-              }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.35)'; (e.currentTarget as HTMLElement).style.background = '#0f0e0c' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLElement).style.background = 'var(--panel)' }}
-              >
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: card.accent, fontFamily: 'var(--font-mono)' }}>
-                      {card.label}
-                    </div>
-                    {card.status && (
-                      <div style={{ fontSize: '9px', letterSpacing: '0.1em', color: card.statusColor || 'var(--text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>
-                        {card.status}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 300, color: 'var(--text)', marginBottom: '8px', lineHeight: 1.25 }}>
-                    {card.title}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: 1.6 }}>
-                    {card.desc}
-                  </div>
-                </div>
-                <div style={{ fontSize: '10px', letterSpacing: '0.16em', color: 'var(--text-dim)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginTop: '12px' }}>
-                  Open →
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Chase toast */}

@@ -17,7 +17,7 @@ interface CelebrationProps {
 }
 
 function generateParticles(): Particle[] {
-  const colors = ['var(--gold)', 'var(--gold-bright)', '#f0d080', '#c9a46e', '#e8c870']
+  const colors = ['var(--gold)', 'var(--gold-bright)', '#f0d080', '#ff2a1a', '#e8c870']
   const particles: Particle[] = []
   for (let i = 0; i < 18; i++) {
     particles.push({

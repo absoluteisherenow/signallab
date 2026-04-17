@@ -120,7 +120,7 @@ export default function NewGig() {
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
           Tour Lab — New gig
         </div>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '36px', fontWeight: 300, letterSpacing: '0.03em' }}>Add new gig</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 7vw, 96px)', fontWeight: 900, letterSpacing: '-0.04em', textTransform: 'uppercase' }}>Add new gig</div>
       </div>
 
       <div style={{ maxWidth: '720px' }}>
@@ -227,7 +227,7 @@ export default function NewGig() {
               <label style={labelStyle}>Promoter email</label>
               <input type="email" value={form.promoter_email} onChange={e => update('promoter_email', e.target.value)}
                 placeholder="bookings@venue.com" style={inputStyle} />
-              <div style={{ fontSize: '10px', color: '#2e2c29', marginTop: '6px' }}>Used to send advance request automatically</div>
+              <div style={{ fontSize: '10px', color: '#222222', marginTop: '6px' }}>Used to send advance request automatically</div>
             </div>
             <div>
               <label style={labelStyle}>Notes</label>
@@ -316,7 +316,7 @@ export default function NewGig() {
         <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={save} disabled={saving} style={{
             background: saving ? s.panel : s.gold,
-            color: saving ? s.dimmer : '#070706',
+            color: saving ? s.dimmer : '#050505',
             border: `1px solid ${saving ? s.border : s.gold}`,
             fontFamily: s.font, fontSize: '11px', letterSpacing: '0.2em',
             textTransform: 'uppercase', padding: '16px 36px', cursor: saving ? 'default' : 'pointer',

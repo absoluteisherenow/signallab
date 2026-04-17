@@ -40,7 +40,7 @@ async function sendDM(accessToken: string, igUserId: string, recipientId: string
 
 export async function POST(req: NextRequest) {
   try {
-    const { contact_ids, message, promo_url, track_title, track_artist } = await req.json()
+    const { contact_ids, message, promo_url, track_title, track_artist, hosted } = await req.json()
     if (!contact_ids?.length || !message) {
       return NextResponse.json({ error: 'contact_ids and message required' }, { status: 400 })
     }
@@ -69,12 +69,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No contacts found' }, { status: 400 })
     }
 
-    // Create blast record for tracking
+    // Create blast record for tracking.
+    // When `hosted` is true, tracks live in promo_tracks (R2-hosted stream-only).
     const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'
     const { data: blast } = await supabase
       .from('promo_blasts')
       .insert({
-        track_url: promo_url || null,
+        track_url: hosted ? null : (promo_url || null),
         track_title: track_title || null,
         track_artist: track_artist || null,
         message,
@@ -83,18 +84,21 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
 
-    // Generate tracked links per contact (if there's a promo URL)
+    // Generate tracked links per contact.
+    // Hosted drops always get a /go/[code] link (the destination_url points back at the drop).
     const trackedLinks: Record<string, string> = {}
-    if (promo_url && blast) {
+    const shouldGenerateLinks = hosted || !!promo_url
+    if (shouldGenerateLinks && blast) {
       for (const contact of contacts) {
         const code = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4)
+        const landing = `${APP_URL}/go/${code}`
         await supabase.from('promo_tracked_links').insert({
           blast_id: blast.id,
           contact_id: contact.id,
           code,
-          destination_url: promo_url,
+          destination_url: hosted ? landing : promo_url,
         })
-        trackedLinks[contact.id] = `${APP_URL}/go/${code}`
+        trackedLinks[contact.id] = landing
       }
     }
 

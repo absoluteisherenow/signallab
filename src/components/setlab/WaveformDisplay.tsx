@@ -80,8 +80,8 @@ export function WaveformDisplay({
   height = 48,
   barWidth = 2,
   barGap = 1,
-  color = 'rgba(176, 141, 87, 0.4)',
-  progressColor = 'rgba(176, 141, 87, 0.9)',
+  color = 'rgba(255, 42, 26, 0.4)',
+  progressColor = 'rgba(255, 42, 26, 0.9)',
   backgroundColor = 'transparent',
   mini = false,
 }: WaveformProps) {

@@ -259,7 +259,7 @@ export default function Onboarding() {
         width: '800px',
         height: '800px',
         transform: 'translate(-50%, -50%)',
-        background: 'radial-gradient(circle, rgba(176,141,87,0.03) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(255,42,26,0.03) 0%, transparent 70%)',
         pointerEvents: 'none',
         zIndex: 0,
       }} />
@@ -298,7 +298,7 @@ export default function Onboarding() {
 
             {/* Wordmark */}
             <div style={{
-              fontFamily: "'Unbounded', sans-serif",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontSize: 'clamp(24px, 4vw, 36px)',
               fontWeight: 200,
               letterSpacing: '0.02em',
@@ -359,7 +359,7 @@ export default function Onboarding() {
 
             {/* Hero heading */}
             <div style={{
-              fontFamily: "'Unbounded', sans-serif",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontSize: 'clamp(36px, 6vw, 60px)',
               fontWeight: 200,
               letterSpacing: '-0.03em',
@@ -384,7 +384,7 @@ export default function Onboarding() {
                   border: 'none',
                   borderBottom: '1px solid var(--border)',
                   color: 'var(--text)',
-                  fontFamily: "'Unbounded', sans-serif",
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                   fontSize: 'clamp(20px, 3vw, 28px)',
                   fontWeight: 200,
                   padding: '16px 0',
@@ -421,8 +421,8 @@ export default function Onboarding() {
                 <div style={{
                   marginTop: '20px',
                   padding: '20px',
-                  background: 'rgba(176,141,87,0.04)',
-                  border: '1px solid rgba(176,141,87,0.15)',
+                  background: 'rgba(255,42,26,0.04)',
+                  border: '1px solid rgba(255,42,26,0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '16px',
@@ -468,7 +468,7 @@ export default function Onboarding() {
               disabled={!artistName.trim()}
               style={{
                 background: artistName.trim() ? 'var(--gold)' : 'transparent',
-                color: artistName.trim() ? '#070706' : 'var(--text-dimmer)',
+                color: artistName.trim() ? '#050505' : 'var(--text-dimmer)',
                 border: `1px solid ${artistName.trim() ? 'var(--gold)' : 'var(--border)'}`,
                 fontFamily: 'var(--font-mono)',
                 fontSize: '11px',
@@ -521,7 +521,7 @@ export default function Onboarding() {
             {discovery?.found ? (
               <>
                 <div style={{
-                  fontFamily: "'Unbounded', sans-serif",
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                   fontSize: 'clamp(36px, 6vw, 60px)',
                   fontWeight: 200,
                   letterSpacing: '-0.03em',
@@ -558,7 +558,7 @@ export default function Onboarding() {
                           color: 'var(--text)',
                           fontWeight: 200,
                           marginBottom: '8px',
-                          fontFamily: "'Unbounded', sans-serif",
+                          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                           letterSpacing: '-0.01em',
                         }}>
                           {discovery.artistName || artistName}
@@ -569,8 +569,8 @@ export default function Onboarding() {
                               <span key={g} style={{
                                 fontSize: '10px',
                                 color: 'var(--gold)',
-                                background: 'rgba(176,141,87,0.08)',
-                                border: '1px solid rgba(176,141,87,0.2)',
+                                background: 'rgba(255,42,26,0.08)',
+                                border: '1px solid rgba(255,42,26,0.2)',
                                 padding: '4px 12px',
                                 letterSpacing: '0.1em',
                               }}>
@@ -690,7 +690,7 @@ export default function Onboarding() {
             ) : (
               <>
                 <div style={{
-                  fontFamily: "'Unbounded', sans-serif",
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                   fontSize: 'clamp(36px, 6vw, 60px)',
                   fontWeight: 200,
                   letterSpacing: '-0.03em',
@@ -755,7 +755,7 @@ export default function Onboarding() {
                 onClick={() => setStep(2)}
                 style={{
                   background: 'var(--gold)',
-                  color: '#070706',
+                  color: '#050505',
                   border: '1px solid var(--gold)',
                   fontFamily: 'var(--font-mono)',
                   fontSize: '11px',
@@ -824,7 +824,7 @@ export default function Onboarding() {
             </div>
 
             <div style={{
-              fontFamily: "'Unbounded', sans-serif",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontSize: 'clamp(36px, 6vw, 60px)',
               fontWeight: 200,
               letterSpacing: '-0.03em',
@@ -847,7 +847,7 @@ export default function Onboarding() {
                     <button
                       onClick={() => !maxed && toggleArtist(name)}
                       style={{
-                        background: selected ? 'rgba(176,141,87,0.1)' : 'var(--panel)',
+                        background: selected ? 'rgba(255,42,26,0.1)' : 'var(--panel)',
                         border: `1px solid ${selected ? 'var(--gold)' : 'var(--border-dim)'}`,
                         color: selected ? 'var(--gold)' : maxed ? 'var(--text-dimmer)' : 'var(--text-dim)',
                         fontFamily: 'var(--font-mono)',
@@ -871,7 +871,7 @@ export default function Onboarding() {
                   key={name}
                   onClick={() => toggleArtist(name)}
                   style={{
-                    background: 'rgba(176,141,87,0.1)',
+                    background: 'rgba(255,42,26,0.1)',
                     border: '1px solid var(--gold)',
                     color: 'var(--gold)',
                     fontFamily: 'var(--font-mono)',
@@ -944,7 +944,7 @@ export default function Onboarding() {
               disabled={aligned.length === 0}
               style={{
                 background: aligned.length > 0 ? 'var(--gold)' : 'transparent',
-                color: aligned.length > 0 ? '#070706' : 'var(--text-dimmer)',
+                color: aligned.length > 0 ? '#050505' : 'var(--text-dimmer)',
                 border: `1px solid ${aligned.length > 0 ? 'var(--gold)' : 'var(--border)'}`,
                 fontFamily: 'var(--font-mono)',
                 fontSize: '11px',
@@ -1017,7 +1017,7 @@ export default function Onboarding() {
 
             {/* Artist name — large */}
             <div style={{
-              fontFamily: "'Unbounded', sans-serif",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontSize: 'clamp(32px, 6vw, 56px)',
               fontWeight: 200,
               letterSpacing: '-0.02em',

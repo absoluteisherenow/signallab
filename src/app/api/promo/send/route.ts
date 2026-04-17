@@ -36,9 +36,9 @@ export async function POST(req: NextRequest) {
         .replace(/>/g, '&gt;')
         .replace(/\n/g, '<br>')
 
-      const previewHtml = `<div style="font-family:monospace;background:#070706;color:#f0ebe2;padding:40px;max-width:560px">
-<p style="font-size:14px;line-height:1.8;color:#f0ebe2;margin:0 0 32px">${htmlBody}</p>
-<div style="margin-top:40px;padding-top:20px;border-top:1px solid #1a1917;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#52504c">Night Manoeuvres</div>
+      const previewHtml = `<div style="font-family:monospace;background:#050505;color:#f2f2f2;padding:40px;max-width:560px">
+<p style="font-size:14px;line-height:1.8;color:#f2f2f2;margin:0 0 32px">${htmlBody}</p>
+<div style="margin-top:40px;padding-top:20px;border-top:1px solid #1d1d1d;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#909090">Night Manoeuvres</div>
 </div>`
 
       return NextResponse.json({
@@ -113,9 +113,9 @@ export async function POST(req: NextRequest) {
           .replace(/>/g, '&gt;')
           .replace(/\n/g, '<br>')
 
-        const html = `<div style="font-family:monospace;background:#070706;color:#f0ebe2;padding:40px;max-width:560px">
-<p style="font-size:14px;line-height:1.8;color:#f0ebe2;margin:0 0 32px">${htmlBody}</p>
-<div style="margin-top:40px;padding-top:20px;border-top:1px solid #1a1917;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#52504c">Night Manoeuvres</div>
+        const html = `<div style="font-family:monospace;background:#050505;color:#f2f2f2;padding:40px;max-width:560px">
+<p style="font-size:14px;line-height:1.8;color:#f2f2f2;margin:0 0 32px">${htmlBody}</p>
+<div style="margin-top:40px;padding-top:20px;border-top:1px solid #1d1d1d;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#909090">Night Manoeuvres</div>
 </div>`
 
         await resend.emails.send({

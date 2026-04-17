@@ -71,7 +71,7 @@ const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   Marketing: '#6a4a7c',
   Venue: '#4a7c5a',
   Software: '#4a5a7c',
-  Other: '#52504c',
+  Other: '#909090',
 }
 
 const financialData: FinancialEntry[] = [
@@ -344,7 +344,7 @@ export function FinancesPage() {
   }
 
   const labelStyle: React.CSSProperties = {
-    color: '#8a8780',
+    color: '#909090',
     fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     fontSize: '11px',
     marginBottom: '4px',
@@ -582,7 +582,7 @@ export function FinancesPage() {
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.035em', lineHeight: 0.9, color: '#f2f2f2' }}>
                 <Receipt style={{ width: '18px', height: '18px', color: '#ff2a1a' }} />
                 Expenses
-                <span style={{ fontSize: '11px', color: '#52504c', fontWeight: 400, marginLeft: '4px' }}>UK MTD</span>
+                <span style={{ fontSize: '11px', color: '#909090', fontWeight: 400, marginLeft: '4px' }}>UK MTD</span>
               </h3>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -590,7 +590,7 @@ export function FinancesPage() {
                   style={{
                     background: 'transparent',
                     border: '1px solid #1d1d1d',
-                    color: '#8a8780',
+                    color: '#909090',
                     fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '11px',
                     padding: '6px 12px',
@@ -608,7 +608,7 @@ export function FinancesPage() {
                   style={{
                     background: 'transparent',
                     border: '1px solid #1d1d1d',
-                    color: scanningEmails ? '#52504c' : '#8a8780',
+                    color: scanningEmails ? '#909090' : '#909090',
                     fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '11px',
                     padding: '6px 12px',
@@ -634,7 +634,7 @@ export function FinancesPage() {
                   style={{
                     background: 'transparent',
                     border: '1px solid #1d1d1d',
-                    color: scanningReceipt ? '#52504c' : '#8a8780',
+                    color: scanningReceipt ? '#909090' : '#909090',
                     fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '11px',
                     padding: '6px 12px',
@@ -690,7 +690,7 @@ export function FinancesPage() {
                 background: '#050505',
                 border: '1px solid #1d1d1d',
                 borderRadius: '4px',
-                color: '#8a8780',
+                color: '#909090',
                 fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                 fontSize: '12px',
               }}>
@@ -804,7 +804,7 @@ export function FinancesPage() {
                   style={{
                     background: activeQuarter === q ? '#1d1d1d' : 'transparent',
                     border: activeQuarter === q ? '1px solid #ff2a1a' : '1px solid #1d1d1d',
-                    color: activeQuarter === q ? '#ff2a1a' : '#52504c',
+                    color: activeQuarter === q ? '#ff2a1a' : '#909090',
                     fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '11px',
                     padding: '5px 12px',
@@ -822,14 +822,14 @@ export function FinancesPage() {
 
             {/* Expense table */}
             {filteredExpenses.length === 0 ? (
-              <p style={{ color: '#52504c', fontSize: '13px', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
+              <p style={{ color: '#909090', fontSize: '13px', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
                 No expenses recorded for this period.
               </p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #1d1d1d', color: '#52504c', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <tr style={{ borderBottom: '1px solid #1d1d1d', color: '#909090', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500 }}>Date</th>
                       <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500 }}>Description</th>
                       <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500 }}>Category</th>
@@ -845,7 +845,7 @@ export function FinancesPage() {
                         onMouseEnter={e => (e.currentTarget.style.background = 'rgba(26,25,23,0.5)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
-                        <td style={{ padding: '10px 12px', color: '#8a8780' }}>
+                        <td style={{ padding: '10px 12px', color: '#909090' }}>
                           {new Date(expense.date).toLocaleDateString('en-GB')}
                         </td>
                         <td style={{ padding: '10px 12px', color: '#f2f2f2' }}>
@@ -878,7 +878,7 @@ export function FinancesPage() {
                               style={{
                                 background: 'transparent',
                                 border: 'none',
-                                color: '#52504c',
+                                color: '#909090',
                                 cursor: 'pointer',
                                 fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                                 fontSize: '11px',
@@ -894,7 +894,7 @@ export function FinancesPage() {
                     ))}
                     {/* Subtotal row */}
                     <tr style={{ borderTop: '1px solid #ff2a1a' }}>
-                      <td colSpan={3} style={{ padding: '10px 12px', color: '#8a8780', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      <td colSpan={3} style={{ padding: '10px 12px', color: '#909090', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Subtotal — {activeQuarter === 'All' ? 'all periods' : QUARTER_LABELS[activeQuarter]}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', color: '#ff2a1a', fontWeight: 700, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>

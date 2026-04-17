@@ -5,9 +5,10 @@ import { SignalLabHeader } from './SignalLabHeader'
 
 interface MediaItem {
   url: string
-  pathname: string
+  key: string
   size: number
   uploadedAt: string
+  category?: string
 }
 
 export function MediaLibrary() {
@@ -50,7 +51,7 @@ export function MediaLibrary() {
         const res = await fetch('/api/upload', { method: 'POST', body: formData })
         const data = await res.json()
         if (data.url) {
-          setItems(prev => [{ url: data.url, pathname: file.name, size: file.size, uploadedAt: new Date().toISOString() }, ...prev])
+          setItems(prev => [{ url: data.url, key: data.key || file.name, size: file.size, uploadedAt: new Date().toISOString() }, ...prev])
         }
       } catch { /* skip failed uploads */ }
     }
@@ -60,10 +61,11 @@ export function MediaLibrary() {
   async function deleteItem(url: string) {
     setDeleting(prev => new Set(prev).add(url))
     try {
+      const item = items.find(i => i.url === url)
       const res = await fetch('/api/media', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ key: item?.key }),
       })
       if (res.ok) {
         setItems(prev => prev.filter(i => i.url !== url))
@@ -83,7 +85,7 @@ export function MediaLibrary() {
           <button onClick={() => fileRef.current?.click()} style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             height: '32px', padding: '0 16px', borderRadius: '2px',
-            background: 'rgba(176,141,87,0.15)', border: '1px solid rgba(176,141,87,0.35)',
+            background: 'rgba(255,42,26,0.15)', border: '1px solid rgba(255,42,26,0.35)',
             color: '#d4a843', fontFamily: s.font, fontSize: '9px', letterSpacing: '0.18em',
             textTransform: 'uppercase', cursor: 'pointer', fontWeight: 400,
           }}>
@@ -117,7 +119,7 @@ export function MediaLibrary() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
-          {items.filter(item => !item.pathname.includes('error') && !item.pathname.includes('screenshot')).map(item => (
+          {items.filter(item => !item.key?.includes('error') && !item.key?.includes('screenshot')).map(item => (
             <div key={item.url} onClick={() => toggle(item.url)} style={{
               background: s.panel,
               border: `1px solid ${selected.has(item.url) ? s.gold : s.border}`,
@@ -125,12 +127,12 @@ export function MediaLibrary() {
               transition: 'all 0.15s',
               position: 'relative',
             }}>
-              <div style={{ aspectRatio: '1', overflow: 'hidden', background: '#1a1917' }}>
+              <div style={{ aspectRatio: '1', overflow: 'hidden', background: '#1d1d1d' }}>
                 <img src={item.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   onError={e => { (e.target as HTMLImageElement).src = '' }} />
               </div>
               {selected.has(item.url) && (
-                <div style={{ position: 'absolute', top: '8px', right: '8px', width: '22px', height: '22px', background: s.gold, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#070706', fontWeight: 600 }}>✓</div>
+                <div style={{ position: 'absolute', top: '8px', right: '8px', width: '22px', height: '22px', background: s.gold, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#050505', fontWeight: 600 }}>✓</div>
               )}
               {/* Delete button */}
               <button
@@ -150,9 +152,9 @@ export function MediaLibrary() {
               >×</button>
               <div style={{ padding: '10px 12px' }}>
                 <div style={{ fontSize: '10px', color: s.dimmer, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {item.pathname.split('/').pop()}
+                  {item.key?.split('/').pop() ?? ''}
                 </div>
-                <div style={{ fontSize: '10px', color: '#2e2c29', marginTop: '3px' }}>
+                <div style={{ fontSize: '10px', color: '#222222', marginTop: '3px' }}>
                   {(item.size / 1024).toFixed(0)} KB
                 </div>
               </div>

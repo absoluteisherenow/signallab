@@ -218,7 +218,7 @@ export default function Logistics() {
     }
   }
 
-  const statusColor = (s: string) => s === 'complete' ? '#f2f2f2' : s === 'sent' ? '#ff2a1a' : '#52504c'
+  const statusColor = (s: string) => s === 'complete' ? '#f2f2f2' : s === 'sent' ? '#ff2a1a' : '#909090'
   const statusLabel = (s: string) => s === 'complete' ? 'Advance complete' : s === 'sent' ? 'Sent — awaiting' : 'Not sent'
 
   const inlineInput: React.CSSProperties = {

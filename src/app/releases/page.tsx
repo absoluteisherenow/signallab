@@ -47,12 +47,12 @@ function DropLabInner() {
             <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
               <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />Drop Lab
             </div>
-            <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(36px, 4vw, 56px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 7vw, 96px)', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 0.9, textTransform: 'uppercase' }}>
               {tab === 'releases' ? 'Your catalogue' : 'DJ Promo'}
             </div>
           </div>
           {tab === 'releases' ? (
-            <Link href="/releases/new" style={{ background: s.gold, color: '#070706', textDecoration: 'none', padding: '0 24px', height: '36px', display: 'inline-flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: mobile ? '0' : '4px' }}>
+            <Link href="/releases/new" style={{ background: s.gold, color: '#050505', textDecoration: 'none', padding: '0 24px', height: '36px', display: 'inline-flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: mobile ? '0' : '4px' }}>
               + New release
             </Link>
           ) : null}
@@ -252,7 +252,7 @@ function ReleasesTab({ s, mobile, onSendPromo }: { s: any; mobile: boolean; onSe
       {!loading && releases.length === 0 && (
         <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '48px 40px', textAlign: 'center' }}>
           <div style={{ fontSize: '14px', color: s.dim, marginBottom: '16px' }}>No releases yet</div>
-          <Link href="/releases/new" style={{ background: s.gold, color: '#070706', textDecoration: 'none', padding: '0 28px', height: '40px', display: 'inline-flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+          <Link href="/releases/new" style={{ background: s.gold, color: '#050505', textDecoration: 'none', padding: '0 28px', height: '40px', display: 'inline-flex', alignItems: 'center', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             + Add your first release
           </Link>
         </div>
@@ -529,7 +529,7 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
             />
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button onClick={() => setShowBlast(true)} style={{ background: selected.size > 0 ? s.gold : 'transparent', color: selected.size > 0 ? '#070706' : s.gold, border: selected.size > 0 ? 'none' : `1px solid ${s.gold}60`, cursor: 'pointer', padding: '0 20px', height: '32px', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font }}>
+            <button onClick={() => setShowBlast(true)} style={{ background: selected.size > 0 ? s.gold : 'transparent', color: selected.size > 0 ? '#050505' : s.gold, border: selected.size > 0 ? 'none' : `1px solid ${s.gold}60`, cursor: 'pointer', padding: '0 20px', height: '32px', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font }}>
               {selected.size > 0 ? `Send promo to ${selected.size} →` : '+ New blast'}
             </button>
             <button onClick={() => setAdding(true)} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, cursor: 'pointer', padding: '0 14px', height: '32px', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font }}>
@@ -569,7 +569,7 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={addContact} disabled={saving || !form.name} style={{ background: s.gold, color: '#070706', border: 'none', cursor: 'pointer', padding: '0 20px', height: '34px', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font, opacity: saving || !form.name ? 0.4 : 1 }}>
+              <button onClick={addContact} disabled={saving || !form.name} style={{ background: s.gold, color: '#050505', border: 'none', cursor: 'pointer', padding: '0 20px', height: '34px', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: s.font, opacity: saving || !form.name ? 0.4 : 1 }}>
                 {saving ? 'Saving...' : 'Add →'}
               </button>
               <button onClick={() => setAdding(false)} style={{ background: 'transparent', border: `1px solid ${s.border}`, color: s.dimmer, cursor: 'pointer', padding: '0 16px', height: '34px', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', fontFamily: s.font }}>Cancel</button>
@@ -593,7 +593,7 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
             {/* Header row */}
             <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 140px 120px 80px 100px 20px', gap: '16px', padding: '10px 20px', borderBottom: `1px solid ${s.borderMid}`, fontSize: '8px', letterSpacing: '0.2em', color: s.dimmer, textTransform: 'uppercase', alignItems: 'center' }}>
               <button onClick={selectAll} style={{ width: '14px', height: '14px', border: `1px solid ${selected.size === filtered.length && filtered.length > 0 ? s.gold : s.border}`, background: selected.size === filtered.length && filtered.length > 0 ? s.gold : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {selected.size === filtered.length && filtered.length > 0 && <div style={{ width: '6px', height: '6px', background: '#070706' }} />}
+                {selected.size === filtered.length && filtered.length > 0 && <div style={{ width: '6px', height: '6px', background: '#050505' }} />}
               </button>
               <div>Name</div><div>Instagram</div><div>Genre</div><div>Tier</div><div>Last promo</div><div />
             </div>
@@ -602,7 +602,7 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
                 onMouseEnter={e => { if (!selected.has(c.id)) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = selected.has(c.id) ? `${s.gold}08` : 'transparent' }}>
                 <button onClick={() => toggleSelect(c.id)} style={{ width: '14px', height: '14px', border: `1px solid ${selected.has(c.id) ? s.gold : s.border}`, background: selected.has(c.id) ? s.gold : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {selected.has(c.id) && <div style={{ width: '6px', height: '6px', background: '#070706' }} />}
+                  {selected.has(c.id) && <div style={{ width: '6px', height: '6px', background: '#050505' }} />}
                 </button>
                 <div>
                   <div style={{ fontSize: '13px' }}>{c.name}</div>
@@ -769,7 +769,7 @@ function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: any; initialUrl?: str
               </button>
             )}
             <button onClick={sendBlast} disabled={blasting || !blastMessage || selected.size === 0}
-              style={{ background: s.gold, color: '#070706', border: 'none', cursor: 'pointer', padding: '12px 20px', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', fontFamily: s.font, opacity: blasting || !blastMessage || selected.size === 0 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}>
+              style={{ background: s.gold, color: '#050505', border: 'none', cursor: 'pointer', padding: '12px 20px', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', fontFamily: s.font, opacity: blasting || !blastMessage || selected.size === 0 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}>
               {blasting ? 'Sending...' : selected.size === 0 ? 'Select contacts to send' : `Send to ${selected.size} via ${blastChannel === 'instagram' ? 'Instagram DM' : blastChannel === 'whatsapp' ? 'WhatsApp' : 'Email'} →`}
             </button>
             <div style={{ fontSize: '9px', color: s.dimmer, lineHeight: 1.6 }}>

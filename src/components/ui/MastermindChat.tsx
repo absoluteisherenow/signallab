@@ -141,7 +141,7 @@ export function MastermindChat({
         onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
         title={title}
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#070706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#050505" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       </button>
@@ -230,8 +230,8 @@ export function MastermindChat({
           >
             <div style={{
               padding: '10px 14px',
-              background: msg.role === 'user' ? 'rgba(176,141,87,0.08)' : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${msg.role === 'user' ? 'rgba(176,141,87,0.3)' : 'var(--border-dim)'}`,
+              background: msg.role === 'user' ? 'rgba(255,42,26,0.08)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${msg.role === 'user' ? 'rgba(255,42,26,0.3)' : 'var(--border-dim)'}`,
               fontSize: '12px',
               lineHeight: '1.6',
               color: 'var(--text)',
@@ -281,8 +281,8 @@ export function MastermindChat({
               onClick={() => handleSend(prompt)}
               disabled={loading}
               style={{
-                background: 'rgba(176,141,87,0.08)',
-                border: '1px solid rgba(176,141,87,0.2)',
+                background: 'rgba(255,42,26,0.08)',
+                border: '1px solid rgba(255,42,26,0.2)',
                 color: 'var(--gold)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '10px',
@@ -292,12 +292,12 @@ export function MastermindChat({
                 letterSpacing: '0.04em',
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.background = 'rgba(176,141,87,0.15)'
-                e.currentTarget.style.borderColor = 'rgba(176,141,87,0.4)'
+                e.currentTarget.style.background = 'rgba(255,42,26,0.15)'
+                e.currentTarget.style.borderColor = 'rgba(255,42,26,0.4)'
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.background = 'rgba(176,141,87,0.08)'
-                e.currentTarget.style.borderColor = 'rgba(176,141,87,0.2)'
+                e.currentTarget.style.background = 'rgba(255,42,26,0.08)'
+                e.currentTarget.style.borderColor = 'rgba(255,42,26,0.2)'
               }}
             >
               {prompt}
@@ -333,8 +333,8 @@ export function MastermindChat({
             onClick={handleMediaSubmit}
             disabled={!mediaUrl.trim() || loading}
             style={{
-              background: 'rgba(176,141,87,0.15)',
-              border: '1px solid rgba(176,141,87,0.3)',
+              background: 'rgba(255,42,26,0.15)',
+              border: '1px solid rgba(255,42,26,0.3)',
               color: 'var(--gold)',
               fontFamily: 'var(--font-mono)',
               fontSize: '9px',
@@ -375,7 +375,7 @@ export function MastermindChat({
             outline: 'none',
             transition: 'border-color 0.15s',
           }}
-          onFocus={e => e.currentTarget.style.borderColor = 'rgba(176,141,87,0.4)'}
+          onFocus={e => e.currentTarget.style.borderColor = 'rgba(255,42,26,0.4)'}
           onBlur={e => e.currentTarget.style.borderColor = 'var(--border-dim)'}
         />
         <button
@@ -384,7 +384,7 @@ export function MastermindChat({
           style={{
             background: 'var(--gold)',
             border: 'none',
-            color: '#070706',
+            color: '#050505',
             fontFamily: 'var(--font-mono)',
             fontSize: '10px',
             letterSpacing: '0.15em',

@@ -156,7 +156,7 @@ export default function Login() {
         <div style={{
           fontSize: 9,
           letterSpacing: '0.22em',
-          color: '#52504c',
+          color: '#909090',
           textTransform: 'uppercase',
           fontWeight: 700,
         }}>
@@ -244,7 +244,7 @@ export default function Login() {
             style={{
               background: 'transparent',
               border: '1px solid #ff2a1a',
-              color: loading ? '#52504c' : '#ff2a1a',
+              color: loading ? '#909090' : '#ff2a1a',
               fontSize: 9,
               letterSpacing: '0.22em',
               textTransform: 'uppercase',
@@ -260,7 +260,7 @@ export default function Login() {
               transition: 'all 0.2s',
             }}
             onMouseEnter={e => { if (!loading) { e.currentTarget.style.background = '#ff2a1a'; e.currentTarget.style.color = '#050505' } }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = loading ? '#52504c' : '#ff2a1a' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = loading ? '#909090' : '#ff2a1a' }}
           >
             {loading && (
               <div style={{ width: 8, height: 8, border: '1px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -277,7 +277,7 @@ export default function Login() {
               <button
                 onClick={() => { setMode('signup'); setError(''); setSuccess('') }}
                 style={linkStyle}
-                onMouseEnter={e => (e.currentTarget.style.color = '#8a8780')}
+                onMouseEnter={e => (e.currentTarget.style.color = '#909090')}
                 onMouseLeave={e => (e.currentTarget.style.color = '#3a3830')}
               >
                 Create an account
@@ -285,7 +285,7 @@ export default function Login() {
               <button
                 onClick={() => { setMode('reset'); setError(''); setSuccess('') }}
                 style={linkStyle}
-                onMouseEnter={e => (e.currentTarget.style.color = '#8a8780')}
+                onMouseEnter={e => (e.currentTarget.style.color = '#909090')}
                 onMouseLeave={e => (e.currentTarget.style.color = '#3a3830')}
               >
                 Forgot password?
@@ -297,7 +297,7 @@ export default function Login() {
             <button
               onClick={() => { setMode('signin'); setError(''); setSuccess('') }}
               style={linkStyle}
-              onMouseEnter={e => (e.currentTarget.style.color = '#8a8780')}
+              onMouseEnter={e => (e.currentTarget.style.color = '#909090')}
               onMouseLeave={e => (e.currentTarget.style.color = '#3a3830')}
             >
               Already have an account? Sign in
@@ -308,7 +308,7 @@ export default function Login() {
             <button
               onClick={() => { setMode('signin'); setError(''); setSuccess('') }}
               style={linkStyle}
-              onMouseEnter={e => (e.currentTarget.style.color = '#8a8780')}
+              onMouseEnter={e => (e.currentTarget.style.color = '#909090')}
               onMouseLeave={e => (e.currentTarget.style.color = '#3a3830')}
             >
               Back to sign in
@@ -317,9 +317,9 @@ export default function Login() {
 
           {mode !== 'reset' && (
             <a
-              href="/join"
+              href="/waitlist"
               style={linkStyle}
-              onMouseEnter={e => (e.currentTarget.style.color = '#8a8780')}
+              onMouseEnter={e => (e.currentTarget.style.color = '#909090')}
               onMouseLeave={e => (e.currentTarget.style.color = '#3a3830')}
             >
               Request access

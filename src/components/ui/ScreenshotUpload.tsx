@@ -112,7 +112,7 @@ export function ScreenshotUpload({ onExtracted, extractionPrompt }: ScreenshotUp
         onMouseEnter={e => {
           if (!loading) {
             const el = e.currentTarget as HTMLButtonElement
-            el.style.borderColor = 'rgba(176,141,87,0.5)'
+            el.style.borderColor = 'rgba(255,42,26,0.5)'
             el.style.color = 'var(--gold)'
           }
         }}

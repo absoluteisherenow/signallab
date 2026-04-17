@@ -37,8 +37,8 @@ export default function Login() {
     background: 'transparent',
     border: 'none',
     borderBottom: '1px solid #2a2825',
-    color: '#f0ebe2',
-    fontFamily: "'DM Mono', monospace",
+    color: '#f2f2f2',
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
     fontSize: 13,
     padding: '10px 0',
     outline: 'none',
@@ -50,34 +50,34 @@ export default function Login() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#070706',
+      background: '#050505',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: "'DM Mono', monospace",
+      fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
       padding: 40,
     }}>
 
       {/* Wordmark */}
       <div style={{ textAlign: 'center', marginBottom: 56 }}>
         <div style={{
-          fontFamily: "'Unbounded', sans-serif",
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
           fontSize: 22,
           fontWeight: 300,
           letterSpacing: '0.28em',
-          color: '#f0ebe2',
+          color: '#f2f2f2',
           lineHeight: 1.2,
           marginBottom: 10,
         }}>
           NIGHT MANOEUVRES
         </div>
         {/* Gold rule */}
-        <div style={{ width: 32, height: 1, background: '#b08d57', margin: '0 auto 10px' }} />
+        <div style={{ width: 32, height: 1, background: '#ff2a1a', margin: '0 auto 10px' }} />
         <div style={{
           fontSize: 9,
           letterSpacing: '0.32em',
-          color: '#52504c',
+          color: '#909090',
           textTransform: 'uppercase',
         }}>
           Artist OS · Private Beta
@@ -90,7 +90,7 @@ export default function Login() {
         <div style={{
           fontSize: 9,
           letterSpacing: '0.28em',
-          color: '#b08d57',
+          color: '#ff2a1a',
           textTransform: 'uppercase',
           marginBottom: 32,
         }}>
@@ -108,7 +108,7 @@ export default function Login() {
               placeholder="your@email.com"
               autoComplete="email"
               style={inputBase}
-              onFocus={e => (e.target.style.borderBottomColor = '#b08d57')}
+              onFocus={e => (e.target.style.borderBottomColor = '#ff2a1a')}
               onBlur={e => (e.target.style.borderBottomColor = '#2a2825')}
             />
           </div>
@@ -122,7 +122,7 @@ export default function Login() {
               placeholder="••••••••"
               autoComplete="current-password"
               style={inputBase}
-              onFocus={e => (e.target.style.borderBottomColor = '#b08d57')}
+              onFocus={e => (e.target.style.borderBottomColor = '#ff2a1a')}
               onBlur={e => (e.target.style.borderBottomColor = '#2a2825')}
             />
           </div>
@@ -138,9 +138,9 @@ export default function Login() {
             disabled={loading}
             style={{
               background: 'transparent',
-              border: '1px solid #b08d57',
-              color: loading ? '#52504c' : '#b08d57',
-              fontFamily: "'DM Mono', monospace",
+              border: '1px solid #ff2a1a',
+              color: loading ? '#909090' : '#ff2a1a',
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontSize: 9,
               letterSpacing: '0.22em',
               textTransform: 'uppercase',
@@ -153,8 +153,8 @@ export default function Login() {
               gap: 10,
               transition: 'all 0.2s',
             }}
-            onMouseEnter={e => { if (!loading) { e.currentTarget.style.background = '#b08d57'; e.currentTarget.style.color = '#070706' } }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = loading ? '#52504c' : '#b08d57' }}
+            onMouseEnter={e => { if (!loading) { e.currentTarget.style.background = '#ff2a1a'; e.currentTarget.style.color = '#050505' } }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = loading ? '#909090' : '#ff2a1a' }}
           >
             {loading && (
               <div style={{ width: 8, height: 8, border: '1px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -166,16 +166,16 @@ export default function Login() {
         {/* Waitlist link */}
         <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid #131210', textAlign: 'center' }}>
           <a
-            href="/join"
+            href="/waitlist"
             style={{
               color: '#3a3830',
-              fontFamily: "'DM Mono', monospace",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontSize: 10,
               letterSpacing: '0.08em',
               textDecoration: 'none',
               transition: 'color 0.15s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#8a8780')}
+            onMouseEnter={e => (e.currentTarget.style.color = '#909090')}
             onMouseLeave={e => (e.currentTarget.style.color = '#3a3830')}
           >
             Request access →

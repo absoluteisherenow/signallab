@@ -88,8 +88,8 @@ export default function MobileGigs() {
         {missing.length > 0 && (
           <div style={{
             padding: '8px 12px',
-            background: urgency === 'urgent' ? 'rgba(138,74,58,0.1)' : 'rgba(176,141,87,0.06)',
-            border: `1px solid ${urgency === 'urgent' ? 'rgba(138,74,58,0.25)' : 'rgba(176,141,87,0.15)'}`,
+            background: urgency === 'urgent' ? 'rgba(138,74,58,0.1)' : 'rgba(255,42,26,0.06)',
+            border: `1px solid ${urgency === 'urgent' ? 'rgba(138,74,58,0.25)' : 'rgba(255,42,26,0.15)'}`,
             fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase',
             color: urgency === 'urgent' ? s.red : s.gold,
           }}>
@@ -103,7 +103,7 @@ export default function MobileGigs() {
   return (
     <div style={{ background: s.bg, minHeight: '100vh', fontFamily: s.font, color: s.text, paddingBottom: '72px' }}>
       <div style={{ padding: '20px 16px 16px' }}>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '26px', fontWeight: 300, marginBottom: '6px' }}>
+        <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '26px', fontWeight: 300, marginBottom: '6px' }}>
           Tour
         </div>
         <div style={{ fontSize: '12px', color: s.dimmer }}>

@@ -203,7 +203,7 @@ function getMomentColor(type: string): string {
     case 'peak': return '#ff2a1a'
     case 'breakdown': return '#7a5a8a'
     case 'closer': return '#6a7a9a'
-    default: return '#52504c'
+    default: return '#909090'
   }
 }
 
@@ -3471,7 +3471,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                     <div style={{ fontSize: '12px', fontWeight: 400, display: 'flex', alignItems: 'center', color: (track.camelot || track.key) ? s.gold : '#ff6b6b' }} title={!(track.camelot || track.key) ? 'Missing key — run through Mixed In Key' : ''}>{track.camelot || track.key || '?'}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <div style={{ flex: 1, height: '3px', background: s.border, position: 'relative' }}>
-                        <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : track.energy > 4 ? '#f2f2f2' : '#52504c' }} />
+                        <div style={{ position: 'absolute', top: 0, left: 0, height: '3px', width: `${track.energy * 10}%`, background: track.energy > 7 ? s.gold : track.energy > 4 ? '#f2f2f2' : '#909090' }} />
                       </div>
                       <span style={{ fontSize: '10px', color: s.textDimmer }}>{track.energy}</span>
                     </div>
@@ -3896,7 +3896,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       <div key={t.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                         <div style={{
                           width: '100%', height: `${(t.energy / 10) * 52}px`,
-                          background: t.energy > 7 ? s.gold : t.energy > 4 ? '#f2f2f2' : '#52504c',
+                          background: t.energy > 7 ? s.gold : t.energy > 4 ? '#f2f2f2' : '#909090',
                           border: '1px solid rgba(201,164,110,0.15)', transition: 'height 0.4s ease',
                         }} />
                         <div style={{ fontSize: '10px', color: s.textDimmer }}>{i + 1}</div>
@@ -4173,7 +4173,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                 {/* Track list */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '20px' }}>
                   {historyMatches.map((match, i) => {
-                    const dotColor = match.confidence === 'exact' ? '#f2f2f2' : match.confidence === 'partial' ? '#ff2a1a' : '#52504c'
+                    const dotColor = match.confidence === 'exact' ? '#f2f2f2' : match.confidence === 'partial' ? '#ff2a1a' : '#909090'
                     return (
                       <div key={i} style={{
                         display: 'flex', alignItems: 'center', gap: '12px',

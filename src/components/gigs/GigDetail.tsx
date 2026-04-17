@@ -1012,13 +1012,13 @@ export function GigDetail({ gigId }: GigDetailProps) {
                       <div style={{ fontFamily: 'monospace', color: '#f2f2f2', padding: '32px' }}>
                         <div style={{ color: '#ff2a1a', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '20px' }}>NIGHT manoeuvres — ADVANCE REQUEST</div>
                         <div style={{ fontSize: '20px', marginBottom: '6px', color: '#f2f2f2' }}>{gig.title}</div>
-                        <div style={{ color: '#8a8780', fontSize: '13px', marginBottom: '18px' }}>{gig.venue} · {gigDate}</div>
+                        <div style={{ color: '#909090', fontSize: '13px', marginBottom: '18px' }}>{gig.venue} · {gigDate}</div>
                         <div style={{ color: '#d4d0c7', fontSize: '13px', marginBottom: '22px', lineHeight: '1.6' }}>Please complete the advance form for this show.</div>
                         <div style={{ display: 'inline-block', background: '#ff2a1a', color: '#050505', padding: '14px 28px', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 500 }}>Complete advance form</div>
                         <div style={{ marginTop: '32px', paddingTop: '16px', borderTop: '1px solid #1d1d1d', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#6a6760', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           <svg width="12" height="12" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" strokeWidth="1.5" opacity="0.4"/>
-                            <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                            <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" strokeWidth="1.5" opacity="0.4"/>
+                            <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
                           </svg>
                           Powered by Signal Lab OS
                         </div>

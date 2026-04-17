@@ -5,5 +5,5 @@ export const metadata: Metadata = {
 }
 
 export default function PrivacyLayout({ children }: { children: React.ReactNode }) {
-  return <div style={{ minHeight: '100vh', background: '#070706' }}>{children}</div>
+  return <div style={{ minHeight: '100vh', background: '#050505' }}>{children}</div>
 }

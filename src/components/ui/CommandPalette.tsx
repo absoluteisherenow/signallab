@@ -194,7 +194,7 @@ export function CommandPalette() {
                       padding: '10px 20px',
                       fontSize: '13px',
                       color: isSelected ? 'var(--text)' : 'var(--text-dim)',
-                      background: isSelected ? 'rgba(176,141,87,0.08)' : 'transparent',
+                      background: isSelected ? 'rgba(255,42,26,0.08)' : 'transparent',
                       cursor: 'pointer',
                       fontFamily: 'var(--font-mono)',
                       display: 'flex',

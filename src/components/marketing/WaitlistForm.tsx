@@ -3,7 +3,7 @@
 // ── WaitlistForm ────────────────────────────────────────────────────────────
 // Three-field form (email + tier_intent + role). Inline confirmation, no route
 // change. No confirmation email in v1 — manual onboarding follows up via calendar.
-// BRT styling: ticket-card background, DM Mono labels, red focus + submit.
+// BRT styling: ticket-card background, Helvetica Neue labels, red focus + submit.
 
 import { useState } from 'react'
 import { BRT } from '@/lib/design/brt'
@@ -88,13 +88,13 @@ export default function WaitlistForm() {
             color: BRT.ink,
           }}
         >
-          Step inside.<br />We take it from here.
+          You're on the list.
         </p>
         <p
           className="mt-5 font-mono text-[13px] leading-[1.7]"
           style={{ color: BRT.inkSoft }}
         >
-          We onboard every artist personally. You will hear from us within a few days with a calendar link. No payment details needed.
+          We're opening with a small group. When a spot opens up, we'll email you. No payment details needed.
         </p>
         <p
           className="mt-6 font-mono text-[12px] leading-[1.7]"
@@ -236,7 +236,7 @@ export default function WaitlistForm() {
         className="font-mono text-[10px] uppercase tracking-[0.18em] leading-[1.7]"
         style={{ color: BRT.inkDim }}
       >
-        We onboard every artist personally · No payment details · No spam
+        Small group · No payment details · No spam
       </p>
     </form>
   )

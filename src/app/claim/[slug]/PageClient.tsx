@@ -68,10 +68,10 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070706] flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
         <div className="flex gap-1.5">
           {[0,1,2].map(i => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full bg-[#b08d57] animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
+            <div key={i} className="w-1.5 h-1.5 rounded-full bg-[#ff2a1a] animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
           ))}
         </div>
       </div>
@@ -80,10 +80,10 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-[#070706] flex items-center justify-center font-mono text-center px-6">
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center font-mono text-center px-6">
         <div>
-          <div className="text-[10px] tracking-[.3em] uppercase text-[#52504c] mb-4">Night Manoeuvres</div>
-          <div className="text-[13px] tracking-[.06em] text-[#8a8780]">This link is no longer active.</div>
+          <div className="text-[10px] tracking-[.3em] uppercase text-[#909090] mb-4">Night Manoeuvres</div>
+          <div className="text-[13px] tracking-[.06em] text-[#909090]">This link is no longer active.</div>
         </div>
       </div>
     )
@@ -91,12 +91,12 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
 
   if (done) {
     return (
-      <div className="min-h-screen bg-[#070706] flex items-center justify-center font-mono px-6">
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center font-mono px-6">
         <div className="max-w-sm w-full text-center">
-          <div className="text-[9px] tracking-[.35em] uppercase text-[#52504c] mb-8">Night Manoeuvres</div>
-          <div className="w-12 h-px bg-[#b08d57] mx-auto mb-8" />
-          <div className="text-[15px] tracking-[.04em] text-[#f0ebe2] mb-3">you're in.</div>
-          <div className="text-[11px] tracking-[.06em] text-[#8a8780] leading-relaxed mb-8">
+          <div className="text-[9px] tracking-[.35em] uppercase text-[#909090] mb-8">Night Manoeuvres</div>
+          <div className="w-12 h-px bg-[#ff2a1a] mx-auto mb-8" />
+          <div className="text-[15px] tracking-[.04em] text-[#f2f2f2] mb-3">you're in.</div>
+          <div className="text-[11px] tracking-[.06em] text-[#909090] leading-relaxed mb-8">
             {rewardUrl
               ? "your download is ready."
               : "we've got your details — watch your inbox."}
@@ -106,7 +106,7 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
               href={rewardUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-[10px] tracking-[.2em] uppercase bg-[#b08d57] text-[#070706] px-8 py-3 hover:bg-[#c9a46e] transition-colors mb-6"
+              className="inline-block text-[10px] tracking-[.2em] uppercase bg-[#ff2a1a] text-[#050505] px-8 py-3 hover:bg-[#ff2a1a] transition-colors mb-6"
             >
               Download →
             </a>
@@ -118,7 +118,7 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
             href="https://instagram.com/nightmanoeuvres"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] tracking-[.1em] text-[#52504c] hover:text-[#8a8780] transition-colors"
+            className="text-[10px] tracking-[.1em] text-[#909090] hover:text-[#909090] transition-colors"
           >
             @nightmanoeuvres
           </a>
@@ -128,18 +128,18 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
   }
 
   return (
-    <div className="min-h-screen bg-[#070706] flex items-center justify-center font-mono px-6">
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center font-mono px-6">
       <div className="max-w-sm w-full">
         <div className="text-center mb-10">
-          <div className="text-[9px] tracking-[.35em] uppercase text-[#52504c] mb-6">Night Manoeuvres</div>
-          <div className="w-12 h-px bg-[#b08d57] mx-auto mb-6" />
-          <div className="text-[15px] tracking-[.04em] text-[#f0ebe2] mb-3">
+          <div className="text-[9px] tracking-[.35em] uppercase text-[#909090] mb-6">Night Manoeuvres</div>
+          <div className="w-12 h-px bg-[#ff2a1a] mx-auto mb-6" />
+          <div className="text-[15px] tracking-[.04em] text-[#f2f2f2] mb-3">
             {campaign?.campaign_name || 'claim your download'}
           </div>
           {campaign?.follow_required && (
-            <div className="text-[10px] tracking-[.08em] text-[#8a8780] leading-relaxed mt-3">
+            <div className="text-[10px] tracking-[.08em] text-[#909090] leading-relaxed mt-3">
               make sure you're following{' '}
-              <a href="https://instagram.com/nightmanoeuvres" target="_blank" rel="noopener noreferrer" className="text-[#b08d57] hover:underline">
+              <a href="https://instagram.com/nightmanoeuvres" target="_blank" rel="noopener noreferrer" className="text-[#ff2a1a] hover:underline">
                 @nightmanoeuvres
               </a>
               {' '}to stay in the loop
@@ -150,21 +150,21 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
         {/* Follow gate step */}
         {campaign?.follow_required && !followConfirmed && (
           <div className="mb-8 text-center">
-            <div className="text-[10px] tracking-[.08em] text-[#8a8780] leading-relaxed mb-5">
+            <div className="text-[10px] tracking-[.08em] text-[#909090] leading-relaxed mb-5">
               follow us first to unlock your {campaign.reward_type}
             </div>
             <a
               href="https://instagram.com/nightmanoeuvres"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-[10px] tracking-[.2em] uppercase border border-[#b08d57] text-[#b08d57] px-6 py-2.5 hover:bg-[#b08d57] hover:text-[#070706] transition-colors mb-4"
+              className="inline-block text-[10px] tracking-[.2em] uppercase border border-[#ff2a1a] text-[#ff2a1a] px-6 py-2.5 hover:bg-[#ff2a1a] hover:text-[#050505] transition-colors mb-4"
             >
               Follow @nightmanoeuvres →
             </a>
             <div className="mt-4">
               <button
                 onClick={() => setFollowConfirmed(true)}
-                className="text-[9px] tracking-[.14em] uppercase text-[#52504c] hover:text-[#8a8780] transition-colors underline underline-offset-2"
+                className="text-[9px] tracking-[.14em] uppercase text-[#909090] hover:text-[#909090] transition-colors underline underline-offset-2"
               >
                 i'm following — continue
               </button>
@@ -176,24 +176,24 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
         {(!campaign?.follow_required || followConfirmed) && (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div>
-            <label className="block text-[9px] tracking-[.2em] uppercase text-[#52504c] mb-2">Email</label>
+            <label className="block text-[9px] tracking-[.2em] uppercase text-[#909090] mb-2">Email</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="your@email.com"
               required
-              className="w-full bg-[#0e0d0b] border border-white/10 text-[#f0ebe2] font-mono text-[12px] px-4 py-3 outline-none focus:border-[#b08d57] transition-colors placeholder-[#2e2c29]"
+              className="w-full bg-[#0e0e0e] border border-white/10 text-[#f2f2f2] font-mono text-[12px] px-4 py-3 outline-none focus:border-[#ff2a1a] transition-colors placeholder-[#222222]"
             />
           </div>
           <div>
-            <label className="block text-[9px] tracking-[.2em] uppercase text-[#52504c] mb-2">Instagram handle <span className="text-[#2e2c29] normal-case tracking-normal">optional</span></label>
+            <label className="block text-[9px] tracking-[.2em] uppercase text-[#909090] mb-2">Instagram handle <span className="text-[#222222] normal-case tracking-normal">optional</span></label>
             <input
               type="text"
               value={igUsername}
               onChange={e => setIgUsername(e.target.value)}
               placeholder="@yourhandle"
-              className="w-full bg-[#0e0d0b] border border-white/10 text-[#f0ebe2] font-mono text-[12px] px-4 py-3 outline-none focus:border-[#b08d57] transition-colors placeholder-[#2e2c29]"
+              className="w-full bg-[#0e0e0e] border border-white/10 text-[#f2f2f2] font-mono text-[12px] px-4 py-3 outline-none focus:border-[#ff2a1a] transition-colors placeholder-[#222222]"
             />
           </div>
           {error && (
@@ -202,12 +202,12 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
           <button
             type="submit"
             disabled={submitting || !email.trim()}
-            className="mt-2 text-[10px] tracking-[.2em] uppercase bg-[#b08d57] text-[#070706] px-6 py-3 hover:bg-[#c9a46e] transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+            className="mt-2 text-[10px] tracking-[.2em] uppercase bg-[#ff2a1a] text-[#050505] px-6 py-3 hover:bg-[#ff2a1a] transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {submitting && <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />}
             {submitting ? 'sending...' : campaign?.reward_type === 'download' ? 'get download →' : 'claim →'}
           </button>
-          <div className="text-center mt-8 text-[9px] tracking-[.1em] text-[#2e2c29]">
+          <div className="text-center mt-8 text-[9px] tracking-[.1em] text-[#222222]">
             your details stay private. no spam.
           </div>
         </form>

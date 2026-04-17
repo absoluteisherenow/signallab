@@ -1,6 +1,6 @@
 // ── MomentCard ──────────────────────────────────────────────────────────────
 // BRT ticket-style card for the "five hero moments" section. Helvetica 900
-// uppercase moment line, DM Mono labels, red accent only. Carries a LIVE/BETA
+// uppercase moment line, Helvetica Neue labels, red accent only. Carries a LIVE/BETA
 // tag — never let an unbuilt feature wear LIVE.
 
 import { BRT } from '@/lib/design/brt'

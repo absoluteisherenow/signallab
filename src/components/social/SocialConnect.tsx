@@ -24,7 +24,7 @@ const PLATFORMS = [
     label: 'X / Twitter',
     description: 'Post threads and updates',
     icon: '✕',
-    color: '#8a8780',
+    color: '#909090',
     authPath: '/api/social/twitter/auth',
   },
   {
@@ -32,7 +32,7 @@ const PLATFORMS = [
     label: 'TikTok',
     description: 'Post short video content',
     icon: '▶',
-    color: '#8a8780',
+    color: '#909090',
     authPath: '/api/social/tiktok/auth',
   },
 ]

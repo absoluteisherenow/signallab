@@ -69,14 +69,21 @@ async function callClaudeVision(
   maxTokens = 2000
 ): Promise<string> {
   // Build content array: one image block per frame, then the text prompt
-  const content: object[] = frames.map(f => ({
-    type: 'image',
-    source: {
-      type: 'base64',
-      media_type: 'image/jpeg',
-      data: f.dataUrl.replace(/^data:image\/jpeg;base64,/, ''),
-    },
-  }))
+  // Parse the actual media_type from the data URL so a PNG fallback or
+  // unusual canvas output doesn't get mis-labelled as jpeg (Anthropic rejects
+  // with "The string did not match the expected pattern" otherwise).
+  const content: object[] = frames.map((f, idx) => {
+    const match = f.dataUrl.match(/^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/)
+    if (!match) throw new Error(`frame ${idx + 1} produced an invalid data URL — the file may be an unsupported codec or failed to decode`)
+    return {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: match[1],
+        data: match[2],
+      },
+    }
+  })
 
   // Add timestamp labels as a text block before the prompt
   const frameLabels = frames.map((f, i) => `Frame ${i + 1}: ${f.timestamp.toFixed(1)}s`).join(' | ')
@@ -738,6 +745,12 @@ Return JSON exactly:
         </div>
       ) : undefined} />
 
+      <div style={{ padding: '20px 32px 8px', borderBottom: `1px solid ${s.border}` }}>
+        <p style={{ margin: 0, fontSize: '14px', color: s.textDim, lineHeight: 1.6, maxWidth: 640 }}>
+          Drop photos or videos. AI scores every frame for reach, authenticity, culture and visual identity — strongest content ranked first, ready to post.
+        </p>
+      </div>
+
       <div style={{ padding: '32px' }}>
 
       <div style={{ display: 'grid', gridTemplateColumns: scans.length > 0 && activeScan && selectedScan >= 0 ? '1fr 1fr' : '1fr', gap: '24px' }}>
@@ -748,7 +761,7 @@ Return JSON exactly:
           {/* Scan rules strip — always visible */}
           <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '12px', letterSpacing: '0.18em', color: '#c9c4ba', textTransform: 'uppercase' }}>Max</span>
+              <span style={{ fontSize: '12px', letterSpacing: '0.18em', color: '#d8d8d8', textTransform: 'uppercase' }}>Max</span>
               <div style={{ display: 'flex', gap: '4px' }}>
                 {([10, 25, 50, 100] as const).map(n => (
                   <button
@@ -770,7 +783,7 @@ Return JSON exactly:
               </div>
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <span style={{ fontSize: '12px', letterSpacing: '0.18em', color: '#c9c4ba', textTransform: 'uppercase' }}>Skip already scanned</span>
+              <span style={{ fontSize: '12px', letterSpacing: '0.18em', color: '#d8d8d8', textTransform: 'uppercase' }}>Skip already scanned</span>
               <button
                 onClick={() => setSkipAlreadyScanned(v => !v)}
                 style={{
@@ -825,7 +838,7 @@ Return JSON exactly:
           {/* Folder URL mode */}
           {inputMode === 'folder' && (
             <div style={{ background: s.panel, border: `1px dashed ${s.border}`, padding: '24px' }}>
-              <div style={{ fontSize: '11px', letterSpacing: '0.18em', color: '#c9c4ba', textTransform: 'uppercase', marginBottom: '10px' }}>Folder share link</div>
+              <div style={{ fontSize: '11px', letterSpacing: '0.18em', color: '#d8d8d8', textTransform: 'uppercase', marginBottom: '10px' }}>Folder share link</div>
               <input
                 type="text"
                 value={folderUrl}
@@ -846,7 +859,7 @@ Return JSON exactly:
                 onClick={importFromFolder}
                 disabled={importing}
                 style={{
-                  background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+                  background: 'var(--panel)',
                   border: `1px solid ${s.gold}`,
                   color: s.gold,
                   fontFamily: s.font,
@@ -859,14 +872,14 @@ Return JSON exactly:
                 }}>
                 {importing ? 'Importing...' : 'Import →'}
               </button>
-              <div style={{ fontSize: '12px', color: '#8a8782', marginTop: '10px' }}>Dropbox · Google Drive · iCloud not supported</div>
+              <div style={{ fontSize: '12px', color: '#909090', marginTop: '10px' }}>Dropbox · Google Drive · iCloud not supported</div>
             </div>
           )}
 
           {/* Instagram URL mode */}
           {inputMode === 'instagram' && (
             <div style={{ background: s.panel, border: `1px dashed ${s.border}`, padding: '24px' }}>
-              <div style={{ fontSize: '11px', letterSpacing: '0.18em', color: '#c9c4ba', textTransform: 'uppercase', marginBottom: '10px' }}>Instagram profile</div>
+              <div style={{ fontSize: '11px', letterSpacing: '0.18em', color: '#d8d8d8', textTransform: 'uppercase', marginBottom: '10px' }}>Instagram profile</div>
               <input
                 type="text"
                 value={instagramHandle}
@@ -887,7 +900,7 @@ Return JSON exactly:
                 onClick={importFromInstagram}
                 disabled={importing}
                 style={{
-                  background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+                  background: 'var(--panel)',
                   border: `1px solid ${s.gold}`,
                   color: s.gold,
                   fontFamily: s.font,
@@ -900,7 +913,7 @@ Return JSON exactly:
                 }}>
                 {importing ? 'Scanning...' : 'Scan posts →'}
               </button>
-              <div style={{ fontSize: '12px', color: '#8a8782', marginTop: '10px' }}>Pulls posts from your connected account or via public scrape</div>
+              <div style={{ fontSize: '12px', color: '#909090', marginTop: '10px' }}>Pulls posts from your connected account or via public scrape</div>
             </div>
           )}
 
@@ -964,7 +977,7 @@ Return JSON exactly:
           {/* Scan button */}
           {files.length > 0 && !scanning && (
             <button onClick={scanAll} style={{
-              background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+              background: 'var(--panel)',
               border: `1px solid ${s.gold}`,
               color: s.gold,
               fontFamily: s.font,
@@ -1140,7 +1153,7 @@ Return JSON exactly:
                           src={bestFrame.dataUrl}
                           alt=""
                           onClick={(e) => { e.stopPropagation(); setLightboxUrl(bestFrame.dataUrl) }}
-                          style={{ width: '100%', display: 'block', maxHeight: '360px', objectFit: 'contain', background: '#0a0907', cursor: 'zoom-in' }}
+                          style={{ width: '100%', display: 'block', maxHeight: '360px', objectFit: 'contain', background: '#0a0a0a', cursor: 'zoom-in' }}
                           title="Click to view full image"
                         />
                         {isCarouselPicked && (
@@ -1399,7 +1412,7 @@ Return JSON exactly:
                   }
                 }} style={{
                   flex: 1,
-                  background: schedulingFor === selectedScan ? 'transparent' : 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)',
+                  background: schedulingFor === selectedScan ? 'transparent' : 'var(--panel)',
                   border: `1px solid ${schedulingFor === selectedScan ? s.border : s.gold}`,
                   color: schedulingFor === selectedScan ? s.textDim : s.gold,
                   fontFamily: s.font,

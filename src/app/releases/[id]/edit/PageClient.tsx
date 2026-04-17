@@ -105,7 +105,7 @@ export default function EditReleaseClient({ params }: { params: { id: string } }
           <span style={{ color: s.dimmer }}>—</span>
           Edit
         </div>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>Edit release</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 7vw, 96px)', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 0.9, textTransform: 'uppercase' }}>Edit release</div>
       </div>
 
       <div style={{ maxWidth: '720px' }}>
@@ -212,7 +212,7 @@ export default function EditReleaseClient({ params }: { params: { id: string } }
 
         <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={save} disabled={saving}
-            style={{ background: s.gold, color: '#070706', border: 'none', padding: '0 32px', height: '44px', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+            style={{ background: s.gold, color: '#050505', border: 'none', padding: '0 32px', height: '44px', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Saving...' : 'Save changes'}
           </button>
           <Link href="/releases"

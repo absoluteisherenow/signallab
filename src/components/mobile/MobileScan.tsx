@@ -379,7 +379,7 @@ Return ONLY the JSON, no other text.` },
   function scoreColor(score: number) {
     if (score >= 8) return '#4ecb71'
     if (score >= 6) return 'var(--gold)'
-    if (score >= 4) return '#c9a46e'
+    if (score >= 4) return '#ff2a1a'
     return '#c06060'
   }
 
@@ -400,7 +400,7 @@ Return ONLY the JSON, no other text.` },
 
       {/* Header */}
       <div style={{ padding: '20px 16px 16px' }}>
-        <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '26px', fontWeight: 300, marginBottom: '6px' }}>
+        <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '26px', fontWeight: 300, marginBottom: '6px' }}>
           Scan
         </div>
         <div style={{ fontSize: '12px', color: s.dimmer }}>
@@ -516,7 +516,7 @@ Return ONLY the JSON, no other text.` },
                 onClick={handlePaste}
                 disabled={!pasteText.trim()}
                 style={{
-                  marginTop: '12px', background: s.gold, color: '#070706', border: 'none',
+                  marginTop: '12px', background: s.gold, color: '#050505', border: 'none',
                   padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
                   textTransform: 'uppercase', fontFamily: s.font,
                   cursor: pasteText.trim() ? 'pointer' : 'default',
@@ -557,7 +557,7 @@ Return ONLY the JSON, no other text.` },
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexDirection: 'column',
             }}>
-              <div style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '28px', fontWeight: 300, color: s.gold, lineHeight: 1 }}>
+              <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '28px', fontWeight: 300, color: s.gold, lineHeight: 1 }}>
                 {listenCountdown}
               </div>
             </div>
@@ -609,7 +609,7 @@ Return ONLY the JSON, no other text.` },
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button onClick={addIdentifiedToPlaylist} style={{
-              background: s.gold, color: '#070706', border: 'none',
+              background: s.gold, color: '#050505', border: 'none',
               padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
               textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
             }}>
@@ -669,7 +669,7 @@ Return ONLY the JSON, no other text.` },
           <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '32px' }}>Try closer to the speaker or in a quieter spot</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
             <button onClick={startListening} style={{
-              background: s.gold, color: '#070706', border: 'none',
+              background: s.gold, color: '#050505', border: 'none',
               padding: '14px 28px', fontSize: '12px', letterSpacing: '0.14em',
               textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
             }}>
@@ -744,7 +744,7 @@ Return ONLY the JSON, no other text.` },
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button onClick={saveReminder} style={{
-              background: s.gold, color: '#070706', border: 'none',
+              background: s.gold, color: '#050505', border: 'none',
               padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
               textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
             }}>
@@ -866,7 +866,7 @@ Return ONLY the JSON, no other text.` },
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={savePlaylist} style={{
-                flex: 1, background: s.gold, color: '#070706', border: 'none',
+                flex: 1, background: s.gold, color: '#050505', border: 'none',
                 padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
                 textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
               }}>
@@ -928,7 +928,7 @@ Return ONLY the JSON, no other text.` },
         <div style={{ padding: '0 16px' }}>
           <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '28px', textAlign: 'center', marginBottom: '14px' }}>
             <div style={{
-              fontFamily: "'Unbounded', sans-serif", fontSize: '48px', fontWeight: 300,
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '48px', fontWeight: 300,
               color: scoreColor(analysisResult.overall_score), marginBottom: '4px',
             }}>
               {analysisResult.overall_score?.toFixed(1)}
@@ -956,7 +956,7 @@ Return ONLY the JSON, no other text.` },
             <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '18px', marginBottom: '16px' }}>
               <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px' }}>Improvements</div>
               {analysisResult.improvements.map((imp: string, i: number) => (
-                <div key={i} style={{ fontSize: '13px', color: s.dim, lineHeight: 1.7, marginBottom: '8px', paddingLeft: '14px', borderLeft: 'rgba(176,141,87,0.3)' }}>
+                <div key={i} style={{ fontSize: '13px', color: s.dim, lineHeight: 1.7, marginBottom: '8px', paddingLeft: '14px', borderLeft: 'rgba(255,42,26,0.3)' }}>
                   {imp}
                 </div>
               ))}

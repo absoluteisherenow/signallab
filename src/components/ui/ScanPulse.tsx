@@ -77,7 +77,7 @@ export function ScanPulse({ size = 'lg', color = 'var(--gold)' }: ScanPulseProps
             strokeDasharray: '120',
             strokeDashoffset: '0',
             animation: 'scan-draw 1.8s ease-in-out infinite',
-            filter: `drop-shadow(0 0 4px ${color === 'var(--gold)' ? 'rgba(176,141,87,0.4)' : 'currentColor'})`,
+            filter: `drop-shadow(0 0 4px ${color === 'var(--gold)' ? 'rgba(255,42,26,0.4)' : 'currentColor'})`,
           }}
         />
       </svg>

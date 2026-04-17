@@ -642,7 +642,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
 
   const cardGold = {
     ...card,
-    border: '1px solid rgba(176, 141, 87, 0.2)',
+    border: '1px solid rgba(255, 42, 26, 0.2)',
   } as const
 
   const secHead = (label: string) => (
@@ -669,7 +669,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
       <PageHeader
         section="SONIX Lab"
         sectionColor="var(--gold)"
-        title="Your music"
+        title={mode === 'reference' ? 'Reference Intel' : mode === 'track' ? 'Track Analysis' : 'Devices'}
         right={installedPlugins.length > 0 ? (
           <div style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'var(--green)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
             {installedPlugins.length} plugins loaded
@@ -694,7 +694,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
             ]).map(tile => (
               <button key={tile.id} onClick={() => setMode(tile.id)}
                 style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '28px 24px', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'var(--font-mono)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(176,141,87,0.4)'; (e.currentTarget as HTMLButtonElement).style.background = '#111009' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,42,26,0.4)'; (e.currentTarget as HTMLButtonElement).style.background = '#111009' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-dim)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--panel)' }}
               >
                 <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '20px' }}>{tile.sub}</div>
@@ -818,7 +818,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
                 onDragLeave={() => setNextStepsDrag(false)}
                 onDrop={e => { e.preventDefault(); setNextStepsDrag(false); const f = e.dataTransfer.files[0]; if (f) { setNextStepsFile(f); measureAndAsk(f) } }}
                 onClick={() => nextStepsInputRef.current?.click()}
-                style={{ border: `2px dashed ${nextStepsDrag ? 'var(--gold)' : 'var(--border-dim)'}`, padding: '72px 40px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: nextStepsDrag ? 'rgba(176,141,87,0.04)' : 'transparent' }}
+                style={{ border: `2px dashed ${nextStepsDrag ? 'var(--gold)' : 'var(--border-dim)'}`, padding: '72px 40px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: nextStepsDrag ? 'rgba(255,42,26,0.04)' : 'transparent' }}
               >
                 <div className="display" style={{ fontSize: '20px', fontWeight: 300, color: 'var(--text-dim)', marginBottom: '14px' }}>Drop your track here</div>
                 <div style={{ fontSize: '13px', color: 'var(--text-dimmer)', lineHeight: '1.7' }}>
@@ -855,7 +855,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
                   </div>
                 </div>
 
-                <div style={{ background: 'var(--panel)', border: '1px solid rgba(176,141,87,0.2)', padding: '28px 32px', marginBottom: '2px' }}>
+                <div style={{ background: 'var(--panel)', border: '1px solid rgba(255,42,26,0.2)', padding: '28px 32px', marginBottom: '2px' }}>
                   <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>
                     One question — I&apos;ll calibrate everything to it
                   </div>
@@ -873,7 +873,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
                         { v: 'Just exploring — no specific goal', label: 'Just exploring', sub: null },
                       ].map(opt => (
                         <button key={opt.v} onClick={() => setCtxGoal(ctxGoal === opt.v ? '' : opt.v)}
-                          style={{ background: ctxGoal === opt.v ? 'rgba(176,141,87,0.12)' : 'transparent', border: `1px solid ${ctxGoal === opt.v ? 'var(--gold)' : 'var(--border-dim)'}`, color: ctxGoal === opt.v ? 'var(--gold)' : 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.12em', padding: '8px 16px', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                          style={{ background: ctxGoal === opt.v ? 'rgba(255,42,26,0.12)' : 'transparent', border: `1px solid ${ctxGoal === opt.v ? 'var(--gold)' : 'var(--border-dim)'}`, color: ctxGoal === opt.v ? 'var(--gold)' : 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.12em', padding: '8px 16px', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
                           <span>{opt.label}</span>
                           {opt.sub && <span style={{ fontSize: '9px', opacity: 0.6, letterSpacing: '0.08em' }}>{opt.sub}</span>}
                         </button>
@@ -904,7 +904,7 @@ Give 3-5 steps ordered by impact for THIS specific goal and stage. If the goal i
                       ].map(opt => (
                         <button key={opt.v}
                           onClick={() => { setCtxFocus(ctxFocus === opt.v ? '' : opt.v); if (ctxFocus !== opt.v) setCtxFocusCustom('') }}
-                          style={{ background: ctxFocus === opt.v ? 'rgba(176,141,87,0.12)' : 'transparent', border: `1px solid ${ctxFocus === opt.v ? 'var(--gold)' : opt.label.includes('↑') ? 'rgba(176,141,87,0.35)' : 'var(--border-dim)'}`, color: ctxFocus === opt.v ? 'var(--gold)' : opt.label.includes('↑') ? 'rgba(176,141,87,0.7)' : 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.12em', padding: '8px 14px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                          style={{ background: ctxFocus === opt.v ? 'rgba(255,42,26,0.12)' : 'transparent', border: `1px solid ${ctxFocus === opt.v ? 'var(--gold)' : opt.label.includes('↑') ? 'rgba(255,42,26,0.35)' : 'var(--border-dim)'}`, color: ctxFocus === opt.v ? 'var(--gold)' : opt.label.includes('↑') ? 'rgba(255,42,26,0.7)' : 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.12em', padding: '8px 14px', cursor: 'pointer', transition: 'all 0.15s' }}>
                           {opt.label}
                         </button>
                       ))}
@@ -1045,7 +1045,7 @@ function DeviceCard({ device }: { device: { name: string; desc: string; specs: s
     <div
       style={{ background: 'var(--panel)', border: '1px solid var(--border-dim)', padding: '22px 24px', cursor: 'pointer', transition: 'all 0.15s' }}
       onClick={() => setExpanded(!expanded)}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(176,141,87,0.3)' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,42,26,0.3)' }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -1069,7 +1069,7 @@ function DeviceCard({ device }: { device: { name: string; desc: string; specs: s
           ))}
           {device.download && (
             <a href={device.download} download onClick={e => e.stopPropagation()}
-              style={{ display: 'inline-block', marginTop: '14px', fontSize: '10px', letterSpacing: '0.15em', color: 'var(--gold)', textTransform: 'uppercase', textDecoration: 'none', border: '1px solid rgba(176,141,87,0.3)', padding: '8px 16px' }}>
+              style={{ display: 'inline-block', marginTop: '14px', fontSize: '10px', letterSpacing: '0.15em', color: 'var(--gold)', textTransform: 'uppercase', textDecoration: 'none', border: '1px solid rgba(255,42,26,0.3)', padding: '8px 16px' }}>
               Download .amxd →
             </a>
           )}

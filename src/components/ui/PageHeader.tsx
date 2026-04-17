@@ -85,10 +85,11 @@ export function PageHeader({
           </div>
           <div style={{
             fontFamily: 'var(--font-display)',
-            fontSize: 'clamp(40px, 5vw, 64px)',
-            fontWeight: 300,
-            letterSpacing: '-0.02em',
-            lineHeight: 1,
+            fontSize: 'clamp(48px, 7vw, 96px)',
+            fontWeight: 900,
+            letterSpacing: '-0.04em',
+            lineHeight: 0.9,
+            textTransform: 'uppercase',
             color: 'var(--text)',
           }}>
             {title}

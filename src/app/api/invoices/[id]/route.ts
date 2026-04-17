@@ -103,9 +103,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${invoiceNumber} — ${invoice.gig_title}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@300&family=DM+Mono:wght@300;400;500&display=swap');
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'DM Mono', 'Courier New', monospace; background: #f5f5f5; color: #111; padding: 24px; font-size: 13px; }
+  @import  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #f5f5f5; color: #111; padding: 24px; font-size: 13px; }
   .invoice { background: #fff; max-width: 760px; margin: 0 auto; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1.5px solid #111; padding-bottom: 18px; }
   .logo { width: 220px; height: auto; display: block; }
@@ -114,17 +113,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   .invoice-date { font-size: 11px; color: #555; margin-top: 4px; font-weight: 300; }
   .pulse-motif { width: 100%; height: 24px; overflow: hidden; opacity: 0.05; margin-bottom: 24px; }
   .section-title { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #888; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5; font-weight: 300; }
-  .amount-block { background: #111; color: #fff; padding: 22px 32px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #b08d57; }
+  .amount-block { background: #111; color: #fff; padding: 22px 32px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #ff2a1a; }
   .amount-label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 6px; font-weight: 300; }
-  .amount-value { font-family: 'Unbounded', sans-serif; font-weight: 300; font-size: 32px; letter-spacing: 0.02em; color: #f0ebe2; }
+  .amount-value { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 300; font-size: 32px; letter-spacing: 0.02em; color: #f2f2f2; }
   .amount-meta { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 4px; letter-spacing: 0.06em; font-weight: 300; }
-  .due-value { font-size: 15px; color: #c9a96e; font-weight: 500; margin-top: 3px; }
+  .due-value { font-size: 15px; color: #ff2a1a; font-weight: 500; margin-top: 3px; }
   .section { margin-bottom: 20px; page-break-inside: avoid; }
-  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e8e3da; font-size: 13px; }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #222; font-size: 13px; }
   .row span:first-child { color: #555; font-weight: 300; }
   .row span:last-child { font-weight: 600; }
   .footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 11px; color: #888; text-align: center; font-weight: 300; line-height: 1.8; }
-  .download-btn { position: fixed; top: 24px; right: 24px; background: #111; color: #fff; border: none; padding: 10px 20px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; z-index: 100; }
+  .download-btn { position: fixed; top: 24px; right: 24px; background: #111; color: #fff; border: none; padding: 10px 20px; font-family: 'Helvetica Neue', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; z-index: 100; }
   .download-btn:hover { background: #333; }
   @media print { html { zoom: 0.65; } body { background: #fff; padding: 0; } .invoice { box-shadow: none; } .download-btn { display: none; } @page { size: A4; margin: 8mm; } }
 </style>
@@ -146,7 +145,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   <div class="pulse-motif">
     <svg width="100%" height="24" viewBox="0 0 760 24" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-      <polyline points="0,12 120,12 180,4 240,20 300,2 360,18 420,8 480,12 760,12" stroke="#070706" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <polyline points="0,12 120,12 180,4 240,20 300,2 360,18 420,8 480,12 760,12" stroke="#050505" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </svg>
   </div>
 
@@ -219,10 +218,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     <p style="margin-bottom:2px">${artistName} &nbsp;|&nbsp; ${address.replace(/<br>/g, ', ')}</p>
     <p style="margin-bottom:2px">${(payment.email || profile.email || 'advancingabsolute@gmail.com').replace('@', '&#64;')}</p>
     ${vatNumber ? `<p style="margin-bottom:12px">${isAUD ? 'ABN' : 'VAT'}: ${vatNumber}</p>` : '<p style="margin-bottom:12px"></p>'}
-    ${hideBranding ? '' : `<a href="https://signallabos.com/join" style="display:inline-flex;align-items:center;gap:6px;color:#bbb;text-decoration:none;font-size:10px">
+    ${hideBranding ? '' : `<a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:6px;color:#bbb;text-decoration:none;font-size:10px">
       <svg width="14" height="14" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
-        <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#b08d57" stroke-width="1.5" opacity="0.5"/>
-        <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#b08d57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" stroke-width="1.5" opacity="0.5"/>
+        <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
       Powered by Signal Lab OS
     </a>`}

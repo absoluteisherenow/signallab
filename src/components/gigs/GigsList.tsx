@@ -257,7 +257,7 @@ export function GigsList() {
 
       <PageHeader
         section="Tour Lab"
-        title="Your gigs"
+        title="Gigs"
         tabs={[
           { label: 'Gigs', href: '/gigs', active: pathname === '/gigs' || pathname.startsWith('/gigs/') },
           { label: 'Travel', href: '/logistics', active: pathname === '/logistics' },
@@ -356,7 +356,7 @@ export function GigsList() {
                         color: f.gold, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.16em',
                         textTransform: 'uppercase', padding: '10px 22px', cursor: 'pointer', transition: 'all 0.15s',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = f.gold; e.currentTarget.style.color = '#070706' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = f.gold; e.currentTarget.style.color = '#050505' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)'; e.currentTarget.style.color = f.gold }}
                     >Edit gig →</button>
                   </div>
@@ -413,8 +413,8 @@ export function GigsList() {
                               <input value={promoterEmail} onChange={e => setPromoterEmail(e.target.value)} placeholder="promoter@venue.com"
                                 style={{ background: f.bg, border: `1px solid ${f.mid}`, color: f.text, fontFamily: f.font, fontSize: '13px', padding: '10px 14px', outline: 'none' }} />
                               <div style={{ display: 'flex', gap: '8px' }}>
-                                <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} style={{ background: promoterEmail ? f.gold : 'transparent', color: promoterEmail ? '#070706' : f.dimmer, border: `1px solid ${promoterEmail ? f.gold : f.border}`, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {sending === gig.id && <ScanPulse size="sm" color="#070706" />}
+                                <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} style={{ background: promoterEmail ? f.gold : 'transparent', color: promoterEmail ? '#050505' : f.dimmer, border: `1px solid ${promoterEmail ? f.gold : f.border}`, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {sending === gig.id && <ScanPulse size="sm" color="#050505" />}
                                   {sending === gig.id ? 'Sending...' : 'Send →'}
                                 </button>
                                 <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} style={{ background: 'transparent', color: f.dimmer, border: `1px solid ${f.border}`, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 16px', cursor: 'pointer' }}>Cancel</button>

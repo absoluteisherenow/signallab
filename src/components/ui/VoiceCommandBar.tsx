@@ -108,7 +108,7 @@ export function VoiceCommandBar() {
     setIsMobile(window.innerWidth <= 768)
   }, [])
 
-  if (pathname === '/join' || pathname.startsWith('/join/')) return null
+  if (pathname === '/waitlist' || pathname === '/' || pathname === '/brt') return null
   if (isMobile) return null
 
   if (!isOpen) {
@@ -166,11 +166,11 @@ export function VoiceCommandBar() {
         border: '1px solid #4a3e2c',
         borderRadius: '8px',
         boxShadow: '0 24px 80px rgba(0,0,0,0.8)',
-        fontFamily: "'DM Mono', monospace",
+        fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
         overflow: 'hidden',
       }}>
         {/* Amber top rule */}
-        <div style={{ height: '2px', background: '#c9a46e' }} />
+        <div style={{ height: '2px', background: '#ff2a1a' }} />
 
         {/* Header */}
         <div style={{
@@ -235,11 +235,11 @@ export function VoiceCommandBar() {
             disabled={loading || !query.trim()}
             style={{
               background: '#3a2e1a',
-              border: '1px solid #c9a46e',
+              border: '1px solid #ff2a1a',
               borderRadius: '4px',
               padding: '4px 14px',
               cursor: 'pointer',
-              color: '#c9a46e',
+              color: '#ff2a1a',
               fontSize: '9px',
               letterSpacing: '0.12em',
               fontFamily: 'inherit',
@@ -340,7 +340,7 @@ function ThinkingDots() {
       {[0, 1, 2, 3, 4].map(i => (
         <div key={i} style={{
           width: '6px', height: '6px', borderRadius: '50%',
-          background: '#c9a46e',
+          background: '#ff2a1a',
           animation: `dotpulse 1.4s ${i * 0.2}s infinite`,
           opacity: 0.3,
         }} />
@@ -380,7 +380,7 @@ function BlueprintResult({ result }: { result: AssistantResult }) {
           <div key={b.label} style={{
             background: '#2a2218',
             border: '1px solid #4a3e2c',
-            borderTop: '2px solid #c9a46e',
+            borderTop: '2px solid #ff2a1a',
             borderRadius: '4px',
             padding: '8px 6px 6px',
             textAlign: 'center',
@@ -401,7 +401,7 @@ function BlueprintResult({ result }: { result: AssistantResult }) {
           <span style={{ fontSize: '8px', color: '#5a4a38', letterSpacing: '0.1em', marginRight: '4px' }}>GENRE</span>
           {bp.genre_tags.map(t => (
             <span key={t} style={{
-              fontSize: '9px', color: '#c9a46e', padding: '2px 8px',
+              fontSize: '9px', color: '#ff2a1a', padding: '2px 8px',
               background: '#3a2e1a', border: '1px solid #4a3e2c', borderRadius: '3px',
             }}>{t}</span>
           ))}
@@ -464,7 +464,7 @@ function ContentStrategyResult({ result }: { result: AssistantResult }) {
           {result.phases.map((phase, i) => (
             <div key={i} style={{ background: '#0a0806', border: '1px solid #2a2218', padding: '14px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
-                <div style={{ fontSize: '10px', color: '#c9a46e', letterSpacing: '0.1em', fontWeight: 500 }}>
+                <div style={{ fontSize: '10px', color: '#ff2a1a', letterSpacing: '0.1em', fontWeight: 500 }}>
                   {phase.name.toUpperCase()}
                 </div>
                 <div style={{ fontSize: '9px', color: '#4a3e2c', letterSpacing: '0.08em' }}>{phase.timing}</div>
@@ -534,7 +534,7 @@ function TextResult({ result }: { result: AssistantResult }) {
               <span style={{ color: item.status === 'overdue' ? '#c06060' : '#8a7658', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {item.label}
                 {item.status === 'overdue' && <span style={{ fontSize: '8px', color: '#c06060', letterSpacing: '0.1em' }}>OVERDUE</span>}
-                {item.status === 'pending' && <span style={{ fontSize: '8px', color: '#c9a46e', letterSpacing: '0.1em' }}>UNPAID</span>}
+                {item.status === 'pending' && <span style={{ fontSize: '8px', color: '#ff2a1a', letterSpacing: '0.1em' }}>UNPAID</span>}
               </span>
               <span style={{ color: item.status === 'paid' ? '#4ecb71' : '#e8c98a' }}>
                 <BlurredAmount>{result.currency} {item.amount?.toLocaleString()}</BlurredAmount>
@@ -557,10 +557,10 @@ function TextResult({ result }: { result: AssistantResult }) {
               padding: '10px 14px',
               background: '#0a0a0a',
               border: '1px solid #262626',
-              borderLeft: '2px solid #c9a46e',
+              borderLeft: '2px solid #ff2a1a',
               fontSize: '11px',
             }}>
-              <div style={{ color: '#c9a46e', marginBottom: '3px', fontSize: '10px', letterSpacing: '0.08em' }}>{step.plugin}</div>
+              <div style={{ color: '#ff2a1a', marginBottom: '3px', fontSize: '10px', letterSpacing: '0.08em' }}>{step.plugin}</div>
               <div style={{ color: '#8a7658' }}>{step.role}{step.hint ? ` — ${step.hint}` : ''}</div>
             </div>
           ))}

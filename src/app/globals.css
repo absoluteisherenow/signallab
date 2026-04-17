@@ -2,9 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Unbounded — BTR display face (brand guidelines, landing BTR sections) */
-@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700;800;900&display=swap');
-
 /* ── BRT THEME ── Brutalist · Circoloco red · Helvetica Black · scanlines + grain ── */
 
 *, *::before, *::after {
@@ -158,7 +155,7 @@ select {
 
 input:focus, textarea:focus, select:focus {
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 42, 26, 0.1);
 }
 
 input::placeholder, textarea::placeholder {
@@ -365,8 +362,8 @@ a { color: inherit; }
 }
 
 .status-pill.warn {
-  background: rgba(176,141,87,0.1);
-  border: 1px solid rgba(176,141,87,0.25);
+  background: rgba(255,42,26,0.1);
+  border: 1px solid rgba(255,42,26,0.25);
   color: var(--gold);
 }
 
@@ -455,8 +452,8 @@ a { color: inherit; }
 }
 
 .badge-green { color: var(--green); background: #3d6b4a18; }
-.badge-gold { color: var(--gold); background: #b08d5718; }
-.badge-dim { color: var(--text-dimmer); background: #52504c18; }
+.badge-gold { color: var(--gold); background: rgba(255,42,26,0.094); }
+.badge-dim { color: var(--text-dimmer); background: #90909018; }
 .badge-red { color: var(--red-brown); background: rgba(138, 74, 58, 0.1); }
 
 /* SECTION DIVIDER */
@@ -604,11 +601,11 @@ a { color: inherit; }
 .btn-gold {
   background: transparent;
   color: var(--gold);
-  border: 1px solid rgba(176,141,87,0.35);
+  border: 1px solid rgba(255,42,26,0.35);
 }
 
 .btn-gold:hover {
-  background: rgba(176,141,87,0.1);
+  background: rgba(255,42,26,0.1);
   border-color: var(--gold);
   color: var(--gold-bright);
 }
@@ -617,7 +614,7 @@ a { color: inherit; }
 .btn-primary:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.2);
+  box-shadow: 0 0 0 3px rgba(255, 42, 26, 0.2);
 }
 
 .btn-secondary:focus-visible {
@@ -628,7 +625,7 @@ a { color: inherit; }
 .btn-gold:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.25);
+  box-shadow: 0 0 0 3px rgba(255, 42, 26, 0.25);
 }
 
 button:focus-visible {

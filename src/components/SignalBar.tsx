@@ -46,7 +46,7 @@ export default function SignalBar({ onAction }: { onAction?: () => void }) {
         display: 'flex',
         alignItems: 'center',
         gap: '0',
-        border: '1px solid rgba(176, 141, 87, 0.3)',
+        border: '1px solid rgba(255, 42, 26, 0.3)',
         background: 'var(--panel)',
         transition: 'border-color 0.15s',
       }}>
@@ -54,10 +54,10 @@ export default function SignalBar({ onAction }: { onAction?: () => void }) {
           padding: '0 16px',
           fontSize: '11px',
           letterSpacing: '0.18em',
-          color: 'rgba(176,141,87,0.5)',
+          color: 'rgba(255,42,26,0.5)',
           textTransform: 'uppercase',
           whiteSpace: 'nowrap',
-          borderRight: '1px solid rgba(176, 141, 87, 0.15)',
+          borderRight: '1px solid rgba(255, 42, 26, 0.15)',
           height: '46px',
           display: 'flex',
           alignItems: 'center',
@@ -87,7 +87,7 @@ export default function SignalBar({ onAction }: { onAction?: () => void }) {
         <div style={{
           padding: '0 14px',
           fontSize: '10px',
-          color: 'rgba(176,141,87,0.3)',
+          color: 'rgba(255,42,26,0.3)',
           letterSpacing: '0.1em',
           whiteSpace: 'nowrap',
         }}>
@@ -100,9 +100,9 @@ export default function SignalBar({ onAction }: { onAction?: () => void }) {
           fontSize: '12px',
           color: 'var(--gold)',
           letterSpacing: '0.05em',
-          borderLeft: '2px solid rgba(176,141,87,0.4)',
+          borderLeft: '2px solid rgba(255,42,26,0.4)',
           marginTop: '8px',
-          background: 'rgba(176,141,87,0.04)',
+          background: 'rgba(255,42,26,0.04)',
         }}>
           {reply}
         </div>

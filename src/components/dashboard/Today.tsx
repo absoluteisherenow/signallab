@@ -205,9 +205,6 @@ export function Today() {
       <div style={{ padding: '20px 24px 0', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
           <div>
-            <div style={{ fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 6, fontWeight: 700 }}>
-              Signal Lab OS
-            </div>
             <h1 style={{
               fontSize: 'clamp(36px, 5vw, 60px)',
               fontWeight: 900,
@@ -322,7 +319,7 @@ export function Today() {
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = '#161616' }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.background = 'var(--panel)' }}
               >
-                <div style={{ fontSize: 'clamp(14px, 1.8vw, 28px)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.03em', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 'clamp(20px, 2.8vw, 42px)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.03em', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {card.label}
                 </div>
                 <div style={{ fontSize: 'clamp(9px, 0.7vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-dimmest)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -387,34 +384,6 @@ export function Today() {
                 </div>
               </Link>
 
-              {/* Next Scheduled Post preview */}
-              {data.next_scheduled_post && (
-                <Link
-                  href="/calendar"
-                  style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 16, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--panel)', textDecoration: 'none', color: 'inherit', transition: 'border-color 0.15s', maxWidth: 480 }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
-                >
-                  {(data.next_scheduled_post.media_urls?.[0] || data.next_scheduled_post.media_url) && (
-                    <img
-                      src={data.next_scheduled_post.media_urls?.[0] || data.next_scheduled_post.media_url!}
-                      alt=""
-                      style={{ width: 44, height: 44, objectFit: 'cover', flexShrink: 0 }}
-                    />
-                  )}
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--text-dimmest)', fontWeight: 700, marginBottom: 3 }}>
-                      Next Post &middot; {data.next_scheduled_post.platform.toUpperCase()}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-dimmer)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {data.next_scheduled_post.caption?.slice(0, 80) || 'No caption'}
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-dimmest)', marginTop: 2 }}>
-                      {new Date(data.next_scheduled_post.scheduled_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                </Link>
-              )}
             </>
           ) : (
             <div>
@@ -424,6 +393,35 @@ export function Today() {
               </h2>
               <Link href="/gigs" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 700 }}>View gigs</Link>
             </div>
+          )}
+
+          {/* Next Scheduled Post preview — always shown */}
+          {data.next_scheduled_post && (
+            <Link
+              href="/calendar"
+              style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 16, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--panel)', textDecoration: 'none', color: 'inherit', transition: 'border-color 0.15s', maxWidth: 480 }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+            >
+              {(data.next_scheduled_post.media_urls?.[0] || data.next_scheduled_post.media_url) && (
+                <img
+                  src={data.next_scheduled_post.media_urls?.[0] || data.next_scheduled_post.media_url!}
+                  alt=""
+                  style={{ width: 44, height: 44, objectFit: 'cover', flexShrink: 0 }}
+                />
+              )}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--text-dimmest)', fontWeight: 700, marginBottom: 3 }}>
+                  Next Post &middot; {data.next_scheduled_post.platform.toUpperCase()}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-dimmer)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {data.next_scheduled_post.caption?.slice(0, 80) || 'No caption'}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-dimmest)', marginTop: 2 }}>
+                  {new Date(data.next_scheduled_post.scheduled_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            </Link>
           )}
         </div>
 

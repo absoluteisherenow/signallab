@@ -56,12 +56,12 @@ export function Logo({ size = 'md', className }: LogoProps) {
           ) : null}
         </div>
         {!isHero && (
-          <div className={`font-mono font-light tracking-widest ${s.os}`} style={{ color: '#52504c' }}>
+          <div className={`font-mono font-light tracking-widest ${s.os}`} style={{ color: '#909090' }}>
             OS
           </div>
         )}
         {isHero && (
-          <div className="font-mono font-light text-[15px] tracking-wide mt-2" style={{ color: '#8a8780' }}>
+          <div className="font-mono font-light text-[15px] tracking-wide mt-2" style={{ color: '#909090' }}>
             Tailored Artist OS
           </div>
         )}

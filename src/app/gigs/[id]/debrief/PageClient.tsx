@@ -81,34 +81,34 @@ export default function GigDebriefPageClient({ params }: { params: { id: string 
 
   if (done) {
     return (
-      <div style={{ background: '#070706', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Mono, monospace' }}>
+      <div style={{ background: '#050505', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
         <Celebration trigger={celebrate} />
         <div style={{ maxWidth: 480, width: '100%', padding: '40px 24px' }}>
-          <div style={{ color: '#c9a96e', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 24 }}>Debrief saved</div>
-          <div style={{ fontSize: 22, color: '#f0ebe2', marginBottom: 8 }}>{'◆'.repeat(rating)}{'◇'.repeat(5 - rating)}</div>
+          <div style={{ color: '#ff2a1a', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 24 }}>Debrief saved</div>
+          <div style={{ fontSize: 22, color: '#f2f2f2', marginBottom: 8 }}>{'◆'.repeat(rating)}{'◇'.repeat(5 - rating)}</div>
           {caption && (
-            <div style={{ background: '#0e0e0c', border: '1px solid #2a2a28', padding: 16, marginTop: 24, marginBottom: 24 }}>
-              <div style={{ color: '#8a8780', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>Caption draft saved to Broadcast</div>
-              <div style={{ color: '#f0ebe2', fontSize: 14 }}>{caption}</div>
+            <div style={{ background: '#0e0e0e', border: '1px solid #222222', padding: 16, marginTop: 24, marginBottom: 24 }}>
+              <div style={{ color: '#909090', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>Caption draft saved to Broadcast</div>
+              <div style={{ color: '#f2f2f2', fontSize: 14 }}>{caption}</div>
             </div>
           )}
           <button
             onClick={() => router.push('/broadcast')}
-            style={{ background: '#c9a96e', color: '#070706', border: 'none', padding: '12px 24px', cursor: 'pointer', fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', marginRight: 12 }}
+            style={{ background: '#ff2a1a', color: '#050505', border: 'none', padding: '12px 24px', cursor: 'pointer', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', marginRight: 12 }}
           >
             Open Broadcast →
           </button>
           {linkedSetId && (
             <button
               onClick={() => router.push('/setlab')}
-              style={{ background: 'transparent', color: '#c9a96e', border: '1px solid #c9a96e', padding: '12px 24px', cursor: 'pointer', fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', marginRight: 12 }}
+              style={{ background: 'transparent', color: '#ff2a1a', border: '1px solid #ff2a1a', padding: '12px 24px', cursor: 'pointer', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', marginRight: 12 }}
             >
               View in Set Lab →
             </button>
           )}
           <button
             onClick={() => router.push('/gigs')}
-            style={{ background: 'transparent', color: '#8a8780', border: '1px solid #2a2a28', padding: '12px 24px', cursor: 'pointer', fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}
+            style={{ background: 'transparent', color: '#909090', border: '1px solid #222222', padding: '12px 24px', cursor: 'pointer', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}
           >
             Back to gigs
           </button>
@@ -118,16 +118,16 @@ export default function GigDebriefPageClient({ params }: { params: { id: string 
   }
 
   return (
-    <div style={{ background: '#070706', minHeight: '100vh', fontFamily: 'DM Mono, monospace', padding: '40px 24px', maxWidth: 560, margin: '0 auto' }}>
-      <div style={{ color: '#c9a96e', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 8 }}>Post-gig debrief</div>
-      <div style={{ fontSize: 20, color: '#f0ebe2', marginBottom: 4 }}>{gig?.venue || '—'}</div>
-      <div style={{ color: '#8a8780', fontSize: 12, marginBottom: 40 }}>
+    <div style={{ background: '#050505', minHeight: '100vh', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", padding: '40px 24px', maxWidth: 560, margin: '0 auto' }}>
+      <div style={{ color: '#ff2a1a', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 8 }}>Post-gig debrief</div>
+      <div style={{ fontSize: 20, color: '#f2f2f2', marginBottom: 4 }}>{gig?.venue || '—'}</div>
+      <div style={{ color: '#909090', fontSize: 12, marginBottom: 40 }}>
         {gig?.date ? new Date(gig.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
       </div>
 
       {/* Rating */}
       <div style={{ marginBottom: 36 }}>
-        <div style={{ color: '#8a8780', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>How did it go?</div>
+        <div style={{ color: '#909090', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>How did it go?</div>
         <div style={{ display: 'flex', gap: 8 }}>
           {[1, 2, 3, 4, 5].map(n => (
             <button
@@ -135,8 +135,8 @@ export default function GigDebriefPageClient({ params }: { params: { id: string 
               onClick={() => setRating(n)}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 28, color: n <= rating ? '#c9a96e' : '#3a3a38',
-                padding: 0, fontFamily: 'DM Mono, monospace',
+                fontSize: 28, color: n <= rating ? '#ff2a1a' : '#3a3a38',
+                padding: 0, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                 transition: 'color 0.1s',
               }}
             >
@@ -149,18 +149,18 @@ export default function GigDebriefPageClient({ params }: { params: { id: string 
       {/* Standout tracks */}
       {setTracks.length > 0 && (
         <div style={{ marginBottom: 36 }}>
-          <div style={{ color: '#8a8780', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Which tracks hit hardest?</div>
+          <div style={{ color: '#909090', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Which tracks hit hardest?</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {setTracks.map(t => (
               <button
                 key={t.id}
                 onClick={() => toggleTrack(t.id)}
                 style={{
-                  background: standoutIds.includes(t.id) ? '#c9a96e' : '#0e0e0c',
-                  color: standoutIds.includes(t.id) ? '#070706' : '#f0ebe2',
-                  border: `1px solid ${standoutIds.includes(t.id) ? '#c9a96e' : '#2a2a28'}`,
+                  background: standoutIds.includes(t.id) ? '#ff2a1a' : '#0e0e0e',
+                  color: standoutIds.includes(t.id) ? '#050505' : '#f2f2f2',
+                  border: `1px solid ${standoutIds.includes(t.id) ? '#ff2a1a' : '#222222'}`,
                   padding: '6px 12px', cursor: 'pointer',
-                  fontFamily: 'DM Mono, monospace', fontSize: 11,
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 11,
                   transition: 'all 0.1s',
                 }}
               >
@@ -173,15 +173,15 @@ export default function GigDebriefPageClient({ params }: { params: { id: string 
 
       {/* Notes */}
       <div style={{ marginBottom: 36 }}>
-        <div style={{ color: '#8a8780', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Anything to remember?</div>
+        <div style={{ color: '#909090', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Anything to remember?</div>
         <textarea
           value={notes}
           onChange={e => setNotes(e.target.value)}
           placeholder="crowd energy, sound issues, what worked..."
           rows={3}
           style={{
-            width: '100%', background: '#0e0e0c', border: '1px solid #2a2a28',
-            color: '#f0ebe2', fontFamily: 'DM Mono, monospace', fontSize: 13,
+            width: '100%', background: '#0e0e0e', border: '1px solid #222222',
+            color: '#f2f2f2', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 13,
             padding: 12, resize: 'vertical', outline: 'none', boxSizing: 'border-box',
           }}
         />
@@ -191,10 +191,10 @@ export default function GigDebriefPageClient({ params }: { params: { id: string 
         onClick={handleSubmit}
         disabled={rating === 0 || submitting}
         style={{
-          background: rating === 0 ? '#1a1a18' : '#c9a96e',
-          color: rating === 0 ? '#3a3a38' : '#070706',
+          background: rating === 0 ? '#1d1d1d' : '#ff2a1a',
+          color: rating === 0 ? '#3a3a38' : '#050505',
           border: 'none', padding: '14px 28px', cursor: rating === 0 ? 'not-allowed' : 'pointer',
-          fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase',
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase',
           transition: 'all 0.15s',
         }}
       >

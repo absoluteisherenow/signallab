@@ -98,7 +98,7 @@ const faqs = [
 // ── BRT primitives ────────────────────────────────────────────────────────────
 
 const DISPLAY = '"Helvetica Neue", Helvetica, Arial, sans-serif'
-const MONO = "'DM Mono', ui-monospace, monospace"
+const MONO = "'Helvetica Neue', Helvetica, Arial, sans-serif, ui-monospace, monospace"
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (

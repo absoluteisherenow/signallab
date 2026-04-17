@@ -44,8 +44,8 @@ const C = {
   border: '#1d1d1d',
   accent: '#ff2a1a',
   text: '#f2f2f2',
-  dim: '#8a8780',
-  dimmer: '#52504c',
+  dim: '#909090',
+  dimmer: '#909090',
   good: '#4a7a3a',
 }
 

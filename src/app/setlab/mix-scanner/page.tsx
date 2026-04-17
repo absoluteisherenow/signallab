@@ -345,7 +345,7 @@ export default function MixScannerPage() {
             padding: '48px',
             textAlign: 'center',
             cursor: 'pointer',
-            background: file ? 'rgba(176, 141, 87, 0.03)' : 'transparent',
+            background: file ? 'rgba(255, 42, 26, 0.03)' : 'transparent',
             transition: 'all 0.2s',
             marginBottom: '32px',
           }}

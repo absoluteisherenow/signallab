@@ -47,3 +47,7 @@ Thumbs.db
 
 # Tauri build artifacts
 src-tauri/target/
+
+# Cloudflare / OpenNext build output
+/.open-next/
+/.wrangler/

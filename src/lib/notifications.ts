@@ -80,7 +80,7 @@ export async function createNotification(opts: CreateNotificationOptions) {
               Signal Lab OS — ${type.replace(/_/g, ' ').toUpperCase()}
             </div>
             <div style="font-size:18px;margin-bottom:12px">${title}</div>
-            ${message ? `<div style="color:#8a8780;font-size:14px;margin-bottom:20px">${message}</div>` : ''}
+            ${message ? `<div style="color:#909090;font-size:14px;margin-bottom:20px">${message}</div>` : ''}
             ${href ? `<a href="${appUrl}${href}" style="display:inline-block;background:#ff2a1a;color:#050505;padding:12px 24px;text-decoration:none;font-size:11px;letter-spacing:0.15em;text-transform:uppercase">View →</a>` : ''}
           </div>`,
       })
