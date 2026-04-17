@@ -62,7 +62,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     const transport = travelBookings.filter((t: any) => t.type === 'transport' || t.type === 'transfer' || t.type === 'taxi')
 
     const advanceBadgeColor = advanceStatus === 'Complete' ? '#3d6b4a' : advanceStatus === 'Sent' ? '#ff2a1a' : '#8a4a3a'
-    const advanceBadgeBg = advanceStatus === 'Complete' ? 'rgba(61,107,74,0.15)' : advanceStatus === 'Sent' ? 'rgba(176,141,87,0.15)' : 'rgba(138,74,58,0.15)'
+    const advanceBadgeBg = advanceStatus === 'Complete' ? 'rgba(61,107,74,0.15)' : advanceStatus === 'Sent' ? 'rgba(255,42,26,0.15)' : 'rgba(138,74,58,0.15)'
 
     function formatTime(t: string | null) {
       if (!t) return null
@@ -328,7 +328,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           <a href="sms:${esc(gig.promoter_phone)}" style="flex:1;text-align:center;padding:14px 12px;border:1px solid #1d1d1d;color:#909090;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Message</a>
         </div>` : ''}
       ${gig.promoter_email ? `<a href="mailto:${esc(gig.promoter_email)}" style="display:block;text-align:center;padding:14px 20px;border:1px solid #1d1d1d;color:#909090;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Email promoter</a>` : ''}
-      <a href="/gig-pass/${params.id}" style="display:block;text-align:center;padding:14px;border:1px solid rgba(176,141,87,0.3);color:#ff2a1a;text-decoration:none;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0">Open full gig pass</a>
+      <a href="/gig-pass/${params.id}" style="display:block;text-align:center;padding:14px;border:1px solid rgba(255,42,26,0.3);color:#ff2a1a;text-decoration:none;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0">Open full gig pass</a>
       <a href="/dashboard" style="display:block;text-align:center;padding:14px 20px;border:1px solid #1d1d1d;color:#909090;text-decoration:none;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">← Back to dashboard</a>
     </div>
 
