@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   '/go',        // promo landing pages for DJs (reaction-gated download)
   '/pricing-preview', // temporary: restored deleted pricing page for review
   '/brt',       // brutalist marketing landing (preview)
+  '/gl',        // public guest-list signup pages (/gl/<slug>)
 ]
 
 export function middleware(req: NextRequest) {
@@ -58,6 +59,7 @@ export function middleware(req: NextRequest) {
     || pathname.startsWith('/api/crew-briefing') // crew briefing send endpoint
     || pathname.startsWith('/api/upload')     // public file upload (photographer content)
     || pathname.startsWith('/api/media/scan') // auto-scan after upload (server-side)
+    || pathname.startsWith('/api/gl')         // public guest-list submission endpoints
     || pathname.startsWith('/_next')
     || pathname === '/signal-genius.html'   // M4L jweb — public
     || pathname === '/mockup.html'

@@ -2095,7 +2095,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
               <div className="grid grid-cols-2 gap-3">
                 {captureSugg.capture_list.map((item: any, i: number) => (
                   <div key={i} className="bg-[#1d1d1d] border border-[#ff2a1a]/30 border-l-2 border-l-[#ff2a1a] p-4">
-                    <div className="text-[11px] tracking-[.06em] text-[#f0ebe2] mb-1.5 font-medium">{item.label}</div>
+                    <div className="text-[11px] tracking-[.06em] text-[#f2f2f2] mb-1.5 font-medium">{item.label}</div>
                     <div className="text-[12px] text-[#c0bdb5] leading-relaxed mb-2.5">{item.description}</div>
                     <div className="text-[12px] text-[#ff2a1a] mb-2 leading-relaxed">{item.reason}</div>
                     {item.top_permalinks.length > 0 && (
@@ -2120,7 +2120,7 @@ Generate a complete ad plan tailored to this specific content and format. Return
               <div className="grid grid-cols-3 gap-3">
                 {captureSugg.your_buckets.map((b: any) => (
                   <div key={b.id} className="bg-[#1d1d1d] border border-white/7 p-3">
-                    <div className="text-[11px] text-[#f0ebe2] mb-1">{b.label}</div>
+                    <div className="text-[11px] text-[#f2f2f2] mb-1">{b.label}</div>
                     <div className="text-[12px] text-[#ff2a1a] mb-1.5">{b.multiple_vs_median}× your median</div>
                     <div className="text-[11px] text-[#5a5852]">{b.posts_supporting} of your posts</div>
                   </div>
@@ -2135,12 +2135,17 @@ Generate a complete ad plan tailored to this specific content and format. Return
               <div className="grid grid-cols-3 gap-3">
                 {captureSugg.peer_buckets.map((b: any) => (
                   <div key={b.id} className="bg-[#1d1d1d] border border-white/7 p-3">
-                    <div className="text-[11px] text-[#f0ebe2] mb-1">{b.label}</div>
-                    <div className="text-[12px] text-[#c0bdb5] mb-1.5">{b.multiple_vs_median}× their median</div>
-                    <div className="text-[11px] text-[#5a5852]">{b.posts_supporting} posts · {b.source_artists?.length || 0} artists</div>
+                    <div className="text-[11px] text-[#f2f2f2] mb-1">{b.label}</div>
+                    <div className="text-[12px] text-[#c0bdb5] mb-1.5 leading-snug">{b.observation}</div>
+                    {b.source_artists && b.source_artists.length > 0 && (
+                      <div className="text-[11px] text-[#5a5852] truncate" title={b.source_artists.join(', ')}>
+                        {b.source_artists.slice(0, 2).join(', ')}{b.source_artists.length > 2 ? ` +${b.source_artists.length - 2}` : ''}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
+              <div className="text-[10px] tracking-[.06em] text-[#5a5852] italic mt-2">Qualitative patterns from peer profiles. Numerical peer engagement coming in a later release.</div>
             </div>
           )}
 
