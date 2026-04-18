@@ -3,6 +3,33 @@
 import { useState, useEffect } from 'react'
 import { SignalLabHeader } from '@/components/broadcast/SignalLabHeader'
 import { SKILL_ADS_MANAGER } from '@/lib/skillPromptsClient'
+import LaunchConfigModal from '@/components/broadcast/ads/LaunchConfigModal'
+import type { MetaObjective, LaunchIntent } from '@/lib/ads/meta-launch'
+
+// Map the planner's UX-level fields to Meta-spec values for launch prefill.
+function mapObjectiveToMeta(o: string): MetaObjective {
+  switch (o) {
+    case 'awareness': return 'OUTCOME_AWARENESS'
+    case 'traffic': return 'OUTCOME_TRAFFIC'
+    case 'engagement': return 'OUTCOME_ENGAGEMENT'
+    case 'followers': return 'OUTCOME_ENGAGEMENT' // Meta has no "followers" — engagement/video views is the proxy
+    case 'conversions': return 'OUTCOME_SALES'
+    default: return 'OUTCOME_ENGAGEMENT'
+  }
+}
+
+function mapCampaignTypeToIntent(t: 'release' | 'gig' | 'always-on'): LaunchIntent {
+  if (t === 'release') return 'release_burst'
+  if (t === 'gig') return 'ticket_sales'
+  return 'cold' // always-on ≈ cold prospecting
+}
+
+function parseAgeRange(r: string): { min: number; max: number } {
+  const m = r.match(/(\d+)\s*-\s*(\d+)/)
+  if (m) return { min: parseInt(m[1], 10), max: parseInt(m[2], 10) }
+  if (r.includes('13-65')) return { min: 18, max: 65 } // clamp floor to 18 for safety
+  return { min: 22, max: 45 }
+}
 
 interface AdPlan {
   campaign_type: string
@@ -71,6 +98,7 @@ export default function AdsPage() {
   const [error, setError] = useState('')
   const [savedPlans, setSavedPlans] = useState<Array<{ id: string; name: string; date: string; plan: AdPlan }>>([])
   const [showSaved, setShowSaved] = useState(false)
+  const [showLaunch, setShowLaunch] = useState(false)
 
   useEffect(() => {
     // Load artist name
@@ -385,10 +413,16 @@ Generate a complete ad plan. Return:
                 {adPlan.estimated_reach && <span>Est. reach: <strong style={{ color: '#f2f2f2' }}>{adPlan.estimated_reach}</strong></span>}
                 {adPlan.cost_per_result && <span style={{ marginLeft: 16 }}>Est. cost: <strong style={{ color: '#f2f2f2' }}>{adPlan.cost_per_result}</strong></span>}
               </div>
-              <button onClick={saveAdPlan}
-                style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase' as const, background: s.gold, color: s.bg, border: 'none', padding: '6px 16px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }}>
-                Save plan
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={saveAdPlan}
+                  style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase' as const, background: 'transparent', color: s.dim, border: `1px solid ${s.border}`, padding: '6px 16px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Save plan
+                </button>
+                <button onClick={() => setShowLaunch(true)}
+                  style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase' as const, background: s.gold, color: s.bg, border: 'none', padding: '6px 16px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }}>
+                  Launch to Meta →
+                </button>
+              </div>
             </div>
 
             {/* Platforms */}
@@ -490,6 +524,25 @@ Generate a complete ad plan. Return:
           </div>
         )}
       </div>
+
+      <LaunchConfigModal
+        open={showLaunch}
+        onClose={() => setShowLaunch(false)}
+        onLaunched={() => {
+          // Modal shows its own success state; user closes manually.
+          // Once ads Results page is live we'll push to it here.
+        }}
+        prefill={{
+          name: artistName ? `${artistName} — ${campaignType} — ${new Date().toISOString().slice(0, 10)}` : undefined,
+          objective: mapObjectiveToMeta(objective),
+          intent: mapCampaignTypeToIntent(campaignType),
+          duration_days: parseInt(duration, 10),
+          age_min: parseAgeRange(ageRange).min,
+          age_max: parseAgeRange(ageRange).max,
+          phase_label: adPlan?.campaign_type ? `${adPlan.campaign_type} · ${adPlan.objective}` : undefined,
+          hypothesis: context || undefined,
+        }}
+      />
     </div>
   )
 }
