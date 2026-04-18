@@ -10,7 +10,7 @@ import { useGatedSend } from '@/lib/outbound'
 import type { Contact, TrackMeta, PromoStyles } from './types'
 import { TIERS } from './types'
 
-export function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: PromoStyles; initialUrl?: string; onUrlConsumed?: () => void }) {
+export function DJPromoTab({ s, initialUrl, initialReleaseId, onUrlConsumed }: { s: PromoStyles; initialUrl?: string; initialReleaseId?: string | null; onUrlConsumed?: () => void }) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -32,18 +32,23 @@ export function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: PromoStyles; i
   const [showHistory, setShowHistory] = useState(false)
   const [reactions, setReactions] = useState<Record<string, string>>({})
   const [blastChannel, setBlastChannel] = useState<'instagram' | 'whatsapp' | 'email'>('instagram')
+  // Tracks which release (if any) this blast belongs to. Set when the user
+  // lands here via ReleasesTab's "Send promo" button; cleared when they edit
+  // the URL manually (that's a generic blast, not tied to the release row).
+  const [releaseId, setReleaseId] = useState<string | null>(null)
   const gatedSend = useGatedSend()
 
   useEffect(() => { loadContacts() }, [])
 
-  // Pre-fill URL when coming from a release row
+  // Pre-fill URL + release link when coming from a release row
   useEffect(() => {
     if (initialUrl) {
       setBlastUrl(initialUrl)
+      setReleaseId(initialReleaseId ?? null)
       setShowBlast(true)
       onUrlConsumed?.()
     }
-  }, [initialUrl])
+  }, [initialUrl, initialReleaseId])
 
   // Load draft from localStorage
   useEffect(() => {
@@ -167,6 +172,7 @@ export function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: PromoStyles; i
       track_title: trackMeta?.title || null,
       track_artist: trackMeta?.author || null,
       channel: blastChannel,
+      release_id: releaseId,
     }
     setBlasting(true); setBlastResult(null)
     try {
@@ -190,7 +196,7 @@ export function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: PromoStyles; i
       if (!result.confirmed) return
       const d = result.data || {}
       setBlastResult(d as { sent: number; failed: number; results: any[]; blast_id?: string })
-      if ((d as any).ok) { await loadContacts(); setSelected(new Set()); setBlastMessage(''); setBlastUrl(''); localStorage.removeItem('nm_blast_draft') }
+      if ((d as any).ok) { await loadContacts(); setSelected(new Set()); setBlastMessage(''); setBlastUrl(''); setReleaseId(null); localStorage.removeItem('nm_blast_draft') }
     } finally { setBlasting(false) }
   }
 
@@ -385,7 +391,7 @@ export function DJPromoTab({ s, initialUrl, onUrlConsumed }: { s: PromoStyles; i
                 Private SoundCloud URL
                 {fetchingMeta && <span style={{ marginLeft: '8px', color: s.dimmer, fontStyle: 'italic' }}>loading…</span>}
               </div>
-              <input value={blastUrl} onChange={e => { setBlastUrl(e.target.value); setTrackMeta(null) }} placeholder="https://soundcloud.com/..."
+              <input value={blastUrl} onChange={e => { setBlastUrl(e.target.value); setTrackMeta(null); setReleaseId(null) }} placeholder="https://soundcloud.com/..."
                 style={{ width: '100%', background: 'var(--bg)', border: `1px solid ${trackMeta ? s.gold + '60' : s.borderMid}`, color: s.text, fontFamily: s.font, fontSize: '11px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' }} />
             </div>
 

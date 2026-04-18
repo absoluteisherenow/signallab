@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireConfirmed } from '@/lib/require-confirmed'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +41,10 @@ async function sendDM(accessToken: string, igUserId: string, recipientId: string
 
 export async function POST(req: NextRequest) {
   try {
-    const { contact_ids, message, promo_url, track_title, track_artist, hosted } = await req.json()
+    const body = await req.json()
+    const gate = requireConfirmed(body)
+    if (gate) return gate
+    const { contact_ids, message, promo_url, track_title, track_artist, hosted, release_id } = body
     if (!contact_ids?.length || !message) {
       return NextResponse.json({ error: 'contact_ids and message required' }, { status: 400 })
     }
@@ -80,6 +84,7 @@ export async function POST(req: NextRequest) {
         track_artist: track_artist || null,
         message,
         contact_count: contacts.length,
+        release_id: release_id || null,
       })
       .select()
       .single()

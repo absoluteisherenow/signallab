@@ -25,6 +25,7 @@ function DropLabInner() {
   const searchParams = useSearchParams()
   const [tab, setTab] = useState<'releases' | 'promo'>(searchParams.get('tab') === 'promo' ? 'promo' : 'releases')
   const [initialPromoUrl, setInitialPromoUrl] = useState('')
+  const [initialReleaseId, setInitialReleaseId] = useState<string | null>(null)
 
   const s = {
     bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)', borderMid: 'var(--border)',
@@ -68,8 +69,8 @@ function DropLabInner() {
       </div>
 
       {tab === 'releases'
-        ? <ReleasesTab s={s} mobile={mobile} onSendPromo={(url) => { setInitialPromoUrl(url); setTab('promo') }} />
-        : <DJPromoTab s={s} initialUrl={initialPromoUrl} onUrlConsumed={() => setInitialPromoUrl('')} />}
+        ? <ReleasesTab s={s} mobile={mobile} onSendPromo={(url, releaseId) => { setInitialPromoUrl(url); setInitialReleaseId(releaseId ?? null); setTab('promo') }} />
+        : <DJPromoTab s={s} initialUrl={initialPromoUrl} initialReleaseId={initialReleaseId} onUrlConsumed={() => { setInitialPromoUrl(''); setInitialReleaseId(null) }} />}
     </div>
   )
 }

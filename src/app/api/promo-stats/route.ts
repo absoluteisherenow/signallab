@@ -9,6 +9,7 @@ const supabase = createClient(
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const blast_id = searchParams.get('blast_id')
+  const release_id = searchParams.get('release_id')
 
   if (blast_id) {
     // Single blast with full stats
@@ -74,12 +75,20 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // All blasts list view
-  const { data: blasts, error: blastsError } = await supabase
+  // All blasts list view. When `release_id` is provided, the Campaigns tab
+  // (Phase 4 of the /promo hub) uses this to aggregate blast history for a
+  // single release. No release_id → global recent-blasts feed.
+  let blastsQuery = supabase
     .from('promo_blasts')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(50)
+
+  if (release_id) {
+    blastsQuery = blastsQuery.eq('release_id', release_id)
+  }
+
+  const { data: blasts, error: blastsError } = await blastsQuery
 
   if (blastsError) {
     return NextResponse.json({ error: blastsError.message }, { status: 500 })

@@ -10,7 +10,7 @@ import Link from 'next/link'
 import type { Release, PromoStyles } from './types'
 import { TYPE_LABELS } from './types'
 
-export function ReleasesTab({ s, mobile, onSendPromo }: { s: PromoStyles; mobile: boolean; onSendPromo: (url: string) => void }) {
+export function ReleasesTab({ s, mobile, onSendPromo }: { s: PromoStyles; mobile: boolean; onSendPromo: (url: string, releaseId?: string) => void }) {
   const [releases, setReleases] = useState<Release[]>([])
   const [loading, setLoading] = useState(true)
   const [campaignData, setCampaignData] = useState<Record<string, { total: number; scheduled: number }>>({})
@@ -123,7 +123,7 @@ export function ReleasesTab({ s, mobile, onSendPromo }: { s: PromoStyles; mobile
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
           {release.streaming_url && (
-            <button onClick={() => onSendPromo(release.streaming_url!)} style={{ fontSize: '9px', color: s.gold, background: 'transparent', border: `1px solid ${s.gold}40`, padding: '4px 10px', fontFamily: s.font, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            <button onClick={() => onSendPromo(release.streaming_url!, release.id)} style={{ fontSize: '9px', color: s.gold, background: 'transparent', border: `1px solid ${s.gold}40`, padding: '4px 10px', fontFamily: s.font, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
               Promo →
             </button>
           )}
@@ -164,7 +164,7 @@ export function ReleasesTab({ s, mobile, onSendPromo }: { s: PromoStyles; mobile
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <CampaignBadge release={release} />
           {release.streaming_url && (
-            <button onClick={() => onSendPromo(release.streaming_url!)} style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.dim, border: `1px solid ${s.border}`, padding: '5px 12px', background: 'transparent', fontFamily: s.font, cursor: 'pointer' }}>
+            <button onClick={() => onSendPromo(release.streaming_url!, release.id)} style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.dim, border: `1px solid ${s.border}`, padding: '5px 12px', background: 'transparent', fontFamily: s.font, cursor: 'pointer' }}>
               Send promo →
             </button>
           )}
