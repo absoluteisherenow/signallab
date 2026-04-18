@@ -147,7 +147,7 @@ Return JSON with ONLY these fields (omit any you can't determine):
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error || 'Failed to save')
-      router.push('/releases')
+      router.push('/promo')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to save')
       setSaving(false)
@@ -160,11 +160,11 @@ Return JSON with ONLY these fields (omit any you can't determine):
       <div style={{ marginBottom: '40px' }}>
         <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
-          <Link href="/releases" style={{ color: s.gold, textDecoration: 'none' }}>Releases</Link>
+          <Link href="/promo" style={{ color: s.gold, textDecoration: 'none' }}>Releases</Link>
           <span style={{ color: s.dimmer }}>—</span>
           New release
         </div>
-        <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>Add new release</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 7vw, 96px)', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 0.9, textTransform: 'uppercase' }}>Add new release</div>
       </div>
 
       <div style={{ maxWidth: '720px' }}>
@@ -323,7 +323,7 @@ Return JSON with ONLY these fields (omit any you can't determine):
             style={{ background: s.gold, color: '#050505', border: 'none', padding: '0 32px', height: '44px', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Saving…' : 'Save release'}
           </button>
-          <Link href="/releases"
+          <Link href="/promo"
             style={{ border: `1px solid ${s.border}`, color: s.dim, textDecoration: 'none', padding: '0 24px', height: '44px', display: 'flex', alignItems: 'center', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
             Cancel
           </Link>

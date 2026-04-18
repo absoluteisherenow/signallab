@@ -80,7 +80,7 @@ export default function EditReleaseClient({ params }: { params: { id: string } }
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error || 'Failed to save')
-      router.push('/releases')
+      router.push('/promo')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to save')
       setSaving(false)
@@ -101,7 +101,7 @@ export default function EditReleaseClient({ params }: { params: { id: string } }
       <div style={{ marginBottom: '40px' }}>
         <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
           <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />
-          <Link href="/releases" style={{ color: s.gold, textDecoration: 'none' }}>Releases</Link>
+          <Link href="/promo" style={{ color: s.gold, textDecoration: 'none' }}>Releases</Link>
           <span style={{ color: s.dimmer }}>—</span>
           Edit
         </div>
@@ -215,7 +215,7 @@ export default function EditReleaseClient({ params }: { params: { id: string } }
             style={{ background: s.gold, color: '#050505', border: 'none', padding: '0 32px', height: '44px', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Saving...' : 'Save changes'}
           </button>
-          <Link href="/releases"
+          <Link href="/promo"
             style={{ border: `1px solid ${s.border}`, color: s.dim, textDecoration: 'none', padding: '0 24px', height: '44px', display: 'flex', alignItems: 'center', fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
             Cancel
           </Link>

@@ -941,7 +941,7 @@ export default function Dashboard() {
             { href: '/broadcast', label: 'CONTENT', count: queuedPostsCount, unit: 'QUEUED' },
             { href: '/setlab', label: 'SETS', count: djSets.length, unit: 'SETS' },
             { href: '/sonix', label: 'TRACKS', count: tracksCount, unit: 'TRACKS' },
-            { href: '/releases', label: 'RELEASES', count: releasesCount, unit: 'RELEASES' },
+            { href: '/promo', label: 'RELEASES', count: releasesCount, unit: 'RELEASES' },
           ].map(card => (
             <Link key={card.href} href={card.href} style={{
               display: 'block', background: 'var(--panel)', border: '1px solid var(--border-dim)',

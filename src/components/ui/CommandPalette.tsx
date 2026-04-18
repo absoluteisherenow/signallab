@@ -21,7 +21,7 @@ const ITEMS: PaletteItem[] = [
   { label: 'Rekordbox Import', section: 'Navigate', href: '/setlab/import', keywords: ['import', 'rekordbox', 'library'] },
   { label: 'SONIX Lab', section: 'Navigate', href: '/sonix', keywords: ['music', 'production', 'compose', 'arrange'] },
   { label: 'Tour Lab — Gigs', section: 'Navigate', href: '/gigs', keywords: ['shows', 'tour', 'bookings', 'dates'] },
-  { label: 'Drop Lab — Releases', section: 'Navigate', href: '/releases', keywords: ['release', 'singles', 'ep', 'album'] },
+  { label: 'Drop Lab · Releases', section: 'Navigate', href: '/promo', keywords: ['release', 'singles', 'ep', 'album', 'promo', 'drop'] },
   { label: 'Finances', section: 'Navigate', href: '/business/finances', keywords: ['invoices', 'money', 'payments', 'expenses'] },
   { label: 'Contracts', section: 'Navigate', href: '/contracts', keywords: ['booking', 'agreement', 'parse'] },
   { label: 'Settings', section: 'Navigate', href: '/business/settings', keywords: ['profile', 'account', 'preferences'] },

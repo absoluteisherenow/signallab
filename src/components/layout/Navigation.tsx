@@ -29,7 +29,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Tour Lab', href: '/gigs', sub: [] },
       { label: 'Set Lab', href: '/setlab', sub: [] },
       { label: 'Sonix Lab', href: '/sonix', sub: [] },
-      { label: 'Drop Lab', href: '/releases', sub: [] },
+      { label: 'Drop Lab', href: '/promo', sub: [] },
     ],
   },
 ]
@@ -129,7 +129,7 @@ export function Navigation() {
 
         {/* Brand */}
         <div style={{ padding: '24px 24px 22px', borderBottom: '1px solid var(--border-dim)' }}>
-          <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Link href="/today" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
             <LogoIcon size={32} />
             <div style={{
               fontFamily: 'var(--font-display)',
@@ -435,10 +435,10 @@ export function Navigation() {
           </Link>
 
           {/* Promo */}
-          <Link href="/releases?tab=promo" style={{
+          <Link href="/promo?tab=promo" style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: isActive('/releases') ? 'var(--gold)' : 'var(--text-dimmer)',
+            color: (isActive('/promo') || isActive('/releases')) ? 'var(--gold)' : 'var(--text-dimmer)',
             padding: '8px 0', flex: 1,
           }}>
             <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>↗</div>
