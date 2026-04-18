@@ -22,12 +22,13 @@
   },
 
   "triggers": {
-    // CF caps 5 Cron Trigger patterns per Worker. The 9am slot fires three jobs
-    // (sync-performance + contact-gaps + ads-snapshot) via the router's fan-out.
+    // CF caps 5 Cron Trigger patterns per Worker. The 5am UTC slot (≈06:00 BST /
+    // 07:00 CEST in summer) fans out daily aggregates so metrics are fresh
+    // before Anthony wakes up.
     "crons": [
       "*/5 * * * *",   // publish-scheduled — every 5 min
       "*/30 * * * *",  // check-comments    — every 30 min
-      "0 9 * * *",     // sync-performance + contact-gaps — daily 09:00 UTC
+      "0 5 * * *",     // sync-performance + contact-gaps + ads-snapshot — early AM UTC
       "0 11 * * *",    // invoice-backfill  — daily 11:00 UTC (POST)
       "0 18 * * *"     // night-before      — daily 18:00 UTC
     ]

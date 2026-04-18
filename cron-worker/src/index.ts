@@ -19,13 +19,14 @@ type CronJob = {
 }
 
 // Map from cron pattern → list of jobs fired at that pattern. CF caps each
-// Worker at 5 Cron Trigger *patterns* even on Paid plan, so the 9am slot
-// stacks two daily jobs (sync-performance + contact-gaps) onto one trigger.
+// Worker at 5 Cron Trigger *patterns* even on Paid plan, so the 05:00 UTC slot
+// stacks three daily jobs (sync-performance + contact-gaps + ads-snapshot) —
+// all benefit from running early so data is fresh before the workday starts.
 // Patterns MUST match wrangler.jsonc exactly.
 const JOBS: Record<string, CronJob[]> = {
   '*/5 * * * *':   [{ path: '/api/crons/publish-scheduled', method: 'GET',  label: 'publish-scheduled' }],
   '*/30 * * * *':  [{ path: '/api/crons/check-comments',    method: 'GET',  label: 'check-comments' }],
-  '0 9 * * *': [
+  '0 5 * * *': [
     { path: '/api/crons/sync-performance', method: 'GET', label: 'sync-performance' },
     { path: '/api/crons/contact-gaps',     method: 'GET', label: 'contact-gaps' },
     { path: '/api/crons/ads-snapshot',     method: 'GET', label: 'ads-snapshot' },
