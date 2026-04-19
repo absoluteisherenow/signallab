@@ -43,7 +43,7 @@ const LABS: Lab[] = [
     bullets: ['FFT + spectral analysis', 'Reference track intel', 'Max for Live plugin'],
   },
   {
-    name: 'Drop Lab',
+    name: 'Promo Lab',
     tagline: 'Ship the music.',
     definition: 'Release campaigns drafted from your own feed data. Captions, phasing, shoot list, promo, DM replies.',
     bullets: ['Campaign + shoot list', 'Built from your feed', 'Promo + DM replies'],

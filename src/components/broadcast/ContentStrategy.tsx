@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { SignalLabHeader } from './SignalLabHeader'
+import { PlanSubNav } from './PlanSubNav'
 import { ScanPulse } from '@/components/ui/ScanPulse'
 
 interface SavedStrategy {
@@ -318,6 +319,7 @@ export function ContentStrategy() {
   return (
     <div style={{ minHeight: '100vh', background: s.bg, color: s.text, fontFamily: 'var(--font-geist-sans)' }}>
       <SignalLabHeader right={headerRight} />
+      <PlanSubNav />
 
       <div style={{ padding: '32px 48px' }}>
         {/* Period toggle */}
@@ -859,7 +861,7 @@ export function ContentStrategy() {
                           {regeneratingIndex === i ? 'Regenerating...' : 'Regenerate'}
                         </button>
                         <a
-                          href={`/broadcast/ads?caption=${encodeURIComponent(post.caption)}`}
+                          href={`/grow/ads?caption=${encodeURIComponent(post.caption)}`}
                           style={{
                             background: 'none', border: '1px solid rgba(255,255,255,0.08)',
                             color: 'rgba(240,235,226,0.65)', padding: '6px 14px', borderRadius: '2px',

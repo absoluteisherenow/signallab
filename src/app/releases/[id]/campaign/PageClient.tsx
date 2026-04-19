@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { ScreenshotUpload } from '@/components/ui/ScreenshotUpload'
+import { useGatedSend } from '@/lib/outbound'
 
 interface Release {
   id: string
@@ -84,6 +85,7 @@ export default function CampaignPageClient({ params }: { params: { id: string } 
   const [promoMessage, setPromoMessage] = useState('')
   const [promoSending, setPromoSending] = useState(false)
   const [promoSent, setPromoSent] = useState<string[]>([])
+  const gatedSend = useGatedSend()
   const [promoCopied, setPromoCopied] = useState<string | null>(null)
   const [promoMessageGenerated, setPromoMessageGenerated] = useState(false)
   const [generatingMessage, setGeneratingMessage] = useState(false)
@@ -275,8 +277,8 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
 
       {/* Header */}
       <div style={{ padding: '48px 52px 36px', borderBottom: '1px solid var(--border-dim)' }}>
-        <Link href="/releases" style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textDecoration: 'none', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-          ← Drop Lab
+        <Link href="/promo" style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textDecoration: 'none', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+          ← Promo Lab
         </Link>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '24px' }}>
           <div>
@@ -746,19 +748,32 @@ Write as if the artist is messaging their network directly. One paragraph, 2-4 s
                         if (!contacts.length || !promoMessage.trim()) return
                         setPromoSending(true)
                         try {
-                          const res = await fetch('/api/promo/send', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
+                          const result = await gatedSend<
+                            { subject?: string; html?: string; recipientCount?: number; recipients?: Array<{ name?: string; email: string }> },
+                            { sent?: Array<string> | number; failed?: number }
+                          >({
+                            endpoint: '/api/promo/send',
+                            previewBody: {
                               contacts: contacts.map(c => ({ id: c.id, name: c.name, email: c.email })),
                               message: promoMessage,
                               subject: `${release.title} — out ${release.release_date}`,
                               releaseId: params.id,
+                            },
+                            buildConfig: (p) => ({
+                              kind: 'email',
+                              summary: `${release.title} promo — ${contacts.length} contact${contacts.length === 1 ? '' : 's'}`,
+                              to: (p.recipients || []).map(r => r.email),
+                              subject: p.subject || `${release.title} — out ${release.release_date}`,
+                              html: p.html,
+                              meta: [
+                                { label: 'Recipients', value: String(p.recipientCount ?? contacts.length) },
+                              ],
                             }),
                           })
-                          const data = await res.json()
-                          if (data.sent) setPromoSent(prev => [...prev, ...data.sent])
-                        } catch { /* silent */ } finally { setPromoSending(false) }
+                          if (result.confirmed && Array.isArray(result.data?.sent)) {
+                            setPromoSent(prev => [...prev, ...(result.data!.sent as string[])])
+                          }
+                        } finally { setPromoSending(false) }
                       }}
                       disabled={promoSending}
                       style={{

@@ -1,8 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { SignalLabHeader } from './SignalLabHeader'
 import { ScanPulse } from '@/components/ui/ScanPulse'
+import { useGatedSend } from '@/lib/outbound'
 
 interface ScheduledPost {
   id: string
@@ -170,6 +172,7 @@ function CollabSearch({ onAdd, existing }: { onAdd: (username: string) => void; 
 }
 
 export function BroadcastCalendar() {
+  const gatedSend = useGatedSend()
   const [posts, setPosts] = useState<ScheduledPost[]>([])
   const [gigs, setGigs] = useState<Gig[]>([])
   const [releases, setReleases] = useState<Release[]>([])
@@ -189,6 +192,30 @@ export function BroadcastCalendar() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [monthOffset, setMonthOffset] = useState(0)
   const [filterPlatform, setFilterPlatform] = useState('All')
+  const [focusedDate, setFocusedDate] = useState<string | null>(null)
+
+  // ── Honour ?date=YYYY-MM-DD from URL (deep links from Today dashboard) ────
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    const raw = searchParams?.get('date')
+    if (!raw) return
+    const target = new Date(raw)
+    if (isNaN(target.getTime())) return
+    const now = new Date()
+    // Monday-of-week for both dates
+    const mondayOf = (d: Date) => {
+      const x = new Date(d)
+      x.setHours(0, 0, 0, 0)
+      const day = x.getDay() || 7
+      x.setDate(x.getDate() - day + 1)
+      return x
+    }
+    const diffWeeks = Math.round((mondayOf(target).getTime() - mondayOf(now).getTime()) / (7 * 24 * 60 * 60 * 1000))
+    const diffMonths = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth())
+    setWeekOffset(diffWeeks)
+    setMonthOffset(diffMonths)
+    setFocusedDate(raw)
+  }, [searchParams])
 
   // Plan panel
   const [planOpen, setPlanOpen] = useState(false)
@@ -1915,13 +1942,22 @@ export function BroadcastCalendar() {
                             thumb_offset: p.thumb_offset,
                             share_to_feed: p.share_to_feed !== false,
                           }
-                      const res = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(body),
+                      const platformLabel = p.platform === 'twitter' ? 'X / Twitter' : p.platform === 'tiktok' ? 'TikTok' : p.platform === 'threads' ? 'Threads' : 'Instagram'
+                      const gateResult = await gatedSend<typeof body, { success?: boolean; post_id?: string; tweet_id?: string; publish_id?: string; id?: string; error?: string }>({
+                        endpoint,
+                        previewBody: body,
+                        skipServerPreview: true,
+                        buildConfig: () => ({
+                          kind: 'post',
+                          summary: `Publish to ${platformLabel}`,
+                          platform: platformLabel,
+                          text: p.caption,
+                          media: p.media_urls?.length ? p.media_urls : (p.media_url ? [p.media_url] : []),
+                        }),
                       })
-                      const result = await res.json()
-                      if (result.success || result.post_id || result.tweet_id || result.publish_id) {
+                      if (!gateResult.confirmed) { setPublishing(false); return }
+                      const result = gateResult.data
+                      if (result && (result.success || result.post_id || result.tweet_id || result.publish_id)) {
                         // Mark as posted
                         await fetch('/api/schedule', {
                           method: 'PATCH',
@@ -1932,7 +1968,7 @@ export function BroadcastCalendar() {
                         setPosts(prev => prev.map(pp => pp.id === postId ? { ...pp, status: 'posted' } : pp))
                         setSelectedPost(posted)
                       } else {
-                        alert('Post failed: ' + (result.error || 'unknown error'))
+                        alert('Post failed: ' + (result?.error || gateResult.error || 'unknown error'))
                       }
                     } catch (err: any) {
                       alert('Post failed: ' + err.message)

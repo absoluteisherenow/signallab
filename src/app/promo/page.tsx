@@ -40,7 +40,7 @@ function PromoInner() {
         <div style={{ display: 'flex', alignItems: mobile ? 'flex-start' : 'flex-end', justifyContent: 'space-between', flexDirection: mobile ? 'column' : 'row', gap: mobile ? '16px' : '0', paddingBottom: '0', marginBottom: '24px' }}>
           <div>
             <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: s.gold, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-              <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />Drop Lab
+              <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />Promo Lab
             </div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 7vw, 96px)', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 0.9, textTransform: 'uppercase' }}>
               {tab === 'releases' ? 'Your catalogue' : 'DJ Promo'}

@@ -27,7 +27,7 @@ Action types:
 - Navigate: { "type": "navigate", "href": "/path" }
 - Info only (no change): null
 
-Navigable pages: /dashboard, /broadcast, /setlab, /sonix, /gigs, /gigs/new, /releases, /releases/new, /contracts, /business/finances, /business/settings, /broadcast/ads, /broadcast/calendar, /broadcast/strategy, /broadcast/automations, /logistics, /meditate
+Navigable pages: /dashboard, /today, /broadcast, /broadcast/calendar, /broadcast/media, /broadcast/plan, /broadcast/ideas, /broadcast/strategy, /broadcast/voice, /grow, /grow/ads, /grow/growth, /grow/automations, /setlab, /sonix, /gigs, /gigs/new, /releases, /releases/new, /contracts, /business/finances, /business/settings, /logistics, /meditate
 
 Today's date: ${new Date().toISOString().split('T')[0]}
 Keep replies short — max 12 words. No markdown. Be helpful with anything they ask.`

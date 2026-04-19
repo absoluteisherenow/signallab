@@ -1,8 +1,16 @@
 'use client'
 
+/**
+ * @deprecated Replaced by `PhaseVoice` + `chainCaptionGen` (Apr 2026). The
+ * caption-generation flow now lives inside the chain instead of a standalone
+ * composer. Kept here temporarily for salvage during bedding-in. Delete in
+ * the next cleanup pass once chain is verified stable in prod.
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseBrowser'
 import { SKILLS_CAPTION_GEN, SKILLS_MEDIA_SCANNER } from '@/lib/skillPromptsClient'
+import { useGatedSend } from '@/lib/outbound'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -107,6 +115,7 @@ const s = {
 
 export function UnifiedComposer() {
   const [step, setStep] = useState<Step>('compose')
+  const gatedSend = useGatedSend()
 
   // Media
   const [mediaUrls, setMediaUrls] = useState<string[]>([])
@@ -449,14 +458,30 @@ Respond ONLY with valid JSON.`,
     setSaving(true)
     const endpoint = platform === 'twitter' ? '/api/social/twitter/post' : platform === 'tiktok' ? '/api/social/tiktok/post' : platform === 'threads' ? '/api/buffer' : '/api/social/instagram/post'
     const body = platform === 'twitter' ? { text: caption } : platform === 'threads' ? { text: caption, media_urls: mediaUrls, channels: ['threads'], post_format: format } : platform === 'tiktok' ? { caption, video_url: mediaUrls[0] } : { caption, image_url: mediaUrls[0] }
-    const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    const data = await res.json()
-    if (data.success || data.post_id || data.tweet_id || data.publish_id) {
-      localStorage.removeItem('signallab.composer.draft')
-      setSavedMessage('Posted')
-      setTimeout(() => { setStep('compose'); setCaption(''); setContext(''); setMediaUrls([]); setCaptions(null); setSavedMessage('') }, 2500)
-    } else { setSavedMessage('Failed: ' + (data.error || 'unknown error')) }
-    setSaving(false)
+    const platformLabel = platform === 'twitter' ? 'X / Twitter' : platform === 'tiktok' ? 'TikTok' : platform === 'threads' ? 'Threads' : 'Instagram'
+    try {
+      const result = await gatedSend<typeof body, { success?: boolean; post_id?: string; tweet_id?: string; publish_id?: string; error?: string }>({
+        endpoint,
+        previewBody: body,
+        skipServerPreview: true,
+        buildConfig: () => ({
+          kind: 'post',
+          summary: `Publish to ${platformLabel}`,
+          platform: platformLabel,
+          text: caption,
+          media: mediaUrls,
+        }),
+      })
+      if (!result.confirmed) { setSaving(false); return }
+      const data = result.data
+      if (data && (data.success || data.post_id || data.tweet_id || data.publish_id)) {
+        localStorage.removeItem('signallab.composer.draft')
+        setSavedMessage('Posted')
+        setTimeout(() => { setStep('compose'); setCaption(''); setContext(''); setMediaUrls([]); setCaptions(null); setSavedMessage('') }, 2500)
+      } else { setSavedMessage('Failed: ' + (data?.error || result.error || 'unknown error')) }
+    } finally {
+      setSaving(false)
+    }
   }
 
   // ── Derived intelligence ──────────────────────────────────────────────────

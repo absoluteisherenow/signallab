@@ -2,6 +2,7 @@
 
 import { ideas } from '@/lib/nm-plan-data'
 import { SignalLabHeader } from '@/components/broadcast/SignalLabHeader'
+import { PlanSubNav } from '@/components/broadcast/PlanSubNav'
 
 const s = {
   gold: '#ff2a1a',
@@ -28,7 +29,8 @@ export default function IdeasPage() {
   return (
     <div style={{ minHeight: '100vh', background: s.bg, color: '#f2f2f2', fontFamily: s.font }}>
       <SignalLabHeader />
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px 120px' }}>
+      <PlanSubNav />
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 24px 120px' }}>
         <div style={{ fontSize: 11, color: s.dimmest, letterSpacing: '0.1em', marginBottom: 24 }}>
           {ideas.length} content briefs with scores, shot lists, and captions
         </div>

@@ -1,5 +1,13 @@
 'use client'
 
+/**
+ * @deprecated Replaced by `BroadcastChain` (Apr 2026). The chain flow runs
+ * Drop → Scan → Voice → Approve as a single narrative on one page, replacing
+ * the tab-heavy lab. Kept here temporarily for salvage during chain bedding-in
+ * (intelligence sidebar shapes, artist-profile loader). Delete in the next
+ * cleanup pass once chain is verified stable in prod.
+ */
+
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseBrowser'
 import { aiCache } from '@/lib/aiCache'
@@ -7,6 +15,7 @@ import { SignalLabHeader } from './SignalLabHeader'
 import { MediaPicker } from '@/components/ui/MediaPicker'
 import { SKILLS_CAPTION_GEN, SKILL_ADS_MANAGER } from '@/lib/skillPromptsClient'
 import { PulseLoader } from '@/components/ui/PulseLoader'
+import { useGatedSend } from '@/lib/outbound'
 
 // IG CDN profile pics expire + CORB-block — stream through our proxy so they never break
 const proxied = (url?: string | null) => url ? `/api/image-proxy?url=${encodeURIComponent(url)}` : ''
@@ -233,6 +242,7 @@ function Bar({ value, teal = false }: { value: number; teal?: boolean }) {
 }
 
 export function BroadcastLab() {
+  const gatedSend = useGatedSend()
   // ── aiCache — shared cache shared across modules, 12-hour TTL ──────────────
   // Prevents re-running Claude on every page visit (trends + captions are expensive)
   const NS = 'signallab'
@@ -884,15 +894,30 @@ You MUST respond with ONLY a single raw JSON object. No preamble, no explanation
     }
     const channel = channelMap[selectedPlatform] || 'instagram'
     try {
-      const res = await fetch('/api/buffer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, channels: [channel], post_format: postFormat, ...(media?.length && { media_urls: media }), ...(scheduledAt && { scheduled_at: scheduledAt }) }),
+      const result = await gatedSend<Record<string, unknown>, { posts?: Array<{ id?: string }>; error?: unknown }>({
+        endpoint: '/api/buffer',
+        skipServerPreview: true,
+        previewBody: { text, channels: [channel], post_format: postFormat, ...(media?.length && { media_urls: media }), ...(scheduledAt && { scheduled_at: scheduledAt }) },
+        buildConfig: () => ({
+          kind: 'post',
+          summary: scheduledAt
+            ? `Schedule to ${selectedPlatform} · ${new Date(scheduledAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+            : `Queue on ${selectedPlatform} (Buffer)`,
+          to: `@${channel}`,
+          platform: channel,
+          text,
+          media,
+          meta: [
+            { label: 'Format', value: postFormat },
+            { label: 'When', value: scheduledAt ? new Date(scheduledAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Next Buffer slot' },
+          ],
+        }),
       })
-      const data = await res.json()
-      if (data.error) throw new Error(JSON.stringify(data.error))
-
-      const bufferPostId = data.posts?.[0]?.id || null
+      if (!result.confirmed) {
+        if (result.error) showToast('Buffer: ' + result.error, 'Error')
+        return
+      }
+      if (result.data?.error) throw new Error(JSON.stringify(result.data.error))
       showToast(scheduledAt ? `Scheduled for ${new Date(scheduledAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Queued in Buffer for ' + selectedPlatform, 'Scheduled')
     } catch (err: any) {
       showToast('Buffer: ' + err.message, 'Error')
@@ -1022,19 +1047,26 @@ You MUST respond with ONLY a single raw JSON object. No preamble, no explanation
     if (!platform) { showToast('Platform not supported yet', 'Error'); return }
 
     const mediaUrl = media?.[0] || null
-    try {
-      const body: Record<string, unknown> = { caption: text, post_format: postFormat }
-      if (platform === 'instagram' && mediaUrl) body.image_url = mediaUrl
-      if (platform === 'tiktok' && mediaUrl) body.video_url = mediaUrl
-      if (platform === 'twitter') body.text = text
+    const body: Record<string, unknown> = { caption: text, post_format: postFormat }
+    if (platform === 'instagram' && mediaUrl) body.image_url = mediaUrl
+    if (platform === 'tiktok' && mediaUrl) body.video_url = mediaUrl
+    if (platform === 'twitter') body.text = text
 
-      const res = await fetch(`/api/social/${platform}/post`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+    try {
+      const result = await gatedSend<Record<string, unknown>, { error?: string }>({
+        endpoint: `/api/social/${platform}/post`,
+        previewBody: body,
+        skipServerPreview: true,
+        buildConfig: () => ({
+          kind: 'post',
+          summary: `Publish to ${selectedPlatform}`,
+          platform: selectedPlatform,
+          text,
+          media: mediaUrl ? [mediaUrl] : [],
+        }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Publish failed')
+      if (!result.confirmed) return
+      if (result.error) throw new Error(result.error)
 
       await supabase.from('scheduled_posts').insert({
         platform,
@@ -1594,7 +1626,12 @@ Generate a complete ad plan tailored to this specific content and format. Return
         <div className={`grid gap-3 ${featuredRefs.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}>
           {featuredRefs.map(artist => (
             <div key={artist.name} className="bg-[#0e0e0e] border border-white/7 p-5 relative group">
-              <button onClick={() => { setArtists(prev => prev.filter(a => a.name !== artist.name)); removeArtistFromDb(artist.name); showToast(`${artist.name} removed`, 'Research') }}
+              <button onClick={() => {
+                if (!window.confirm(`Remove ${artist.name} from reference artists?`)) return
+                setArtists(prev => prev.filter(a => a.name !== artist.name))
+                removeArtistFromDb(artist.name)
+                showToast(`${artist.name} removed`, 'Research')
+              }}
                 className="absolute top-2 right-2 text-white/15 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs leading-none">×</button>
               <div className="flex items-center gap-3 mb-3">
                 {artist.profile_pic_url ? (
