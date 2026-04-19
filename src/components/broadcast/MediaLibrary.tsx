@@ -48,9 +48,11 @@ function AutoplayVideo({ src }: { src: string }) {
     return () => io.disconnect()
   }, [])
 
-  // Loop just the first ~2 seconds of movement — enough to tell what the
-  // video is, not enough to drain bandwidth on a grid of 30+ tiles.
-  const PREVIEW_SECONDS = 2
+  // Loop the first ~5 seconds of movement — long enough not to feel
+  // jumpy on each restart, short enough that a grid of videos stays
+  // cheap. Scales roughly linearly with full-video duration: a 60s
+  // clip now pulls ~5s of bytes per pass instead of the full minute.
+  const PREVIEW_SECONDS = 5
 
   return (
     <video
