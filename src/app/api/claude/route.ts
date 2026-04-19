@@ -85,7 +85,11 @@ export async function POST(req: NextRequest) {
     if (!nocache) {
       const systemPart = body.system ?? ''
       const messagesPart = JSON.stringify(body.messages ?? [])
-      cacheKey = hashKey(model + ':' + systemPart + messagesPart)
+      // Include temperature in the cache key — same prompt at temp 0
+      // (deterministic scan) must NOT serve a cached response generated at
+      // temp 1 (creative). Otherwise "identical image" assertions break.
+      const tempPart = typeof body.temperature === 'number' ? `:t${body.temperature}` : ':tdefault'
+      cacheKey = hashKey(model + ':' + systemPart + messagesPart + tempPart)
 
       const cached = await getCached(cacheKey)
       if (cached) {
@@ -107,6 +111,9 @@ export async function POST(req: NextRequest) {
         model,
         max_tokens: body.max_tokens || 600,
         ...(body.system && { system: body.system }),
+        // Forward temperature when the caller passes it. Scanner pins 0 for
+        // reproducible scoring; caption gen leaves it unset (defaults to 1).
+        ...(typeof body.temperature === 'number' && { temperature: body.temperature }),
         messages: body.messages,
       }),
     })

@@ -105,10 +105,11 @@ function makeRawGmailClient(tokens: GmailTokens) {
   return {
     users: {
       messages: {
-        async list(params: { userId: string; q?: string; maxResults?: number }) {
+        async list(params: { userId: string; q?: string; maxResults?: number; pageToken?: string }) {
           const qs = new URLSearchParams()
           if (params.q) qs.set('q', params.q)
           if (params.maxResults) qs.set('maxResults', String(params.maxResults))
+          if (params.pageToken) qs.set('pageToken', params.pageToken)
           const data = await gmailFetch(tokens, `/users/${params.userId}/messages?${qs}`)
           return { data }
         },

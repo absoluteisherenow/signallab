@@ -30,8 +30,13 @@ async function importFinding(finding: Finding): Promise<string | null> {
         currency: extracted.currency || 'EUR',
         status: 'confirmed',
         promoter_email: extracted.promoter_email || fromEmail || '',
-        promoter_name: extracted.promoter_name || '',
-        notes: extracted.notes || '',
+        // promoter_name has no column on gigs — fold into notes
+        notes: [
+          extracted.promoter_name
+            ? `Promoter contact: ${extracted.promoter_name}${extracted.promoter_email ? ` <${extracted.promoter_email}>` : ''}`
+            : null,
+          extracted.notes || null,
+        ].filter(Boolean).join('\n'),
         created_at: new Date().toISOString(),
       }]).select()
       return data?.[0]?.id ? 'gig' : null

@@ -28,10 +28,18 @@ export const BRT = {
   // Accent — bright Circoloco red
   red: '#ff2a1a',
   redDeep: '#a01510',
+  redBright: '#ff5a47',
+
+  // Extended surface / ink tokens used by chain flow
+  dimmest: '#2e2e2e',
+  borderBright: '#262626',
 
   // Status
   positive: '#f2f2f2',  // off-white, no green clash
   negative: '#ff2a1a',
+  // Chain-flow status accents (used sparingly, not for brand)
+  green: '#4eff9f',
+  amber: '#ffb020',
 } as const
 
 export const BRT_FONT_DISPLAY = '"Helvetica Neue", Helvetica, Arial, sans-serif'

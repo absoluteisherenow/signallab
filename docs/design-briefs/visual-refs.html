@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Signal Lab — Visual Reference Pack</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #050505;
+    --panel: #0e0e0e;
+    --panel-hi: #161616;
+    --border-dim: #1d1d1d;
+    --border: #222;
+    --border-bright: #2c2c2c;
+    --red: #ff2a1a;
+    --red-bright: #ff5040;
+    --text: #f2f2f2;
+    --dim: #d8d8d8;
+    --dimmer: #b0b0b0;
+    --dimmest: #909090;
+    --font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
+  body { padding: 48px 40px 80px; }
+  a { color: inherit; text-decoration: none; }
+
+  .page-head { max-width: 1200px; margin: 0 auto 40px; }
+  .eyebrow { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--red); display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .eyebrow::before { content: ''; display: block; width: 28px; height: 1px; background: var(--red); }
+  h1 { font-size: clamp(40px, 6vw, 72px); font-weight: 800; letter-spacing: -0.035em; line-height: 0.9; text-transform: uppercase; margin: 0 0 24px; }
+  .lede { color: var(--dimmer); font-size: 14px; line-height: 1.6; max-width: 640px; }
+  .anchors { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+  .anchor { border: 1px solid var(--border); padding: 10px 16px; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
+  .anchor:hover { border-color: var(--red); color: var(--red); }
+
+  section.component { max-width: 1200px; margin: 0 auto 64px; border-top: 1px solid var(--border-dim); padding-top: 40px; }
+  .component-head { margin-bottom: 28px; }
+  .component-head h2 { font-size: 40px; font-weight: 800; letter-spacing: -0.035em; text-transform: uppercase; margin: 0 0 6px; }
+  .component-head .sub { color: var(--dimmer); font-size: 13px; }
+
+  .category { margin-top: 32px; }
+  .cat-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--red); font-weight: 700; margin-bottom: 14px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .card { border: 1px solid var(--border-dim); background: var(--panel); overflow: hidden; display: flex; flex-direction: column; transition: border-color 0.12s; }
+  .card:hover { border-color: var(--red); }
+  .shot { position: relative; aspect-ratio: 4 / 3; background: var(--bg); overflow: hidden; border-bottom: 1px solid var(--border-dim); }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .shot .placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dimmest); background: repeating-linear-gradient(0deg, var(--bg), var(--bg) 2px, var(--panel-hi) 2px, var(--panel-hi) 3px); }
+  .meta { padding: 14px 16px 16px; }
+  .title { font-size: 13px; font-weight: 700; color: var(--text); margin: 0 0 6px; line-height: 1.3; }
+  .contrib { font-size: 11px; line-height: 1.45; color: var(--dim); margin: 0 0 8px; }
+  .host { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dimmest); }
+
+  .legend { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--border); padding: 10px 14px; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dimmer); z-index: 10; }
+  .legend strong { color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div class="eyebrow">Signal Lab · Design Briefs</div>
+  <h1>Visual reference pack</h1>
+  <p class="lede">Live screenshots of every reference URL. Images fetched via WordPress mShots — may take a few seconds to populate on first load. Click any card to open the source.</p>
+  <div class="anchors">
+    <a class="anchor" href="#approval-gate">Approval Gate</a>
+    <a class="anchor" href="#gig-card">Gig Card</a>
+    <a class="anchor" href="#mobile-tab-bar">Mobile Tab Bar</a>
+  </div>
+</div>
+
+<div class="legend">72 refs · <strong>hover = outline red</strong></div>
+
+<script>
+  function shot(url, w = 800) {
+    const encoded = encodeURIComponent(url);
+    return `https://s.wordpress.com/mshots/v1/${encoded}?w=${w}&h=${Math.round(w * 0.75)}`;
+  }
+  function host(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+  }
+  function card(ref) {
+    return `
+      <a class="card" href="${ref.url}" target="_blank" rel="noopener">
+        <div class="shot">
+          <div class="placeholder">Loading…</div>
+          <img loading="lazy" src="${shot(ref.url)}" alt="${ref.title}" onload="this.previousElementSibling.style.display='none'" onerror="this.style.display='none'">
+        </div>
+        <div class="meta">
+          <div class="title">${ref.title}</div>
+          <div class="contrib">${ref.contrib}</div>
+          <div class="host">${host(ref.url)}</div>
+        </div>
+      </a>
+    `;
+  }
+  function renderCategory(el, refs) {
+    el.innerHTML = `<div class="grid">${refs.map(card).join('')}</div>`;
+  }
+</script>
+
+<!-- ==================== APPROVAL GATE ==================== -->
+<section class="component" id="approval-gate">
+  <div class="component-head">
+    <h2>Approval Gate</h2>
+    <div class="sub">Unified send-confirm modal · TO · WHAT · WHEN · 23 refs</div>
+  </div>
+
+  <div class="category">
+    <div class="cat-label">Send-confirm modals in the wild</div>
+    <div id="ag-1"></div>
+  </div>
+  <div class="category">
+    <div class="cat-label">Brutalist / dark-red UI systems</div>
+    <div id="ag-2"></div>
+  </div>
+  <div class="category">
+    <div class="cat-label">Rendered content preview modals</div>
+    <div id="ag-3"></div>
+  </div>
+  <div class="category">
+    <div class="cat-label">Approve-before-destroy + schedule patterns</div>
+    <div id="ag-4"></div>
+  </div>
+</section>
+
+<!-- ==================== GIG CARD ==================== -->
+<section class="component" id="gig-card">
+  <div class="component-head">
+    <h2>Gig Card</h2>
+    <div class="sub">Backstage pass · desktop + mobile Tonight + Wallet Pass · 23 refs</div>
+  </div>
+
+  <div class="category">
+    <div class="cat-label">Physical tour / backstage laminates</div>
+    <div id="gc-1"></div>
+  </div>
+  <div class="category">
+    <div class="cat-label">Digital boarding passes + wallet cards</div>
+    <div id="gc-2"></div>
+  </div>
+  <div class="category">
+    <div class="cat-label">Countdown / set time hero designs</div>
+    <div id="gc-3"></div>
+  </div>
+  <div class="category">
+    <div class="cat-label">Brutalist ticket / event pages</div>
+    <div id="gc-4"></div>
+  </div>
+</section>
+
+<!-- ==================== MOBILE TAB BAR ==================== -->
+<section class="component" id="mobile-tab-bar">
+  <div class="component-head">
+    <h2>Mobile Tab Bar</h2>
+    <div class="sub">Adaptive bottom nav · gig-day state · 25 refs</div>
+  </div>
+
+  <div class="category">
+    <div class="cat-label">Adaptive / context-aware tab bars</div>
+    <div id="mtb-1"></div>
+  </div>
+  <div class="category">
+    <div class="cat-label">Central raised "+" button patterns</div>
+    <div id="mtb-2"></div>
+  </div>
+  <div class="category">
+    <div class="cat-label">Brutalist / dark mobile nav systems</div>
+    <div id="mtb-3"></div>
+  </div>
+  <div class="category">
+    <div class="cat-label">Boarding-pass / transit mobile UIs</div>
+    <div id="mtb-4"></div>
+  </div>
+</section>
+
+<script>
+  // ---------- APPROVAL GATE ----------
+  renderCategory(document.getElementById('ag-1'), [
+    { title: 'Superhuman Send Later', url: 'https://dribbble.com/shots/15366770-Superhuman-Send-Later', contrib: 'Schedule UX — inline time picker with preset chips stacked vertically. Model for WHEN row.' },
+    { title: 'Superhuman Send Later (peace of mind)', url: 'https://new.superhuman.com/send-later-with-peace-of-mind-134800', contrib: 'Guardrail microcopy placement under the approve button.' },
+    { title: 'Gmail Undo Send pattern writeup', url: 'https://bethaitman.com/posts/ui-writing/confirmation/', contrib: 'Inverse reference — reminder Anthony rejected post-send undo. Gate must be pre-send.' },
+    { title: 'iMessage Send With Effect sheet', url: 'https://support.apple.com/en-us/104970', contrib: 'Preview sizing — message bubble renders at true size inside the sheet. Mirror for IG posts.' },
+    { title: 'Linear Peek preview', url: 'https://linear.app/docs/peek', contrib: 'Panel elevation — lighten vs background rather than darken (+3% luminance lift, not drop shadow).' },
+    { title: 'Linear calmer interface refresh', url: 'https://linear.app/now/behind-the-latest-design-refresh', contrib: 'Recede vs focus — TO/WHEN rows recede (grey), WHAT preview dominates.' },
+  ]);
+  renderCategory(document.getElementById('ag-2'), [
+    { title: 'CircoLoco Records', url: 'https://circolocorecords.com/', contrib: 'Base palette confirmation — exact #050505 feel. Master BRT reference.' },
+    { title: 'Balenciaga', url: 'https://www.balenciaga.com/', contrib: 'Label treatment — all-caps micro-labels with tight letter-spacing. Maps to 0.22em rule.' },
+    { title: 'The Brvtalist', url: 'https://thebrvtalist.com', contrib: 'Scanline / grain texture — subtle noise without killing legibility.' },
+    { title: 'Awwwards Brutalism collection', url: 'https://www.awwwards.com/awwwards/collections/brutalism/', contrib: 'Flat red CTAs with no border-radius. Curated feed.' },
+    { title: 'Yeezy Display (Ty Finck)', url: 'https://yeezydisplay.com/', contrib: 'Approve-button typography — weight + tracking for APPROVE / SEND NOW.' },
+    { title: 'BrutalistWebsites directory', url: 'https://brutalistwebsites.com/', contrib: 'Filter for dark + red accent — more comps.' },
+  ]);
+  renderCategory(document.getElementById('ag-3'), [
+    { title: 'Buffer composer preview', url: 'https://buffer.com/publish', contrib: 'WHAT panel layout — split pane (controls left, rendered post right), validation chips.' },
+    { title: 'Buffer customize-per-network', url: 'https://support.buffer.com/article/642-scheduling-posts', contrib: 'Multi-channel pattern if Gate previews IG + email side-by-side.' },
+    { title: 'Stripe invoice preview', url: 'https://docs.stripe.com/invoicing/preview', contrib: 'Full PDF render in scrollable frame, not a summary table.' },
+    { title: 'Stripe hosted invoice page', url: 'https://docs.stripe.com/invoicing/hosted-invoice-page', contrib: 'What the invoice preview should actually contain.' },
+    { title: 'Mailchimp preview & test', url: 'https://mailchimp.com/help/preview-and-test-your-email-campaign/', contrib: 'Device toggle — useful for IG feed vs profile grid preview.' },
+    { title: 'Notion hover page preview', url: 'https://x.com/NotionHQ/status/1798043862172348899', contrib: 'Mini-preview pattern for recipient TO row (hover contact card).' },
+  ]);
+  renderCategory(document.getElementById('ag-4'), [
+    { title: 'X/Twitter schedule tweet composer', url: 'https://business.x.com/en/advertising/tweet-composer', contrib: 'WHEN UX — inline overlay not separate step, preserves the preview.' },
+    { title: 'Typefully schedule guide', url: 'https://typefully.com/blog/schedule-tweets', contrib: 'Confirmation receipt — "scheduled for Mon 6pm BST" chip above approve.' },
+    { title: 'Superhuman scheduled folder', url: 'https://help.superhuman.com/hc/en-us/articles/45237127271699-Guides', contrib: 'Post-approval state — where the Gate goes after approve + schedule.' },
+    { title: 'Outfy Twitter scheduler screenshots', url: 'https://www.outfy.com/blog/how-to-schedule-tweets-on-twitter/', contrib: 'Date/time picker sizing inside a modal.' },
+    { title: 'UX Psychology — destructive modals', url: 'https://uxpsychology.substack.com/p/how-to-design-better-destructive', contrib: 'Red-button placement — verb on button (Send now, not OK); cancel as link.' },
+    { title: 'PatternFly modal guidelines', url: 'https://www.patternfly.org/components/modal/design-guidelines/', contrib: 'Accessibility baseline — ARIA roles, focus trap rules.' },
+  ]);
+
+  // ---------- GIG CARD ----------
+  renderCategory(document.getElementById('gc-1'), [
+    { title: 'Boiler Room AAA', url: 'https://boilerroom.tv/recording/aaa/', contrib: 'Uppercase block-type + red accent lockup for hero label (TONIGHT / AAA).' },
+    { title: 'Arnett tour laminates', url: 'https://www.arnettcredentials.com/product/custom-tour-laminates/', contrib: 'Panel hierarchy — big artist/date block up top, dense info rows below. Desktop template.' },
+    { title: 'Holopasses backstage 4C', url: 'https://holopasses.com/en/collections/backstagepasslaminateholo', contrib: 'Scanline / foil overlay treatment on #0e0e0e panel.' },
+    { title: 'Dekmantel Flickr tag', url: 'https://www.flickr.com/photos/tags/dekmantel/', contrib: 'How a laminate reads at arm length — validates the 64–80px time hero.' },
+    { title: 'Access Event Solutions laminates', url: 'https://www.accesseventsolutions.com/laminates/', contrib: 'Zone-based layout (photo / TIME / venue / role) → travel accordion + contact row.' },
+  ]);
+  renderCategory(document.getElementById('gc-2'), [
+    { title: 'Apple PassKit spec', url: 'https://developer.apple.com/library/archive/documentation/UserExperience/Conceptual/PassKit_PG/Creating.html', contrib: 'Canonical screenshot-safe layout (header strip, primary = TIME, aux fields, barcode footer).' },
+    { title: 'Ticketmaster Apple Wallet guide', url: 'https://business.ticketmaster.com/apple-wallet-passes-design-best-practices-and-fan-engagement-guide-2/', contrib: 'Wallet Pass shareable treatment — full-bleed BG, semantic tags, no fees.' },
+    { title: "let's dev new Wallet layout (2024)", url: 'https://letsdev.de/en/blog/new-event-ticket-layout-apple-wallet', contrib: 'Venue guide + live-activity patterns = direct model for Tonight Mode countdown.' },
+    { title: 'Dribbble Apple Wallet tag', url: 'https://dribbble.com/tags/apple-wallet', contrib: 'Time-as-hero hierarchy and high-contrast mono layouts.' },
+    { title: 'Mobbin DICE buy flow', url: 'https://mobbin.com/explore/flows/2e514fe9-f1cd-40c0-a627-a45ccfb14303', contrib: 'The "screenshot moment" — what a shareable ticket looks like on-device.' },
+    { title: 'Angel Guillen DICE UX case study', url: 'https://angelguillen.net/dice-ux-ui/', contrib: 'QR + time + address stacking order.' },
+  ]);
+  renderCategory(document.getElementById('gc-3'), [
+    { title: 'Stagetimer', url: 'https://stagetimer.io/', contrib: 'Exact type-scale reference for 64–80px HH:MM hero. Used in live production.' },
+    { title: 'Game UI Database — Clock & Timer', url: 'https://www.gameuidatabase.com/index.php?scrn=137', contrib: 'Dense library of monospaced, letter-spaced countdown treatments.' },
+    { title: 'Dribbble countdown-timer', url: 'https://dribbble.com/tags/countdown-timer', contrib: 'Tonight Mode glanceable hero pattern.' },
+    { title: 'Collect UI countdown challenge', url: 'https://collectui.com/challenges/countdown-timer', contrib: '96 juried designs — label/value pairing (UPPERCASE 0.22em label, numeric hero).' },
+    { title: 'NTS Radio live', url: 'https://www.nts.live/radio', contrib: 'Terse metadata under a big state label. Live-now / next-on card rhythm.' },
+    { title: 'NTS Now Playing example', url: 'https://github.com/tiktuk/NTS-Now-Playing-Example', contrib: 'Data model for live countdown → set state transition.' },
+  ]);
+  renderCategory(document.getElementById('gc-4'), [
+    { title: 'Boiler Room upcoming events', url: 'https://boilerroom.tv/upcoming/', contrib: 'Direct aesthetic match for #050505 BG + Helvetica UPPER.' },
+    { title: 'CircoLoco NY Halloween on RA', url: 'https://ra.co/events/2238293', contrib: 'Event-detail anatomy (date hero, lineup block, venue with map) = desktop admin skeleton.' },
+    { title: 'HÖR Berlin on RA', url: 'https://ra.co/clubs/177928', contrib: 'Minimal venue card + upcoming-sets list = travel accordion precedent.' },
+    { title: 'RA Guide brutalist redesign', url: 'https://medium.com/@emirceren/ra-guide-redesign-balancing-brutalist-aesthetics-with-usability-e6ae2c817969', contrib: 'How to keep harsh BRT type readable in a working admin tool.' },
+    { title: 'The Brvtalist', url: 'https://thebrvtalist.com', contrib: 'Tonal / colour match for accent red #ff2a1a on #050505.' },
+    { title: 'CircoLoco promoter on RA', url: 'https://ra.co/promoters/113', contrib: 'List-row rhythm → card stacking model for desktop detail.' },
+  ]);
+
+  // ---------- MOBILE TAB BAR ----------
+  renderCategory(document.getElementById('mtb-1'), [
+    { title: 'iOS 26.1 Apple Music MiniPlayer', url: 'https://9to5mac.com/2025/11/04/ios-26-1-gave-apple-music-convenient-new-trick/', contrib: 'Strip above tab bar collapses into tab row on scroll. Gig-day hero strip pattern.' },
+    { title: 'Apple Music Now Playing transition', url: 'https://www.kodeco.com/221-recreating-the-apple-music-now-playing-transition', contrib: 'Tap-to-expand Wallet Pass interaction.' },
+    { title: 'Spotify redesigned mini player', url: 'https://www.androidpolice.com/2021/07/28/spotify-is-getting-a-redesigned-mini-player-ui-with-a-more-modern-look/', contrib: 'Floating rounded mini-player above nav — elevated gig-day strip treatment.' },
+    { title: 'Uber Base — bottom navigation', url: 'https://base.uber.com/6d2425e9f/p/1413a0-bottom-navigation', contrib: 'Adaptive slot token system, active/inactive semantics.' },
+    { title: "Architecting Uber's Driver App in RIBs", url: 'https://www.uber.com/blog/driver-app-ribs-architecture/', contrib: 'On-Task vs Off-Task state swap. Normal-day vs gig-day state architecture.' },
+    { title: 'Strava Live Activities on iOS', url: 'https://support.strava.com/hc/en-us/articles/39508401687693-Strava-Live-Activities-on-iOS', contrib: 'During-record replaces tabs with controls. Takeover pattern for show day.' },
+    { title: 'Airbnb 2025 Summer Release — Trips tab', url: 'https://news.airbnb.com/airbnb-2025-summer-release/', contrib: 'Trips tab mutates into live itinerary during stay. Context-aware 5th slot.' },
+  ]);
+  renderCategory(document.getElementById('mtb-2'), [
+    { title: 'Instagram nav differs new vs old users', url: 'https://medium.com/design-bootcamp/why-instagrams-navigation-bar-looks-different-for-new-and-old-users-45c53138b4a9', contrib: 'Adaptive 5th slot rationale.' },
+    { title: 'Instagram redesign Reels centred', url: 'https://techcrunch.com/2020/11/12/instagram-redesign-puts-reels-and-shop-tabs-on-the-home-screen/', contrib: 'Visual weight for glowing Pass slot.' },
+    { title: 'Dribbble floating button menu tab bar', url: 'https://dribbble.com/search/floating-button-menu-tab-bar', contrib: 'Elevation + notch cutout references (200+ FAB patterns).' },
+    { title: 'Dribbble Nav Bars collection (Aslam)', url: 'https://dribbble.com/gulzaibaslam/collections/4310496-Navigation-Bars-for-Apps', contrib: 'Central-plus variant composition studies.' },
+    { title: 'Robinhood UI Secrets', url: 'https://itexus.com/robinhood-ui-secrets-how-to-design-a-sky-rocket-trading-app/', contrib: 'Restraint model when action replaces a tab.' },
+    { title: 'Robinhood UX Flow (Page Flows)', url: 'https://pageflows.com/ios/products/robinhood/', contrib: 'Action-button-in-tab-row compositions.' },
+  ]);
+  renderCategory(document.getElementById('mtb-3'), [
+    { title: 'NTS Radio on App Store', url: 'https://apps.apple.com/us/app/nts-radio/id1204567739', contrib: 'Label casing + scanline vibe parallel.' },
+    { title: 'Dribbble NTS tag', url: 'https://dribbble.com/tags/nts', contrib: 'Uppercase label / 10–11px spacing studies.' },
+    { title: 'Redesigning Resident Advisor App', url: 'https://medium.com/@elen2698/redesigning-resident-advisor-app-a-ux-case-study-f8408a272934', contrib: 'Club-listings tab-bar precedent.' },
+    { title: 'Dribbble Resident Advisor tag', url: 'https://dribbble.com/tags/resident-advisor', contrib: 'Nightlife vertical aesthetic.' },
+    { title: 'Mobbin Dark Mode screens', url: 'https://mobbin.com/explore/mobile/screens/dark-mode', contrib: 'Panel-on-panel contrast references for #050505 on #0e0e0e.' },
+    { title: 'Dribbble brutalist app', url: 'https://dribbble.com/search/brutalist-app', contrib: 'Border / label treatment for active red tab.' },
+  ]);
+  renderCategory(document.getElementById('mtb-4'), [
+    { title: 'Apple HIG — Wallet', url: 'https://developer.apple.com/design/human-interface-guidelines/wallet', contrib: 'Canonical pass layout. Wallet Pass full-sheet structure.' },
+    { title: 'Figma — Apple Wallet Templates', url: 'https://www.figma.com/community/file/1116649452413390881/apple-wallet-templates', contrib: 'Editable Figma source for Pass layout.' },
+    { title: 'Citymapper iOS Lock Screen Navigation', url: 'https://citymapper.com/news/2553/citymapper-introduces-ios-lock-screen-navigation', contrib: 'GO-mode hero strip with live ETA. Countdown strip for "doors in 2h 14m".' },
+    { title: 'Citymapper App screens', url: 'https://uisources.com/app/citymapper', contrib: 'Transit hero-strip compositions.' },
+    { title: 'Google Maps redesigned bottom bar', url: 'https://9to5google.com/2024/03/27/google-maps-bottom-bar/', contrib: 'Simplified 3-tab bar with contextual hero card above during nav.' },
+    { title: 'DICE — ticket live screen (Mobbin re-link)', url: 'https://mobbin.com/explore/flows/2e514fe9-f1cd-40c0-a627-a45ccfb14303', contrib: 'What a shareable mobile ticket looks like — Wallet tab reveal state.' },
+  ]);
+</script>
+
+</body>
+</html>

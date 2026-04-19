@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireConfirmed } from '@/lib/require-confirmed'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,7 +10,10 @@ const supabase = createClient(
 // TikTok requires video content — text-only posts not supported
 // This route handles video URL publishing via the Content Posting API
 export async function POST(req: NextRequest) {
-  const { caption, video_url, handle } = await req.json()
+  const body = await req.json()
+  const gate = requireConfirmed(body)
+  if (gate) return gate
+  const { caption, video_url, handle } = body
 
   if (!caption) return NextResponse.json({ error: 'Caption required' }, { status: 400 })
   if (!video_url) return NextResponse.json({ error: 'TikTok requires a video. Attach one from your media library.' }, { status: 400 })

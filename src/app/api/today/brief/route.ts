@@ -8,7 +8,7 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!
 export async function GET(req: NextRequest) {
   const gate = await requireUser(req)
   if (gate instanceof NextResponse) return gate
-  const { user, serviceClient: supabase } = gate
+  const { serviceClient: supabase } = gate
 
   try {
     const now = new Date()
@@ -16,7 +16,10 @@ export async function GET(req: NextRequest) {
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
     const todayISO = now.toISOString()
 
-    // Query all tables in parallel
+    // NOTE: tables below have no `user_id` column in this schema (single-artist
+    // pre-beta). Filtering by user_id used to throw PostgREST 42703 and return
+    // [] silently, which blanked the Today page. Drop the scoping until a real
+    // multi-user migration adds user_id + RLS. Matches /api/gigs/route.ts pattern.
     const [
       gigsResult,
       allUpcomingGigsResult,
@@ -39,7 +42,6 @@ export async function GET(req: NextRequest) {
       supabase
         .from('gigs')
         .select('id, title, venue, location, date, status')
-        .eq('user_id', user.id)
         .gte('date', todayISO)
         .lte('date', in30Days)
         .order('date', { ascending: true }),
@@ -48,7 +50,6 @@ export async function GET(req: NextRequest) {
       supabase
         .from('gigs')
         .select('id, title, venue, location, date, status')
-        .eq('user_id', user.id)
         .gte('date', todayISO)
         .order('date', { ascending: true })
         .limit(5),
@@ -57,48 +58,41 @@ export async function GET(req: NextRequest) {
       supabase
         .from('invoices')
         .select('id, gig_title, amount, currency, status, due_date')
-        .eq('user_id', user.id)
         .or(`status.eq.overdue,and(due_date.lt.${todayISO},status.neq.paid)`),
 
       // Posts needing approval
       supabase
         .from('scheduled_posts')
         .select('id, platform, caption, scheduled_at')
-        .eq('user_id', user.id)
         .eq('status', 'scheduled'),
 
       // Draft posts
       supabase
         .from('scheduled_posts')
         .select('id')
-        .eq('user_id', user.id)
         .eq('status', 'draft'),
 
       // Approved posts (queued for publish)
       supabase
         .from('scheduled_posts')
         .select('id')
-        .eq('user_id', user.id)
         .eq('status', 'approved'),
 
       // Travel bookings for upcoming gigs
       supabase
         .from('travel_bookings')
-        .select('id, gig_id')
-        .eq('user_id', user.id),
+        .select('id, gig_id'),
 
       // Incomplete advances
       supabase
         .from('advance_requests')
         .select('id, gig_id, status')
-        .eq('user_id', user.id)
         .neq('status', 'completed'),
 
       // Recent notifications
       supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5),
 
@@ -106,40 +100,34 @@ export async function GET(req: NextRequest) {
       supabase
         .from('gigs')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
         .gte('date', todayISO)
         .eq('status', 'confirmed'),
 
       // Total tracks count
       supabase
         .from('dj_tracks')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id),
+        .select('id', { count: 'exact', head: true }),
 
       // All queued content (scheduled + approved + draft)
       supabase
         .from('scheduled_posts')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
         .in('status', ['draft', 'scheduled', 'approved']),
 
       // Sets count
       supabase
         .from('dj_sets')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id),
+        .select('id', { count: 'exact', head: true }),
 
       // Releases count
       supabase
         .from('releases')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id),
+        .select('id', { count: 'exact', head: true }),
 
       // Next scheduled post
       supabase
         .from('scheduled_posts')
         .select('id, platform, caption, scheduled_at, media_url, media_urls')
-        .eq('user_id', user.id)
         .in('status', ['draft', 'scheduled', 'approved'])
         .gte('scheduled_at', todayISO)
         .order('scheduled_at', { ascending: true })
@@ -149,10 +137,9 @@ export async function GET(req: NextRequest) {
       supabase
         .from('tasks')
         .select('id, title, status, priority, created_at')
-        .eq('user_id', user.id)
         .neq('status', 'completed')
         .order('created_at', { ascending: false })
-        .limit(5),
+        .limit(20),
     ])
 
     const gigs = gigsResult.data ?? []
@@ -179,7 +166,7 @@ export async function GET(req: NextRequest) {
         type: 'post_approval',
         count: pendingPosts.length,
         label: `${pendingPosts.length} post${pendingPosts.length === 1 ? '' : 's'} need${pendingPosts.length === 1 ? 's' : ''} approval`,
-        href: '/calendar',
+        href: '/broadcast/calendar',
       })
     }
 
@@ -316,7 +303,6 @@ export async function GET(req: NextRequest) {
           .from('gigs')
           .select('set_time')
           .eq('id', nextGig.id)
-          .eq('user_id', user.id)
           .single()
         hasSetTime = !!gigDetail?.set_time
       } catch {}

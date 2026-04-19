@@ -30,7 +30,56 @@ function extractEmailBody(payload: any): string {
   return ''
 }
 
-async function classifyEmail(from: string, subject: string, body: string, existingGigs: any[]): Promise<any> {
+interface PdfAttachmentRef {
+  attachmentId: string
+  filename: string
+  size: number
+}
+
+function collectPdfAttachments(payload: any, out: PdfAttachmentRef[] = []): PdfAttachmentRef[] {
+  if (!payload) return out
+  const isPdf = payload.mimeType === 'application/pdf' ||
+    (payload.filename || '').toLowerCase().endsWith('.pdf')
+  if (isPdf && payload.body?.attachmentId) {
+    out.push({
+      attachmentId: payload.body.attachmentId,
+      filename: payload.filename || 'attachment.pdf',
+      size: payload.body.size || 0,
+    })
+  }
+  if (payload.parts) {
+    for (const part of payload.parts) collectPdfAttachments(part, out)
+  }
+  return out
+}
+
+async function fetchPdfsForClaude(
+  gmail: any,
+  messageId: string,
+  refs: PdfAttachmentRef[]
+): Promise<Array<{ filename: string; base64: string }>> {
+  const MAX_PDFS = 3
+  const MAX_BYTES = 5 * 1024 * 1024
+  const picked = refs.filter(r => r.size > 0 && r.size <= MAX_BYTES).slice(0, MAX_PDFS)
+  const out: Array<{ filename: string; base64: string }> = []
+  for (const ref of picked) {
+    try {
+      const { data } = await gmail.users.messages.attachments.get({
+        userId: 'me',
+        messageId,
+        id: ref.attachmentId,
+      })
+      if (data?.data) {
+        out.push({ filename: ref.filename, base64: data.data.replace(/-/g, '+').replace(/_/g, '/') })
+      }
+    } catch {
+      // skip
+    }
+  }
+  return out
+}
+
+async function classifyEmail(from: string, subject: string, body: string, existingGigs: any[], pdfs: Array<{ filename: string; base64: string }> = []): Promise<any> {
   const gigsContext = existingGigs.length
     ? `Existing gigs:\n${existingGigs.map(g => `- ID: ${g.id} | ${g.title} @ ${g.venue}, ${g.location} on ${g.date}`).join('\n')}`
     : 'No gigs yet.'
@@ -43,14 +92,16 @@ async function classifyEmail(from: string, subject: string, body: string, existi
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 800,
       system: `You are an email classifier for a DJ/electronic music artist. Classify incoming emails. Return ONLY valid JSON.
 
 ${gigsContext}
 
-Email types: new_gig, hotel, flight, train, tech_spec, rider, invoice, release, gig_update, remittance, ignore.
+Email types: new_gig, hotel, flight, train, tech_spec, rider, invoice, invoice_request, billing_info, release, gig_update, remittance, ignore.
 "remittance" = payment received / remittance advice / bank transfer confirmation / wire transfer notification. Keywords: remittance, payment advice, "payment has been made", "funds transferred", BACS, SWIFT.
+"invoice_request" = someone asking Anthony to send an invoice or specifying where to bill. Keywords: "please invoice", "send the invoice to", "bill us at", "our accounts email".
+"billing_info" = company billing / VAT / finance details for an existing gig (VAT number, company name, PO number, billing address).
 
 Return: {"type":"...","confidence":0.0-1.0,"gig_id":"uuid or null","extracted":{
   // new_gig: title, venue, location, date (YYYY-MM-DD), time (HH:MM), fee, currency, promoter_name, promoter_email, notes
@@ -58,12 +109,25 @@ Return: {"type":"...","confidence":0.0-1.0,"gig_id":"uuid or null","extracted":{
   // flight: name, flight_number, from, to, departure_at (YYYY-MM-DDTHH:MM), arrival_at, cost, currency, reference
   // train: name, from, to, departure_at, arrival_at, cost, currency, reference
   // invoice: gig_title, amount, currency, type (deposit/full/balance), due_date, description
+  // invoice_request: billing_email, billing_name, billing_company, notes
+  // billing_info: company_name, billing_address, vat_number, po_number, billing_email
   // release: title, type (single/ep/album), release_date, label, streaming_url, notes
   // tech_spec / rider: details
   // gig_update: update
   // remittance: amount, currency, sender_name, reference, gig_title, payment_date, description
 }}`,
-      messages: [{ role: 'user', content: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}` }],
+      messages: [{
+        role: 'user',
+        content: pdfs.length > 0
+          ? [
+              { type: 'text', text: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}\n\n(${pdfs.length} PDF attachment${pdfs.length > 1 ? 's' : ''} included — extract fields from them too.)` },
+              ...pdfs.map(pdf => ({
+                type: 'document' as const,
+                source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: pdf.base64 },
+              })),
+            ]
+          : `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}`,
+      }],
     }),
   })
 
@@ -83,11 +147,21 @@ export async function GET() {
       return NextResponse.json({ findings: [], reason: 'no_gmail_connected' })
     }
 
-    // Get already-processed IDs so we don't re-surface them
+    // Get already-processed IDs so we don't re-surface them, and watermark for Gmail query
     const { data: processed } = await supabase
       .from('processed_gmail_ids')
-      .select('message_id')
+      .select('message_id, processed_at')
+      .order('processed_at', { ascending: false })
+      .limit(2000)
     const processedIds = new Set((processed || []).map((r: any) => r.message_id))
+
+    // Build "after:" watermark — last successful scan minus 2-day overlap buffer.
+    // Fallback to 30 days ago if nothing processed yet.
+    const lastProcessedAt = processed?.[0]?.processed_at
+      ? new Date(processed[0].processed_at)
+      : new Date(Date.now() - 30 * 86400000)
+    const watermark = new Date(lastProcessedAt.getTime() - 2 * 86400000)
+    const afterQuery = `after:${watermark.getUTCFullYear()}/${String(watermark.getUTCMonth() + 1).padStart(2, '0')}/${String(watermark.getUTCDate()).padStart(2, '0')}`
 
     // Existing gigs for context matching
     const { data: gigs } = await supabase
@@ -99,13 +173,23 @@ export async function GET() {
 
     for (const { gmail, email } of clients) {
       try {
-        const { data: list } = await gmail.users.messages.list({
-          userId: 'me',
-          maxResults: 20,
-          q: 'is:unread newer_than:14d',
-        })
+        // Paginate — safety cap 200 messages per account per scan run.
+        const MAX_MESSAGES_PER_ACCOUNT = 200
+        const allMessages: Array<{ id?: string | null }> = []
+        let pageToken: string | undefined
+        do {
+          const { data: list } = await gmail.users.messages.list({
+            userId: 'me',
+            maxResults: 100,
+            q: `${afterQuery} -in:sent -in:draft -category:promotions -category:social`,
+            ...(pageToken ? { pageToken } : {}),
+          })
+          for (const m of list?.messages || []) allMessages.push(m)
+          pageToken = list?.nextPageToken
+          if (allMessages.length >= MAX_MESSAGES_PER_ACCOUNT) break
+        } while (pageToken)
 
-        for (const msg of (list?.messages || [])) {
+        for (const msg of allMessages.slice(0, MAX_MESSAGES_PER_ACCOUNT)) {
           if (!msg.id || processedIds.has(msg.id)) continue
 
           const { data: full } = await gmail.users.messages.get({
@@ -121,8 +205,13 @@ export async function GET() {
 
           if (!body && !subject) continue
 
+          const pdfRefs = collectPdfAttachments(full.payload)
+          const pdfs = pdfRefs.length > 0
+            ? await fetchPdfsForClaude(gmail, msg.id, pdfRefs)
+            : []
+
           try {
-            const classification = await classifyEmail(from, subject, body, gigs || [])
+            const classification = await classifyEmail(from, subject, body, gigs || [], pdfs)
             if (classification.confidence >= 0.5 && classification.type !== 'ignore') {
               allFindings.push({
                 messageId: msg.id,

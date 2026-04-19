@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { BlurredAmount } from '@/components/ui/BlurredAmount'
+import { useGatedSend } from '@/lib/outbound'
 
 interface Invoice {
   id: string
@@ -94,6 +95,7 @@ export default function Finances() {
   const [expenseCurrency, setExpenseCurrency] = useState('GBP')
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [sendEmail, setSendEmail] = useState<Record<string, string>>({})
+  const gatedSend = useGatedSend()
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [editExpense, setEditExpense] = useState<Partial<Expense>>({})
   const [artistName, setArtistName] = useState('Artist')
@@ -277,22 +279,44 @@ export default function Finances() {
     setSendingId(inv.id)
     try {
       const to = sendEmail[inv.id] || ''
-      const res = await fetch(`/api/invoices/${inv.id}/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to }),
+      const result = await gatedSend<{
+        to?: string
+        subject?: string
+        html?: string
+        amount?: string
+        dueDate?: string
+        invoiceNumber?: string
+      }, { sent?: boolean; to?: string; mailto?: string; error?: string }>({
+        endpoint: `/api/invoices/${inv.id}/send`,
+        previewBody: { to },
+        buildConfig: (p) => ({
+          kind: 'email',
+          summary: `Invoice ${p.invoiceNumber || ''} — ${inv.gig_title}`.trim(),
+          to: p.to || to,
+          subject: p.subject,
+          html: p.html,
+          meta: [
+            ...(p.amount ? [{ label: 'Amount', value: p.amount }] : []),
+            ...(p.dueDate ? [{ label: 'Due', value: p.dueDate }] : []),
+          ],
+        }),
       })
-      const data = await res.json()
-      if (data.sent) {
+      if (result.error && !result.confirmed) {
+        showToast(result.error)
+        return
+      }
+      if (!result.confirmed) return
+      const data = result.data
+      if (data?.sent) {
         showToast(`Invoice sent to ${data.to}`)
-      } else if (data.mailto) {
+      } else if (data?.mailto) {
         window.open(data.mailto)
         showToast('Opened in mail client')
+      } else if (result.error) {
+        showToast(result.error)
       } else {
         showToast('Send failed')
       }
-    } catch {
-      showToast('Send failed')
     } finally {
       setSendingId(null)
     }

@@ -8,11 +8,13 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// POST — send an approved reminder draft
-// Body: { id: string } — the draft ID to send
+// POST — preview OR send an approved reminder draft
+// Body: { id: string, confirmed?: boolean }
+// Step 1 (no confirmed): returns preview of the draft for approval modal
+// Step 2 (confirmed: true): actually sends
 export async function POST(req: NextRequest) {
   try {
-    const { id } = await req.json()
+    const { id, confirmed } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing draft id' }, { status: 400 })
 
     const { data: draft, error } = await supabase
@@ -24,7 +26,19 @@ export async function POST(req: NextRequest) {
 
     if (error || !draft) return NextResponse.json({ error: 'Draft not found or already sent' }, { status: 404 })
 
-    // Send via Resend
+    // Step 1: preview
+    if (!confirmed) {
+      return NextResponse.json({
+        success: true,
+        preview: true,
+        to: draft.promoter_email,
+        subject: draft.subject,
+        html: draft.body_html,
+        message: 'Review this reminder email. Call again with confirmed: true to send.',
+      })
+    }
+
+    // Step 2: confirmed — actually send
     const resend = new Resend(process.env.RESEND_API_KEY)
     await resend.emails.send({
       from: 'Night Manoeuvres <bookings@signallabos.com>',

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMobile } from '@/hooks/useMobile'
 import { scaleIn, slideUp } from '@/lib/motion'
 import { SKILL_SOCIAL_STRATEGY, SKILL_VOICE_ENGINE, SKILL_ADS_MANAGER, SKILL_INSTAGRAM_GROWTH } from '@/lib/skillPromptsClient'
+import { useGatedSend } from '@/lib/outbound'
 
 // Module-level guard — shared across all component instances
 let uploadInProgress = false
@@ -119,8 +120,8 @@ export function SignalGenius() {
   const [pendingInvoice, setPendingInvoice] = useState<any>(null)
   const [createdInvoice, setCreatedInvoice] = useState<any>(null)
   const [creatingInvoice, setCreatingInvoice] = useState(false)
-  const [pendingEmail, setPendingEmail] = useState<{ html: string; invoiceId: string } | null>(null)
   const [sendingEmail, setSendingEmail] = useState(false)
+  const gatedSend = useGatedSend()
   const [pendingEmailFindings, setPendingEmailFindings] = useState<any[]>([])
   const [importingEmails, setImportingEmails] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -270,7 +271,6 @@ export function SignalGenius() {
           try {
             setPendingInvoice(JSON.parse(invoiceMatch[1]))
             setCreatedInvoice(null)
-            setPendingEmail(null)
           } catch { /* malformed JSON */ }
         }
         speakResponse(displayText)
@@ -870,7 +870,6 @@ Rules:
         try {
           setPendingInvoice(JSON.parse(invoiceMatch[1]))
           setCreatedInvoice(null)
-          setPendingEmail(null)
         } catch { /* malformed JSON — ignore */ }
       }
       speakResponse(displayText)
@@ -904,31 +903,47 @@ Rules:
     }
   }
 
-  async function handlePreviewEmail() {
+  async function handleSendInvoiceEmail() {
     if (!createdInvoice) return
-    try {
-      const res = await fetch(`/api/invoices/${createdInvoice.id}/send`)
-      const html = await res.text()
-      setPendingEmail({ html, invoiceId: createdInvoice.id })
-    } catch {
-      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: 'Failed to load email preview — try again.' }])
-    }
-  }
-
-  async function handleSendEmail() {
-    if (!pendingEmail) return
     setSendingEmail(true)
     try {
-      const res = await fetch(`/api/invoices/${pendingEmail.invoiceId}/send`, { method: 'POST' })
-      const data = await res.json()
-      const sentMsg = data.sent
-        ? `Invoice sent to ${data.to} from ${data.sentFrom}.`
-        : 'Email client opened — send from there.'
+      const result = await gatedSend<{
+        to?: string
+        subject?: string
+        html?: string
+        amount?: string
+        dueDate?: string
+        invoiceNumber?: string
+      }, { sent?: boolean; to?: string; sentFrom?: string; mailto?: string }>({
+        endpoint: `/api/invoices/${createdInvoice.id}/send`,
+        previewBody: {},
+        buildConfig: (p) => ({
+          kind: 'email',
+          summary: `Invoice ${p.invoiceNumber || ''} — ${createdInvoice.gig_title || 'Gig'}`.trim(),
+          to: p.to,
+          subject: p.subject,
+          html: p.html,
+          meta: [
+            ...(p.amount ? [{ label: 'Amount', value: p.amount }] : []),
+            ...(p.dueDate ? [{ label: 'Due', value: p.dueDate }] : []),
+          ],
+        }),
+      })
+      if (!result.confirmed) {
+        if (result.error) {
+          setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: `Couldn't build preview — ${result.error}.` }])
+        }
+        return
+      }
+      const data = result.data
+      const sentMsg = data?.sent
+        ? `Invoice sent to ${data.to}${data.sentFrom ? ` from ${data.sentFrom}` : ''}.`
+        : data?.mailto
+          ? 'Opened in your mail client.'
+          : result.error || 'Send completed.'
+      if (data?.mailto) window.open(data.mailto)
       setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: sentMsg }])
-      setPendingEmail(null)
       setCreatedInvoice(null)
-    } catch {
-      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: 'Failed to send — try again.' }])
     } finally {
       setSendingEmail(false)
     }
@@ -1171,7 +1186,7 @@ Rules:
           </div>
         )}
 
-        {createdInvoice && !pendingEmail && (
+        {createdInvoice && (
           <div style={{
             alignSelf: 'flex-start', padding: '14px 16px',
             background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,42,26,0.3)',
@@ -1190,53 +1205,14 @@ Rules:
                 }}>
                 View invoice ↗
               </a>
-              <button onClick={handlePreviewEmail}
+              <button onClick={handleSendInvoiceEmail} disabled={sendingEmail}
                 style={{
                   background: 'var(--gold)', border: 'none', color: '#050505',
                   fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
-                  textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer',
-                }}>
-                Preview email →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {pendingEmail && (
-          <div style={{
-            alignSelf: 'flex-start', width: '100%', maxWidth: '100%',
-            border: '1px solid rgba(255,42,26,0.3)',
-          }}>
-            <div style={{
-              padding: '10px 14px', borderBottom: '1px solid var(--border-dim)',
-              fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
-              color: 'var(--gold)',
-            }}>
-              Email preview — confirm before sending
-            </div>
-            <iframe
-              srcDoc={pendingEmail.html}
-              style={{ width: '100%', height: '320px', border: 'none', background: '#fff' }}
-              title="Email preview"
-            />
-            <div style={{ padding: '10px 14px', display: 'flex', gap: '8px', borderTop: '1px solid var(--border-dim)' }}>
-              <button onClick={() => setPendingEmail(null)}
-                style={{
-                  background: 'transparent', border: '1px solid var(--border-dim)',
-                  color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '10px',
-                  letterSpacing: '0.12em', textTransform: 'uppercase', padding: '8px 14px',
-                  cursor: 'pointer',
-                }}>
-                Cancel
-              </button>
-              <button onClick={handleSendEmail} disabled={sendingEmail}
-                style={{
-                  background: 'var(--gold)', border: 'none', color: '#050505',
-                  fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em',
-                  textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer',
+                  textTransform: 'uppercase', padding: '8px 16px', cursor: sendingEmail ? 'wait' : 'pointer',
                   opacity: sendingEmail ? 0.6 : 1,
                 }}>
-                {sendingEmail ? 'Sending...' : 'Confirm & send →'}
+                {sendingEmail ? 'Opening preview…' : 'Send invoice →'}
               </button>
             </div>
           </div>

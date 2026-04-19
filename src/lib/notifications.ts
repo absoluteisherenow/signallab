@@ -44,27 +44,52 @@ interface CreateNotificationOptions {
   sendSms?: boolean  // explicit override — if omitted, auto-sends for SMS_CRITICAL_TYPES
 }
 
+// Dedup window: skip re-inserting the same (type, title) within this many hours.
+// Stops cron re-firings ("This week's content plan is ready", hourly advance pings)
+// from flooding the bell.
+const DEDUP_HOURS = 24
+
 export async function createNotification(opts: CreateNotificationOptions) {
   const { user_id, type, title, message, href, gig_id, metadata, sendEmail } = opts
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'
 
-  // 1. Write to DB (in-app notification)
+  // 1. Write to DB (in-app notification) — with dedup on (type, title)
+  let skipped = false
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    await supabase.from('notifications').insert([{
-      ...(user_id != null ? { user_id } : {}),
-      type,
-      title,
-      message: message || null,
-      href: href || null,
-      gig_id: gig_id || null,
-      metadata: metadata || null,
-      read: false,
-    }])
+    const since = new Date(Date.now() - DEDUP_HOURS * 60 * 60 * 1000).toISOString()
+    let dupQuery = supabase
+      .from('notifications')
+      .select('id')
+      .eq('type', type)
+      .eq('title', title)
+      .gte('created_at', since)
+      .limit(1)
+    if (user_id != null) dupQuery = dupQuery.eq('user_id', user_id)
+    if (gig_id) dupQuery = dupQuery.eq('gig_id', gig_id)
+    const { data: existing } = await dupQuery
+
+    if (existing && existing.length > 0) {
+      skipped = true
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      await supabase.from('notifications').insert([{
+        ...(user_id != null ? { user_id } : {}),
+        type,
+        title,
+        message: message || null,
+        href: href || null,
+        gig_id: gig_id || null,
+        metadata: metadata || null,
+        read: false,
+      }])
+    }
   } catch (err) {
     console.error('[notifications] DB insert failed:', err)
   }
+
+  // If deduped, don't fan out email/SMS either — the user already got this.
+  if (skipped) return
 
   // 2. Send email if requested
   if (sendEmail && process.env.RESEND_API_KEY && process.env.ARTIST_EMAIL) {

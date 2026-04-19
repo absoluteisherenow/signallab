@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Broadcast · chain flow</title>
+<style>
+  :root{
+    --bg:#050505;
+    --panel:#0c0c0c;
+    --text:#f4f4f4;
+    --dim:#9a9a9a;
+    --dimmer:#5a5a5a;
+    --dimmest:#2e2e2e;
+    --border:#1a1a1a;
+    --border-bright:#262626;
+    --red:#ff2a1a;
+    --red-bright:#ff5a47;
+    --green:#4eff9f;
+    --amber:#ffb020;
+    --input:#0a0a0a;
+    --font:"Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);height:100vh;overflow:hidden}
+  body{-webkit-font-smoothing:antialiased;letter-spacing:-0.005em}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);mix-blend-mode:overlay}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:61;opacity:0.28;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06  0 0 0 0 0.06  0 0 0 0 0.06  0 0 0 0.24 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");background-size:160px 160px}
+
+  .stage{height:100vh;display:grid;grid-template-rows:auto 1fr;padding:20px 32px 24px;gap:16px;position:relative;z-index:1}
+
+  /* top */
+  .top{display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand-dot{width:8px;height:8px;background:var(--red);display:inline-block;box-shadow:0 0 14px rgba(255,42,26,.6)}
+  .brand-title{font-size:10px;letter-spacing:0.3em;font-weight:700;text-transform:uppercase;color:var(--dim)}
+  .phase-rail{display:flex;align-items:center;gap:10px}
+  .phase-step{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:0.2em;font-weight:700;text-transform:uppercase;color:var(--dimmer)}
+  .phase-step .num{width:18px;height:18px;border:1px solid var(--border-bright);display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800}
+  .phase-step.done{color:var(--green)}
+  .phase-step.done .num{border-color:var(--green);background:var(--green);color:var(--bg)}
+  .phase-step.active{color:var(--red)}
+  .phase-step.active .num{border-color:var(--red);color:var(--red);animation:pulse 1.4s ease-in-out infinite}
+  .phase-sep{color:var(--dimmest);font-size:14px}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .top-time{font-size:10px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+
+  /* demo state toggle */
+  .state-toggle{position:fixed;top:20px;right:50%;transform:translateX(50%);z-index:100;display:flex;gap:4px;background:var(--panel);padding:4px;border:1px solid var(--border-bright)}
+  .state-toggle button{padding:6px 12px;background:transparent;border:none;color:var(--dim);font-size:9px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;cursor:pointer;font-family:var(--font)}
+  .state-toggle button.on{background:var(--red);color:var(--bg)}
+
+  /* body container */
+  .body{display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden}
+
+  /* ───── PHASE 1 : DROP ───── */
+  .drop{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    border:2px dashed var(--border-bright);cursor:pointer;position:relative;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .drop:hover,.drop.drag{border-color:var(--red);background:rgba(255,42,26,0.03)}
+  .drop-label{font-size:11px;letter-spacing:0.32em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .drop-type{font-size:clamp(120px,16vw,240px);font-weight:900;line-height:0.82;letter-spacing:-0.055em;text-align:center}
+  .drop-hint{font-size:11px;letter-spacing:0.22em;color:var(--dimmest);font-weight:700;text-transform:uppercase}
+  .drop-corner{position:absolute;top:14px;font-size:10px;letter-spacing:0.26em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .drop-corner.tl{left:16px}
+  .drop-corner.tr{right:16px;color:var(--red)}
+  .drop-foot{position:absolute;bottom:16px;left:16px;right:16px;display:flex;justify-content:space-between;font-size:10px;letter-spacing:0.22em;color:var(--dimmest);font-weight:700;text-transform:uppercase}
+
+  /* ───── MEDIA STRIP (shared after phase 1) ───── */
+  .media-strip{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--panel);border:1px solid var(--border-bright)}
+  .media-thumb{width:56px;height:56px;background:linear-gradient(135deg,#141414 0%,#070707 100%);border:1px solid var(--border-bright);position:relative;flex-shrink:0;overflow:hidden}
+  .media-thumb::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,#141414 0 6px,#0b0b0b 6px 12px)}
+  .media-thumb-dur{position:absolute;bottom:3px;right:3px;font-size:8px;letter-spacing:0.14em;color:var(--red);font-weight:700;z-index:1}
+  .media-info{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+  .media-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .media-meta{font-size:10px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .media-replace{padding:6px 10px;background:transparent;border:1px solid var(--border-bright);color:var(--dim);font-size:9px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;cursor:pointer;font-family:var(--font)}
+  .media-replace:hover{border-color:var(--red);color:var(--red)}
+
+  /* ───── PHASE 2 : SCANNER ───── */
+  .scanner{flex:1;display:grid;grid-template-columns:2fr 1fr;gap:12px;min-height:0}
+  .scan-main{background:var(--panel);border:1px solid var(--red);padding:20px;display:flex;flex-direction:column;gap:14px;min-height:0}
+  .scan-head{display:flex;align-items:baseline;justify-content:space-between}
+  .scan-eyebrow{font-size:10px;letter-spacing:0.3em;color:var(--red);font-weight:700;text-transform:uppercase}
+  .scan-title{font-size:28px;font-weight:900;letter-spacing:-0.03em;line-height:1;margin-top:6px}
+  .scan-score{font-size:44px;font-weight:900;letter-spacing:-0.04em;color:var(--red);line-height:1}
+  .scan-score-label{font-size:9px;letter-spacing:0.26em;color:var(--dimmer);font-weight:700;text-transform:uppercase;margin-top:4px}
+  .scan-summary{font-size:14px;line-height:1.5;color:var(--text);padding:12px 14px;background:var(--input);border-left:2px solid var(--red)}
+  .scan-facts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:auto}
+  .scan-fact{padding:8px 10px;background:var(--input);border:1px solid var(--border-bright)}
+  .scan-fact-label{font-size:9px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .scan-fact-val{font-size:14px;font-weight:800;letter-spacing:-0.01em;margin-top:3px}
+  .scan-fact-val .red{color:var(--red)}
+
+  .scan-side{display:flex;flex-direction:column;gap:10px;min-height:0}
+  .scan-tags{background:var(--panel);border:1px solid var(--border-bright);padding:14px;display:flex;flex-direction:column;gap:10px}
+  .scan-tags-label{font-size:9px;letter-spacing:0.28em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .scan-tag-grid{display:flex;gap:5px;flex-wrap:wrap}
+  .scan-tag{padding:4px 8px;background:transparent;border:1px solid var(--red);color:var(--red);font-size:9px;letter-spacing:0.2em;font-weight:700;text-transform:uppercase}
+  .scan-tag.dim{border-color:var(--border-bright);color:var(--dim)}
+  .scan-hooks{background:var(--panel);border:1px solid var(--border-bright);padding:14px;flex:1;display:flex;flex-direction:column;gap:8px;min-height:0}
+  .scan-hook{display:flex;gap:8px;align-items:center;font-size:11px;padding:6px 8px;background:var(--input)}
+  .scan-hook-ts{font-size:10px;letter-spacing:0.14em;color:var(--red);font-weight:700;flex-shrink:0;min-width:32px}
+  .scan-hook-label{color:var(--dim);font-weight:500}
+
+  .next-btn{padding:14px 22px;background:var(--red);border:none;color:var(--bg);font-size:12px;letter-spacing:0.24em;font-weight:800;text-transform:uppercase;cursor:pointer;font-family:var(--font)}
+  .next-btn:hover{background:var(--red-bright)}
+  .next-btn kbd{margin-left:8px;padding:2px 6px;background:rgba(0,0,0,0.22);font-size:10px}
+  .ghost-btn{padding:14px 18px;background:transparent;border:1px solid var(--border-bright);color:var(--dim);font-size:11px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;cursor:pointer;font-family:var(--font)}
+  .ghost-btn:hover{border-color:var(--dim);color:var(--text)}
+
+  /* scanner progress (running) */
+  .scan-running{display:flex;flex-direction:column;gap:10px;padding:18px;background:var(--panel);border:1px solid var(--red);flex:1;align-items:center;justify-content:center}
+  .scan-run-title{font-size:16px;font-weight:800;letter-spacing:-0.02em}
+  .scan-steps{display:flex;flex-direction:column;gap:6px;width:420px;max-width:100%}
+  .scan-step{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);background:var(--input);font-size:11px;letter-spacing:0.18em;color:var(--dim);font-weight:700;text-transform:uppercase}
+  .scan-step.done{opacity:.55}
+  .scan-step.active{border-color:var(--red);background:rgba(255,42,26,.06);color:var(--red)}
+  .scan-step .dot{width:5px;height:5px;border-radius:50%;background:var(--border-bright)}
+  .scan-step.done .dot{background:var(--red)}
+  .scan-step.active .dot{background:var(--red);animation:pulse 1s ease-in-out infinite}
+  .scan-step .state{margin-left:auto;font-size:10px;color:var(--dimmest)}
+  .scan-step.done .state{color:var(--dim)}
+  .scan-step.active .state{color:var(--red)}
+  .scan-progress{width:420px;max-width:100%;height:2px;background:var(--border);position:relative}
+  .scan-progress-fill{position:absolute;left:0;top:0;bottom:0;background:var(--red);transition:width .35s ease}
+
+  /* ───── PHASE 3 : VOICE / CAPTIONS ───── */
+  .voice{flex:1;display:grid;grid-template-columns:1fr 320px;gap:12px;min-height:0}
+  .voice-main{background:var(--panel);border:1px solid var(--red);padding:20px;display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden}
+  .voice-head{display:flex;align-items:baseline;justify-content:space-between}
+  .voice-eyebrow{font-size:10px;letter-spacing:0.3em;color:var(--red);font-weight:700;text-transform:uppercase}
+  .voice-title{font-size:24px;font-weight:900;letter-spacing:-0.025em;line-height:1;margin-top:6px}
+  .voice-variants-row{display:flex;gap:6px}
+  .variant-pill{padding:7px 12px;background:transparent;border:1px solid var(--border-bright);color:var(--dim);font-size:10px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;cursor:pointer;font-family:var(--font)}
+  .variant-pill.on{border-color:var(--red);color:var(--red);background:rgba(255,42,26,0.04)}
+
+  .caption-block{
+    flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;
+  }
+  .caption-text{
+    padding:18px 18px;background:var(--input);border:1px solid var(--border-bright);
+    font-size:18px;line-height:1.5;letter-spacing:-0.008em;color:var(--text);font-weight:500;
+    flex:1;overflow:auto;
+  }
+  .caption-meta{display:flex;gap:16px;font-size:10px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .caption-meta .ok{color:var(--green)}
+  .caption-meta .count{color:var(--text)}
+
+  .voice-side{display:flex;flex-direction:column;gap:10px;min-height:0}
+  .voice-plat{background:var(--panel);border:1px solid var(--border-bright);padding:14px;display:flex;flex-direction:column;gap:8px}
+  .voice-plat-label{font-size:9px;letter-spacing:0.28em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .plat-row{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .plat-btn{padding:8px;background:transparent;border:1px solid var(--border-bright);color:var(--dim);font-size:10px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;cursor:pointer;font-family:var(--font)}
+  .plat-btn.on{background:var(--red);border-color:var(--red);color:var(--bg)}
+
+  .voice-refs{background:var(--panel);border:1px solid var(--border-bright);padding:14px;flex:1;display:flex;flex-direction:column;gap:8px;min-height:0}
+  .voice-refs-label{display:flex;align-items:baseline;justify-content:space-between;font-size:9px;letter-spacing:0.28em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .voice-refs-label a{color:var(--red);text-decoration:none;cursor:pointer}
+  .ref-mini{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:var(--input);font-size:11px}
+  .ref-mini .name{font-weight:700;color:var(--text)}
+  .ref-mini .w{font-size:9px;letter-spacing:0.22em;color:var(--red);font-weight:700}
+
+  .voice-checks{padding:10px 12px;background:var(--input);border:1px solid var(--border-bright);display:flex;gap:12px;font-size:10px}
+  .vcheck{display:flex;align-items:center;gap:5px}
+  .vcheck .mark{width:11px;height:11px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:900}
+  .vcheck.ok .mark{background:var(--green);color:var(--bg)}
+  .vcheck.ok .label{color:var(--dim);font-size:9px;letter-spacing:0.2em;font-weight:700;text-transform:uppercase}
+
+  /* bottom action row (shared phase 2+3) */
+  .action-row{display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px solid var(--border)}
+  .schedule-hint{font-size:11px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .schedule-hint .time{color:var(--text)}
+  .schedule-hint .lift{color:var(--red);margin-left:6px}
+
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+
+  <div class="state-toggle">
+    <button id="b1" class="on">1 · Drop</button>
+    <button id="b2">2 · Scanning</button>
+    <button id="b3">3 · Scanned</button>
+    <button id="b4">4 · Captions</button>
+  </div>
+
+  <div class="stage">
+    <!-- top -->
+    <div class="top">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-title">Broadcast</span>
+      </div>
+      <div class="phase-rail">
+        <div class="phase-step" id="p1"><span class="num">1</span>Drop</div>
+        <span class="phase-sep">→</span>
+        <div class="phase-step" id="p2"><span class="num">2</span>Scan</div>
+        <span class="phase-sep">→</span>
+        <div class="phase-step" id="p3"><span class="num">3</span>Voice</div>
+        <span class="phase-sep">→</span>
+        <div class="phase-step" id="p4"><span class="num">4</span>Approve</div>
+      </div>
+      <div class="top-time">Sat 18 Apr · 17:24</div>
+    </div>
+
+    <!-- body -->
+    <div class="body">
+
+      <!-- PHASE 1: DROP (hero) -->
+      <div class="drop" id="drop">
+        <div class="drop-corner tl">◉ DROP MEDIA</div>
+        <div class="drop-corner tr">1 FILE · OR 5 · ANY</div>
+        <div class="drop-label">What happened?</div>
+        <div class="drop-type">DROP</div>
+        <div class="drop-hint">MP4 · MOV · PNG · JPG · OR PASTE A LINK</div>
+        <div class="drop-foot">
+          <span>Click or drag · anywhere on this page</span>
+          <span>Voice · <span style="color:var(--red)">● not trained</span></span>
+        </div>
+      </div>
+
+      <!-- PHASE 2: SCANNING (in progress) -->
+      <div class="media-strip hidden" id="strip-running">
+        <div class="media-thumb"><div class="media-thumb-dur">0:18</div></div>
+        <div class="media-info">
+          <div class="media-name">soundcheck_warehouse9.mp4</div>
+          <div class="media-meta">1080×1920 · 24MB · REEL · 9:16</div>
+        </div>
+        <div class="media-meta" style="color:var(--red)">● Scanning…</div>
+      </div>
+
+      <div class="scan-running hidden" id="scanning">
+        <div class="scan-run-title">Reading the clip…</div>
+        <div class="scan-steps">
+          <div class="scan-step done"><span class="dot"></span>Frames sampled<span class="state">✓</span></div>
+          <div class="scan-step done"><span class="dot"></span>Audio transcribed<span class="state">✓</span></div>
+          <div class="scan-step active"><span class="dot"></span>Vibe detected<span class="state">running</span></div>
+          <div class="scan-step"><span class="dot"></span>Hooks extracted<span class="state">queued</span></div>
+          <div class="scan-step"><span class="dot"></span>Score<span class="state">queued</span></div>
+        </div>
+        <div class="scan-progress"><div class="scan-progress-fill" style="width:45%"></div></div>
+      </div>
+
+      <!-- PHASE 3: SCANNED (results + next) -->
+      <div class="media-strip hidden" id="strip-done">
+        <div class="media-thumb"><div class="media-thumb-dur">0:18</div></div>
+        <div class="media-info">
+          <div class="media-name">soundcheck_warehouse9.mp4</div>
+          <div class="media-meta">1080×1920 · 24MB · REEL · 9:16</div>
+        </div>
+        <button class="media-replace" onclick="if(confirm('Replace media?')){}">Replace</button>
+      </div>
+
+      <div class="scanner hidden" id="scanned">
+        <div class="scan-main">
+          <div class="scan-head">
+            <div>
+              <div class="scan-eyebrow">◉ Scanner · What's in it</div>
+              <div class="scan-title">POV soundcheck · strong hook at 0:12</div>
+            </div>
+            <div style="text-align:right">
+              <div class="scan-score">94</div>
+              <div class="scan-score-label">post-worthy</div>
+            </div>
+          </div>
+          <div class="scan-summary">
+            Low-rise POV of you behind the decks. Warehouse, empty room, pre-doors. Wide lens picks up three rooms through the opening. Crowd-roar audio at 0:12 when the hook lands — strong cut point for a Reel.
+          </div>
+          <div class="scan-facts">
+            <div class="scan-fact"><div class="scan-fact-label">Format fit</div><div class="scan-fact-val">Reel <span class="red">9:16</span></div></div>
+            <div class="scan-fact"><div class="scan-fact-label">Hook at</div><div class="scan-fact-val">0:12 <span class="red">cut here</span></div></div>
+            <div class="scan-fact"><div class="scan-fact-label">Mood</div><div class="scan-fact-val">Pre-rave</div></div>
+            <div class="scan-fact"><div class="scan-fact-label">Similar</div><div class="scan-fact-val">+41% trending</div></div>
+          </div>
+          <div class="action-row">
+            <div class="schedule-hint">Next window · <span class="time">Thu 18:00</span><span class="lift">+18%</span></div>
+            <button class="ghost-btn" style="margin-left:auto">Skip · save</button>
+            <button class="next-btn" id="go-voice">Generate captions<kbd>⌘ ↵</kbd></button>
+          </div>
+        </div>
+
+        <div class="scan-side">
+          <div class="scan-tags">
+            <div class="scan-tags-label">◉ Detected</div>
+            <div class="scan-tag-grid">
+              <span class="scan-tag">POV</span>
+              <span class="scan-tag">Warehouse</span>
+              <span class="scan-tag">Decks</span>
+              <span class="scan-tag">Low-light</span>
+              <span class="scan-tag dim">Empty room</span>
+              <span class="scan-tag dim">Wide-lens</span>
+            </div>
+          </div>
+          <div class="scan-hooks">
+            <div class="scan-tags-label">◉ Audio hooks</div>
+            <div class="scan-hook"><span class="scan-hook-ts">0:04</span><span class="scan-hook-label">"…three rooms tonight"</span></div>
+            <div class="scan-hook"><span class="scan-hook-ts">0:12</span><span class="scan-hook-label">low-end drop + crowd roar</span></div>
+            <div class="scan-hook"><span class="scan-hook-ts">0:16</span><span class="scan-hook-label">kick cuts, vocal stab</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 4: CAPTIONS (voice) -->
+      <div class="voice hidden" id="voicing">
+        <div class="voice-main">
+          <div class="voice-head">
+            <div>
+              <div class="voice-eyebrow">◉ Voice · Your aligned tone</div>
+              <div class="voice-title">Caption written for this clip</div>
+            </div>
+            <div class="voice-variants-row">
+              <button class="variant-pill">Safe</button>
+              <button class="variant-pill on">Loose</button>
+              <button class="variant-pill">Raw</button>
+            </div>
+          </div>
+
+          <div class="caption-block">
+            <div class="caption-text">warehouse 9, pre-doors. three rooms visible through the opening. soundcheck caught the moment the low end cut in — 0:12, crowd hadn't even walked in yet. tomorrow night, 23:00 first track. see you there.</div>
+            <div class="caption-meta">
+              <span>Instagram · Reel · 9:16</span>
+              <span>·</span>
+              <span><span class="count">246</span> / 2200</span>
+              <span>·</span>
+              <span class="ok">● passes voice check</span>
+            </div>
+          </div>
+
+          <div class="voice-checks">
+            <div class="vcheck ok"><span class="mark">✓</span><span class="label">No em-dash</span></div>
+            <div class="vcheck ok"><span class="mark">✓</span><span class="label">No clichés</span></div>
+            <div class="vcheck ok"><span class="mark">✓</span><span class="label">Specific</span></div>
+            <div class="vcheck ok"><span class="mark">✓</span><span class="label">Human</span></div>
+            <div class="vcheck ok"><span class="mark">✓</span><span class="label">On-voice</span></div>
+          </div>
+
+          <div class="action-row">
+            <div class="schedule-hint">Scheduled · <span class="time">Thu 18:00</span><span class="lift">+18%</span></div>
+            <button class="ghost-btn" style="margin-left:auto">↻ Re-roll</button>
+            <button class="ghost-btn">Save draft</button>
+            <button class="next-btn">Preview + Approve<kbd>⌘ ↵</kbd></button>
+          </div>
+        </div>
+
+        <div class="voice-side">
+          <div class="voice-plat">
+            <div class="voice-plat-label">◉ Target</div>
+            <div class="plat-row">
+              <button class="plat-btn on">Instagram</button>
+              <button class="plat-btn">TikTok</button>
+              <button class="plat-btn">Threads</button>
+              <button class="plat-btn">X</button>
+            </div>
+          </div>
+          <div class="voice-refs">
+            <div class="voice-refs-label">◉ Refs in play<a>manage →</a></div>
+            <div class="ref-mini"><span class="name">You · NM</span><span class="w">100</span></div>
+            <div class="ref-mini"><span class="name">Burial</span><span class="w">80</span></div>
+            <div class="ref-mini"><span class="name">Four Tet</span><span class="w">60</span></div>
+            <div class="ref-mini"><span class="name">Overmono</span><span class="w">45</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  const steps = ['p1','p2','p3','p4'];
+  const setPhase = (n) => {
+    steps.forEach((id,i)=>{
+      const el = document.getElementById(id);
+      el.classList.remove('done','active');
+      if (i < n-1) el.classList.add('done');
+      if (i === n-1) el.classList.add('active');
+    });
+  };
+  const show = (ids) => {
+    ['drop','strip-running','scanning','strip-done','scanned','voicing'].forEach(id => {
+      document.getElementById(id).classList.toggle('hidden', !ids.includes(id));
+    });
+  };
+
+  let scanTimer = null;
+  function runScan() {
+    const steps = document.querySelectorAll('#scanning .scan-step');
+    const fill  = document.querySelector('#scanning .scan-progress-fill');
+    const total = steps.length;
+    let i = 0;
+    // reset
+    steps.forEach(s => s.classList.remove('done','active'));
+    steps[0].classList.add('active');
+    fill.style.width = '0%';
+
+    clearInterval(scanTimer);
+    scanTimer = setInterval(() => {
+      // mark current done
+      steps[i].classList.remove('active');
+      steps[i].classList.add('done');
+      steps[i].querySelector('.state').textContent = '✓';
+      i += 1;
+      fill.style.width = `${(i/total)*100}%`;
+      if (i < total) {
+        steps[i].classList.add('active');
+        steps[i].querySelector('.state').textContent = 'running';
+      } else {
+        clearInterval(scanTimer);
+        // auto-advance to scanned after a beat
+        setTimeout(() => document.getElementById('b3').click(), 450);
+      }
+    }, 650);
+  }
+
+  document.getElementById('b1').onclick = () => { clearInterval(scanTimer); setActive(0); setPhase(1); show(['drop']); };
+  document.getElementById('b2').onclick = () => { setActive(1); setPhase(2); show(['strip-running','scanning']); runScan(); };
+  document.getElementById('b3').onclick = () => { clearInterval(scanTimer); setActive(2); setPhase(2); show(['strip-done','scanned']); };
+  document.getElementById('b4').onclick = () => { clearInterval(scanTimer); setActive(3); setPhase(3); show(['strip-done','voicing']); };
+
+  function setActive(i){
+    document.querySelectorAll('.state-toggle button').forEach((b,bi)=>b.classList.toggle('on', bi===i));
+  }
+
+  // init
+  setPhase(1);
+
+  // drop → advance
+  const dz = document.getElementById('drop');
+  ['dragenter','dragover'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('drag'); if(e==='drop') document.getElementById('b2').click(); }));
+  dz.addEventListener('click', () => document.getElementById('b2').click());
+
+  // generate captions button
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'go-voice') document.getElementById('b4').click();
+  });
+</script>
+</body>
+</html>

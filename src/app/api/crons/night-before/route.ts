@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireCronAuth } from '@/lib/cron-auth'
 // Resend removed — all outbound goes through approve-before-send
 
 const supabase = createClient(
@@ -8,9 +9,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// Triggered daily at 18:00 UTC via Vercel Cron
-// For each confirmed/pending gig tomorrow → sends night-before briefing notification + email
-export async function GET() {
+// Triggered daily at 18:00 UTC via Cloudflare cron worker (signal-lab-crons).
+// For each confirmed/pending gig tomorrow → sends night-before briefing notification + email.
+export async function GET(req: NextRequest) {
+  const unauth = requireCronAuth(req, 'night-before')
+  if (unauth) return unauth
+
   try {
     const tomorrow = new Date()
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)

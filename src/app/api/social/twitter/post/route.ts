@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireConfirmed } from '@/lib/require-confirmed'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +41,10 @@ async function refreshTwitterToken(account: Record<string, string>) {
 }
 
 export async function POST(req: NextRequest) {
-  const { text, handle } = await req.json()
+  const body = await req.json()
+  const gate = requireConfirmed(body)
+  if (gate) return gate
+  const { text, handle } = body
   if (!text) return NextResponse.json({ error: 'Tweet text required' }, { status: 400 })
   if (text.length > 280) return NextResponse.json({ error: 'Tweet exceeds 280 characters' }, { status: 400 })
 

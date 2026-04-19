@@ -128,7 +128,9 @@ async function handler() {
 
     const { data: invoices, error } = await supabase
       .from('invoices')
-      .select('*, gigs(promoter_email, promoter_name, title, venue, date)')
+      // NOTE: gigs has no promoter_name column — selecting it aborts the whole query.
+      // Promoter name (if known) lives in gigs.notes or is derived from the email local-part.
+      .select('*, gigs(promoter_email, title, venue, date)')
       .eq('status', 'pending')
 
     if (error) throw error
@@ -167,8 +169,14 @@ async function handler() {
         continue
       }
 
-      const promoterFullName: string = gig?.promoter_name || ''
-      const promoterFirstName = promoterFullName.split(' ')[0] || 'there'
+      // Derive greeting name from email local-part: "archie@turbomgmt" → "Archie".
+      // Skip generic inboxes (hello/info/bookings/team) → "there".
+      const promoterFullName: string = (() => {
+        const local = (promoterEmail as string).split('@')[0] || ''
+        if (!local || /^(hello|info|bookings|team|accounts|finance|contact)$/i.test(local)) return ''
+        return local.charAt(0).toUpperCase() + local.slice(1).toLowerCase()
+      })()
+      const promoterFirstName = promoterFullName || 'there'
 
       const gigTitle: string = invoice.gig_title || gig?.title || 'your show'
       const venue: string = gig?.venue || ''

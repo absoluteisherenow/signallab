@@ -1,0 +1,31 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const body = await req.json()
+  const patch: Record<string, unknown> = {}
+  if (body.status !== undefined) patch.status = body.status
+  if (body.title !== undefined) patch.title = body.title
+  if (body.priority !== undefined) patch.priority = body.priority
+  if (body.notes !== undefined) patch.notes = body.notes
+  if (body.due_at !== undefined) patch.due_at = body.due_at
+  const { data, error } = await supabase
+    .from('tasks')
+    .update(patch)
+    .eq('id', params.id)
+    .select()
+    .single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ task: data })
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const { error } = await supabase.from('tasks').delete().eq('id', params.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

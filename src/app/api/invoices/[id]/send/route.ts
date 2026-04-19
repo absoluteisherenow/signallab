@@ -7,14 +7,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-function makeRFC2822(to: string, from: string, subject: string, html: string): string {
+function makeRFC2822(to: string, from: string, subject: string, html: string, cc?: string): string {
   const boundary = `boundary_${Date.now()}`
-  const msg = [
+  const headers = [
     `To: ${to}`,
+    ...(cc ? [`Cc: ${cc}`] : []),
     `From: ${from}`,
     `Subject: ${subject}`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
+  ]
+  const msg = [
+    ...headers,
     ``,
     `--${boundary}`,
     `Content-Type: text/html; charset=UTF-8`,
@@ -24,6 +28,12 @@ function makeRFC2822(to: string, from: string, subject: string, html: string): s
     `--${boundary}--`,
   ].join('\r\n')
   return Buffer.from(msg).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function normaliseAddresses(v: string | string[] | undefined): string {
+  if (!v) return ''
+  const arr = Array.isArray(v) ? v : [v]
+  return arr.map(s => s.trim()).filter(Boolean).join(', ')
 }
 
 async function buildEmailData(id: string, toOverride?: string) {
@@ -44,13 +54,31 @@ async function buildEmailData(id: string, toOverride?: string) {
 
   let promoterName = invoice.notes || ''
   let promoterEmail = toOverride || ''
-  if (invoice.gig_id && (!promoterName || !promoterEmail)) {
-    const { data: gig } = await supabase.from('gigs').select('promoter_name, promoter_email').eq('id', invoice.gig_id).single()
+  let venue = ''
+  if (invoice.gig_id) {
+    // NOTE: gigs table has no promoter_name column — selecting it aborts the whole
+    // query (Postgres 42703), which previously wiped promoter_email and venue too.
+    const { data: gig } = await supabase.from('gigs').select('promoter_email, venue').eq('id', invoice.gig_id).single()
     if (gig) {
-      promoterName = promoterName || gig.promoter_name || ''
       promoterEmail = promoterEmail || gig.promoter_email || ''
+      venue = gig.venue || ''
     }
   }
+  // Fallback: extract venue from "… at <venue>" tail of gig_title
+  if (!venue) {
+    const m = invoice.gig_title?.match(/\bat\s+(.+)$/i)
+    if (m) venue = m[1].trim()
+  }
+  // Sign-off uses real name, not the artist alias. profile.name resolves to
+  // "NIGHT manoeuvres" which would sign "NIGHT" — wrong. Fall through to the bank
+  // account holder (actual person) before defaulting.
+  const firstBank = (profile.bankAccounts as Array<Record<string, string>> | undefined)?.[0]
+    || (payment.bank_accounts as Array<Record<string, string>> | undefined)?.[0]
+  const signoffSource = (payment.legal_name as string)
+    || firstBank?.accountName
+    || firstBank?.account_name
+    || 'Anthony'
+  const artistFirstName = signoffSource.split(' ')[0]
 
   const subject = `Invoice: ${invoice.gig_title} — ${invoiceNumber}`
   // notes may be a multi-line billing block — use only the first line for display
@@ -60,9 +88,23 @@ async function buildEmailData(id: string, toOverride?: string) {
     /^[A-Z0-9\s&.,\-']+$/.test(promoterFirstLine) ||
     /\b(Ltd|Pty|Trust|Group|Festival|Agency|Productions?|Events?|Management|Inc|LLC)\b/i.test(promoterFirstLine)
   )
+  // If toOverride is provided and no promoter_name known, derive greeting from
+  // the local-part of the email (e.g. archie@turbomgmt → "Hi Archie,").
+  // Strip common noise like digits, dots, dashes. Skip generic inboxes (hello,
+  // info, bookings, team, accounts, admin) → default to "Hi Team,".
+  let greetingFromEmail = ''
+  if (!promoterFirstLine && toOverride) {
+    const local = toOverride.split('@')[0].split(/[.+_-]/)[0].replace(/\d+/g, '')
+    const generic = /^(hello|info|bookings?|team|accounts?|admin|contact|mail|office)$/i
+    if (local && !generic.test(local)) {
+      greetingFromEmail = local[0].toUpperCase() + local.slice(1).toLowerCase()
+    }
+  }
   const greeting = promoterFirstLine
     ? isCompany ? `Hi Team,` : `Hi ${promoterFirstLine.split(' ')[0]},`
-    : 'Hi,'
+    : greetingFromEmail
+      ? `Hi ${greetingFromEmail},`
+      : 'Hi Team,'
 
   const html = `<!DOCTYPE html>
 <html>
@@ -93,8 +135,11 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
 </div>
 <div class="body-text">
   <p>${greeting}</p>
-  <p>Please find your invoice for <strong>${invoice.gig_title}</strong> below.</p>
-  <p><strong>Please pay in ${invoice.currency} only.</strong> Any foreign exchange charges incurred will be charged back to the payee.</p>
+  <p>${
+    invoice.type === 'deposit'
+      ? `Great to have the${venue ? ` <strong>${venue}</strong>` : ''} booking locked in — deposit invoice below.`
+      : `Thanks again for having us${venue ? ` at <strong>${venue}</strong>` : ''} — invoice for the night is attached below.`
+  }</p>
 </div>
 <div class="box">
   <div>
@@ -109,6 +154,8 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
 </div>
 <p style="margin:24px 0 8px;font-size:13px;color:#909090;font-weight:300">View full invoice with payment details:</p>
 <a href="${invoiceUrl}" class="btn">View Invoice →</a>
+<p style="margin:28px 0 4px;font-size:14px;color:#050505;font-weight:400">Let me know if you need anything else for your side.</p>
+<p style="margin:16px 0 0;font-size:14px;color:#050505;font-weight:500">${artistFirstName}</p>
 <div class="footer">
   Reference: ${invoiceNumber}<br>
   ${payment.address ? payment.address.replace(/\n/g, ' · ') + '<br>' : ''}
@@ -127,13 +174,15 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
 </body>
 </html>`
 
-  return { invoice, artistName, invoiceNumber, invoiceUrl, dueDate, promoterName, promoterEmail, subject, greeting, html }
+  return { invoice, artistName, artistFirstName, invoiceNumber, invoiceUrl, dueDate, promoterName, promoterEmail, venue, subject, greeting, html }
 }
 
 // GET — preview the email HTML in browser
+// Optional ?to=<email> to preview with a specific recipient (drives the greeting).
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const data = await buildEmailData(params.id)
+    const toOverride = req.nextUrl.searchParams.get('to') || undefined
+    const data = await buildEmailData(params.id, toOverride)
     if (!data) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
     return new NextResponse(data.html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   } catch (err: any) {
@@ -142,23 +191,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // POST — preview OR send the invoice email
-// Body: { to?: string, confirmed?: boolean }
+// Body: { to?: string | string[], cc?: string | string[], confirmed?: boolean }
 // Step 1 (no confirmed): returns preview data for approval
 // Step 2 (confirmed: true): actually sends the email
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { to, confirmed } = await req.json().catch(() => ({} as any))
-    const data = await buildEmailData(params.id, to)
+    const { to, cc, confirmed } = await req.json().catch(() => ({} as any))
+    const toAddr = normaliseAddresses(to)
+    const ccAddr = normaliseAddresses(cc)
+    const data = await buildEmailData(params.id, toAddr || undefined)
     if (!data) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
     const { artistName, invoiceUrl, invoice, dueDate, promoterEmail, subject, greeting, invoiceNumber, html } = data
+    const finalTo = toAddr || promoterEmail
 
     // Step 1: return preview for approval (no sending)
     if (!confirmed) {
       return NextResponse.json({
         success: true,
         preview: true,
-        to: promoterEmail,
+        to: finalTo,
+        cc: ccAddr || undefined,
         subject,
         html,
         greeting,
@@ -173,21 +226,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // Try Gmail send
     try {
       const clients = await getGmailClients()
-      if (clients.length > 0 && promoterEmail) {
+      if (clients.length > 0 && finalTo) {
         const { gmail, email } = clients[0]
-        const raw = makeRFC2822(promoterEmail, `${artistName} <${email}>`, subject, html)
+        const raw = makeRFC2822(finalTo, `${artistName} <${email}>`, subject, html, ccAddr || undefined)
         await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
-        return NextResponse.json({ success: true, sent: true, sentFrom: email, to: promoterEmail, subject })
+        return NextResponse.json({ success: true, sent: true, sentFrom: email, to: finalTo, cc: ccAddr || undefined, subject })
       }
     } catch {
       // Gmail not connected — fall through to mailto
     }
 
     // Mailto fallback
+    const bodyLine = invoice.type === 'deposit'
+      ? `Great to have the${data.venue ? ` ${data.venue}` : ''} booking locked in — deposit invoice below.`
+      : `Thanks again for having us${data.venue ? ` at ${data.venue}` : ''} — invoice for the night is attached below.`
     const mailtoBody = encodeURIComponent(
-      `${greeting}\n\nPlease find your invoice for ${invoice.gig_title} here:\n${invoiceUrl}\n\nAmount: ${invoice.currency} ${Number(invoice.amount).toLocaleString()}\nDue: ${dueDate}\nRef: ${invoiceNumber}\n\nPlease pay in ${invoice.currency} only. Any FX charges will be charged back to the payee.\n\n${artistName}\n\n--\nSignal Lab OS — Tailored Artist OS`
+      `${greeting}\n\n${bodyLine}\n\n${invoice.currency} ${Number(invoice.amount).toLocaleString()} · due ${dueDate}\nRef: ${invoiceNumber}\n\nView invoice: ${invoiceUrl}\n\nLet me know if you need anything else for your side.\n\n${data.artistFirstName}`
     )
-    const mailto = `mailto:${promoterEmail}?subject=${encodeURIComponent(subject)}&body=${mailtoBody}`
+    const mailto = `mailto:${finalTo}${ccAddr ? `?cc=${encodeURIComponent(ccAddr)}&` : '?'}subject=${encodeURIComponent(subject)}&body=${mailtoBody}`
     return NextResponse.json({ success: true, sent: false, mailto, subject })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

@@ -23,13 +23,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     let gigVenue = ''
     let gigNotes = ''
     if (invoice.gig_id) {
+      // NOTE: gigs table has no promoter_name column — only promoter_email/phone/handle.
+      // Selecting a non-existent column aborts the whole query (Postgres 42703),
+      // which previously wiped venue/location/date too.
       const { data: gig } = await supabase
         .from('gigs')
-        .select('promoter_name, promoter_email, date, location, venue, notes')
+        .select('promoter_email, promoter_handle, date, location, venue, notes')
         .eq('id', invoice.gig_id)
         .single()
       if (gig) {
-        promoterName = promoterName || gig.promoter_name || ''
         promoterEmail = gig.promoter_email || ''
         gigDate = gig.date || ''
         gigLocation = gig.location || ''
@@ -58,6 +60,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const invoiceNumber = `INV-${params.id.slice(-6).toUpperCase()}`
     const issueDate = new Date(invoice.created_at || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     const dueDate = invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : `${paymentTerms} days from invoice`
+
+    // Prose line-item description: "DJ performance at <venue>, <location> — <date>"
+    // Falls back to gig_title for non-performance invoices (royalties, remixes, radio mixes).
+    const perfDate = gigDate || invoice.gig_date
+    const formattedPerfDate = perfDate
+      ? new Date(perfDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      : ''
+    const venueLoc = [gigVenue?.trim(), gigLocation?.trim()].filter(Boolean).join(', ')
+    const hasGigContext = Boolean(venueLoc || formattedPerfDate)
+    const lineItemDesc = hasGigContext
+      ? `DJ performance at ${venueLoc}${formattedPerfDate ? ' — ' + formattedPerfDate : ''}`
+      : invoice.gig_title
 
     // Country-specific: AUD requires ABN + "Tax Invoice" heading
     const isAUD = invoice.currency === 'AUD'
@@ -104,28 +118,41 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 <title>${invoiceNumber} — ${invoice.gig_title}</title>
 <style>
   @import  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #f5f5f5; color: #111; padding: 24px; font-size: 13px; }
-  .invoice { background: #fff; max-width: 760px; margin: 0 auto; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1.5px solid #111; padding-bottom: 18px; }
-  .logo { width: 220px; height: auto; display: block; }
-  .invoice-label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: #888; margin-bottom: 4px; font-weight: 300; }
-  .invoice-number { font-size: 20px; font-weight: 700; letter-spacing: 0.02em; }
-  .invoice-date { font-size: 11px; color: #555; margin-top: 4px; font-weight: 300; }
-  .pulse-motif { width: 100%; height: 24px; overflow: hidden; opacity: 0.05; margin-bottom: 24px; }
-  .section-title { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #888; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5; font-weight: 300; }
-  .amount-block { background: #111; color: #fff; padding: 22px 32px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #ff2a1a; }
-  .amount-label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 6px; font-weight: 300; }
-  .amount-value { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 300; font-size: 32px; letter-spacing: 0.02em; color: #f2f2f2; }
-  .amount-meta { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 4px; letter-spacing: 0.06em; font-weight: 300; }
-  .due-value { font-size: 15px; color: #ff2a1a; font-weight: 500; margin-top: 3px; }
-  .section { margin-bottom: 20px; page-break-inside: avoid; }
-  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #222; font-size: 13px; }
-  .row span:first-child { color: #555; font-weight: 300; }
-  .row span:last-child { font-weight: 600; }
-  .footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 11px; color: #888; text-align: center; font-weight: 300; line-height: 1.8; }
-  .download-btn { position: fixed; top: 24px; right: 24px; background: #111; color: #fff; border: none; padding: 10px 20px; font-family: 'Helvetica Neue', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; z-index: 100; }
-  .download-btn:hover { background: #333; }
-  @media print { html { zoom: 0.65; } body { background: #fff; padding: 0; } .invoice { box-shadow: none; } .download-btn { display: none; } @page { size: A4; margin: 8mm; } }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #050505; color: #f2f2f2; padding: 32px; font-size: 13px; font-weight: 300; }
+  .invoice { background: #0a0a0a; max-width: 780px; margin: 0 auto; padding: 48px; border: 1px solid #1a1a1a; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; border-bottom: 2px solid #ff2a1a; padding-bottom: 24px; }
+  .logo { width: 380px; height: auto; display: block; filter: invert(1); }
+  .invoice-label { font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; color: rgba(242,242,242,0.45); margin-bottom: 8px; font-weight: 400; }
+  .invoice-number { font-size: 42px; font-weight: 700; letter-spacing: 0.02em; line-height: 1; color: #f2f2f2; }
+  .invoice-date { font-size: 11px; color: rgba(242,242,242,0.5); margin-top: 10px; font-weight: 300; letter-spacing: 0.04em; }
+  .pulse-motif { width: 100%; height: 28px; overflow: hidden; opacity: 0.25; margin-bottom: 32px; }
+  .section-title { font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(242,242,242,0.45); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #1d1d1d; font-weight: 500; }
+  .event-hero { font-size: 54px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.02; color: #f2f2f2; margin: 8px 0 14px; }
+  .event-hero-sub { font-size: 13px; letter-spacing: 0.04em; color: rgba(242,242,242,0.65); font-weight: 400; line-height: 1.6; margin-bottom: 36px; }
+  .event-hero-sub strong { color: #f2f2f2; font-weight: 500; }
+  .event-title { font-size: 18px; font-weight: 600; letter-spacing: 0.01em; margin-bottom: 8px; line-height: 1.2; color: #f2f2f2; }
+  .meta-line { font-size: 12px; color: rgba(242,242,242,0.7); line-height: 1.7; font-weight: 300; }
+  .meta-line strong { color: #f2f2f2; font-weight: 500; }
+  .amount-block { background: #050505; color: #fff; padding: 40px 40px 36px; margin-bottom: 32px; display: flex; justify-content: space-between; align-items: flex-end; border: 1px solid #1a1a1a; border-top: 3px solid #ff2a1a; gap: 24px; }
+  .amount-label { font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 14px; font-weight: 400; }
+  .amount-value { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 500; font-size: 64px; letter-spacing: -0.02em; color: #f2f2f2; line-height: 0.95; }
+  .amount-meta { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 12px; letter-spacing: 0.22em; font-weight: 500; text-transform: uppercase; }
+  .status-stamp { display: inline-block; font-size: 11px; letter-spacing: 0.32em; font-weight: 700; text-transform: uppercase; padding: 6px 12px; margin-top: 16px; border: 1.5px solid #ff2a1a; color: #ff2a1a; }
+  .status-stamp.paid { border-color: rgba(242,242,242,0.4); color: rgba(242,242,242,0.85); }
+  .due-value { font-size: 28px; color: #ff2a1a; font-weight: 600; letter-spacing: -0.005em; line-height: 1; text-transform: uppercase; }
+  .section { margin-bottom: 28px; }
+  .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #1a1a1a; font-size: 13px; }
+  .row span:first-child { color: rgba(242,242,242,0.55); font-weight: 300; }
+  .row span:last-child { font-weight: 500; color: #f2f2f2; }
+  .line-header { font-weight: 600 !important; padding: 12px 0 !important; border-bottom: 2px solid #ff2a1a !important; text-transform: uppercase; letter-spacing: 0.18em; font-size: 11px !important; }
+  .line-header span { color: #f2f2f2 !important; }
+  .line-total { font-weight: 700 !important; border-bottom: 2px solid #ff2a1a !important; padding-top: 12px !important; font-size: 14px !important; }
+  .line-total span { color: #f2f2f2 !important; }
+  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #1d1d1d; font-size: 11px; color: rgba(242,242,242,0.5); text-align: center; font-weight: 300; line-height: 1.9; letter-spacing: 0.02em; }
+  .footer strong { color: rgba(242,242,242,0.85); font-weight: 500; }
+  .download-btn { position: fixed; top: 24px; right: 24px; background: #ff2a1a; color: #050505; border: none; padding: 12px 22px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; cursor: pointer; z-index: 100; font-weight: 700; }
+  .download-btn:hover { background: #fff; }
+  @media print { body { background: #050505; } .invoice { border: none; } .download-btn { display: none; } @page { size: A4; margin: 0; } }
 </style>
 </head>
 <body>
@@ -134,7 +161,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   <div class="header">
     <div style="padding-top:4px">
-      <img src="https://signallabos.com/nm-logo-bw.png" alt="NIGHT manoeuvres" class="logo" style="max-height:72px;width:auto;display:block" />
+      <img src="https://signallabos.com/nm-logo-bw.png" alt="NIGHT manoeuvres" class="logo" />
     </div>
     <div style="text-align:right">
       <div class="invoice-label">${invoiceHeading}</div>
@@ -144,68 +171,65 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   </div>
 
   <div class="pulse-motif">
-    <svg width="100%" height="24" viewBox="0 0 760 24" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-      <polyline points="0,12 120,12 180,4 240,20 300,2 360,18 420,8 480,12 760,12" stroke="#050505" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <svg width="100%" height="28" viewBox="0 0 760 28" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <polyline points="0,14 120,14 180,4 240,24 300,2 360,22 420,8 480,14 760,14" stroke="#ff2a1a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </svg>
   </div>
 
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;gap:32px">
-    <div>
-      ${promoterName ? `
-      <div class="section-title">Bill to</div>
-      <div style="font-size:14px;font-weight:600;margin-bottom:4px">${promoterName.split('\n')[0].trim()}</div>
-      <div style="font-size:12px;color:#555;line-height:1.8">${promoterName.replace(/\n/g, '<br>')}</div>
-      ${promoterEmail ? `<div style="font-size:11px;color:#888;margin-top:4px">${promoterEmail}</div>` : ''}
-      ` : ''}
-    </div>
-    <div style="text-align:right">
-      <div class="section-title">Event details</div>
-      <div style="font-size:14px;font-weight:600;margin-bottom:4px">${invoice.gig_title}</div>
-      ${gigVenue ? `<div style="font-size:12px;color:#555">${gigVenue}</div>` : ''}
-      ${gigDate ? `<div style="font-size:11px;color:#888;margin-top:4px">${new Date(gigDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>` : ''}
-      ${gigLocation ? `<div style="font-size:11px;color:#888">${gigLocation}</div>` : ''}
-      ${invoice.type ? `<div style="font-size:10px;color:#aaa;margin-top:6px;text-transform:uppercase;letter-spacing:0.2em">${invoice.type === 'full' ? 'Full fee' : invoice.type === 'deposit' ? 'Deposit' : 'Balance'}</div>` : ''}
-    </div>
+  <div class="section-title">Event</div>
+  <div class="event-hero">${invoice.gig_title}</div>
+  <div class="event-hero-sub">
+    ${gigVenue ? `<strong>${gigVenue.trim()}</strong>` : ''}${gigVenue && (gigLocation || gigDate) ? ' &middot; ' : ''}${gigLocation ? gigLocation.trim() : ''}${gigLocation && gigDate ? ' &middot; ' : ''}${gigDate ? new Date(gigDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+    ${invoice.type ? `<div style="font-size:10px;color:#ff2a1a;margin-top:10px;text-transform:uppercase;letter-spacing:0.28em;font-weight:600">${invoice.type === 'full' ? 'Full fee' : invoice.type === 'deposit' ? 'Deposit · 50%' : 'Balance · 50%'}</div>` : ''}
   </div>
+
+  ${promoterName ? `
+  <div style="margin-bottom:32px">
+    <div class="section-title">Bill to</div>
+    <div class="event-title">${promoterName.split('\n')[0].trim()}</div>
+    <div class="meta-line">${promoterName.replace(/\n/g, '<br>')}</div>
+    ${promoterEmail ? `<div class="meta-line" style="margin-top:6px;color:rgba(242,242,242,0.5)">${promoterEmail}</div>` : ''}
+  </div>
+  ` : ''}
 
   <div class="amount-block">
     <div>
       <div class="amount-label">${invoice.wht_rate ? 'Gross fee' : 'Amount due'}</div>
       <div class="amount-value">${invoice.currency} ${Number(invoice.amount).toLocaleString()}</div>
       ${invoice.wht_rate ? `
-      <div class="amount-meta" style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px">
+      <div class="amount-meta" style="margin-top:14px;border-top:1px solid rgba(255,255,255,0.12);padding-top:14px">
         WHT ${invoice.wht_rate}% — ${invoice.currency} ${Math.round(Number(invoice.amount) * (invoice.wht_rate / 100)).toLocaleString()}
       </div>
-      <div style="font-size:22px;font-weight:600;color:#fff;margin-top:6px">
+      <div style="font-size:28px;font-weight:600;color:#fff;margin-top:8px;letter-spacing:-0.01em">
         Net: ${invoice.currency} ${Math.round(Number(invoice.amount) * (1 - invoice.wht_rate / 100)).toLocaleString()}
       </div>` : `
-      <div class="amount-meta">${invoice.status === 'paid' ? 'PAID' : 'PENDING PAYMENT'}</div>`}
-      ${isAUD && !invoice.wht_rate ? `<div class="amount-meta" style="margin-top:8px;letter-spacing:0.1em">WHT: 0% — DETERMINED</div>` : ''}
+      <div class="status-stamp${invoice.status === 'paid' ? ' paid' : ''}">${invoice.status === 'paid' ? 'Paid' : invoice.status === 'overdue' ? 'Overdue' : 'Pending payment'}</div>`}
+      ${isAUD && !invoice.wht_rate ? `<div class="amount-meta" style="margin-top:10px;letter-spacing:0.22em">WHT: 0% — Determined</div>` : ''}
     </div>
-    <div style="text-align:right">
-      <div class="amount-label">Due date</div>
+    <div style="text-align:right;white-space:nowrap">
+      <div class="amount-label">Due</div>
       <div class="due-value">${dueDate}</div>
     </div>
   </div>
 
   <div class="section">
     <div class="section-title">Line items</div>
-    <div class="row" style="font-weight:600;padding:12px 0;border-bottom:2px solid #111">
-      <span style="color:#111">Description</span>
-      <span style="color:#111">Amount</span>
+    <div class="row line-header">
+      <span>Description</span>
+      <span>Amount</span>
     </div>
     <div class="row">
-      <span>${invoice.gig_title}${invoice.type && invoice.type !== 'full' ? ` — ${invoice.type === 'deposit' ? 'Deposit' : 'Balance'}` : ''}</span>
+      <span>${lineItemDesc}${invoice.type && invoice.type !== 'full' ? ` — ${invoice.type === 'deposit' ? 'Deposit · 50%' : 'Balance · 50%'}` : ''}</span>
       <span>${invoice.currency} ${Number(invoice.amount).toLocaleString()}</span>
     </div>
     ${invoice.wht_rate ? `
-    <div class="row" style="font-size:11px">
+    <div class="row" style="font-size:12px">
       <span>WHT deduction (${invoice.wht_rate}%)</span>
       <span>− ${invoice.currency} ${Math.round(Number(invoice.amount) * (invoice.wht_rate / 100)).toLocaleString()}</span>
     </div>
-    <div class="row" style="font-weight:700;border-bottom:2px solid #111">
-      <span style="color:#111">Net payable</span>
-      <span style="color:#111">${invoice.currency} ${Math.round(Number(invoice.amount) * (1 - invoice.wht_rate / 100)).toLocaleString()}</span>
+    <div class="row line-total">
+      <span>Net payable</span>
+      <span>${invoice.currency} ${Math.round(Number(invoice.amount) * (1 - invoice.wht_rate / 100)).toLocaleString()}</span>
     </div>` : ''}
   </div>
 
@@ -218,30 +242,44 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     <p style="margin-bottom:2px">${artistName} &nbsp;|&nbsp; ${address.replace(/<br>/g, ', ')}</p>
     <p style="margin-bottom:2px">${(payment.email || profile.email || 'advancingabsolute@gmail.com').replace('@', '&#64;')}</p>
     ${vatNumber ? `<p style="margin-bottom:12px">${isAUD ? 'ABN' : 'VAT'}: ${vatNumber}</p>` : '<p style="margin-bottom:12px"></p>'}
-    ${hideBranding ? '' : `<a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:6px;color:#bbb;text-decoration:none;font-size:10px">
-      <svg width="14" height="14" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
-        <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" stroke-width="1.5" opacity="0.5"/>
-        <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    ${hideBranding ? '' : `<a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:10px;color:rgba(242,242,242,0.7);text-decoration:none;font-size:13px;letter-spacing:0.12em;text-transform:uppercase;font-weight:500">
+      <svg width="22" height="22" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
+        <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" stroke-width="1.8" opacity="0.6"/>
+        <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
       Powered by Signal Lab OS
     </a>`}
   </div>
 
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-  document.querySelector('.download-btn').onclick = function() {
+  // Single-page A4 export: rasterize the whole invoice, then scale-to-fit so it
+  // always lands on one page regardless of line-item count or notes length.
+  document.querySelector('.download-btn').onclick = async function() {
     const btn = document.querySelector('.download-btn');
+    const invoice = document.querySelector('.invoice');
     btn.style.display = 'none';
-    html2pdf().set({
-      margin: 8,
-      filename: '${invoiceNumber}.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).from(document.querySelector('.invoice')).save().then(function() {
+    try {
+      const canvas = await html2canvas(invoice, { scale: 2, useCORS: true, backgroundColor: '#050505' });
+      const imgData = canvas.toDataURL('image/jpeg', 0.96);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgAspect = canvas.width / canvas.height;
+      const pageAspect = pageW / pageH;
+      let drawW, drawH;
+      if (imgAspect > pageAspect) { drawW = pageW; drawH = pageW / imgAspect; }
+      else { drawH = pageH; drawW = pageH * imgAspect; }
+      pdf.setFillColor(5, 5, 5);
+      pdf.rect(0, 0, pageW, pageH, 'F');
+      pdf.addImage(imgData, 'JPEG', (pageW - drawW) / 2, (pageH - drawH) / 2, drawW, drawH);
+      pdf.save('${invoiceNumber}.pdf');
+    } finally {
       btn.style.display = '';
-    });
+    }
   }
   ${printMode ? 'window.onload = function() { window.print(); }' : ''}
 </script>

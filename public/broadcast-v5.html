@@ -1,0 +1,1941 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Broadcast Lab — Redesign</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: #050505;
+    --panel: #0e0e0e;
+    --panel-hi: #161616;
+    --input: #0a0a0a;
+    --border-dim: #1d1d1d;
+    --border: #222;
+    --border-bright: #2c2c2c;
+    --red: #ff2a1a;
+    --red-bright: #ff5040;
+    --red-deep: #a01510;
+    --text: #f2f2f2;
+    --dim: #d8d8d8;
+    --dimmer: #b0b0b0;
+    --dimmest: #909090;
+    --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-weight: 500;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 9998;
+    background:
+      repeating-linear-gradient(to bottom,
+        rgba(255,255,255,0.015) 0px,
+        rgba(255,255,255,0.015) 1px,
+        transparent 1px,
+        transparent 3px);
+    mix-blend-mode: overlay;
+  }
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.12'/></svg>");
+    opacity: 0.35;
+    mix-blend-mode: overlay;
+  }
+  ::selection { background: var(--red); color: #fff; }
+  .mono, input, textarea, button { font-family: var(--font); }
+  input, textarea {
+    background: var(--input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 14px;
+    outline: none;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  input:focus, textarea:focus { border-color: var(--red); }
+  textarea { resize: none; }
+  button { cursor: pointer; }
+  .label {
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-size: 9px;
+    color: var(--dimmer);
+  }
+  .label-red { color: var(--red); }
+  .hero {
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 0.9;
+    text-transform: uppercase;
+  }
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    padding: 10px 14px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 11px;
+    transition: border-color .12s, background .12s, color .12s;
+  }
+  .btn:hover { border-color: var(--red); color: var(--red); }
+  .btn-red {
+    background: var(--red);
+    border: 1px solid var(--red);
+    color: #0a0000;
+  }
+  .btn-red:hover { background: var(--red-bright); border-color: var(--red-bright); color: #000; }
+  .btn-red-out {
+    background: transparent;
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+  .btn-red-out:hover { background: var(--red); color: #0a0000; }
+  .btn-ghost { border-color: var(--border-dim); color: var(--dimmer); }
+  .btn-ghost:hover { border-color: var(--red); color: var(--red); background: transparent; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+  }
+  .panel-hi { background: var(--panel-hi); }
+  .hr { height: 1px; background: var(--border); border: 0; }
+  .kbd {
+    font-family: var(--font);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    border: 1px solid var(--border-bright);
+    padding: 2px 6px;
+    color: var(--dimmer);
+    border-radius: 2px;
+  }
+  .pulse { animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  .blink { animation: blink 1.2s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--red-deep); }
+
+  /* ===== Quiet Mode ===== */
+  /* When enabled: dim secondary labels, shrink rail density, hide decorative chrome,
+     keep hero moments (handle, 47% voice, primary CTA, schedule callout, live dot) loud. */
+  body.quiet .label:not(.label-red) { color: var(--dimmest) !important; opacity: 0.65; }
+  body.quiet .panel { border-color: #141414; }
+  body.quiet .btn { border-color: #141414; color: var(--dimmer); }
+  body.quiet .btn:hover { border-color: var(--red); color: var(--red); }
+  body.quiet .hr { background: #141414; }
+  /* Reduce intelligence-rail density */
+  body.quiet .rail-row { padding-top: 6px !important; padding-bottom: 6px !important; }
+  body.quiet .rail-sub { display: none !important; }
+  body.quiet .rail-head { padding-bottom: 8px !important; }
+  /* Mute meta numbers that aren't primary */
+  body.quiet .muted-in-quiet { opacity: 0.55; }
+  body.quiet .hide-in-quiet { display: none !important; }
+  /* Slightly dim grain + scanlines so overall surface reads calmer */
+  body.quiet::before { opacity: 0.5 !important; }
+  body.quiet::after { opacity: 0.22 !important; }
+  /* Soften non-primary chip emphasis */
+  body.quiet .chip-muted-q { color: var(--dimmer) !important; border-color: #181818 !important; }
+
+  /* When quiet: collapse side rails, keep composer (and schedule rail if present) */
+  body.quiet [data-quiet-grid] { grid-template-columns: minmax(0, 1fr) !important; }
+  body.quiet [data-quiet-grid][data-has-schedule="true"] { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) !important; }
+  body.quiet .topbar-nav { display: none !important; }
+  /* Strip panel chrome in quiet mode */
+  body.quiet .panel { background: transparent; }
+
+  /* Top variant switcher */
+  .switcher {
+    position: sticky; top: 0; z-index: 200;
+    background: rgba(5,5,5,0.92);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+  }
+  .switcher-inner {
+    max-width: 1440px; margin: 0 auto;
+    padding: 12px 32px;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .switch-tab {
+    background: transparent;
+    border: 1px solid var(--border-bright);
+    color: var(--dim);
+    padding: 8px 14px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+  .switch-tab.on {
+    border-color: var(--red);
+    color: var(--red);
+    background: rgba(255,42,26,0.06);
+  }
+
+  /* Page surface */
+  .page {
+    max-width: 1440px; margin: 0 auto;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+  }
+  .sidebar {
+    border-right: 1px solid var(--border);
+    min-height: 900px;
+    padding: 20px 16px;
+    display: flex; flex-direction: column;
+    background: var(--bg);
+  }
+  .side-brand {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px 22px;
+  }
+  .side-brand svg { display: block; }
+  .side-brand span { font-weight: 700; letter-spacing: 0.02em; font-size: 13px; }
+  .side-brand .cs { color: var(--red); font-size: 10px; letter-spacing: 0.2em; }
+  .side-group { margin-top: 14px; }
+  .side-label { padding: 6px 8px; font-size: 10px; letter-spacing: 0.2em; color: var(--dimmest); text-transform: uppercase; font-weight: 700; }
+  .side-item {
+    padding: 9px 10px;
+    font-size: 13px; color: var(--dim); cursor: pointer;
+    border-left: 2px solid transparent;
+    font-weight: 500;
+  }
+  .side-item:hover { color: var(--text); }
+  .side-item.on {
+    color: var(--red);
+    border-left-color: var(--red);
+    background: rgba(255,42,26,0.05);
+    font-weight: 700;
+  }
+  .side-bottom { margin-top: auto; }
+  .side-foot {
+    margin-top: 14px;
+    font-size: 10px; color: var(--dimmest);
+    letter-spacing: 0.08em;
+    padding: 10px 8px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .main { padding: 28px 36px 80px; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 0 12px;
+  }
+  .topbar-nav { display: flex; gap: 28px; }
+  .topbar-nav a {
+    font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--dimmer);
+    text-decoration: none;
+    padding-bottom: 12px;
+    margin-bottom: -1px; /* overlap container border so active underline sits on it */
+    border-bottom: 2px solid transparent;
+    transition: color .12s;
+  }
+  .topbar-nav a.on { color: var(--text); border-bottom-color: var(--red); }
+  .topbar-nav a:hover { color: var(--text); }
+
+  /* Media aspect placeholder */
+  .aspect-placeholder {
+    position: relative;
+    background:
+      repeating-linear-gradient(135deg,
+        #141414 0 10px,
+        #0e0e0e 10px 20px);
+    border: 1px dashed var(--border-bright);
+    color: var(--dimmest);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; letter-spacing: 0.2em; font-weight: 700; text-transform: uppercase;
+  }
+
+  .tick-row { display: flex; gap: 16px; }
+
+  .flash-red {
+    animation: flash-red 1.2s ease-out;
+  }
+  @keyframes flash-red {
+    0% { border-color: var(--red); box-shadow: 0 0 0 2px rgba(255,42,26,0.2) inset; }
+    100% { border-color: var(--border); box-shadow: 0 0 0 0 rgba(255,42,26,0) inset; }
+  }
+
+  /* Tweaks panel */
+  .tweaks {
+    position: fixed; right: 20px; bottom: 20px; z-index: 300;
+    width: 280px;
+    background: var(--panel);
+    border: 1px solid var(--red);
+    padding: 14px;
+  }
+  .tweaks h4 {
+    margin: 0 0 10px;
+    font-size: 10px; letter-spacing: 0.22em; font-weight: 700;
+    color: var(--red); text-transform: uppercase;
+  }
+  .tweaks label {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 6px 0;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--dim); font-weight: 700;
+  }
+  .tweaks input[type="checkbox"] { accent-color: var(--red); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+/* global React, ReactDOM */
+const { useState, useEffect, useMemo, useRef } = React;
+
+/* ---------- Tweakable defaults ---------- */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "variant": "split",
+  "showGrain": true,
+  "showScanlines": true,
+  "sidebarCollapsed": false,
+  "defaultView": "post-generate",
+  "quietMode": false
+}/*EDITMODE-END*/;
+
+/* ---------- Shared bits ---------- */
+
+const BrandMark = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <path d="M2 12 L7 12 L9 4 L12 20 L15 8 L17 12 L22 12"
+      stroke="#ff2a1a" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+  </svg>
+);
+
+const Sidebar = ({ collapsed }) => {
+  if (collapsed) return null;
+  return (
+    <aside className="sidebar">
+      <div className="side-brand">
+        <BrandMark />
+        <span>Signal Lab</span>
+        <span className="cs">OS</span>
+      </div>
+      <div className="side-item" style={{color: 'var(--dimmest)'}}>Today</div>
+      <div className="side-group">
+        <div className="side-item on">Broadcast Lab</div>
+        <div className="side-item">Tour Lab</div>
+        <div className="side-item">Set Lab</div>
+        <div className="side-item">Sonix Lab</div>
+        <div className="side-item">Drop Lab</div>
+      </div>
+      <div className="side-bottom">
+        <div className="side-item" style={{color: 'var(--dimmer)'}}>Settings</div>
+        <div className="side-item" style={{color: 'var(--dimmer)'}}>Logout</div>
+        <div className="side-foot">
+          <span>signallabos.com</span>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            color: 'var(--red)'
+          }}>
+            <span className="pulse" style={{
+              width: 8, height: 8, background: 'var(--red)', borderRadius: '50%'
+            }}/>
+            LIVE
+          </span>
+        </div>
+      </div>
+    </aside>
+  );
+};
+
+const PageHeader = ({ view, onOpenScan }) => (
+  <div className="page-header">
+    {/* Hero row: eyebrow + wordmark on the left, Signal Scan CTA flush right */}
+    <div style={{
+      display:'flex', alignItems:'flex-end', justifyContent:'space-between',
+      gap: 32, marginTop: 8, marginBottom: 22,
+    }}>
+      <div style={{minWidth: 0}}>
+        <div className="label label-red" style={{marginBottom: 10}}>
+          Broadcast Lab {view === 'post-generate' ? '/ Review' : '/ Compose'}
+        </div>
+        <div className="hero" style={{
+          fontSize: 'clamp(72px, 10vw, 144px)',
+          lineHeight: 0.86,
+          letterSpacing:'-0.045em',
+          textTransform:'uppercase'
+        }}>
+          Artist Voice
+        </div>
+      </div>
+      <div style={{paddingBottom: 14, flexShrink: 0}}>
+        <button className="btn btn-red-out" onClick={onOpenScan}>
+          + Signal Scan
+        </button>
+      </div>
+    </div>
+
+    {/* Sub-nav tabs row — below the hero */}
+    <div className="topbar-nav" style={{
+      borderBottom: '1px solid var(--border)',
+      marginBottom: 24,
+    }}>
+      <a href="#">Quick Post</a>
+      <a href="#" className="on">Artist Voice</a>
+      <a href="#">Calendar</a>
+      <a href="#">Scanner</a>
+      <a href="#">Media</a>
+      <a href="#">Ideas</a>
+      <a href="#">Strategy</a>
+      <a href="#">Ads</a>
+    </div>
+  </div>
+);
+
+/* ---------- Intelligence data ---------- */
+
+const TRENDS = [
+  { tag: "Low-rise POV", pct: "+41%", note: "cockpit / deck angle", heat: 0.9, lane: "Reel" },
+  { tag: "Late carousel", pct: "+28%", note: "7+ slide story arcs", heat: 0.75, lane: "Carousel" },
+  { tag: "Soundcheck clip", pct: "+22%", note: "raw, 15–20s, no cut", heat: 0.65, lane: "Reel" },
+  { tag: "Hand-written flyer", pct: "+14%", note: "static, grain, mono", heat: 0.45, lane: "Post" },
+];
+
+const CAPTURES = [
+  { when: "Tonight 22:30", where: "Warehouse 9 — Berlin", kind: "Live set", need: "POV + crowd wide" },
+  { when: "Fri 11:00", where: "Studio — Neukölln", kind: "Studio", need: "Hands on SP-404" },
+  { when: "Sat 02:00", where: "Watergate b2b", kind: "Collab", need: "Back-to-back energy" },
+];
+
+const SIGNAL = {
+  bestWindow: "Thu 18:00",
+  reachDelta: "+18%",
+  bestFormat: "Reel",
+  topEngagement: "6pm–9pm",
+  weekReach: "184K",
+  followers: "+412",
+};
+
+const CAPTIONS = {
+  SAFE: "warehouse 9. three rooms, one direction. doors 22:00, first record at 23. bring layers. link in bio.",
+  LOOSE: "three rooms at warehouse 9 tonight. low ceiling, high ceiling, outside. 23:00 first track. layers non-negotiable.",
+  RAW: "warehouse 9 tonight. three rooms. ceiling low enough to taste. 23 on the dot. no guest list after midnight. layers or leave.",
+};
+
+const SCORES = { authenticity: 8.2, culture: 6, visual: 9 };
+
+/* ---------- Composer internals ---------- */
+
+const FormatPicker = ({ format, setFormat, platform, setPlatform }) => (
+  <div style={{display:'flex', gap: 8, flexWrap:'wrap'}}>
+    {['POST','CAROUSEL','STORY','REEL'].map(f => (
+      <button key={f}
+        onClick={()=>setFormat(f)}
+        className="btn"
+        style={format===f ? {borderColor:'var(--red)', color:'var(--red)'} : {}}>
+        {f}
+      </button>
+    ))}
+    <div style={{width: 1, background:'var(--border)', margin:'0 6px'}} />
+    {['Instagram','TikTok','Threads','X'].map(p => (
+      <button key={p}
+        onClick={()=>setPlatform(p)}
+        className="btn"
+        style={platform===p ? {borderColor:'var(--red)', color:'var(--red)'} : {}}>
+        {p}
+      </button>
+    ))}
+  </div>
+);
+
+/* Platform character limits — real values as of 2024 */
+const PLATFORM_LIMITS = {
+  'Instagram': 2200,
+  'TikTok': 2200,
+  'Threads': 500,
+  'X': 280,
+  'YouTube': 5000,
+  'Facebook': 63206
+};
+const charLimit = (platform, format) => {
+  if (format === 'STORY') return 0;
+  return PLATFORM_LIMITS[platform] ?? 2200;
+};
+
+const UnifiedPicker = ({ format, setFormat, platform, setPlatform, open, setOpen }) => {
+  const chars = charLimit(platform, format);
+  const aspect = {POST:'1:1', CAROUSEL:'4:5', STORY:'9:16', REEL:'9:16'}[format];
+  return (
+    <div style={{position:'relative'}}>
+      <button
+        onClick={()=>setOpen(!open)}
+        style={{
+          background: 'var(--panel-hi)',
+          border: '1px solid var(--border-bright)',
+          color: 'var(--text)',
+          padding: '12px 16px',
+          fontSize: 12, fontWeight: 700, letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          width: '100%', textAlign: 'left',
+          display:'flex', alignItems:'center', justifyContent:'space-between',
+        }}>
+        <span>
+          <span style={{color:'var(--red)'}}>{platform}</span>
+          <span style={{color:'var(--dimmer)', margin:'0 10px'}}>·</span>
+          {format}
+          <span style={{color:'var(--dimmer)', margin:'0 10px'}}>·</span>
+          <span style={{color:'var(--dim)'}}>{aspect}</span>
+          <span style={{color:'var(--dimmer)', margin:'0 10px'}}>·</span>
+          <span style={{color:'var(--dim)'}}>{chars} chars</span>
+        </span>
+        <span style={{color:'var(--dimmer)'}}>change ▾</span>
+      </button>
+      {open && (
+        <div style={{
+          position:'absolute', top: 'calc(100% + 4px)', left:0, right:0,
+          background:'var(--panel)', border:'1px solid var(--border-bright)',
+          padding: 16, zIndex: 40
+        }}>
+          <div className="label" style={{marginBottom:8}}>Format</div>
+          <div style={{display:'flex', gap:8, marginBottom:16, flexWrap:'wrap'}}>
+            {['POST','CAROUSEL','STORY','REEL'].map(f => (
+              <button key={f}
+                onClick={()=>{setFormat(f);}}
+                className="btn"
+                style={format===f ? {borderColor:'var(--red)', color:'var(--red)'} : {}}>{f}</button>
+            ))}
+          </div>
+          <div className="label" style={{marginBottom:8}}>Platform</div>
+          <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+            {['Instagram','TikTok','Threads','X'].map(p => (
+              <button key={p}
+                onClick={()=>{setPlatform(p);}}
+                className="btn"
+                style={platform===p ? {borderColor:'var(--red)', color:'var(--red)'} : {}}>{p}</button>
+            ))}
+          </div>
+          <div style={{marginTop:14, display:'flex', justifyContent:'flex-end'}}>
+            <button className="btn btn-red" onClick={()=>setOpen(false)}>Done →</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AspectFrame = ({ aspect, label = "DROP MEDIA", size = 'lg' }) => {
+  const styles = {
+    lg: { minHeight: 260 },
+    md: { minHeight: 160 },
+    sm: { minHeight: 110 },
+  }[size];
+  return (
+    <div className="aspect-placeholder" style={{...styles, width:'100%'}}>
+      <div style={{textAlign:'center', padding: 20}}>
+        <div style={{color:'var(--dim)', fontSize: 22, fontWeight: 800, letterSpacing:'-0.02em', marginBottom: 6}}>
+          {label}
+        </div>
+        <div style={{color:'var(--dimmer)', fontSize: 10, letterSpacing:'0.22em'}}>
+          {aspect} · MP4 / MOV / PNG / JPG · UP TO 200MB
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ---------- Shared Page Hero — superseded by PageHeader, kept for back-compat ---------- */
+
+const PageHero = ({ view }) => null;
+
+/* ---------- Variant 1: Minimal rework ---------- */
+
+const VariantMinimal = ({ view, onGenerate, onOpenApprove }) => {
+  const [format, setFormat] = useState('REEL');
+  const [platform, setPlatform] = useState('Instagram');
+  const [variant, setVariant] = useState('LOOSE');
+  const [text, setText] = useState("warehouse 9 — three rooms, 23:00 first track");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [dragHover, setDragHover] = useState(false);
+
+  return (
+    <div>
+      {/* Composer */}
+      <div className="panel" style={{padding: 18, marginBottom: 16}}>
+        <div className="label label-red" style={{marginBottom: 12}}>Composer</div>
+
+        {/* Two-column: BIG DROP MEDIA (left) + text composer (right) */}
+        <div style={{display:'grid', gridTemplateColumns:'1.15fr 1fr', gap: 16}}>
+
+          {/* BIG DROP MEDIA */}
+          <div
+            onDragOver={e=>{e.preventDefault(); setDragHover(true);}}
+            onDragLeave={()=>setDragHover(false)}
+            onDrop={e=>{e.preventDefault(); setDragHover(false);}}
+            style={{
+              border: `2px dashed ${dragHover ? 'var(--red)' : 'var(--border-bright)'}`,
+              background: dragHover ? 'rgba(255,42,26,0.04)' : 'transparent',
+              padding: '32px 28px',
+              display:'flex', flexDirection:'column', justifyContent:'space-between',
+              minHeight: 320,
+              transition:'border-color .1s, background .1s',
+            }}>
+            <div>
+              <div className="label label-red" style={{marginBottom: 14}}>Drop your moment</div>
+              <div className="hero" style={{fontSize: 'clamp(56px, 6vw, 88px)', lineHeight: 0.88, letterSpacing:'-0.04em'}}>
+                DROP<br/>MEDIA
+              </div>
+            </div>
+            <div>
+              <div style={{
+                color:'var(--dimmer)', fontSize: 10, letterSpacing:'0.2em',
+                textTransform:'uppercase', fontWeight:700, marginBottom: 14
+              }}>
+                MP4 · MOV · PNG · JPG · up to 200MB · or paste a link
+              </div>
+              <div style={{display:'flex', gap: 8, flexWrap:'wrap'}}>
+                <button className="btn">Attach from disk</button>
+                <button className="btn">From library</button>
+                <button className="btn btn-ghost">Paste link</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Text composer + picker */}
+          <div style={{display:'flex', flexDirection:'column', gap: 12}}>
+            <div className="label" style={{color:'var(--dimmer)'}}>What happened</div>
+            <textarea
+              value={text} onChange={e=>setText(e.target.value)}
+              rows={5}
+              style={{width:'100%', flex:'0 0 auto'}}
+              placeholder="Show, studio, flight, release…" />
+            <UnifiedPicker
+              format={format} setFormat={setFormat}
+              platform={platform} setPlatform={setPlatform}
+              open={pickerOpen} setOpen={setPickerOpen} />
+          </div>
+        </div>
+
+        {/* Bottom action row */}
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-dim)'}}>
+          <div style={{display:'flex', gap: 14, alignItems:'center'}}>
+            <span className="label">Voice</span>
+            <span style={{color: 'var(--dim)', fontSize: 12}}>
+              <span className="blink" style={{color:'var(--red)'}}>●</span> Voice not trained — using lane defaults
+            </span>
+            <button className="btn btn-ghost">Train voice</button>
+          </div>
+          <div style={{display:'flex', gap: 10, alignItems:'center'}}>
+            <span className="kbd">⌘ ↵</span>
+            <button className="btn btn-red" onClick={onGenerate}>⚡ Generate</button>
+          </div>
+        </div>
+      </div>
+
+      {view === 'post-generate' && (
+        <div className="panel flash-red" style={{padding: 20, marginBottom: 16}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 14}}>
+            <div>
+              <div className="label label-red">Caption · voice-aligned</div>
+              <div style={{fontSize: 10, letterSpacing: '0.18em', color:'var(--dimmer)', marginTop:6}}>
+                {platform.toUpperCase()} · {format} · {CAPTIONS[variant].length} / {charLimit(platform, format)}{CAPTIONS[variant].length > charLimit(platform, format) ? ' · OVER' : ''}
+              </div>
+            </div>
+            <div style={{display:'flex', gap: 6}}>
+              {['SAFE','LOOSE','RAW'].map(v => (
+                <button key={v} onClick={()=>setVariant(v)} className="btn"
+                  style={variant===v ? {borderColor:'var(--red)', color:'var(--red)'} : {}}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{
+            background: 'var(--input)', padding: 18, border: '1px solid var(--border-dim)',
+            fontSize: 16, lineHeight: 1.5, minHeight: 90, color: 'var(--dim)'
+          }}>
+            {CAPTIONS[variant]}
+          </div>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop: 14}}>
+            <div style={{display:'flex', gap: 24}}>
+              <ScorePill label="Authenticity" value={SCORES.authenticity} max={10} />
+              <ScorePill label="Culture" value={SCORES.culture} max={10} />
+              <ScorePill label="Visual" value={SCORES.visual} max={10} />
+            </div>
+            <div style={{display:'flex', gap: 8}}>
+              <button className="btn">Repurpose →</button>
+              <button className="btn">Reels overlay</button>
+              <button className="btn btn-red" onClick={onOpenApprove}>Preview + Post →</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Intelligence row — always-on */}
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap: 12, marginBottom: 12}}>
+        <IntelCard title="Trend Engine" rows={TRENDS.slice(0,3).map(t => ({a: t.tag, b: t.pct}))} />
+        <IntelCard title="Capture next" rows={CAPTURES.map(c => ({a: c.kind, b: c.when}))} />
+        <IntelCard title="Signal" rows={[
+          {a:'Best window', b: SIGNAL.bestWindow},
+          {a:'Reach Δ', b: SIGNAL.reachDelta},
+          {a:'Week reach', b: SIGNAL.weekReach},
+        ]}/>
+      </div>
+
+      {/* Profile / voice inline strip */}
+      <div className="panel" style={{padding: 14, display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+        <div>
+          <div className="label label-red" style={{marginBottom: 4}}>Your profile</div>
+          <div style={{color:'var(--dim)', fontSize: 13}}>
+            Sync Instagram to build your deep-dive profile · <span style={{color:'var(--dimmer)'}}>3 references mapped</span>
+          </div>
+        </div>
+        <div style={{display:'flex', gap: 8}}>
+          <button className="btn">3 references ›</button>
+          <button className="btn btn-ghost">Scan manually</button>
+          <button className="btn btn-red-out">Sync Instagram</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ---------- Variant 2: Split pane ---------- */
+
+/* Smart dropzone — large first-run, compact after media attached */
+const SmartDropzone = ({ hasMedia, onAttach, format, platform }) => {
+  const [drag, setDrag] = useState(false);
+  if (hasMedia) {
+    return (
+      <div style={{
+        display:'flex', alignItems:'center', gap: 12,
+        padding: 10,
+        border: '1px solid var(--border)',
+        background: 'var(--input)',
+      }}>
+        <div style={{
+          width: 54, height: 54,
+          background: 'repeating-linear-gradient(135deg, #141414 0 6px, #0e0e0e 6px 12px)',
+          border: '1px solid var(--border-bright)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize: 9, letterSpacing:'0.18em', color:'var(--dimmer)', fontWeight: 700,
+          flexShrink: 0,
+        }}>
+          {format==='REEL' || format==='STORY' ? '9:16' : '1:1'}
+        </div>
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontSize: 12, fontWeight: 700, letterSpacing:'0.1em', textTransform:'uppercase'}}>
+            soundcheck_warehouse9.mp4
+          </div>
+          <div style={{fontSize: 11, color:'var(--dimmer)', marginTop: 3}}>
+            0:18 · 1080×1920 · 24MB · auto-fit to {format}
+          </div>
+        </div>
+        <button className="btn btn-ghost" onClick={()=>{
+          if (window.confirm('Remove attached media?')) onAttach(false);
+        }}>Replace</button>
+      </div>
+    );
+  }
+  return (
+    <div
+      onDragOver={e=>{e.preventDefault(); setDrag(true);}}
+      onDragLeave={()=>setDrag(false)}
+      onDrop={e=>{e.preventDefault(); setDrag(false); onAttach(true);}}
+      onClick={()=>onAttach(true)}
+      style={{
+        cursor:'pointer',
+        border: `2px dashed ${drag ? 'var(--red)' : 'var(--border-bright)'}`,
+        background: drag ? 'rgba(255,42,26,0.04)' : 'transparent',
+        padding: '22px 24px',
+        display:'flex', alignItems:'center', gap: 18,
+        transition:'border-color .1s, background .1s',
+      }}>
+      <div style={{flex:1}}>
+        <div className="hero" style={{fontSize: 34, lineHeight: 0.9}}>DROP MEDIA</div>
+        <div style={{color:'var(--dimmer)', marginTop: 8, fontSize: 10, letterSpacing:'0.2em', textTransform:'uppercase', fontWeight:700}}>
+          MP4 · MOV · PNG · JPG · up to 200MB · or click to browse
+        </div>
+      </div>
+      <div style={{display:'flex', gap:6}}>
+        <button className="btn" onClick={e=>{e.stopPropagation(); onAttach(true);}}>Attach</button>
+        <button className="btn btn-ghost" onClick={e=>e.stopPropagation()}>Library</button>
+      </div>
+    </div>
+  );
+};
+
+const VariantSplit = ({ view, onGenerate, onOpenApprove }) => {
+  const [format, setFormat] = useState('REEL');
+  const [platform, setPlatform] = useState('Instagram');
+  const [variant, setVariant] = useState('LOOSE');
+  const [text, setText] = useState("warehouse 9 — three rooms, 23:00 first track");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [hasMedia, setHasMedia] = useState(true);
+
+  const showScheduleRail = view === 'post-generate';
+
+  return (
+    <div>
+      {/* Always-on intelligence strip */}
+      <div className="hide-in-quiet" style={{marginTop: 0}}><IntelligenceStrip /></div>
+
+      <div data-quiet-grid data-has-schedule={showScheduleRail ? 'true' : 'false'} style={{
+        display:'grid',
+        gridTemplateColumns: showScheduleRail
+          ? 'minmax(0, 1.5fr) minmax(0, 0.9fr) minmax(0, 1fr)'
+          : 'minmax(0, 1.9fr) minmax(0, 1fr)',
+        gap: 16, marginTop: 18
+      }}>
+        {/* LEFT: composer */}
+        <div>
+          <div className="panel" style={{padding: 20, marginBottom: 16}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 14}}>
+              <div className="label label-red">Composer</div>
+              <div className="hide-in-quiet" style={{display:'flex', gap: 6, alignItems:'center'}}>
+                <span className="label">Voice</span>
+                <span style={{
+                  padding: '3px 8px', fontSize: 10, letterSpacing: '0.18em',
+                  background: 'rgba(255,42,26,0.1)', color: 'var(--red)', fontWeight: 700
+                }}>
+                  NOT TRAINED · LANE DEFAULTS
+                </span>
+                <button className="btn btn-ghost">Train →</button>
+              </div>
+            </div>
+
+            <div style={{marginBottom: 14}}>
+              <SmartDropzone
+                hasMedia={hasMedia}
+                onAttach={setHasMedia}
+                format={format}
+                platform={platform} />
+            </div>
+
+            <textarea
+              value={text}
+              onChange={e=>setText(e.target.value)}
+              rows={3}
+              style={{width:'100%', marginBottom: 12}}
+              placeholder="What happened… show, studio, flight, release" />
+
+            <UnifiedPicker
+              format={format} setFormat={setFormat}
+              platform={platform} setPlatform={setPlatform}
+              open={pickerOpen} setOpen={setPickerOpen} />
+
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop: 16}}>
+              <div className="hide-in-quiet" style={{display:'flex', gap: 8}}>
+                <button className="btn btn-ghost">🎤 Voice note</button>
+              </div>
+              <div style={{display:'flex', gap: 10, alignItems:'center'}}>
+                <span className="kbd hide-in-quiet">⌘ ↵</span>
+                <button className="btn btn-red" onClick={onGenerate}>⚡ Generate</button>
+              </div>
+            </div>
+          </div>
+
+          {view === 'post-generate' && (
+            <div className="panel flash-red" style={{padding: 20}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 14}}>
+                <div>
+                  <div className="label label-red">Caption · voice-aligned</div>
+                  <div style={{fontSize: 10, letterSpacing: '0.18em', color:'var(--dimmer)', marginTop:6}}>
+                    {platform.toUpperCase()} · {format} · {CAPTIONS[variant].length} / {charLimit(platform, format)}{CAPTIONS[variant].length > charLimit(platform, format) ? ' · OVER' : ''}
+                  </div>
+                </div>
+                <div style={{display:'flex', gap: 6}}>
+                  {['SAFE','LOOSE','RAW'].map(v => (
+                    <button key={v} onClick={()=>setVariant(v)} className="btn"
+                      style={variant===v ? {borderColor:'var(--red)', color:'var(--red)'} : {}}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{
+                background: 'var(--input)', padding: 22, border: '1px solid var(--border-dim)',
+                fontSize: 18, lineHeight: 1.5, minHeight: 110, color: 'var(--dim)'
+              }}>
+                {CAPTIONS[variant]}
+              </div>
+              <div style={{display:'flex', gap: 14, marginTop: 14, paddingTop: 14, borderTop:'1px solid var(--border-dim)', flexWrap:'wrap'}}>
+                <ScorePill label="Authenticity" value={SCORES.authenticity} max={10} />
+                <ScorePill label="Culture" value={SCORES.culture} max={10} />
+                <ScorePill label="Visual" value={SCORES.visual} max={10} />
+                <div style={{marginLeft:'auto', display:'flex', gap: 8, alignSelf:'flex-end'}}>
+                  <button className="btn">Repurpose →</button>
+                  <button className="btn btn-red" onClick={onOpenApprove}>Preview →</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* MIDDLE: schedule rail (post-generate only) */}
+        {showScheduleRail && (
+          <div>
+            <ScheduleRail onOpenApprove={onOpenApprove} />
+          </div>
+        )}
+
+        {/* RIGHT: intelligence rail */}
+        <div className="hide-in-quiet">
+          <IntelRail />
+        </div>
+      </div>
+
+      <div className="panel hide-in-quiet" style={{marginTop: 18, padding: 16, display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+        <div>
+          <div className="label label-red" style={{marginBottom: 4}}>Your profile</div>
+          <div style={{color:'var(--dim)', fontSize: 13}}>
+            Reference artists: <strong style={{color:'var(--text)'}}>3 mapped</strong> · last scan 6d ago
+          </div>
+        </div>
+        <div style={{display:'flex', gap: 8}}>
+          <button className="btn">3 references ›</button>
+          <button className="btn btn-ghost">Scan manually</button>
+          <button className="btn btn-red-out">Sync Instagram</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* Schedule rail — ported from Radical */
+const ScheduleRail = ({ onOpenApprove }) => {
+  const [when, setWhen] = useState('best'); // 'now' | 'best' | 'custom'
+  return (
+    <div className="panel" style={{padding: 18, position:'sticky', top: 80}}>
+      <div className="label label-red" style={{marginBottom: 10}}>Schedule</div>
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap: 4, marginBottom: 14}}>
+        {[['now','NOW'],['best','BEST'],['custom','PICK']].map(([k,l]) => (
+          <button key={k} onClick={()=>setWhen(k)} className="btn" style={{
+            padding: '8px 6px',
+            ...(when===k ? {borderColor:'var(--red)', color:'var(--red)'} : {})
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {when === 'best' && (
+        <>
+          <div style={{fontSize: 32, fontWeight: 800, letterSpacing:'-0.03em', lineHeight: 1}}>
+            THU 18:00
+          </div>
+          <div style={{color:'var(--red)', fontSize: 13, fontWeight: 700, letterSpacing:'0.14em', marginTop: 6}}>
+            +18% reach
+          </div>
+          <div style={{color:'var(--dimmer)', fontSize: 11, marginTop: 6, letterSpacing:'0.14em', textTransform:'uppercase', fontWeight:700}}>
+            Your best Reels window
+          </div>
+        </>
+      )}
+      {when === 'now' && (
+        <>
+          <div style={{fontSize: 32, fontWeight: 800, letterSpacing:'-0.03em', lineHeight: 1}}>
+            FIRE NOW
+          </div>
+          <div style={{color:'var(--dimmer)', fontSize: 11, marginTop: 8, letterSpacing:'0.14em', textTransform:'uppercase', fontWeight:700}}>
+            Est. −12% vs scheduled
+          </div>
+        </>
+      )}
+      {when === 'custom' && (
+        <div style={{display:'grid', gap: 8}}>
+          <input defaultValue="Thu Apr 23" style={{width:'100%'}}/>
+          <input defaultValue="18:00 CET" style={{width:'100%'}}/>
+        </div>
+      )}
+
+      <div className="hr" style={{margin:'16px 0'}}/>
+
+      <div className="label" style={{marginBottom: 8}}>Repurpose queue</div>
+      <div style={{display:'grid', gap: 6, fontSize: 12}}>
+        <RepRow on platform="IG · Reel (primary)" />
+        <RepRow platform="IG · Carousel · Fri 10" />
+        <RepRow platform="TikTok · Thu 20:30" />
+        <RepRow platform="Threads · static" />
+      </div>
+
+      <div className="hr" style={{margin:'16px 0'}}/>
+
+      <div style={{display:'grid', gap: 8}}>
+        <button className="btn btn-red" onClick={onOpenApprove}>Preview + Approve →</button>
+        <button className="btn" onClick={onOpenApprove}>Save draft</button>
+      </div>
+    </div>
+  );
+};
+
+/* ---------- Variant 3: Radical ---------- */
+
+const VariantRadical = ({ view, onGenerate, onOpenApprove }) => {
+  const [format, setFormat] = useState('REEL');
+  const [platform, setPlatform] = useState('Instagram');
+  const [variant, setVariant] = useState('LOOSE');
+  const [text, setText] = useState("warehouse 9 — three rooms, 23:00 first track");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [dragHover, setDragHover] = useState(false);
+
+  return (
+    <div>
+      {/* Ticker-style intelligence */}
+      <div style={{
+        display:'flex', alignItems:'center', gap: 22, padding: '10px 14px',
+        border: '1px solid var(--border)', background:'var(--panel)',
+        fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 700,
+      }}>
+        <span style={{color:'var(--red)'}}>◉ LIVE</span>
+        <Divider />
+        <span>Best window: <span style={{color:'var(--red)'}}>{SIGNAL.bestWindow}</span></span>
+        <Divider />
+        <span>Reach Δ {SIGNAL.reachDelta}</span>
+        <Divider />
+        <span>Trending: LOW-RISE POV +41%</span>
+        <Divider />
+        <span>Capture tonight: soundcheck + crowd</span>
+        <span style={{marginLeft:'auto', color:'var(--dimmer)'}}>Updated 2m ago</span>
+      </div>
+
+      {/* Media-as-hero dropzone */}
+      <div
+        onDragOver={e=>{e.preventDefault(); setDragHover(true);}}
+        onDragLeave={()=>setDragHover(false)}
+        onDrop={e=>{e.preventDefault(); setDragHover(false);}}
+        style={{
+          marginTop: 16,
+          border: `2px dashed ${dragHover ? 'var(--red)' : 'var(--border-bright)'}`,
+          background: dragHover ? 'rgba(255,42,26,0.04)' : 'transparent',
+          minHeight: 320,
+          position:'relative',
+          display:'grid',
+          gridTemplateColumns: '1fr 420px',
+          transition:'border-color .1s, background .1s',
+        }}>
+        <div style={{padding: 36, display:'flex', flexDirection:'column', justifyContent:'center'}}>
+          <div className="label label-red" style={{marginBottom: 10}}>Drop your moment</div>
+          <div className="hero" style={{fontSize: 88, lineHeight: 0.88}}>
+            DROP<br/>MEDIA
+          </div>
+          <div style={{color:'var(--dimmer)', marginTop: 14, fontSize: 12, letterSpacing:'0.16em', textTransform:'uppercase', fontWeight:700}}>
+            MP4 · MOV · PNG · JPG · up to 200MB · or paste a link
+          </div>
+          <div style={{display:'flex', gap: 10, marginTop: 22}}>
+            <button className="btn">Attach from disk</button>
+            <button className="btn btn-ghost">From library</button>
+            <button className="btn btn-ghost">Paste link</button>
+          </div>
+        </div>
+        <div style={{borderLeft:'1px solid var(--border)', padding: 24, background: 'var(--panel)'}}>
+          <div className="label label-red" style={{marginBottom: 10}}>What happened</div>
+          <textarea
+            value={text} onChange={e=>setText(e.target.value)}
+            rows={4}
+            style={{width:'100%', marginBottom: 14}}
+            placeholder="one line — show, studio, flight, release…" />
+          <UnifiedPicker
+            format={format} setFormat={setFormat}
+            platform={platform} setPlatform={setPlatform}
+            open={pickerOpen} setOpen={setPickerOpen} />
+          <div style={{display:'flex', gap: 8, marginTop: 14, alignItems:'center'}}>
+            <span className="kbd">⌘ ↵</span>
+            <button className="btn btn-red" style={{flex:1}} onClick={onGenerate}>⚡ Generate</button>
+          </div>
+          <div style={{marginTop: 14, paddingTop: 14, borderTop:'1px solid var(--border-dim)', fontSize: 11, color:'var(--dimmer)', letterSpacing:'0.14em', textTransform:'uppercase', fontWeight:700}}>
+            Voice: <span className="blink" style={{color:'var(--red)'}}>●</span> not trained · using lane defaults · <span style={{color:'var(--red)', textDecoration:'underline', cursor:'pointer'}}>Train →</span>
+          </div>
+        </div>
+      </div>
+
+      {view === 'post-generate' && (
+        <div style={{display:'grid', gridTemplateColumns:'1.4fr 1fr', gap: 16, marginTop: 18}}>
+          <div className="panel flash-red" style={{padding: 20}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 14}}>
+              <div>
+                <div className="label label-red">Caption · voice-aligned</div>
+                <div style={{fontSize: 10, letterSpacing: '0.18em', color:'var(--dimmer)', marginTop:6}}>
+                  {platform.toUpperCase()} · {format} · {CAPTIONS[variant].length} / {charLimit(platform, format)}{CAPTIONS[variant].length > charLimit(platform, format) ? ' · OVER' : ''}
+                </div>
+              </div>
+              <div style={{display:'flex', gap: 6}}>
+                {['SAFE','LOOSE','RAW'].map(v => (
+                  <button key={v} onClick={()=>setVariant(v)} className="btn"
+                    style={variant===v ? {borderColor:'var(--red)', color:'var(--red)'} : {}}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{
+              background: 'var(--input)', padding: 24, border: '1px solid var(--border-dim)',
+              fontSize: 20, lineHeight: 1.45, minHeight: 150, color: 'var(--dim)'
+            }}>
+              {CAPTIONS[variant]}
+            </div>
+            <div style={{display:'flex', gap: 14, marginTop: 16, alignItems:'center'}}>
+              <ScorePill label="Authenticity" value={SCORES.authenticity} max={10} />
+              <ScorePill label="Culture" value={SCORES.culture} max={10} />
+              <ScorePill label="Visual" value={SCORES.visual} max={10} />
+              <button className="btn" style={{marginLeft:'auto'}}>Repurpose →</button>
+              <button className="btn btn-red" onClick={onOpenApprove}>Schedule + Post →</button>
+            </div>
+          </div>
+          <div className="panel" style={{padding: 18}}>
+            <div className="label label-red" style={{marginBottom: 10}}>Scheduled for</div>
+            <div style={{fontSize: 36, fontWeight: 800, letterSpacing:'-0.03em', lineHeight: 1}}>
+              THU 18:00
+            </div>
+            <div style={{color:'var(--dimmer)', fontSize: 12, marginTop: 8, letterSpacing: '0.14em', textTransform:'uppercase', fontWeight:700}}>
+              Your best Reels window · reach +18%
+            </div>
+            <div className="hr" style={{margin:'16px 0'}}/>
+            <div className="label" style={{marginBottom: 8}}>Repurpose queue</div>
+            <div style={{display:'grid', gap: 6, fontSize: 12, color:'var(--dim)'}}>
+              <RepRow on platform="Instagram · Reel" />
+              <RepRow platform="Instagram · Carousel (4 slides)" />
+              <RepRow platform="TikTok · Vertical" />
+              <RepRow platform="Threads · Static + quote" />
+            </div>
+            <div style={{marginTop: 14, display:'flex', gap:8}}>
+              <button className="btn" style={{flex:1}}>Edit queue</button>
+              <button className="btn btn-red-out" style={{flex:1}} onClick={onOpenApprove}>Preview →</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom context strip */}
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap: 12, marginTop: 18}}>
+        <IntelCard title="Trend Engine" rows={TRENDS.slice(0,4).map(t => ({a:t.tag, b:t.pct}))} />
+        <IntelCard title="Capture list" rows={CAPTURES.map(c => ({a:c.kind, b:c.when}))} />
+        <IntelCard title="Signal" rows={[
+          {a:'Best window', b:SIGNAL.bestWindow},
+          {a:'Reach Δ', b:SIGNAL.reachDelta},
+          {a:'Top hours', b:SIGNAL.topEngagement},
+          {a:'Followers', b:SIGNAL.followers},
+        ]}/>
+      </div>
+    </div>
+  );
+};
+
+/* ---------- Small shared UI ---------- */
+
+const ScorePill = ({label, value, max}) => {
+  const pct = value / max;
+  const color = value >= 8 ? 'var(--red)' : value >= 6 ? 'var(--dim)' : 'var(--dimmer)';
+  return (
+    <div>
+      <div className="label" style={{marginBottom: 6}}>{label}</div>
+      <div style={{display:'flex', alignItems:'baseline', gap:6}}>
+        <span style={{fontSize: 22, fontWeight: 800, letterSpacing:'-0.02em', color}}>{value.toFixed(1)}</span>
+        <span style={{color:'var(--dimmest)', fontSize: 11}}>/ {max}</span>
+      </div>
+      <div style={{marginTop: 4, width: 90, height: 3, background:'var(--border)'}}>
+        <div style={{width: `${pct*100}%`, height: '100%', background: color}}/>
+      </div>
+    </div>
+  );
+};
+
+const Divider = () => <span style={{color:'var(--border-bright)'}}>│</span>;
+
+const IntelCard = ({ title, rows }) => (
+  <div className="panel" style={{padding: 14}}>
+    <div className="label label-red" style={{marginBottom: 12}}>{title}</div>
+    <div style={{display:'grid', gap: 8}}>
+      {rows.map((r,i)=>(
+        <div key={i} style={{
+          display:'flex', justifyContent:'space-between', alignItems:'baseline',
+          fontSize: 12, color:'var(--dim)',
+          paddingBottom: 6,
+          borderBottom: i === rows.length-1 ? 'none' : '1px solid var(--border-dim)'
+        }}>
+          <span>{r.a}</span>
+          <span style={{color:'var(--red)', fontWeight: 700, letterSpacing:'0.1em'}}>{r.b}</span>
+        </div>
+      ))}
+    </div>
+    <button className="btn btn-ghost" style={{marginTop: 12, width:'100%'}}>Open →</button>
+  </div>
+);
+
+const IntelligenceStrip = () => (
+  <div className="panel" style={{
+    padding: '14px 18px',
+    display:'grid',
+    gridTemplateColumns:'auto 1px 1fr 1px 1fr 1px 1fr',
+    alignItems:'center', gap: 18,
+  }}>
+    <div>
+      <div className="label label-red">Best window</div>
+      <div style={{fontSize:24, fontWeight:800, letterSpacing:'-0.02em', marginTop:4}}>
+        {SIGNAL.bestWindow} <span style={{color:'var(--red)', fontSize: 14, marginLeft: 6}}>{SIGNAL.reachDelta}</span>
+      </div>
+    </div>
+    <div style={{height: 40, background:'var(--border)'}}/>
+    <div>
+      <div className="label">Top trend</div>
+      <div style={{fontSize: 18, fontWeight:700, marginTop:4, letterSpacing:'-0.01em'}}>Low-rise POV <span style={{color:'var(--red)'}}>+41%</span></div>
+    </div>
+    <div style={{height: 40, background:'var(--border)'}}/>
+    <div>
+      <div className="label">Capture tonight</div>
+      <div style={{fontSize: 14, marginTop:4, color:'var(--dim)'}}>Warehouse 9 · POV + crowd wide</div>
+    </div>
+    <div style={{height: 40, background:'var(--border)'}}/>
+    <div>
+      <div className="label">Week reach</div>
+      <div style={{fontSize: 18, fontWeight:700, marginTop:4}}>{SIGNAL.weekReach} <span style={{color:'var(--dimmer)', fontSize: 12}}>· {SIGNAL.followers}</span></div>
+    </div>
+  </div>
+);
+
+const IntelRail = () => (
+  <div style={{display:'grid', gap: 12}}>
+    <div className="panel" style={{padding: 14}}>
+      <div className="label label-red rail-head" style={{marginBottom: 10}}>Trend Engine</div>
+      {TRENDS.map((t,i)=>(
+        <div key={i} className="rail-row" style={{
+          padding: '10px 0',
+          borderBottom: i === TRENDS.length-1 ? 'none' : '1px solid var(--border-dim)',
+        }}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
+            <span style={{fontSize: 13, fontWeight: 700}}>{t.tag}</span>
+            <span style={{color:'var(--red)', fontWeight: 700, fontSize: 12, letterSpacing:'0.08em'}}>{t.pct}</span>
+          </div>
+          <div className="rail-sub" style={{fontSize: 11, color:'var(--dimmer)', marginTop: 3}}>{t.note}</div>
+          <div className="rail-sub" style={{marginTop: 6, height: 3, background:'var(--border)'}}>
+            <div style={{width: `${t.heat*100}%`, height:'100%', background:'var(--red)'}}/>
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="panel" style={{padding: 14}}>
+      <div className="rail-head" style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 10}}>
+        <div className="label label-red">Capture list</div>
+        <span style={{fontSize: 10, color:'var(--dimmer)', letterSpacing:'0.2em'}}>NEXT 72H</span>
+      </div>
+      {CAPTURES.map((c,i)=>(
+        <div key={i} className="rail-row" style={{
+          padding: '10px 0',
+          borderBottom: i === CAPTURES.length-1 ? 'none' : '1px solid var(--border-dim)',
+        }}>
+          <div style={{display:'flex', justifyContent:'space-between'}}>
+            <span style={{fontSize: 12, fontWeight: 700, letterSpacing:'0.14em', textTransform:'uppercase'}}>{c.kind}</span>
+            <span style={{fontSize: 11, color:'var(--red)', fontWeight: 700, letterSpacing:'0.1em'}}>{c.when}</span>
+          </div>
+          <div style={{fontSize: 12, color:'var(--dim)', marginTop: 3}}>{c.where}</div>
+          <div className="rail-sub" style={{fontSize: 11, color:'var(--dimmer)', marginTop: 2}}>Need: {c.need}</div>
+        </div>
+      ))}
+    </div>
+    <div className="panel" style={{padding: 14}}>
+      <div className="label label-red" style={{marginBottom: 10}}>Signal</div>
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12}}>
+        <Stat label="Best window" value={SIGNAL.bestWindow} delta={SIGNAL.reachDelta} />
+        <Stat label="Best format" value={SIGNAL.bestFormat} />
+        <Stat label="Week reach" value={SIGNAL.weekReach} />
+        <Stat label="Followers" value={SIGNAL.followers} delta="7d" />
+      </div>
+    </div>
+  </div>
+);
+
+const Stat = ({label, value, delta}) => (
+  <div>
+    <div className="label" style={{marginBottom: 4}}>{label}</div>
+    <div style={{fontSize: 18, fontWeight: 800, letterSpacing:'-0.02em'}}>{value}</div>
+    {delta && <div style={{fontSize: 10, color:'var(--red)', letterSpacing:'0.1em', marginTop: 2}}>{delta}</div>}
+  </div>
+);
+
+const RepRow = ({platform, on}) => (
+  <div style={{
+    display:'flex', alignItems:'center', justifyContent:'space-between',
+    padding: '8px 10px',
+    background: on ? 'rgba(255,42,26,0.06)' : 'var(--input)',
+    border: `1px solid ${on ? 'var(--red)' : 'var(--border-dim)'}`,
+  }}>
+    <span style={{fontSize: 12, fontWeight: 700, letterSpacing:'0.1em', textTransform:'uppercase'}}>
+      {platform}
+    </span>
+    <span style={{fontSize: 10, color: on ? 'var(--red)' : 'var(--dimmer)', letterSpacing:'0.2em'}}>
+      {on ? '● LIVE' : 'QUEUED'}
+    </span>
+  </div>
+);
+
+/* ---------- Approve Modal ---------- */
+
+const ApproveModal = ({ open, onClose, radical }) => {
+  const [tab, setTab] = useState(radical ? 'SCHEDULE' : 'SCHEDULE');
+  const [variant, setVariant] = useState('LOOSE');
+  if (!open) return null;
+  return (
+    <div style={{
+      position:'fixed', inset: 0, zIndex: 500,
+      background:'rgba(0,0,0,0.82)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      padding: 40,
+    }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width: 1040, maxWidth: '100%', maxHeight: '92vh', overflow:'auto',
+        background: 'var(--bg)', border: '1px solid var(--red)',
+      }}>
+        <div style={{padding: '18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+          <div>
+            <div className="label label-red">Preview + Approve</div>
+            <div style={{fontSize:22, fontWeight: 800, letterSpacing:'-0.02em', marginTop: 4}}>Nothing outbound until you say so</div>
+          </div>
+          <div style={{display:'flex', gap: 6}}>
+            <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+
+        {/* Schedule-first tabs */}
+        <div style={{display:'flex', borderBottom: '1px solid var(--border)'}}>
+          {['SCHEDULE','NOW','DRAFT'].map(t=>(
+            <button key={t} onClick={()=>setTab(t)}
+              style={{
+                flex: 1, padding: '16px 20px',
+                background: 'transparent', border: 'none',
+                color: tab===t ? 'var(--red)' : 'var(--dimmer)',
+                borderBottom: `2px solid ${tab===t ? 'var(--red)' : 'transparent'}`,
+                fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: 12,
+                textAlign:'left',
+              }}>
+              {t}
+              {t==='SCHEDULE' && <span style={{display:'block', fontSize: 10, letterSpacing: '0.14em', color: tab==='SCHEDULE' ? 'var(--red-bright)' : 'var(--dimmest)', marginTop: 3, fontWeight: 500}}>
+                Recommended
+              </span>}
+              {t==='NOW' && <span style={{display:'block', fontSize: 10, letterSpacing:'0.14em', color:'var(--dimmest)', marginTop: 3, fontWeight: 500}}>Fires immediately</span>}
+              {t==='DRAFT' && <span style={{display:'block', fontSize: 10, letterSpacing:'0.14em', color:'var(--dimmest)', marginTop: 3, fontWeight: 500}}>Save & revisit</span>}
+            </button>
+          ))}
+        </div>
+
+        <div style={{display:'grid', gridTemplateColumns:'360px 1fr', gap: 0}}>
+          {/* LEFT: visual preview */}
+          <div style={{padding: 20, borderRight:'1px solid var(--border)', background:'var(--panel)'}}>
+            <div className="label" style={{marginBottom: 8}}>Instagram · Reel · 9:16</div>
+            <div style={{
+              aspectRatio: '9 / 16',
+              background: 'repeating-linear-gradient(135deg, #141414 0 8px, #0e0e0e 8px 16px)',
+              border: '1px solid var(--border)', position:'relative',
+              display:'flex', alignItems:'flex-end', padding: 14,
+            }}>
+              <div style={{
+                position:'absolute', top: 10, left: 10,
+                fontSize: 9, letterSpacing: '0.2em', fontWeight: 700,
+                color:'var(--dimmer)'
+              }}>◉ REEL PREVIEW</div>
+              <div style={{
+                position:'absolute', top: 10, right: 10,
+                fontSize: 9, letterSpacing: '0.2em', fontWeight: 700,
+                color:'var(--red)'
+              }}>● 0:18</div>
+              <div style={{fontSize: 11, color:'var(--dim)', lineHeight: 1.4, maxWidth: 240, background:'rgba(0,0,0,0.7)', padding: 8, border:'1px solid var(--border-dim)'}}>
+                {CAPTIONS[variant]}
+              </div>
+            </div>
+            <div style={{marginTop: 10, display:'flex', gap: 6}}>
+              {['SAFE','LOOSE','RAW'].map(v => (
+                <button key={v} onClick={()=>setVariant(v)} className="btn" style={{
+                  flex: 1,
+                  ...(variant===v ? {borderColor:'var(--red)', color:'var(--red)'} : {})
+                }}>{v}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* RIGHT: schedule details */}
+          <div style={{padding: 24}}>
+            {tab === 'SCHEDULE' && (
+              <>
+                <div className="label label-red" style={{marginBottom: 12}}>Recommended window</div>
+                <div style={{display:'flex', alignItems:'baseline', gap: 14, marginBottom: 14}}>
+                  <div style={{fontSize: 56, fontWeight: 800, letterSpacing:'-0.03em', lineHeight: 1}}>
+                    THU 18:00
+                  </div>
+                  <div style={{color:'var(--red)', fontSize: 22, fontWeight: 800, letterSpacing:'-0.02em'}}>
+                    +18%
+                  </div>
+                </div>
+                <div style={{color:'var(--dim)', fontSize: 13, marginBottom: 18}}>
+                  Your best Reels window based on 7-day engagement. Followers online 6pm–9pm, peak scroll 18:00–18:20.
+                </div>
+
+                {/* Heatmap */}
+                <div className="label" style={{marginBottom: 8}}>7-day engagement heat</div>
+                <div style={{display:'grid', gridTemplateColumns:'auto repeat(7, 1fr)', gap: 3, marginBottom: 18}}>
+                  <div></div>
+                  {['M','T','W','T','F','S','S'].map((d,i)=>(
+                    <div key={i} style={{fontSize: 10, color:'var(--dimmer)', textAlign:'center', letterSpacing:'0.1em'}}>{d}</div>
+                  ))}
+                  {['06','12','18','22'].map(hr => (
+                    <React.Fragment key={hr}>
+                      <div style={{fontSize: 9, color:'var(--dimmest)', letterSpacing:'0.1em', textAlign:'right', paddingRight:6}}>{hr}</div>
+                      {[0,1,2,3,4,5,6].map(day => {
+                        const h = day === 3 && hr === '18' ? 1 : Math.random() * 0.8;
+                        const active = day === 3 && hr === '18';
+                        return <div key={day+hr} style={{
+                          height: 18,
+                          background: active ? 'var(--red)' : `rgba(255,42,26,${h * 0.6})`,
+                          border: active ? '1px solid var(--red-bright)' : '1px solid transparent',
+                        }}/>;
+                      })}
+                    </React.Fragment>
+                  ))}
+                </div>
+
+                <div className="hr" style={{marginBottom: 18}}/>
+
+                <div style={{display:'flex', gap: 14, marginBottom: 18}}>
+                  <div style={{flex:1}}>
+                    <div className="label" style={{marginBottom: 6}}>Day</div>
+                    <input defaultValue="Thu Apr 23" style={{width:'100%'}}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div className="label" style={{marginBottom: 6}}>Time</div>
+                    <input defaultValue="18:00 CET" style={{width:'100%'}}/>
+                  </div>
+                </div>
+
+                <div className="label" style={{marginBottom: 8}}>Also queue</div>
+                <div style={{display:'grid', gap: 6, marginBottom: 20}}>
+                  <RepRow on platform="Instagram · Reel (primary)" />
+                  <RepRow platform="Instagram · Carousel · Fri 10:00" />
+                  <RepRow platform="TikTok · Vertical · Thu 20:30" />
+                </div>
+
+                <div style={{display:'flex', gap: 10, justifyContent:'flex-end', paddingTop: 14, borderTop:'1px solid var(--border)'}}>
+                  <button className="btn btn-ghost" onClick={()=>{
+                    if (window.confirm('Discard this caption? This cannot be undone.')) onClose();
+                  }}>Discard</button>
+                  <button className="btn" onClick={onClose}>Save draft</button>
+                  <button className="btn btn-red" onClick={onClose}>Schedule Thu 18:00 →</button>
+                </div>
+              </>
+            )}
+            {tab === 'NOW' && (
+              <div>
+                <div className="label label-red" style={{marginBottom: 10}}>Post right now</div>
+                <div style={{fontSize: 22, fontWeight: 800, marginBottom: 10, letterSpacing:'-0.02em'}}>
+                  This will fire immediately to Instagram.
+                </div>
+                <div style={{color:'var(--dim)', marginBottom: 22, fontSize: 13}}>
+                  Your best window is Thu 18:00 (+18% reach). Posting now gives an estimated −12% versus scheduled.
+                </div>
+                <div style={{display:'flex', gap: 10, justifyContent:'flex-end'}}>
+                  <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                  <button className="btn btn-red" onClick={onClose}>Post now →</button>
+                </div>
+              </div>
+            )}
+            {tab === 'DRAFT' && (
+              <div>
+                <div className="label label-red" style={{marginBottom: 10}}>Save as draft</div>
+                <div style={{color:'var(--dim)', marginBottom: 16, fontSize: 13}}>Stays in your drawer. No outbound fires.</div>
+                <input defaultValue="warehouse 9 — three rooms" placeholder="Draft name" style={{width:'100%', marginBottom: 16}}/>
+                <div style={{display:'flex', gap: 10, justifyContent:'flex-end'}}>
+                  <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                  <button className="btn btn-red" onClick={onClose}>Save draft →</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ---------- Signal Scan Modal (optional peek) ---------- */
+
+const SCAN_SOURCES = [
+  { key:'calendar',  label:'Calendar',           detail:'tour + studio blocks' },
+  { key:'refs',      label:'Reference artists',  detail:'3 tracked · last 24h' },
+  { key:'trends',    label:'Platform trends',    detail:'IG · TikTok · Threads' },
+  { key:'captures',  label:'Unposted captures',  detail:'camera roll · voice notes' },
+  { key:'fans',      label:'Fan signal',         detail:'comments · DMs · saves' },
+];
+
+const SCAN_RESULTS = {
+  captures: [
+    { id:'c1', type:'VIDEO',  title:'Soundcheck — 0:42',     meta:'last night · Brixton · unposted',    score: 94, tag:'HERO', fit:'Reel · 9:16' },
+    { id:'c2', type:'PHOTO',  title:'Dressing room mirror',  meta:'2h ago · iPhone · unposted',         score: 81, tag:'STRONG', fit:'Story · 9:16' },
+    { id:'c3', type:'VOICE',  title:'Voice memo — "the bit about Tuesdays"', meta:'yesterday · 0:28',  score: 73, tag:'CAPTION', fit:'Threads · 500ch' },
+  ],
+  trends: [
+    { id:'t1', label:'Low-rise POV',    delta:'+41%', window:'24h',  note:'trending across tracked refs' },
+    { id:'t2', label:'Raw soundcheck',  delta:'+22%', window:'7d',   note:'format momentum, IG Reels' },
+    { id:'t3', label:'Backstage b-roll',delta:'+18%', window:'7d',   note:'holding — post window open' },
+    { id:'t4', label:'Studio vlog',     delta:'−9%',  window:'24h',  note:'cooling — deprioritize', cold:true },
+  ],
+  conflicts: [
+    { id:'x1', kind:'SCHEDULE', msg:'THU 18:00 slot has a queued Reel already.' },
+    { id:'x2', kind:'VOICE',    msg:'Voice model flagged 2 captions as off-tone. Review before posting.' },
+  ],
+  windows: [
+    { day:'THU', time:'18:00', lift:'+18%', primary:true },
+    { day:'FRI', time:'12:30', lift:'+11%' },
+    { day:'SAT', time:'21:15', lift:'+14%' },
+  ],
+};
+
+const ScanModal = ({ open, onClose }) => {
+  const [phase, setPhase] = useState('intro'); // 'intro' | 'running' | 'results'
+  const [progress, setProgress] = useState(0);
+  const [activeTab, setActiveTab] = useState('captures');
+  const [picked, setPicked] = useState({});
+
+  useEffect(() => {
+    if (!open) { setPhase('intro'); setProgress(0); setPicked({}); setActiveTab('captures'); }
+  }, [open]);
+
+  useEffect(() => {
+    if (phase !== 'running') return;
+    let p = 0;
+    const t = setInterval(() => {
+      p += 1;
+      setProgress(p);
+      if (p >= SCAN_SOURCES.length) { clearInterval(t); setTimeout(()=>setPhase('results'), 300); }
+    }, 380);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  if (!open) return null;
+
+  const togglePick = (id) => setPicked(prev => ({...prev, [id]: !prev[id]}));
+  const pickedCount = Object.values(picked).filter(Boolean).length;
+
+  const width = phase === 'results' ? 880 : 560;
+
+  return (
+    <div style={{
+      position:'fixed', inset: 0, zIndex: 500,
+      background:'rgba(0,0,0,0.82)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      padding: 40,
+    }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width, maxWidth:'100%', maxHeight:'90vh', overflow:'auto',
+        background: 'var(--bg)', border: '1px solid var(--red)',
+        transition:'width .25s ease'
+      }}>
+
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+          <div>
+            <div className="label label-red">Signal Scan</div>
+            <div style={{fontSize:20, fontWeight:800, letterSpacing:'-0.02em', marginTop:4}}>
+              {phase==='intro'    && 'Sweep the last 24h for capture opportunities.'}
+              {phase==='running'  && 'Scanning…'}
+              {phase==='results'  && 'Scan complete — 3 captures, 4 trends, 2 conflicts.'}
+            </div>
+          </div>
+          <button className="btn btn-ghost" onClick={onClose}>Close ✕</button>
+        </div>
+
+        {/* INTRO */}
+        {phase === 'intro' && (
+          <div style={{padding: 22}}>
+            <div style={{color:'var(--dim)', fontSize: 13, marginBottom: 18, maxWidth: 440}}>
+              Cross-references your calendar, tour schedule, reference-artist output, and unposted captures. Returns a ranked capture list + trend diffs.
+            </div>
+            <div style={{display:'grid', gap: 6, marginBottom: 22}}>
+              {SCAN_SOURCES.map(s => (
+                <div key={s.key} style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', border:'1px solid var(--border)', background:'var(--panel)'}}>
+                  <span style={{width:6, height:6, borderRadius:'50%', background:'var(--border-bright)'}}/>
+                  <span style={{fontWeight:700, fontSize:12, letterSpacing:'0.06em'}}>{s.label.toUpperCase()}</span>
+                  <span style={{color:'var(--dimmest)', fontSize:11, marginLeft:'auto'}}>{s.detail}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex', gap: 8, justifyContent:'flex-end'}}>
+              <button className="btn btn-ghost" onClick={onClose}>Later</button>
+              <button className="btn btn-red" onClick={()=>setPhase('running')}>Run scan →</button>
+            </div>
+          </div>
+        )}
+
+        {/* RUNNING */}
+        {phase === 'running' && (
+          <div style={{padding: 22}}>
+            <div style={{display:'grid', gap: 6, marginBottom: 22}}>
+              {SCAN_SOURCES.map((s, i) => {
+                const done = i < progress;
+                const active = i === progress;
+                return (
+                  <div key={s.key} style={{
+                    display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+                    border:'1px solid ' + (active ? 'var(--red)' : 'var(--border)'),
+                    background: active ? 'rgba(255,42,26,0.06)' : 'var(--panel)',
+                    opacity: done ? 0.55 : 1
+                  }}>
+                    <span style={{
+                      width:6, height:6, borderRadius:'50%',
+                      background: done ? 'var(--red)' : active ? 'var(--red-bright)' : 'var(--border-bright)',
+                      animation: active ? 'pulse 1s ease-in-out infinite' : 'none'
+                    }}/>
+                    <span style={{fontWeight:700, fontSize:12, letterSpacing:'0.06em'}}>{s.label.toUpperCase()}</span>
+                    <span style={{color:'var(--dimmest)', fontSize:11, marginLeft:'auto'}}>
+                      {done ? '✓ done' : active ? 'scanning…' : 'queued'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{height: 2, background:'var(--border)', position:'relative', marginBottom: 14}}>
+              <div style={{
+                position:'absolute', left:0, top:0, bottom:0,
+                width: `${(progress / SCAN_SOURCES.length) * 100}%`,
+                background:'var(--red)', transition:'width .3s ease'
+              }}/>
+            </div>
+            <div style={{fontSize: 11, letterSpacing:'0.18em', color:'var(--dimmer)', textTransform:'uppercase'}}>
+              {progress} / {SCAN_SOURCES.length} sources
+            </div>
+          </div>
+        )}
+
+        {/* RESULTS */}
+        {phase === 'results' && (
+          <div>
+            {/* Summary strip */}
+            <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', borderBottom:'1px solid var(--border)'}}>
+              {[
+                {k:'Captures',  v: SCAN_RESULTS.captures.length, sub:'unposted'},
+                {k:'Trends',    v: SCAN_RESULTS.trends.length,   sub:'tracked'},
+                {k:'Conflicts', v: SCAN_RESULTS.conflicts.length,sub:'flagged',  red:true},
+                {k:'Best post window', v: 'THU 18:00', sub:'+18% lift', big:true},
+              ].map((s, i) => (
+                <div key={i} style={{
+                  padding:'16px 18px',
+                  borderRight: i < 3 ? '1px solid var(--border)' : 'none',
+                  background: s.red ? 'rgba(255,42,26,0.04)' : 'transparent'
+                }}>
+                  <div className="label" style={{color: s.red ? 'var(--red-bright)':'var(--dimmest)'}}>{s.k}</div>
+                  <div style={{fontSize: s.big ? 20 : 28, fontWeight:800, letterSpacing:'-0.02em', marginTop: 4, color: s.red?'var(--red-bright)':'var(--text)'}}>{s.v}</div>
+                  <div style={{fontSize: 11, color:'var(--dimmer)', marginTop: 2}}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tabs */}
+            <div style={{display:'flex', gap: 0, borderBottom:'1px solid var(--border)', padding:'0 14px'}}>
+              {[
+                {k:'captures',  label:`Captures · ${SCAN_RESULTS.captures.length}`},
+                {k:'trends',    label:`Trends · ${SCAN_RESULTS.trends.length}`},
+                {k:'conflicts', label:`Conflicts · ${SCAN_RESULTS.conflicts.length}`, red:true},
+                {k:'windows',   label:`Windows · ${SCAN_RESULTS.windows.length}`},
+              ].map(t => (
+                <button key={t.k}
+                  onClick={()=>setActiveTab(t.k)}
+                  style={{
+                    background:'transparent', border:'none', color: activeTab===t.k ? 'var(--text)' : 'var(--dimmer)',
+                    padding: '12px 14px', fontSize: 11, letterSpacing:'0.18em', textTransform:'uppercase', fontWeight:700,
+                    borderBottom: activeTab===t.k ? '2px solid var(--red)' : '2px solid transparent',
+                    marginBottom: -1
+                  }}>
+                  {t.red && <span style={{color:'var(--red-bright)', marginRight: 4}}>!</span>}
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{padding: 22, maxHeight: 420, overflow:'auto'}}>
+
+              {activeTab === 'captures' && (
+                <div style={{display:'grid', gap: 8}}>
+                  {SCAN_RESULTS.captures.map(c => (
+                    <label key={c.id} style={{
+                      display:'grid', gridTemplateColumns:'auto 72px 1fr auto auto', gap: 14, alignItems:'center',
+                      padding:'12px 14px',
+                      border:'1px solid ' + (picked[c.id] ? 'var(--red)' : 'var(--border)'),
+                      background: picked[c.id] ? 'rgba(255,42,26,0.05)' : 'var(--panel)',
+                      cursor:'pointer'
+                    }}>
+                      <input type="checkbox" checked={!!picked[c.id]} onChange={()=>togglePick(c.id)}
+                        style={{accentColor:'var(--red)', width:16, height:16}}/>
+                      <div style={{
+                        width: 72, height: 48,
+                        background:'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%)',
+                        border:'1px solid var(--border-bright)',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize: 9, letterSpacing:'0.22em', fontWeight:700, color:'var(--dimmest)'
+                      }}>{c.type}</div>
+                      <div>
+                        <div style={{fontWeight:700, fontSize:14, marginBottom: 2}}>{c.title}</div>
+                        <div style={{fontSize: 11, color:'var(--dimmest)'}}>{c.meta} · fits {c.fit}</div>
+                      </div>
+                      <div style={{
+                        padding:'2px 8px', fontSize: 9, letterSpacing:'0.2em', fontWeight:700,
+                        border:'1px solid var(--red)', color:'var(--red-bright)'
+                      }}>{c.tag}</div>
+                      <div style={{textAlign:'right', minWidth: 44}}>
+                        <div style={{fontSize: 22, fontWeight:800, letterSpacing:'-0.02em'}}>{c.score}</div>
+                        <div className="label" style={{color:'var(--dimmest)'}}>score</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'trends' && (
+                <div style={{display:'grid', gap: 8}}>
+                  {SCAN_RESULTS.trends.map(t => (
+                    <div key={t.id} style={{
+                      display:'grid', gridTemplateColumns:'1fr auto auto', gap: 14, alignItems:'center',
+                      padding:'12px 14px', border:'1px solid var(--border)', background:'var(--panel)'
+                    }}>
+                      <div>
+                        <div style={{fontWeight:700, fontSize:14, marginBottom: 2}}>{t.label}</div>
+                        <div style={{fontSize: 11, color:'var(--dimmest)'}}>{t.note}</div>
+                      </div>
+                      <div className="label" style={{color:'var(--dimmest)'}}>{t.window}</div>
+                      <div style={{
+                        fontSize: 20, fontWeight:800, letterSpacing:'-0.02em', minWidth: 64, textAlign:'right',
+                        color: t.cold ? 'var(--dimmer)' : 'var(--red-bright)'
+                      }}>{t.delta}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'conflicts' && (
+                <div style={{display:'grid', gap: 8}}>
+                  {SCAN_RESULTS.conflicts.map(c => (
+                    <div key={c.id} style={{
+                      display:'flex', gap: 14, alignItems:'flex-start',
+                      padding:'14px 16px', border:'1px solid var(--red-deep)',
+                      background:'rgba(255,42,26,0.05)'
+                    }}>
+                      <div style={{
+                        padding:'2px 8px', fontSize: 9, letterSpacing:'0.2em', fontWeight:700,
+                        border:'1px solid var(--red)', color:'var(--red-bright)', flexShrink:0, marginTop: 2
+                      }}>{c.kind}</div>
+                      <div style={{fontSize: 13, lineHeight: 1.5}}>{c.msg}</div>
+                      <button className="btn btn-ghost" style={{marginLeft:'auto', flexShrink:0}}>Resolve →</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'windows' && (
+                <div style={{display:'grid', gap: 8}}>
+                  {SCAN_RESULTS.windows.map((w, i) => (
+                    <div key={i} style={{
+                      display:'grid', gridTemplateColumns:'64px 1fr auto auto', gap: 14, alignItems:'center',
+                      padding:'14px 16px',
+                      border:'1px solid ' + (w.primary ? 'var(--red)' : 'var(--border)'),
+                      background: w.primary ? 'rgba(255,42,26,0.06)' : 'var(--panel)'
+                    }}>
+                      <div style={{fontSize: 20, fontWeight:800, letterSpacing:'0.02em'}}>{w.day}</div>
+                      <div style={{fontSize: 18, fontWeight:600, letterSpacing:'-0.01em'}}>{w.time}</div>
+                      <div style={{fontSize: 18, fontWeight:800, color:'var(--red-bright)'}}>{w.lift}</div>
+                      <button className="btn">{w.primary ? 'Use →' : 'Use'}</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding:'14px 22px', borderTop:'1px solid var(--border)',
+              display:'flex', alignItems:'center', gap: 14, background:'var(--panel)'
+            }}>
+              <div style={{fontSize: 11, letterSpacing:'0.18em', color:'var(--dimmer)', textTransform:'uppercase'}}>
+                {pickedCount > 0
+                  ? <><span style={{color:'var(--red-bright)'}}>{pickedCount} selected</span> · ready to compose</>
+                  : 'Select captures to pull into composer'}
+              </div>
+              <div style={{marginLeft:'auto', display:'flex', gap: 8}}>
+                <button className="btn btn-ghost" onClick={()=>setPhase('intro')}>Scan again</button>
+                <button className="btn" onClick={onClose}>Save to inbox</button>
+                <button className="btn btn-red" onClick={onClose} disabled={pickedCount===0}
+                  style={{opacity: pickedCount===0 ? 0.45 : 1}}>
+                  Pull {pickedCount || ''} into composer →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ---------- App ---------- */
+
+const App = () => {
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+  const [view, setView] = useState('post-generate'); // 'compose' | 'post-generate'
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
+  // Persist state in localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('brt-state');
+    if (saved) {
+      try {
+        const s = JSON.parse(saved);
+        if (s.variant) setTweaks(t => ({...t, variant: s.variant}));
+        if (s.view) setView(s.view);
+      } catch(e){}
+    }
+  }, []);
+  useEffect(() => {
+    localStorage.setItem('brt-state', JSON.stringify({variant, view}));
+  }, [variant, view]);
+
+  // Tweaks protocol
+  useEffect(() => {
+    const onMsg = (e) => {
+      const d = e.data || {};
+      if (d.type === '__activate_edit_mode') setEditMode(true);
+      if (d.type === '__deactivate_edit_mode') setEditMode(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({type: '__edit_mode_available'}, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const setTweak = (k, v) => {
+    setTweaks(t => {
+      const nv = typeof v === 'function' ? v(t[k]) : v;
+      window.parent.postMessage({type:'__edit_mode_set_keys', edits: {[k]: nv}}, '*');
+      return {...t, [k]: nv};
+    });
+  };
+
+  // apply tweaks
+  useEffect(() => {
+    document.body.style.setProperty('--grain-display', tweaks.showGrain ? 'block' : 'none');
+  }, [tweaks.showGrain]);
+
+  // Quiet mode -> body class
+  useEffect(() => {
+    if (tweaks.quietMode) document.body.classList.add('quiet');
+    else document.body.classList.remove('quiet');
+  }, [tweaks.quietMode]);
+
+  const variant = tweaks.variant;
+  const VariantComp = variant === 'minimal' ? VariantMinimal
+                    : variant === 'radical' ? VariantRadical
+                    : VariantSplit;
+
+  return (
+    <div>
+      <style>{`
+        body::after { opacity: ${tweaks.showGrain ? 0.35 : 0} !important; }
+        body::before { opacity: ${tweaks.showScanlines ? 1 : 0} !important; }
+      `}</style>
+      <div className="switcher">
+        <div className="switcher-inner">
+          <div style={{display:'flex', alignItems:'center', gap: 10}}>
+            <BrandMark />
+            <span className="label">Broadcast Lab</span>
+            <span style={{color:'var(--dimmer)', fontSize:11, letterSpacing:'0.14em', textTransform:'uppercase', fontWeight:700}}>
+              · Split pane
+            </span>
+          </div>
+          <div style={{marginLeft: 'auto', display:'flex', gap: 6, alignItems:'center'}}>
+            <button
+              className={`switch-tab ${tweaks.quietMode?'on':''}`}
+              onClick={()=>setTweak('quietMode', v => !v)}
+              title="Dim secondary labels & compress rail"
+              style={tweaks.quietMode ? {display:'inline-flex', alignItems:'center', gap:6} : {display:'inline-flex', alignItems:'center', gap:6}}
+            >
+              <span style={{width:8, height:8, borderRadius:'50%', background: tweaks.quietMode?'var(--red)':'var(--border-bright)', display:'inline-block'}}/>
+              Quiet mode {tweaks.quietMode?'on':'off'}
+            </button>
+          </div>
+          <div style={{width: 1, height: 24, background:'var(--border)'}}/>
+          <div style={{display:'flex', gap: 6, alignItems:'center'}}>
+            <span className="label" style={{color:'var(--dimmest)', marginRight: 4}}>Demo state →</span>
+            <button className={`switch-tab ${view==='compose'?'on':''}`} onClick={()=>setView('compose')} title="Design-mode state jump: Compose">Compose</button>
+            <button className={`switch-tab ${view==='post-generate'?'on':''}`} onClick={()=>setView('post-generate')} title="Design-mode state jump: After generate">Post-generate</button>
+            <button className={`switch-tab ${approveOpen?'on':''}`} onClick={()=>setApproveOpen(true)} title="Design-mode state jump: Approve modal">Approve modal</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="page" data-screen-label={`BRT ${variant} / ${view}`}>
+        <Sidebar collapsed={tweaks.sidebarCollapsed} />
+        <main className="main">
+          <PageHeader view={view} onOpenScan={()=>setScanOpen(true)} />
+          <VariantComp
+            view={view}
+            onGenerate={()=>setView('post-generate')}
+            onOpenApprove={()=>setApproveOpen(true)} />
+        </main>
+      </div>
+
+      <ApproveModal open={approveOpen} onClose={()=>setApproveOpen(false)} radical={variant==='radical'} />
+      <ScanModal open={scanOpen} onClose={()=>setScanOpen(false)} />
+
+      {editMode && (
+        <div className="tweaks">
+          <h4>◉ Tweaks</h4>
+          <label>Variant
+            <select value={variant} onChange={e=>setTweak('variant', e.target.value)}
+              style={{background:'var(--input)', color:'var(--text)', border:'1px solid var(--border-bright)', padding: '4px 6px', fontSize: 11}}>
+              <option value="minimal">Minimal</option>
+              <option value="split">Split pane</option>
+              <option value="radical">Radical</option>
+            </select>
+          </label>
+          <label>View
+            <select value={view} onChange={e=>setView(e.target.value)}
+              style={{background:'var(--input)', color:'var(--text)', border:'1px solid var(--border-bright)', padding: '4px 6px', fontSize: 11}}>
+              <option value="compose">Compose</option>
+              <option value="post-generate">Post-generate</option>
+            </select>
+          </label>
+          <label>Scanlines
+            <input type="checkbox" checked={tweaks.showScanlines} onChange={e=>setTweak('showScanlines', e.target.checked)} />
+          </label>
+          <label>Grain
+            <input type="checkbox" checked={tweaks.showGrain} onChange={e=>setTweak('showGrain', e.target.checked)} />
+          </label>
+          <label>Collapse sidebar
+            <input type="checkbox" checked={tweaks.sidebarCollapsed} onChange={e=>setTweak('sidebarCollapsed', e.target.checked)} />
+          </label>
+          <div style={{marginTop:10, display:'flex', gap:6}}>
+            <button className="btn btn-red-out" style={{flex:1}} onClick={()=>setApproveOpen(true)}>Open approve modal</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>

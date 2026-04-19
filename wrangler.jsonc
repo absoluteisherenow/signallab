@@ -13,4 +13,9 @@
       "bucket_name": "signal-lab-media"
     }
   ]
+  // NOTE: cron trigger intentionally NOT wired here. CF cron fires the Worker's
+  // `scheduled` handler, which OpenNext doesn't route to Next.js API routes.
+  // Until a scheduled hook is built, scheduled posts are published by hitting
+  // /api/crons/publish-scheduled externally (cron-job.org with CRON_SECRET
+  // bearer), or manually. "Post now" is the in-product immediate path.
 }

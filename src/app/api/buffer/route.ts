@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireConfirmed } from '@/lib/require-confirmed'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,7 +12,10 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'Buffer token not configured' }, { status: 500 })
 
   try {
-    const { text, media_urls, channels, post_format } = await req.json()
+    const body = await req.json()
+    const gate = requireConfirmed(body)
+    if (gate) return gate
+    const { text, media_urls, channels, post_format } = body
 
     // Buffer channel IDs — only platforms currently connected
     const channelMap: Record<string, string> = {

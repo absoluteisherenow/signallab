@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireCronAuth } from '@/lib/cron-auth'
 
 // Vercel cron: runs daily at 09:00 UTC
 // Fetches engagement for posted scheduled_posts not yet synced (24h+ after going live)
@@ -32,6 +33,9 @@ async function fetchEngagement(platformPostId: string): Promise<{ likes: number;
 }
 
 export async function GET(req: NextRequest) {
+  const unauth = requireCronAuth(req, 'sync-performance')
+  if (unauth) return unauth
+
   try {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 

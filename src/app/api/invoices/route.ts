@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
         type: body.type || 'full',
         status: 'pending',
         due_date: body.due_date || null,
+        gig_date: body.gig_date || null,
         wht_rate: body.wht_rate || null,
         artist_name: body.artist_name || null,
         notes: body.notes || null,

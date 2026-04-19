@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Artist Voice · v2 · one screen</title>
+<style>
+  :root{
+    --bg:#050505;
+    --panel:#0c0c0c;
+    --panel-2:#111;
+    --text:#f4f4f4;
+    --dim:#9a9a9a;
+    --dimmer:#5a5a5a;
+    --dimmest:#2e2e2e;
+    --border:#1a1a1a;
+    --border-bright:#262626;
+    --red:#ff2a1a;
+    --red-bright:#ff5a47;
+    --green:#4eff9f;
+    --input:#0a0a0a;
+    --font:"Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);height:100vh;overflow:hidden}
+  body{-webkit-font-smoothing:antialiased;letter-spacing:-0.005em;display:flex;flex-direction:column}
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
+    background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+    mix-blend-mode:overlay;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:61;opacity:0.28;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06  0 0 0 0 0.06  0 0 0 0 0.06  0 0 0 0.24 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-size:160px 160px;
+  }
+
+  .page{
+    flex:1;min-height:0;
+    display:grid;
+    grid-template-rows:auto auto 1fr;
+    padding:20px 32px 24px;
+    gap:16px;
+    position:relative;z-index:1;
+  }
+
+  /* — header (compact) — */
+  .hdr{
+    display:flex;align-items:baseline;justify-content:space-between;gap:24px;
+    padding-bottom:14px;border-bottom:1px solid var(--border);
+  }
+  .hdr-left{display:flex;align-items:baseline;gap:18px;min-width:0}
+  .eyebrow{
+    font-size:10px;letter-spacing:0.3em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+    flex-shrink:0;
+  }
+  .title{
+    font-size:42px;font-weight:900;letter-spacing:-0.035em;line-height:1;flex-shrink:0;
+  }
+  .subtitle{
+    color:var(--dim);font-size:12px;line-height:1.45;letter-spacing:0.005em;
+    max-width:480px;
+  }
+  .subtitle strong{color:var(--text);font-weight:700}
+  .hdr-meta{
+    text-align:right;flex-shrink:0;
+    font-size:10px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+    display:flex;align-items:baseline;gap:16px;
+  }
+  .hdr-score{display:flex;align-items:baseline;gap:6px}
+  .hdr-score .big{font-size:28px;font-weight:900;letter-spacing:-0.03em;color:var(--text)}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:middle}
+
+  /* — references row — */
+  .refs{
+    display:grid;grid-template-columns:repeat(5, minmax(0,1fr));gap:10px;
+  }
+  .ref{
+    background:var(--panel);border:1px solid var(--border-bright);padding:12px;
+    display:flex;flex-direction:column;gap:8px;min-width:0;
+    transition:border-color .1s;
+  }
+  .ref:hover{border-color:var(--dim)}
+  .ref.self{border-color:var(--red)}
+  .ref-head{display:flex;align-items:baseline;justify-content:space-between;gap:6px;min-width:0}
+  .ref-name{font-size:13px;font-weight:800;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ref-src{font-size:9px;letter-spacing:0.2em;color:var(--dimmer);font-weight:700;text-transform:uppercase;flex-shrink:0}
+  .ref-self-tag{font-size:9px;letter-spacing:0.2em;color:var(--red);font-weight:700;flex-shrink:0}
+  .ref-sample{
+    font-size:11px;line-height:1.4;color:var(--dim);
+    padding:6px 8px;background:var(--input);border-left:2px solid var(--border-bright);
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  }
+  .ref-tags{display:flex;gap:4px;flex-wrap:wrap}
+  .tag{
+    font-size:8px;letter-spacing:0.18em;font-weight:700;text-transform:uppercase;
+    padding:2px 5px;border:1px solid var(--border-bright);color:var(--dim);
+  }
+  .ref-weight{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:6px;border-top:1px solid var(--border)}
+  .ref-weight-label{font-size:8px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase}
+  .bar{flex:1;height:2px;background:var(--border);position:relative}
+  .bar .fill{position:absolute;top:0;left:0;bottom:0;background:var(--red)}
+  .bar-val{font-size:10px;color:var(--text);font-weight:700;min-width:22px;text-align:right}
+
+  .ref-add{
+    background:transparent;border:1px dashed var(--border-bright);color:var(--dimmer);
+    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;
+    cursor:pointer;
+  }
+  .ref-add:hover{border-color:var(--red);color:var(--red)}
+  .ref-add-plus{font-size:28px;font-weight:300;line-height:1}
+  .ref-add-label{font-size:9px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase}
+
+  /* — comparison row — */
+  .compare{
+    display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0;
+  }
+  .panel{
+    background:var(--panel);border:1px solid var(--border-bright);padding:18px;
+    display:flex;flex-direction:column;gap:12px;min-height:0;
+  }
+  .panel.aligned{border-color:var(--red)}
+  .panel-head{
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  }
+  .panel-label{
+    font-size:10px;letter-spacing:0.28em;font-weight:700;text-transform:uppercase;
+  }
+  .panel.aligned .panel-label{color:var(--red)}
+  .panel.drift .panel-label{color:var(--dimmer)}
+  .panel-status{font-size:10px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase}
+  .panel-status.ok{color:var(--green)}
+  .panel-status.fail{color:var(--red)}
+
+  .prompt-row{
+    font-size:10px;letter-spacing:0.2em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+    display:flex;gap:10px;align-items:baseline;
+  }
+  .prompt-val{color:var(--text);font-size:12px;text-transform:none;letter-spacing:-0.005em;font-weight:500}
+
+  .body{
+    flex:1;min-height:0;overflow:auto;
+    font-size:18px;line-height:1.5;letter-spacing:-0.008em;
+    padding:16px;background:var(--input);border:1px solid var(--border-bright);
+    font-weight:500;
+  }
+  .panel.drift .body{color:var(--dim);font-weight:400}
+  .flag{
+    color:var(--red);text-decoration:underline;text-decoration-color:var(--red);text-decoration-thickness:2px;
+    position:relative;cursor:help;
+  }
+  .flag::after{
+    content:attr(data-why);
+    position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+    background:var(--red);color:var(--bg);
+    padding:3px 6px;font-size:8px;letter-spacing:0.2em;font-weight:700;text-transform:uppercase;
+    white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;margin-bottom:4px;z-index:10;
+  }
+  .flag:hover::after{opacity:1}
+
+  .foot{
+    display:grid;grid-template-columns:1fr;gap:8px;
+  }
+  .fp{
+    display:flex;gap:6px;flex-wrap:wrap;
+  }
+  .fp-tag{
+    padding:3px 8px;border:1px solid var(--red);color:var(--red);
+    font-size:9px;letter-spacing:0.2em;font-weight:700;text-transform:uppercase;
+  }
+  .panel.drift .fp-tag{border-color:var(--dimmer);color:var(--dimmer)}
+  .checks{display:flex;gap:10px;flex-wrap:wrap}
+  .check{display:flex;align-items:center;gap:5px;font-size:10px}
+  .check .mark{
+    width:12px;height:12px;display:inline-flex;align-items:center;justify-content:center;
+    font-size:8px;font-weight:900;flex-shrink:0;
+  }
+  .check.ok .mark{background:var(--green);color:var(--bg)}
+  .check.fail .mark{background:var(--red);color:var(--bg)}
+  .check .label{font-size:9px;letter-spacing:0.18em;font-weight:700;text-transform:uppercase;color:var(--dim)}
+  .check.fail .label{color:var(--red)}
+
+  .controls{
+    display:flex;gap:6px;justify-content:space-between;align-items:center;
+    padding-top:8px;border-top:1px solid var(--border);
+  }
+  .btn{
+    padding:7px 11px;background:transparent;border:1px solid var(--border-bright);color:var(--dim);
+    font-size:9px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;cursor:pointer;
+    font-family:var(--font);
+  }
+  .btn:hover{border-color:var(--dim);color:var(--text)}
+  .btn.up:hover{border-color:var(--green);color:var(--green)}
+  .btn.down:hover{border-color:var(--red);color:var(--red)}
+  .btn.red{border-color:var(--red);color:var(--red)}
+
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- header -->
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="eyebrow">Broadcast / Tone</div>
+        <div class="title">ARTIST VOICE</div>
+        <div class="subtitle">Align to artists you lean into, plus yourself. Every caption runs through this blend — <strong>nothing ships sounding like AI.</strong></div>
+      </div>
+      <div class="hdr-meta">
+        <div><span class="dot"></span>Voice locked</div>
+        <div class="hdr-score"><span class="big">87</span>/100</div>
+        <button class="btn">↻ Re-roll</button>
+      </div>
+    </div>
+
+    <!-- references row -->
+    <div class="refs">
+      <div class="ref self">
+        <div class="ref-head">
+          <div class="ref-name">You · NM</div>
+          <div class="ref-self-tag">SELF</div>
+        </div>
+        <div class="ref-sample">"warehouse 9 last night. three rooms. first track at 23:00."</div>
+        <div class="ref-tags"><span class="tag">Terse</span><span class="tag">Time-stamped</span></div>
+        <div class="ref-weight"><span class="ref-weight-label">W</span><div class="bar"><div class="fill" style="width:100%"></div></div><span class="bar-val">100</span></div>
+      </div>
+      <div class="ref">
+        <div class="ref-head"><div class="ref-name">Burial</div><div class="ref-src">Intvws</div></div>
+        <div class="ref-sample">"the bits in between the tracks — that's where the record is"</div>
+        <div class="ref-tags"><span class="tag">Lowercase</span><span class="tag">Confessional</span></div>
+        <div class="ref-weight"><span class="ref-weight-label">W</span><div class="bar"><div class="fill" style="width:80%"></div></div><span class="bar-val">80</span></div>
+      </div>
+      <div class="ref">
+        <div class="ref-head"><div class="ref-name">Four Tet</div><div class="ref-src">X '22–'24</div></div>
+        <div class="ref-sample">"new tune out. made it on a train."</div>
+        <div class="ref-tags"><span class="tag">Matter-of-fact</span><span class="tag">No adj.</span></div>
+        <div class="ref-weight"><span class="ref-weight-label">W</span><div class="bar"><div class="fill" style="width:60%"></div></div><span class="bar-val">60</span></div>
+      </div>
+      <div class="ref">
+        <div class="ref-head"><div class="ref-name">Overmono</div><div class="ref-src">IG</div></div>
+        <div class="ref-sample">"london tomorrow. come early. cdjs working this time."</div>
+        <div class="ref-tags"><span class="tag">Dry</span><span class="tag">Tour-brain</span></div>
+        <div class="ref-weight"><span class="ref-weight-label">W</span><div class="bar"><div class="fill" style="width:45%"></div></div><span class="bar-val">45</span></div>
+      </div>
+      <div class="ref ref-add">
+        <div class="ref-add-plus">+</div>
+        <div class="ref-add-label">Add ref</div>
+      </div>
+    </div>
+
+    <!-- comparison -->
+    <div class="compare">
+      <!-- aligned -->
+      <div class="panel aligned">
+        <div class="panel-head">
+          <div class="panel-label">◉ Your aligned voice</div>
+          <div class="panel-status ok">● Ships</div>
+        </div>
+        <div class="prompt-row">PROMPT <span class="prompt-val">"announce tomorrow's show at warehouse 9"</span></div>
+        <div class="body">warehouse 9 tomorrow. three rooms, 23:00 first track. bring earplugs, the low end is rude. see you there.</div>
+        <div class="foot">
+          <div class="fp">
+            <span class="fp-tag">Lowercase</span>
+            <span class="fp-tag">Terse</span>
+            <span class="fp-tag">Specific</span>
+            <span class="fp-tag">Dry</span>
+          </div>
+          <div class="checks">
+            <div class="check ok"><span class="mark">✓</span><span class="label">No em-dash</span></div>
+            <div class="check ok"><span class="mark">✓</span><span class="label">No clichés</span></div>
+            <div class="check ok"><span class="mark">✓</span><span class="label">Specific</span></div>
+            <div class="check ok"><span class="mark">✓</span><span class="label">Human</span></div>
+          </div>
+        </div>
+        <div class="controls">
+          <span class="panel-label" style="color:var(--green)">Passes voice check</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn down">👎 Off</button>
+            <button class="btn up">👍 Me</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- drift -->
+      <div class="panel drift">
+        <div class="panel-head">
+          <div class="panel-label">Same prompt · unaligned AI</div>
+          <div class="panel-status fail">● Blocked</div>
+        </div>
+        <div class="prompt-row">PROMPT <span class="prompt-val">"announce tomorrow's show at warehouse 9"</span></div>
+        <div class="body">Excited to announce we'll be <span class="flag" data-why="Cliché">diving into</span> an unforgettable night at Warehouse 9 tomorrow <span class="flag" data-why="Em-dash">—</span> <span class="flag" data-why="AI superlative">absolutely unmissable</span> vibes across three rooms. Can't wait to <span class="flag" data-why="Cliché">unlock</span> the magic with you all!</div>
+        <div class="foot">
+          <div class="fp">
+            <span class="fp-tag">Overwrought</span>
+            <span class="fp-tag">Generic</span>
+            <span class="fp-tag">Brand-voice</span>
+            <span class="fp-tag">Hollow</span>
+          </div>
+          <div class="checks">
+            <div class="check fail"><span class="mark">✕</span><span class="label">1 em-dash</span></div>
+            <div class="check fail"><span class="mark">✕</span><span class="label">3 clichés</span></div>
+            <div class="check fail"><span class="mark">✕</span><span class="label">AI superlative</span></div>
+            <div class="check fail"><span class="mark">✕</span><span class="label">Vague</span></div>
+          </div>
+        </div>
+        <div class="controls">
+          <span class="panel-label" style="color:var(--red)">Blocked pre-send · AI drift</span>
+          <button class="btn red">Why?</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

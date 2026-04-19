@@ -25,9 +25,13 @@ interface UpcomingGig {
 }
 
 interface ActivityItem {
+  id?: string
   title: string
-  timestamp: string
-  href?: string
+  type?: string
+  created_at?: string
+  timestamp?: string
+  href?: string | null
+  read?: boolean
 }
 
 interface TaskItem {
@@ -202,9 +206,9 @@ export function Today() {
   return (
     <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxWidth: '100%' }}>
       {/* ── Header: Greeting + Quick Actions + Week Strip ── */}
-      <div style={{ padding: '20px 24px 0', flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-          <div>
+      <div style={{ padding: '4px 24px 0', flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', marginBottom: 0 }}>
+          <div style={{ flex: 1, minWidth: 0, paddingRight: 24, display: 'flex', flexDirection: 'column' }}>
             <h1 style={{
               fontSize: 'clamp(36px, 5vw, 60px)',
               fontWeight: 900,
@@ -215,13 +219,70 @@ export function Today() {
             }}>
               {getGreeting()}
             </h1>
+            <p style={{ fontSize: 12, color: 'var(--text-dimmer)', margin: '4px 0 0', lineHeight: 1.4 }}>
+              {contextLine}
+            </p>
+
+            {/* Activity ticker — single row, scrolling */}
+            {data.recent_activity && data.recent_activity.length > 0 && (
+              <div style={{
+                marginTop: 'auto',
+                paddingTop: 10,
+                paddingBottom: 10,
+                borderTop: '1px solid var(--border-dim)',
+                borderBottom: '1px solid var(--border-dim)',
+                overflow: 'hidden',
+                position: 'relative',
+                maskImage: 'linear-gradient(to right, transparent, black 4%, black 96%, transparent)',
+                WebkitMaskImage: 'linear-gradient(to right, transparent, black 4%, black 96%, transparent)',
+              }}>
+                <div style={{
+                  display: 'inline-flex',
+                  gap: 48,
+                  whiteSpace: 'nowrap',
+                  animation: `ticker ${Math.max(30, data.recent_activity.length * 8)}s linear infinite`,
+                  paddingLeft: '100%',
+                }}>
+                  {[...data.recent_activity, ...data.recent_activity].map((item, i) => {
+                    const ts = item.created_at || item.timestamp
+                    const isNew = item.read === false
+                    const inner = (
+                      <span style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', gap: 12, alignItems: 'center' }}>
+                        {isNew && (
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', flexShrink: 0 }} />
+                        )}
+                        {item.type && (
+                          <span style={{ color: isNew ? 'var(--gold)' : 'var(--text-dimmest)', fontWeight: 700, letterSpacing: '0.2em' }}>
+                            {item.type.replace(/_/g, ' ')}
+                          </span>
+                        )}
+                        <span style={{ color: isNew ? 'var(--gold)' : 'var(--text)' }}>{item.title}</span>
+                        {ts && (
+                          <span style={{ color: 'var(--text-dimmest)', fontSize: 10 }}>
+                            {relativeTime(ts)}
+                          </span>
+                        )}
+                      </span>
+                    )
+                    const key = `${item.id || item.title}-${i}`
+                    return item.href ? (
+                      <Link key={key} href={item.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                        {inner}
+                      </Link>
+                    ) : (
+                      <span key={key}>{inner}</span>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {[
                 { label: '+ Gig', href: '/gigs/new' },
-                { label: '+ Post', href: '/post' },
+                { label: '+ Post', href: '/broadcast/quick-post' },
                 { label: '+ Invoice', href: '/business/finances' },
                 { label: '+ Release', href: '/releases/new' },
                 { label: '+ Task', href: '/tasks' },
@@ -253,7 +314,7 @@ export function Today() {
               {weekDays.map((d) => (
                 <div
                   key={d.day + d.date}
-                  onClick={() => router.push(`/calendar?date=${d.fullDate.toISOString().split('T')[0]}`)}
+                  onClick={() => router.push(`/broadcast/calendar?date=${d.fullDate.toISOString().split('T')[0]}`)}
                   style={{
                     flex: 1,
                     textAlign: 'center',
@@ -271,20 +332,61 @@ export function Today() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
 
-        {/* Week strip + context line */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginTop: 8 }}>
-          <p style={{ fontSize: 12, color: 'var(--text-dimmer)', margin: 0, lineHeight: 1.5, flex: 1 }}>
-            {contextLine}
-          </p>
+            {/* Next Post preview tile — fills the vertical space under the week strip */}
+            {data.next_scheduled_post && (
+              <Link
+                href="/broadcast/calendar"
+                style={{
+                  display: 'flex', gap: 12, alignItems: 'stretch',
+                  marginTop: 8, padding: 10,
+                  border: '1px solid rgba(255,255,255,0.1)', background: 'var(--panel)',
+                  textDecoration: 'none', color: 'inherit', transition: 'border-color 0.15s',
+                  width: '100%', boxSizing: 'border-box',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)')}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+              >
+                {(data.next_scheduled_post.media_urls?.[0] || data.next_scheduled_post.media_url) ? (
+                  <img
+                    src={data.next_scheduled_post.media_urls?.[0] || data.next_scheduled_post.media_url!}
+                    alt=""
+                    style={{ width: 88, height: 88, objectFit: 'cover', flexShrink: 0 }}
+                  />
+                ) : (
+                  <div style={{ width: 88, height: 88, flexShrink: 0, background: '#161616', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--text-dimmest)', letterSpacing: '0.15em', fontWeight: 700 }}>
+                    {data.next_scheduled_post.platform.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 2, paddingBottom: 2 }}>
+                  <div>
+                    <div style={{ fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--gold)', fontWeight: 700, lineHeight: 1.3, marginBottom: 4 }}>
+                      Next Post
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                      {data.next_scheduled_post.caption?.slice(0, 140) || 'No caption'}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmest)', fontWeight: 700, marginTop: 4 }}>
+                    {new Date(data.next_scheduled_post.scheduled_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).toUpperCase()} &middot; {data.next_scheduled_post.platform.toUpperCase()}
+                  </div>
+                </div>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
+      <style>{`
+        @keyframes ticker {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
+
       {/* ── The Labs ── */}
-      <div style={{ padding: '16px 24px 0', flexShrink: 0 }}>
-        <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 900, margin: '0 0 12px', letterSpacing: '-0.03em', textTransform: 'uppercase' }}>
+      <div style={{ padding: '0 24px 0', flexShrink: 0 }}>
+        <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 900, margin: '0 0 4px', letterSpacing: '-0.03em', textTransform: 'uppercase' }}>
           The Labs
         </h2>
 
@@ -299,7 +401,7 @@ export function Today() {
             { label: 'Content', stat: `${data.stats.queued_content} queued`, href: '/calendar' },
             { label: 'Sets', stat: `${data.stats.sets} sets`, href: '/setlab' },
             { label: 'Tracks', stat: `${data.stats.tracks} tracks`, href: '/setlab' },
-            { label: 'Releases', stat: `${data.stats.releases} releases`, href: '/releases' },
+            { label: 'Releases', stat: `${data.stats.releases} releases`, href: '/promo' },
           ].map((card) => (
             <motion.div key={card.label} variants={staggerItem} style={{ flex: 1, minWidth: 0 }}>
               <Link
@@ -332,7 +434,7 @@ export function Today() {
       </div>
 
       {/* ── Next Gig (left) + To Do / Needs Attention (right) ── */}
-      <div style={{ padding: '16px 24px 0', display: 'flex', gap: 32, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ padding: '2px 24px 0', display: 'flex', gap: 32, flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* Left: Next Gig — HUGE venue + city, post preview, prep checklist */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {nextGig ? (
@@ -395,56 +497,70 @@ export function Today() {
             </div>
           )}
 
-          {/* Next Scheduled Post preview — always shown */}
-          {data.next_scheduled_post && (
-            <Link
-              href="/calendar"
-              style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 16, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--panel)', textDecoration: 'none', color: 'inherit', transition: 'border-color 0.15s', maxWidth: 480 }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
-            >
-              {(data.next_scheduled_post.media_urls?.[0] || data.next_scheduled_post.media_url) && (
-                <img
-                  src={data.next_scheduled_post.media_urls?.[0] || data.next_scheduled_post.media_url!}
-                  alt=""
-                  style={{ width: 44, height: 44, objectFit: 'cover', flexShrink: 0 }}
-                />
-              )}
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--text-dimmest)', fontWeight: 700, marginBottom: 3 }}>
-                  Next Post &middot; {data.next_scheduled_post.platform.toUpperCase()}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-dimmer)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {data.next_scheduled_post.caption?.slice(0, 80) || 'No caption'}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-dimmest)', marginTop: 2 }}>
-                  {new Date(data.next_scheduled_post.scheduled_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                </div>
+          {/* THEN — upcoming gigs beyond the Next Gig */}
+          {data.upcoming_gigs && data.upcoming_gigs.length > 1 && (
+            <div style={{ marginTop: 20, maxWidth: 640 }}>
+              <div style={{ fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--text-dimmest)', fontWeight: 700, marginBottom: 8 }}>
+                Then
               </div>
-            </Link>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {data.upcoming_gigs.slice(1, 4).map((g) => {
+                  const d = new Date(g.date)
+                  const dateLabel = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toUpperCase()
+                  return (
+                    <Link
+                      key={g.id}
+                      href={`/gigs/${g.id}`}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '72px 1fr auto',
+                        alignItems: 'baseline',
+                        gap: 16,
+                        padding: '10px 0',
+                        borderTop: '1px solid var(--border-dim)',
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#101010')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--gold)' }}>{dateLabel}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {g.venue.trim()}
+                      </span>
+                      <span style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)' }}>
+                        {g.location.trim()}
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
           )}
+
         </div>
 
         {/* Right: To Do + Needs Attention */}
-        <div style={{ flex: 0.4, minWidth: 220, maxWidth: 340 }}>
+        <div style={{ flex: 0.4, minWidth: 220, maxWidth: 340, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {/* TO DO */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexShrink: 0 }}>
               <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 900 }}>
                 To Do
               </div>
-              <Link href="/tasks" style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', textDecoration: 'none', fontWeight: 700 }}>All {data.tasks.length} &rarr;</Link>
+              <Link href="/tasks" style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none', fontWeight: 700 }}>All {data.tasks.length} &rarr;</Link>
             </div>
             {data.tasks.length === 0 && (
               <div style={{ fontSize: 11, color: 'var(--text-dimmest)' }}>No open tasks</div>
             )}
-            <motion.div variants={staggerContainer} initial="hidden" animate="visible">
-              {data.tasks.slice(0, 3).map((task) => (
+            <motion.div variants={staggerContainer} initial="hidden" animate="visible" style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
+              {data.tasks.map((task) => (
                 <motion.div
                   key={task.id}
                   variants={staggerItem}
                   onClick={() => router.push('/tasks')}
-                  style={{ padding: '6px 10px', borderLeft: '2px solid var(--border)', marginBottom: 3, cursor: 'pointer', fontSize: 11, color: 'var(--text-dimmer)', transition: 'border-color 0.15s' }}
+                  style={{ padding: '8px 10px', borderLeft: '2px solid var(--border)', marginBottom: 4, cursor: 'pointer', fontSize: 11, color: 'var(--text-dimmer)', transition: 'border-color 0.15s', lineHeight: 1.4 }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderLeftColor = 'var(--gold)')}
                   onMouseLeave={(e) => (e.currentTarget.style.borderLeftColor = 'var(--border)')}
                 >

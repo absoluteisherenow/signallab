@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Artist Voice · v1</title>
+<style>
+  :root{
+    --bg:#050505;
+    --panel:#0c0c0c;
+    --panel-2:#111;
+    --text:#f4f4f4;
+    --dim:#9a9a9a;
+    --dimmer:#5a5a5a;
+    --dimmest:#2e2e2e;
+    --border:#1a1a1a;
+    --border-bright:#262626;
+    --red:#ff2a1a;
+    --red-bright:#ff5a47;
+    --amber:#ffb020;
+    --green:#4eff9f;
+    --input:#0a0a0a;
+    --font:"Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);overflow-x:hidden}
+  body{min-height:100vh;position:relative;-webkit-font-smoothing:antialiased;letter-spacing:-0.005em}
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
+    background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+    mix-blend-mode:overlay;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:61;opacity:0.28;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06  0 0 0 0 0.06  0 0 0 0 0.06  0 0 0 0.24 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-size:160px 160px;
+  }
+
+  .page{max-width:1200px;margin:0 auto;padding:36px 48px 56px;position:relative;z-index:1}
+
+  /* header */
+  .hdr{
+    display:flex;align-items:baseline;justify-content:space-between;
+    padding-bottom:18px;border-bottom:1px solid var(--border);margin-bottom:36px;
+  }
+  .eyebrow{
+    font-size:10px;letter-spacing:0.32em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+    margin-bottom:10px;
+  }
+  .title{
+    font-size:clamp(56px,8vw,108px);
+    font-weight:900;letter-spacing:-0.045em;line-height:0.9;
+  }
+  .subtitle{
+    max-width:540px;color:var(--dim);font-size:13px;line-height:1.55;margin-top:12px;letter-spacing:0.005em;
+  }
+  .subtitle strong{color:var(--text);font-weight:700}
+  .hdr-meta{
+    text-align:right;
+    font-size:10px;letter-spacing:0.24em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .hdr-meta .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:middle}
+  .hdr-meta .big{font-size:32px;font-weight:900;letter-spacing:-0.03em;color:var(--text);text-transform:none;display:block;margin-top:8px}
+
+  /* section */
+  .sec{margin-bottom:48px}
+  .sec-head{
+    display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;
+  }
+  .sec-num{
+    font-size:10px;letter-spacing:0.28em;color:var(--red);font-weight:700;
+  }
+  .sec-title{
+    font-size:24px;font-weight:800;letter-spacing:-0.025em;margin-top:4px;
+  }
+  .sec-sub{
+    color:var(--dimmer);font-size:11px;letter-spacing:0.22em;text-transform:uppercase;font-weight:700;
+  }
+
+  /* ref cards */
+  .refs{
+    display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:14px;
+  }
+  .ref{
+    background:var(--panel);border:1px solid var(--border-bright);padding:18px;
+    display:flex;flex-direction:column;gap:12px;min-height:260px;
+    position:relative;transition:border-color .1s;
+  }
+  .ref:hover{border-color:var(--dim)}
+  .ref.self{border-color:var(--red)}
+  .ref-head{
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  }
+  .ref-name{font-size:18px;font-weight:800;letter-spacing:-0.015em}
+  .ref-self-tag{
+    font-size:9px;letter-spacing:0.28em;color:var(--red);font-weight:700;text-transform:uppercase;
+  }
+  .ref-src{
+    font-size:10px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .ref-samples{
+    display:flex;flex-direction:column;gap:8px;flex:1;
+  }
+  .ref-sample{
+    font-size:12px;line-height:1.5;color:var(--dim);
+    padding:8px 10px;background:var(--input);border-left:2px solid var(--border-bright);
+  }
+  .ref-tags{
+    display:flex;gap:5px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--border);
+  }
+  .tag{
+    font-size:9px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;
+    padding:3px 7px;border:1px solid var(--border-bright);color:var(--dim);
+  }
+  .ref-weight{
+    display:flex;align-items:center;gap:8px;margin-top:4px;
+  }
+  .ref-weight-label{
+    font-size:9px;letter-spacing:0.24em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .bar{flex:1;height:3px;background:var(--border);position:relative}
+  .bar .fill{position:absolute;top:0;left:0;bottom:0;background:var(--red)}
+  .bar-val{font-size:11px;color:var(--text);font-weight:700;min-width:30px;text-align:right}
+
+  .ref-add{
+    background:transparent;border:1px dashed var(--border-bright);color:var(--dimmer);
+    min-height:260px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;
+    cursor:pointer;padding:18px;
+  }
+  .ref-add:hover{border-color:var(--red);color:var(--red)}
+  .ref-add-plus{font-size:40px;font-weight:300;line-height:1}
+  .ref-add-label{font-size:10px;letter-spacing:0.28em;font-weight:700;text-transform:uppercase}
+
+  /* output panel */
+  .output{
+    background:var(--panel);border:1px solid var(--red);padding:32px;
+  }
+  .output-head{
+    display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;
+  }
+  .output-prompt{
+    font-size:11px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase;margin-bottom:4px;
+  }
+  .output-prompt-val{font-size:16px;font-weight:600;color:var(--text);letter-spacing:-0.01em}
+  .output-regen{
+    padding:8px 14px;background:transparent;border:1px solid var(--border-bright);color:var(--dim);
+    font-size:10px;letter-spacing:0.24em;font-weight:700;text-transform:uppercase;cursor:pointer;
+    font-family:var(--font);
+  }
+  .output-regen:hover{border-color:var(--red);color:var(--red)}
+
+  .output-body{
+    font-size:24px;line-height:1.5;letter-spacing:-0.01em;color:var(--text);
+    padding:24px;background:var(--input);border:1px solid var(--border-bright);
+    font-weight:500;
+  }
+  .flag{
+    color:var(--red);text-decoration:underline;text-decoration-color:var(--red);text-decoration-thickness:2px;
+    position:relative;cursor:help;
+  }
+  .flag::after{
+    content:attr(data-why);
+    position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+    background:var(--red);color:var(--bg);
+    padding:4px 8px;font-size:9px;letter-spacing:0.2em;font-weight:700;text-transform:uppercase;
+    white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;margin-bottom:6px;
+  }
+  .flag:hover::after{opacity:1}
+
+  .output-foot{
+    display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-top:22px;
+    padding-top:20px;border-top:1px solid var(--border);
+  }
+  .fingerprint{
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .fp-label{
+    font-size:10px;letter-spacing:0.26em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .fp-tags{display:flex;gap:6px;flex-wrap:wrap}
+  .fp-tag{
+    padding:5px 10px;border:1px solid var(--red);color:var(--red);
+    font-size:10px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;
+  }
+  .ai-check{
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .ai-row{
+    display:flex;align-items:center;gap:8px;font-size:11px;
+  }
+  .ai-row .mark{
+    width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;
+    font-size:9px;font-weight:900;flex-shrink:0;
+  }
+  .ai-row.ok .mark{background:var(--green);color:var(--bg)}
+  .ai-row.warn .mark{background:var(--red);color:var(--bg)}
+  .ai-row .label{color:var(--dim);font-size:11px;letter-spacing:0.16em;font-weight:600;text-transform:uppercase}
+  .ai-row.warn .label{color:var(--red)}
+
+  .verdict-row{
+    display:flex;align-items:center;justify-content:space-between;margin-top:22px;
+    padding-top:20px;border-top:1px solid var(--border);
+  }
+  .verdict{
+    font-size:11px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .verdict .ok{color:var(--green)}
+  .thumbs{display:flex;gap:8px}
+  .thumb{
+    padding:10px 16px;background:transparent;border:1px solid var(--border-bright);color:var(--dim);
+    font-size:11px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;cursor:pointer;
+    font-family:var(--font);
+  }
+  .thumb:hover{border-color:var(--text);color:var(--text)}
+  .thumb.up:hover{border-color:var(--green);color:var(--green)}
+  .thumb.down:hover{border-color:var(--red);color:var(--red)}
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- header -->
+    <div class="hdr">
+      <div>
+        <div class="eyebrow">Broadcast Lab / Tone</div>
+        <div class="title">ARTIST<br>VOICE</div>
+        <div class="subtitle">
+          Align to the artists whose voice you lean into, plus yourself. Every caption across the product gets generated through this blend — <strong>so nothing ships sounding like generic AI.</strong>
+        </div>
+      </div>
+      <div class="hdr-meta">
+        <div><span class="dot"></span>Voice locked</div>
+        <span class="big">87</span>
+        <div>alignment score</div>
+      </div>
+    </div>
+
+    <!-- section 1: aligned artists -->
+    <div class="sec">
+      <div class="sec-head">
+        <div>
+          <div class="sec-num">01 / REFERENCES</div>
+          <div class="sec-title">Artists you align to</div>
+        </div>
+        <div class="sec-sub">3 aligned · max 5</div>
+      </div>
+
+      <div class="refs">
+        <div class="ref">
+          <div class="ref-head">
+            <div class="ref-name">Burial</div>
+            <div class="ref-src">Interviews</div>
+          </div>
+          <div class="ref-samples">
+            <div class="ref-sample">"i don't really know what i'm doing, i just do it at night"</div>
+            <div class="ref-sample">"the bits in between the tracks — that's where the record is"</div>
+          </div>
+          <div class="ref-tags">
+            <span class="tag">Lowercase</span>
+            <span class="tag">Confessional</span>
+            <span class="tag">Short</span>
+          </div>
+          <div class="ref-weight">
+            <span class="ref-weight-label">Weight</span>
+            <div class="bar"><div class="fill" style="width:80%"></div></div>
+            <span class="bar-val">80</span>
+          </div>
+        </div>
+
+        <div class="ref">
+          <div class="ref-head">
+            <div class="ref-name">Four Tet</div>
+            <div class="ref-src">Twitter · 2022–24</div>
+          </div>
+          <div class="ref-samples">
+            <div class="ref-sample">"new tune out. made it on a train."</div>
+            <div class="ref-sample">"back to the studio for 3 hours. see you thursday."</div>
+          </div>
+          <div class="ref-tags">
+            <span class="tag">Matter-of-fact</span>
+            <span class="tag">Logistic</span>
+            <span class="tag">No adjectives</span>
+          </div>
+          <div class="ref-weight">
+            <span class="ref-weight-label">Weight</span>
+            <div class="bar"><div class="fill" style="width:60%"></div></div>
+            <span class="bar-val">60</span>
+          </div>
+        </div>
+
+        <div class="ref">
+          <div class="ref-head">
+            <div class="ref-name">Overmono</div>
+            <div class="ref-src">IG captions</div>
+          </div>
+          <div class="ref-samples">
+            <div class="ref-sample">"london tomorrow. come early. cdjs working this time."</div>
+            <div class="ref-sample">"this one's been living on the usb for nine months"</div>
+          </div>
+          <div class="ref-tags">
+            <span class="tag">Dry humour</span>
+            <span class="tag">Tour-brain</span>
+            <span class="tag">Specific</span>
+          </div>
+          <div class="ref-weight">
+            <span class="ref-weight-label">Weight</span>
+            <div class="bar"><div class="fill" style="width:45%"></div></div>
+            <span class="bar-val">45</span>
+          </div>
+        </div>
+
+        <div class="ref self">
+          <div class="ref-head">
+            <div class="ref-name">You · NIGHT manoeuvres</div>
+            <div class="ref-self-tag">SELF</div>
+          </div>
+          <div class="ref-samples">
+            <div class="ref-sample">"warehouse 9 last night. three rooms. first track at 23:00."</div>
+            <div class="ref-sample">"remix EP out friday. the one you asked about is on it."</div>
+            <div class="ref-sample">"ob-6 back from repair. it has thoughts."</div>
+          </div>
+          <div class="ref-tags">
+            <span class="tag">Terse</span>
+            <span class="tag">Gear-aware</span>
+            <span class="tag">Time-stamped</span>
+          </div>
+          <div class="ref-weight">
+            <span class="ref-weight-label">Weight</span>
+            <div class="bar"><div class="fill" style="width:100%"></div></div>
+            <span class="bar-val">100</span>
+          </div>
+        </div>
+
+        <div class="ref ref-add">
+          <div class="ref-add-plus">+</div>
+          <div class="ref-add-label">Add reference</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- section 2: output -->
+    <div class="sec">
+      <div class="sec-head">
+        <div>
+          <div class="sec-num">02 / OUTPUT</div>
+          <div class="sec-title">What you sound like</div>
+        </div>
+        <div class="sec-sub">Live · re-rolls every prompt</div>
+      </div>
+
+      <div class="output">
+        <div class="output-head">
+          <div>
+            <div class="output-prompt">Test prompt</div>
+            <div class="output-prompt-val">"announce tomorrow's show at warehouse 9"</div>
+          </div>
+          <button class="output-regen">↻ Re-roll</button>
+        </div>
+
+        <div class="output-body">
+          warehouse 9 tomorrow. three rooms, 23:00 first track. bring earplugs, the low end is rude. see you there.
+        </div>
+
+        <div class="output-foot">
+          <div class="fingerprint">
+            <span class="fp-label">Tone fingerprint</span>
+            <div class="fp-tags">
+              <span class="fp-tag">Lowercase</span>
+              <span class="fp-tag">Terse</span>
+              <span class="fp-tag">Specific</span>
+              <span class="fp-tag">Dry</span>
+              <span class="fp-tag">No adjectives</span>
+            </div>
+          </div>
+          <div class="ai-check">
+            <span class="fp-label" style="margin-bottom:4px">AI-tell check</span>
+            <div class="ai-row ok"><span class="mark">✓</span><span class="label">No em-dashes</span></div>
+            <div class="ai-row ok"><span class="mark">✓</span><span class="label">No clichés</span></div>
+            <div class="ai-row ok"><span class="mark">✓</span><span class="label">No AI superlatives</span></div>
+            <div class="ai-row ok"><span class="mark">✓</span><span class="label">Specific, not vague</span></div>
+          </div>
+        </div>
+
+        <div class="verdict-row">
+          <div class="verdict">Passes voice check · <span class="ok">● aligned</span></div>
+          <div class="thumbs">
+            <button class="thumb down">👎 Off-brand</button>
+            <button class="thumb up">👍 Sounds like me</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- section 3: drift example -->
+    <div class="sec">
+      <div class="sec-head">
+        <div>
+          <div class="sec-num">03 / GUARDRAIL</div>
+          <div class="sec-title">What gets blocked</div>
+        </div>
+        <div class="sec-sub">Generic AI-speak · rejected pre-send</div>
+      </div>
+
+      <div class="output" style="border-color:var(--dimmest)">
+        <div class="output-head">
+          <div>
+            <div class="output-prompt">Without voice alignment</div>
+            <div class="output-prompt-val">Same prompt · generic AI output</div>
+          </div>
+        </div>
+
+        <div class="output-body" style="color:var(--dim)">
+          Excited to announce that we'll be <span class="flag" data-why="Cliché">diving into</span> an unforgettable night at Warehouse 9 tomorrow <span class="flag" data-why="Em-dash">—</span> <span class="flag" data-why="AI superlative">absolutely unmissable</span> vibes across three rooms. Can't wait to <span class="flag" data-why="Cliché">unlock</span> the magic with you all!
+        </div>
+
+        <div class="output-foot">
+          <div class="fingerprint">
+            <span class="fp-label">Drift fingerprint</span>
+            <div class="fp-tags">
+              <span class="fp-tag" style="border-color:var(--dimmer);color:var(--dimmer)">Overwrought</span>
+              <span class="fp-tag" style="border-color:var(--dimmer);color:var(--dimmer)">Generic</span>
+              <span class="fp-tag" style="border-color:var(--dimmer);color:var(--dimmer)">Brand-voice</span>
+              <span class="fp-tag" style="border-color:var(--dimmer);color:var(--dimmer)">Hollow</span>
+            </div>
+          </div>
+          <div class="ai-check">
+            <span class="fp-label" style="margin-bottom:4px">AI-tells found</span>
+            <div class="ai-row warn"><span class="mark">✕</span><span class="label">1 em-dash</span></div>
+            <div class="ai-row warn"><span class="mark">✕</span><span class="label">3 clichés</span></div>
+            <div class="ai-row warn"><span class="mark">✕</span><span class="label">AI superlative</span></div>
+            <div class="ai-row warn"><span class="mark">✕</span><span class="label">No specifics</span></div>
+          </div>
+        </div>
+
+        <div class="verdict-row">
+          <div class="verdict">Blocked pre-send · <span style="color:var(--red)">● AI drift</span></div>
+          <div class="thumbs">
+            <button class="thumb">Why?</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

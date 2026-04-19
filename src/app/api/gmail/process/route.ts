@@ -38,6 +38,64 @@ function decodeBody(data: string): string {
   return Buffer.from(data.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8')
 }
 
+// Walks the MIME tree and collects PDF attachments as {attachmentId, filename, size}.
+// Does NOT download — that happens lazily only for messages we want to classify.
+interface PdfAttachmentRef {
+  attachmentId: string
+  filename: string
+  size: number
+}
+
+function collectPdfAttachments(payload: any, out: PdfAttachmentRef[] = []): PdfAttachmentRef[] {
+  if (!payload) return out
+  const isPdf = payload.mimeType === 'application/pdf' ||
+    (payload.filename || '').toLowerCase().endsWith('.pdf')
+  if (isPdf && payload.body?.attachmentId) {
+    out.push({
+      attachmentId: payload.body.attachmentId,
+      filename: payload.filename || 'attachment.pdf',
+      size: payload.body.size || 0,
+    })
+  }
+  if (payload.parts) {
+    for (const part of payload.parts) collectPdfAttachments(part, out)
+  }
+  return out
+}
+
+// Fetch PDF attachment bytes from Gmail and convert base64url → base64 for Claude.
+// Caps: max 3 PDFs per email, max 5MB per PDF (anything larger is dropped with a note).
+async function fetchPdfsForClaude(
+  gmail: any,
+  messageId: string,
+  refs: PdfAttachmentRef[]
+): Promise<Array<{ filename: string; base64: string }>> {
+  const MAX_PDFS = 3
+  const MAX_BYTES = 5 * 1024 * 1024
+  const picked = refs
+    .filter(r => r.size > 0 && r.size <= MAX_BYTES)
+    .slice(0, MAX_PDFS)
+
+  const out: Array<{ filename: string; base64: string }> = []
+  for (const ref of picked) {
+    try {
+      const { data } = await gmail.users.messages.attachments.get({
+        userId: 'me',
+        messageId,
+        id: ref.attachmentId,
+      })
+      if (data?.data) {
+        // Gmail returns base64url; Anthropic PDF blocks need standard base64.
+        const base64 = data.data.replace(/-/g, '+').replace(/_/g, '/')
+        out.push({ filename: ref.filename, base64 })
+      }
+    } catch {
+      // Non-fatal — skip this attachment
+    }
+  }
+  return out
+}
+
 function extractEmailBody(payload: any): string {
   if (!payload) return ''
 
@@ -73,7 +131,8 @@ async function classifyEmail(
   from: string,
   subject: string,
   body: string,
-  existingGigs: any[]
+  existingGigs: any[],
+  pdfs: Array<{ filename: string; base64: string }> = []
 ): Promise<any> {
   const gigsContext = existingGigs.length
     ? `Existing gigs in the OS:\n${existingGigs.map(g =>
@@ -103,6 +162,9 @@ Email types to detect:
 - "tech_spec": technical specification confirmed for a show
 - "rider": hospitality or technical rider confirmed
 - "invoice": invoice received, payment request, or payment receipt (deposit paid, balance due, payment confirmed)
+- "invoice_request": someone asking Anthony to send an invoice, or telling him where/whom to bill. Keywords: "please invoice", "send the invoice to", "bill us at", "our accounts email is", "finance contact". Usually from agent/promoter. Extract the billing email.
+- "billing_info": company billing / VAT / finance details for an existing gig (VAT number, company name, PO number, billing address). Extract all fields.
+- "remittance": payment received / remittance advice / bank transfer confirmation / wire transfer notification. Keywords: remittance, payment advice, "payment has been made", "funds transferred", BACS, SWIFT, "paid into your account".
 - "release": release confirmation, distribution email, label announcement, streaming live notification, mastering delivery
 - "gig_update": general info update for an existing show (schedule change, new contact, etc.)
 - "ignore": newsletters, spam, unrelated
@@ -165,6 +227,28 @@ Return:
     "due_date": "YYYY-MM-DD or null",
     "description": "one-line summary of what this invoice/payment is for",
 
+    // For invoice_request:
+    "billing_email": "email to send invoice to",
+    "billing_name": "person name or null",
+    "billing_company": "company/venue name or null",
+    "notes": "any extra context from the email",
+
+    // For billing_info:
+    "company_name": "legal company name",
+    "billing_address": "full billing address or null",
+    "vat_number": "VAT/tax number or null",
+    "po_number": "PO number or null",
+    "billing_email": "accounts/finance email or null",
+
+    // For remittance:
+    "amount": <number>,
+    "currency": "EUR/GBP/USD",
+    "sender_name": "who paid",
+    "reference": "payment reference",
+    "gig_title": "show it relates to, or null",
+    "payment_date": "YYYY-MM-DD",
+    "description": "one-line summary",
+
     // For release:
     "title": "release title",
     "type": "single or ep or album",
@@ -179,7 +263,22 @@ Return:
 }`,
       messages: [{
         role: 'user',
-        content: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}`,
+        content: pdfs.length > 0
+          ? [
+              {
+                type: 'text',
+                text: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}\n\n(${pdfs.length} PDF attachment${pdfs.length > 1 ? 's' : ''} included — extract fields from them too.)`,
+              },
+              ...pdfs.map(pdf => ({
+                type: 'document' as const,
+                source: {
+                  type: 'base64' as const,
+                  media_type: 'application/pdf' as const,
+                  data: pdf.base64,
+                },
+              })),
+            ]
+          : `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}`,
       }],
     }),
   })
@@ -201,8 +300,13 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
     if (extracted.currency) updates.currency = extracted.currency
     if (extracted.time) updates.time = extracted.time
     if (extracted.promoter_email) updates.promoter_email = extracted.promoter_email
-    if (extracted.promoter_name) updates.promoter_name = extracted.promoter_name
-    if (extracted.notes) updates.notes = extracted.notes
+    // promoter_name folded into notes — no such column on gigs
+    const promoterNameNote = extracted.promoter_name
+      ? `Promoter contact: ${extracted.promoter_name}${extracted.promoter_email ? ` <${extracted.promoter_email}>` : ''}`
+      : null
+    if (extracted.notes || promoterNameNote) {
+      updates.notes = [promoterNameNote, extracted.notes].filter(Boolean).join('\n')
+    }
 
     await supabase.from('gigs').update(updates).eq('id', classifiedGigId)
 
@@ -265,8 +369,12 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
     currency: extracted.currency || 'EUR',
     status: 'confirmed',
     promoter_email: extracted.promoter_email || emailFrom,
-    promoter_name: extracted.promoter_name || '',
-    notes: extracted.notes || '',
+    notes: [
+      extracted.promoter_name
+        ? `Promoter contact: ${extracted.promoter_name}${extracted.promoter_email ? ` <${extracted.promoter_email}>` : ''}`
+        : null,
+      extracted.notes || null,
+    ].filter(Boolean).join('\n'),
     created_at: new Date().toISOString(),
   }]).select()
 
@@ -425,6 +533,120 @@ async function handleInvoice(gigId: string | null, extracted: any) {
   }
 }
 
+async function handleInvoiceRequest(gigId: string | null, extracted: any, emailFrom: string) {
+  // "Please invoice X" — update the gig's promoter_email and record the billing contact.
+  if (!gigId) {
+    // No matched gig — still notify so Anthony can link manually
+    await createNotification({
+      type: 'invoice_request',
+      title: `Billing contact received — no gig match`,
+      message: `${extracted.billing_name || extracted.billing_email || 'Unknown'} — from ${emailFrom}. Link manually.`,
+      href: `/gigs`,
+    })
+    return
+  }
+
+  const { data: gig } = await supabase.from('gigs').select('notes, promoter_email, title').eq('id', gigId).single()
+  const existingNotes = gig?.notes || ''
+  const billingLine = [
+    'Billing routing:',
+    extracted.billing_name && `- Contact: ${extracted.billing_name}`,
+    extracted.billing_company && `- Company: ${extracted.billing_company}`,
+    extracted.billing_email && `- Email: ${extracted.billing_email}`,
+    extracted.notes && `- Note: ${extracted.notes}`,
+  ].filter(Boolean).join('\n')
+
+  const updates: Record<string, unknown> = {
+    notes: existingNotes ? `${existingNotes}\n\n${billingLine}` : billingLine,
+    updated_at: new Date().toISOString(),
+  }
+  // Only overwrite promoter_email if the gig doesn't have one yet
+  if (extracted.billing_email && !gig?.promoter_email) {
+    updates.promoter_email = extracted.billing_email
+  }
+  await supabase.from('gigs').update(updates).eq('id', gigId)
+
+  await createNotification({
+    type: 'invoice_request',
+    title: `Billing contact for ${gig?.title || 'gig'}`,
+    message: extracted.billing_email || extracted.billing_name || 'Billing info updated',
+    href: `/gigs/${gigId}`,
+    gig_id: gigId,
+  })
+}
+
+async function handleBillingInfo(gigId: string | null, extracted: any) {
+  // Company billing / VAT / PO details — append to gig notes.
+  if (!gigId) return
+  const { data: gig } = await supabase.from('gigs').select('notes, title').eq('id', gigId).single()
+  const existingNotes = gig?.notes || ''
+  const billingBlock = [
+    'Invoice/billing details:',
+    extracted.company_name && `- Company: ${extracted.company_name}`,
+    extracted.billing_address && `- Address: ${extracted.billing_address}`,
+    extracted.vat_number && `- VAT: ${extracted.vat_number}`,
+    extracted.po_number && `- PO: ${extracted.po_number}`,
+    extracted.billing_email && `- Accounts email: ${extracted.billing_email}`,
+  ].filter(Boolean).join('\n')
+
+  await supabase.from('gigs').update({
+    notes: existingNotes ? `${existingNotes}\n\n${billingBlock}` : billingBlock,
+    updated_at: new Date().toISOString(),
+  }).eq('id', gigId)
+
+  await createNotification({
+    type: 'invoice_request',
+    title: `Billing details added — ${gig?.title || 'gig'}`,
+    message: extracted.company_name || extracted.vat_number || 'Billing info updated',
+    href: `/gigs/${gigId}`,
+    gig_id: gigId,
+  })
+}
+
+async function handleRemittance(gigId: string | null, extracted: any) {
+  // Payment received — try to match an outstanding invoice by gig + amount.
+  // If matched, mark paid and notify. Otherwise notify for manual reconciliation.
+  let matchedInvoice: any = null
+
+  if (gigId && extracted.amount) {
+    const { data: invs } = await supabase
+      .from('invoices')
+      .select('id, amount, status, gig_title, type')
+      .eq('gig_id', gigId)
+      .neq('status', 'paid')
+      .limit(5)
+
+    if (invs?.length) {
+      // Prefer exact amount match, else closest smaller-or-equal
+      matchedInvoice = invs.find(i => Number(i.amount) === Number(extracted.amount)) || null
+    }
+  }
+
+  if (matchedInvoice) {
+    await supabase.from('invoices').update({
+      status: 'paid',
+      updated_at: new Date().toISOString(),
+    }).eq('id', matchedInvoice.id)
+
+    await createNotification({
+      type: 'payment_received',
+      title: `Payment received — ${matchedInvoice.gig_title}`,
+      message: `${extracted.currency || ''} ${extracted.amount} · ${extracted.sender_name || 'sender unknown'}${extracted.reference ? ` · ref ${extracted.reference}` : ''}`,
+      href: `/api/invoices/${matchedInvoice.id}`,
+      gig_id: gigId || undefined,
+    })
+  } else {
+    // No auto-match — notify for manual reconciliation
+    await createNotification({
+      type: 'payment_received',
+      title: `Remittance received — needs linking`,
+      message: `${extracted.currency || ''} ${extracted.amount || '?'} from ${extracted.sender_name || 'unknown'}${extracted.gig_title ? ` · re: ${extracted.gig_title}` : ''}${extracted.reference ? ` · ref ${extracted.reference}` : ''}`,
+      href: `/invoices`,
+      gig_id: gigId || undefined,
+    })
+  }
+}
+
 async function handleRelease(extracted: any) {
   if (!extracted.title) return
   await supabase.from('releases').insert([{
@@ -439,18 +661,112 @@ async function handleRelease(extracted: any) {
   }])
 }
 
+// ── Thread contact extraction ──────────────────────────────────────────────
+
+// Parse an RFC-2822 address list into {name, email} pairs.
+// Handles: `Archie <archie@turbomgmt.co.uk>`, `"Last, First" <a@b>`, `plain@b`, multiple comma-separated.
+function parseAddressList(raw: string): Array<{ name: string | null; email: string }> {
+  if (!raw) return []
+  const out: Array<{ name: string | null; email: string }> = []
+  // Split on commas NOT inside quotes
+  const parts: string[] = []
+  let current = ''
+  let inQuotes = false
+  for (const ch of raw) {
+    if (ch === '"') inQuotes = !inQuotes
+    if (ch === ',' && !inQuotes) { parts.push(current.trim()); current = '' }
+    else current += ch
+  }
+  if (current.trim()) parts.push(current.trim())
+
+  for (const part of parts) {
+    const angleMatch = part.match(/^(.*?)\s*<([^>]+)>\s*$/)
+    if (angleMatch) {
+      const name = angleMatch[1].replace(/^["']|["']$/g, '').trim() || null
+      const email = angleMatch[2].trim().toLowerCase()
+      if (email.includes('@')) out.push({ name, email })
+    } else if (part.includes('@')) {
+      out.push({ name: null, email: part.trim().toLowerCase() })
+    }
+  }
+  return out
+}
+
+// Infer a coarse role from email address + domain.
+function inferContactRole(email: string, promoterEmailOnGig: string | null): string | null {
+  const local = email.split('@')[0] || ''
+  const domain = email.split('@')[1] || ''
+
+  if (/turbomgmt\.co\.uk$/i.test(domain)) return 'agent'
+  if (/^(accounts?|finance|billing|invoices?|ap|accountspayable)\b/i.test(local)) return 'finance'
+  if (/^(prod|production|tech|lighting|sound)\b/i.test(local)) return 'production'
+  if (promoterEmailOnGig && email === promoterEmailOnGig.toLowerCase()) return 'promoter'
+  if (/^(hello|info|bookings|team|contact|enquiries)\b/i.test(local)) return 'venue'
+  return 'promoter'
+}
+
+async function captureThreadContacts(
+  gigId: string,
+  headers: Array<{ name?: string; value?: string }>,
+  ownEmails: Set<string>,
+  promoterEmailOnGig: string | null,
+) {
+  const getHeader = (n: string) => headers.find(h => (h.name || '').toLowerCase() === n.toLowerCase())?.value || ''
+  const all = [
+    ...parseAddressList(getHeader('From')),
+    ...parseAddressList(getHeader('To')),
+    ...parseAddressList(getHeader('Cc')),
+    ...parseAddressList(getHeader('Reply-To')),
+  ]
+
+  // Dedup by email, prefer rows that include a name
+  const byEmail = new Map<string, { name: string | null; email: string }>()
+  for (const c of all) {
+    if (ownEmails.has(c.email)) continue
+    const existing = byEmail.get(c.email)
+    if (!existing || (!existing.name && c.name)) byEmail.set(c.email, c)
+  }
+  if (byEmail.size === 0) return
+
+  const now = new Date().toISOString()
+  const rows = Array.from(byEmail.values()).map(c => ({
+    gig_id: gigId,
+    email: c.email,
+    name: c.name,
+    role: inferContactRole(c.email, promoterEmailOnGig),
+    source: 'gmail',
+    first_seen_at: now,
+    last_seen_at: now,
+  }))
+
+  // Upsert on (gig_id, email) — if it exists, bump last_seen_at + fill in name/role if we now know them
+  for (const row of rows) {
+    const { data: existing } = await supabase
+      .from('gig_contacts')
+      .select('id, name, role')
+      .eq('gig_id', row.gig_id)
+      .eq('email', row.email)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase.from('gig_contacts').update({
+        last_seen_at: now,
+        name: existing.name || row.name,
+        role: existing.role || row.role,
+      }).eq('id', existing.id)
+    } else {
+      await supabase.from('gig_contacts').insert([row])
+    }
+  }
+}
+
 // ── Mark email as processed ────────────────────────────────────────────────
 
-async function markProcessed(gmail: any, messageId: string) {
+async function markProcessed(_gmail: any, messageId: string) {
   try {
-    // Add a label "Artist OS" and mark as read
-    await gmail.users.messages.modify({
-      userId: 'me',
-      id: messageId,
-      requestBody: { removeLabelIds: ['UNREAD'] },
-    })
-
-    // Track in Supabase to avoid reprocessing
+    // Track in Supabase to avoid reprocessing.
+    // We no longer remove UNREAD — Anthony reads emails on his phone; processed state
+    // belongs in our DB, not in his Gmail read-state. Dedup happens via processed_gmail_ids.
     await supabase.from('processed_gmail_ids').insert([{
       message_id: messageId,
       processed_at: new Date().toISOString(),
@@ -462,18 +778,28 @@ async function markProcessed(gmail: any, messageId: string) {
 
 // ── Process emails for one account ────────────────────────────────────────
 
-async function processAccount(gmail: any, accountEmail: string, processedIds: Set<string>, gigs: any[]): Promise<any[]> {
+async function processAccount(gmail: any, accountEmail: string, processedIds: Set<string>, gigs: any[], afterQuery: string, ownEmails: Set<string>): Promise<any[]> {
   const results: any[] = []
 
-  const { data: list } = await gmail.users.messages.list({
-    userId: 'me',
-    maxResults: 30,
-    q: 'is:unread newer_than:14d',
-  })
+  // Paginate through the inbox — safety cap at 200 messages per account per run
+  // so we never blow out the cron budget if the watermark slipped badly.
+  const MAX_MESSAGES_PER_ACCOUNT = 200
+  const allMessages: Array<{ id?: string | null }> = []
+  let pageToken: string | undefined
 
-  const messages = list?.messages || []
+  do {
+    const { data: list } = await gmail.users.messages.list({
+      userId: 'me',
+      maxResults: 100,
+      q: `${afterQuery} -in:sent -in:draft -category:promotions -category:social`,
+      ...(pageToken ? { pageToken } : {}),
+    })
+    for (const m of list?.messages || []) allMessages.push(m)
+    pageToken = list?.nextPageToken
+    if (allMessages.length >= MAX_MESSAGES_PER_ACCOUNT) break
+  } while (pageToken)
 
-  for (const msg of messages) {
+  for (const msg of allMessages.slice(0, MAX_MESSAGES_PER_ACCOUNT)) {
     if (!msg.id || processedIds.has(msg.id)) continue
 
     const { data: full } = await gmail.users.messages.get({
@@ -489,9 +815,15 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
 
     if (!body && !subject) { await markProcessed(gmail, msg.id); continue }
 
+    // Collect + fetch PDF attachments so Claude can read contracts / tickets / invoices directly.
+    const pdfRefs = collectPdfAttachments(full.payload)
+    const pdfs = pdfRefs.length > 0
+      ? await fetchPdfsForClaude(gmail, msg.id, pdfRefs)
+      : []
+
     let classification: any
     try {
-      classification = await classifyEmail(from, subject, body, gigs)
+      classification = await classifyEmail(from, subject, body, gigs, pdfs)
     } catch {
       continue
     }
@@ -522,6 +854,18 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
         await handleInvoice(classification.gig_id, classification.extracted)
         actionResult = { created: 'invoice' }
         break
+      case 'invoice_request':
+        await handleInvoiceRequest(classification.gig_id, classification.extracted, from)
+        actionResult = { updated: classification.gig_id, kind: 'invoice_request' }
+        break
+      case 'billing_info':
+        await handleBillingInfo(classification.gig_id, classification.extracted)
+        actionResult = { updated: classification.gig_id, kind: 'billing_info' }
+        break
+      case 'remittance':
+        await handleRemittance(classification.gig_id, classification.extracted)
+        actionResult = { kind: 'remittance' }
+        break
       case 'release':
         await handleRelease(classification.extracted)
         actionResult = { created: 'release' }
@@ -532,6 +876,21 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
         break
     }
 
+    // Capture every CC/To address on the thread against the matched gig.
+    // If the classifier created a gig (new_gig action), use the returned id.
+    const resolvedGigId: string | null = classification.gig_id
+      || (actionResult && typeof actionResult === 'object' && 'id' in actionResult ? (actionResult as any).id : null)
+
+    if (resolvedGigId) {
+      try {
+        const { data: matchedGig } = await supabase
+          .from('gigs').select('promoter_email').eq('id', resolvedGigId).single()
+        await captureThreadContacts(resolvedGigId, headers, ownEmails, matchedGig?.promoter_email || null)
+      } catch {
+        // Non-fatal — contact capture shouldn't block message processing
+      }
+    }
+
     await markProcessed(gmail, msg.id)
     processedIds.add(msg.id)
 
@@ -540,7 +899,7 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
       messageId: msg.id,
       subject,
       type: classification.type,
-      gig_id: classification.gig_id,
+      gig_id: resolvedGigId,
       action: actionResult,
     })
   }
@@ -554,11 +913,21 @@ export async function POST() {
   try {
     const clients = await getGmailClients()
 
-    // Get already-processed IDs (shared across accounts)
+    // Get already-processed IDs (shared across accounts) + watermark for Gmail query
     const { data: processed } = await supabase
       .from('processed_gmail_ids')
-      .select('message_id')
+      .select('message_id, processed_at')
+      .order('processed_at', { ascending: false })
+      .limit(2000)
     const processedIds = new Set((processed || []).map((r: any) => r.message_id))
+
+    // Build "after:" watermark — last successful processed message minus 2-day overlap.
+    // Fallback to 30 days ago if nothing processed yet.
+    const lastProcessedAt = processed?.[0]?.processed_at
+      ? new Date(processed[0].processed_at)
+      : new Date(Date.now() - 30 * 86400000)
+    const watermark = new Date(lastProcessedAt.getTime() - 2 * 86400000)
+    const afterQuery = `after:${watermark.getUTCFullYear()}/${String(watermark.getUTCMonth() + 1).padStart(2, '0')}/${String(watermark.getUTCDate()).padStart(2, '0')}`
 
     // Fetch existing gigs for context matching
     const { data: gigs } = await supabase
@@ -566,11 +935,16 @@ export async function POST() {
       .select('id, title, venue, location, date')
       .order('date', { ascending: true })
 
+    // Build set of our own addresses so thread-contact capture doesn't record us.
+    const ownEmails = new Set<string>(
+      clients.map(c => (c.email || '').toLowerCase()).filter(Boolean)
+    )
+
     const allResults: any[] = []
 
     for (const { gmail, email } of clients) {
       try {
-        const results = await processAccount(gmail, email, processedIds, gigs || [])
+        const results = await processAccount(gmail, email, processedIds, gigs || [], afterQuery, ownEmails)
         allResults.push(...results)
       } catch (err) {
         allResults.push({ account: email, error: err instanceof Error ? err.message : 'Failed' })

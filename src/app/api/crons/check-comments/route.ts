@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { handleComment } from '@/lib/instagram'
 import { createNotification } from '@/lib/notifications'
+import { requireCronAuth } from '@/lib/cron-auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +14,9 @@ const supabase = createClient(
 // Fallback for when webhooks aren't configured
 
 export async function GET(req: NextRequest) {
+  const unauth = requireCronAuth(req, 'check-comments')
+  if (unauth) return unauth
+
   try {
     // Get active automations
     const { data: automations } = await supabase

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Broadcast · v6 minimal</title>
+<style>
+  :root{
+    --bg:#050505;
+    --panel:#0c0c0c;
+    --panel-2:#111;
+    --text:#f4f4f4;
+    --dim:#9a9a9a;
+    --dimmer:#5a5a5a;
+    --dimmest:#2e2e2e;
+    --border:#1a1a1a;
+    --border-bright:#262626;
+    --red:#ff2a1a;
+    --red-bright:#ff5a47;
+    --input:#0a0a0a;
+    --font:"Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);overflow-x:hidden}
+  body{
+    min-height:100vh;
+    position:relative;
+    -webkit-font-smoothing:antialiased;
+    letter-spacing:-0.005em;
+  }
+  /* scanlines */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
+    background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+    mix-blend-mode:overlay;
+  }
+  /* grain */
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:61;opacity:0.32;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06  0 0 0 0 0.06  0 0 0 0 0.06  0 0 0 0.24 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-size:160px 160px;
+  }
+
+  /* — layout — */
+  .stage{
+    min-height:100vh;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+    padding:28px 40px 32px;
+    position:relative;
+    z-index:1;
+  }
+
+  /* — top bar — */
+  .top{
+    display:flex;align-items:center;justify-content:space-between;
+    padding-bottom:18px;border-bottom:1px solid var(--border);
+  }
+  .brand{
+    display:flex;align-items:center;gap:14px;
+  }
+  .brand-dot{
+    width:10px;height:10px;background:var(--red);display:inline-block;
+    box-shadow:0 0 16px rgba(255,42,26,0.6);
+  }
+  .brand-title{
+    font-size:11px;letter-spacing:0.28em;font-weight:700;text-transform:uppercase;color:var(--dim);
+  }
+  .top-meta{
+    display:flex;align-items:center;gap:22px;
+    font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--dimmer);font-weight:700;
+  }
+  .sep{color:var(--dimmest)}
+  .live{color:var(--red)}
+  .pulse{
+    width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block;margin-right:6px;
+    animation:pulse 1.4s ease-in-out infinite;vertical-align:middle;
+  }
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+
+  /* — state A: empty (hero drop) — */
+  .hero-wrap{
+    display:grid;place-items:center;
+    padding:40px 0;
+  }
+  .hero{
+    width:100%;max-width:1080px;
+    border:2px dashed var(--border-bright);
+    aspect-ratio:16/9;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:18px;
+    transition:border-color .15s ease, background .15s ease;
+    cursor:pointer;
+    position:relative;
+  }
+  .hero:hover, .hero.drag{border-color:var(--red);background:rgba(255,42,26,0.03)}
+  .hero-label{
+    font-size:11px;letter-spacing:0.32em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .hero-type{
+    font-size:clamp(120px, 18vw, 280px);
+    font-weight:900;line-height:0.82;letter-spacing:-0.055em;
+    color:var(--text);
+    text-align:center;
+  }
+  .hero-hint{
+    font-size:11px;letter-spacing:0.22em;color:var(--dimmest);font-weight:700;text-transform:uppercase;
+  }
+  .hero-corner-tl{
+    position:absolute;top:14px;left:16px;
+    font-size:10px;letter-spacing:0.26em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .hero-corner-tr{
+    position:absolute;top:14px;right:16px;
+    font-size:10px;letter-spacing:0.26em;color:var(--red);font-weight:700;
+  }
+
+  /* — state B: filled (media + caption) — */
+  .filled{
+    display:grid;
+    grid-template-columns:minmax(420px, 0.9fr) minmax(0, 1fr);
+    gap:32px;
+    padding:28px 0 12px;
+    align-items:stretch;
+  }
+  .media{
+    position:relative;
+    background:linear-gradient(135deg,#141414 0%,#070707 100%);
+    border:1px solid var(--border-bright);
+    aspect-ratio:9/16;
+    max-height:72vh;
+    overflow:hidden;
+  }
+  .media::before{
+    content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(135deg, #141414 0 8px, #0b0b0b 8px 16px);
+  }
+  .media-meta{
+    position:absolute;top:14px;left:14px;
+    font-size:10px;letter-spacing:0.26em;color:var(--dimmer);font-weight:700;
+  }
+  .media-dur{
+    position:absolute;top:14px;right:14px;
+    font-size:10px;letter-spacing:0.22em;color:var(--red);font-weight:700;
+  }
+  .media-filename{
+    position:absolute;bottom:14px;left:14px;right:14px;
+    font-size:10px;letter-spacing:0.14em;color:var(--dim);font-weight:600;text-transform:uppercase;
+    background:rgba(0,0,0,0.6);padding:6px 8px;border:1px solid var(--border);
+  }
+  .media-replace{
+    position:absolute;bottom:14px;right:14px;
+    background:var(--input);border:1px solid var(--border-bright);color:var(--dim);
+    padding:6px 10px;font-size:10px;letter-spacing:0.2em;font-weight:700;text-transform:uppercase;cursor:pointer;
+  }
+  .media-replace:hover{border-color:var(--red);color:var(--red)}
+
+  .compose{
+    display:flex;flex-direction:column;gap:18px;min-width:0;
+  }
+  .platform-row{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  }
+  .plat{
+    padding:8px 12px;background:transparent;border:1px solid var(--border-bright);
+    font-size:10px;letter-spacing:0.24em;font-weight:700;text-transform:uppercase;color:var(--dim);
+    cursor:pointer;transition:all .1s;
+  }
+  .plat:hover{color:var(--text);border-color:var(--dim)}
+  .plat.on{background:var(--red);border-color:var(--red);color:var(--bg)}
+  .plat-meta{
+    margin-left:auto;font-size:10px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .plat-meta .count{color:var(--text)}
+  .plat-meta .count.over{color:var(--red)}
+
+  .caption{
+    flex:1;
+    background:var(--input);border:1px solid var(--border-bright);
+    padding:22px 22px;font-family:var(--font);color:var(--text);
+    font-size:20px;line-height:1.45;letter-spacing:-0.003em;resize:none;
+    min-height:280px;outline:none;
+  }
+  .caption:focus{border-color:var(--red)}
+  .caption::placeholder{color:var(--dimmest)}
+
+  .variants{
+    display:flex;gap:6px;
+  }
+  .variant{
+    padding:6px 12px;background:transparent;border:1px solid var(--border-bright);color:var(--dim);
+    font-size:10px;letter-spacing:0.24em;font-weight:700;text-transform:uppercase;cursor:pointer;
+  }
+  .variant.on{border-color:var(--red);color:var(--red)}
+
+  .submit-row{
+    display:flex;align-items:center;gap:14px;
+    padding-top:8px;border-top:1px solid var(--border);margin-top:auto;padding-top:18px;
+  }
+  .best-hint{
+    font-size:11px;letter-spacing:0.22em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .best-hint .time{color:var(--text)}
+  .best-hint .lift{color:var(--red);margin-left:6px}
+  .approve{
+    margin-left:auto;
+    padding:14px 22px;background:var(--red);border:1px solid var(--red);color:var(--bg);
+    font-size:12px;letter-spacing:0.22em;font-weight:800;text-transform:uppercase;cursor:pointer;
+    font-family:var(--font);
+  }
+  .approve:hover{background:var(--red-bright);border-color:var(--red-bright)}
+  .approve kbd{
+    margin-left:8px;padding:2px 6px;background:rgba(0,0,0,0.22);font-size:10px;letter-spacing:0.08em;
+    border:1px solid rgba(0,0,0,0.3);
+  }
+  .ghost{
+    padding:14px 18px;background:transparent;border:1px solid var(--border-bright);color:var(--dim);
+    font-size:11px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;cursor:pointer;
+    font-family:var(--font);
+  }
+  .ghost:hover{border-color:var(--dim);color:var(--text)}
+
+  /* — bottom bar — */
+  .bottom{
+    display:flex;align-items:center;justify-content:space-between;
+    padding-top:20px;border-top:1px solid var(--border);
+    font-size:10px;letter-spacing:0.24em;color:var(--dimmer);font-weight:700;text-transform:uppercase;
+  }
+  .scan{
+    padding:12px 18px;background:transparent;border:1px solid var(--red);color:var(--red);
+    font-size:11px;letter-spacing:0.24em;font-weight:800;text-transform:uppercase;cursor:pointer;
+    font-family:var(--font);
+    display:inline-flex;align-items:center;gap:8px;
+  }
+  .scan:hover{background:var(--red);color:var(--bg)}
+
+  /* state toggle (demo only) */
+  .state-toggle{
+    position:fixed;top:20px;right:20px;z-index:100;
+    display:flex;gap:6px;
+  }
+  .state-toggle button{
+    padding:8px 14px;background:var(--panel);border:1px solid var(--border-bright);color:var(--dim);
+    font-size:10px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;cursor:pointer;
+    font-family:var(--font);
+  }
+  .state-toggle button.on{border-color:var(--red);color:var(--red)}
+
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+
+  <!-- demo state toggle -->
+  <div class="state-toggle">
+    <button id="btn-empty" class="on">Empty</button>
+    <button id="btn-filled">Filled</button>
+  </div>
+
+  <div class="stage">
+    <!-- top -->
+    <div class="top">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-title">Broadcast</span>
+      </div>
+      <div class="top-meta">
+        <span><span class="pulse"></span><span class="live">LIVE</span></span>
+        <span class="sep">│</span>
+        <span>Next window · <span style="color:var(--text)">Thu 18:00</span> <span style="color:var(--red)">+18%</span></span>
+        <span class="sep">│</span>
+        <span>Sat 18 Apr · 17:02</span>
+      </div>
+    </div>
+
+    <!-- STATE A: empty -->
+    <div id="state-empty" class="hero-wrap">
+      <div class="hero" id="dropzone">
+        <div class="hero-corner-tl">◉ Drop media</div>
+        <div class="hero-corner-tr">9:16 · 16:9 · 1:1</div>
+        <div class="hero-label">What happened tonight?</div>
+        <div class="hero-type">DROP</div>
+        <div class="hero-hint">MP4 · MOV · PNG · JPG · or paste a link</div>
+      </div>
+    </div>
+
+    <!-- STATE B: filled -->
+    <div id="state-filled" class="filled hidden">
+      <div class="media">
+        <div class="media-meta">◉ REEL · 9:16</div>
+        <div class="media-dur">● 0:18</div>
+        <div class="media-filename">soundcheck_warehouse9.mp4 · 24MB</div>
+        <button class="media-replace" onclick="if(confirm('Replace media? The current file will be removed.')){}">Replace</button>
+      </div>
+
+      <div class="compose">
+        <div class="platform-row">
+          <button class="plat on">Instagram</button>
+          <button class="plat">TikTok</button>
+          <button class="plat">Threads</button>
+          <button class="plat">X</button>
+          <div class="plat-meta">Reel · <span class="count">186</span> / 2200</div>
+        </div>
+
+        <textarea class="caption" placeholder="one line — warehouse, flight, studio, release…">warehouse 9 last night — three rooms, 23:00 first track.
+
+the wait was the point.</textarea>
+
+        <div class="variants">
+          <button class="variant">Safe</button>
+          <button class="variant on">Loose</button>
+          <button class="variant">Raw</button>
+        </div>
+
+        <div class="submit-row">
+          <div class="best-hint">Scheduled · <span class="time">Thu 18:00</span><span class="lift">+18%</span></div>
+          <button class="ghost">Save draft</button>
+          <button class="approve">Preview + Approve<kbd>⌘ ↵</kbd></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- bottom -->
+    <div class="bottom">
+      <span>◉ 7-day reach <span style="color:var(--text)">184K</span> · <span style="color:var(--red)">+2.1K</span></span>
+      <button class="scan"><span class="pulse"></span>Signal Scan</button>
+      <span>Voice · <span style="color:var(--red)">● not trained</span> · <span style="color:var(--text);text-decoration:underline;cursor:pointer">Train →</span></span>
+    </div>
+  </div>
+
+<script>
+  const btnE = document.getElementById('btn-empty');
+  const btnF = document.getElementById('btn-filled');
+  const sE = document.getElementById('state-empty');
+  const sF = document.getElementById('state-filled');
+  btnE.onclick = () => { sE.classList.remove('hidden'); sF.classList.add('hidden'); btnE.classList.add('on'); btnF.classList.remove('on'); };
+  btnF.onclick = () => { sE.classList.add('hidden'); sF.classList.remove('hidden'); btnF.classList.add('on'); btnE.classList.remove('on'); };
+
+  const dz = document.getElementById('dropzone');
+  ['dragenter','dragover'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('drag'); if(e==='drop') btnF.click(); }));
+  dz.addEventListener('click', () => btnF.click());
+</script>
+</body>
+</html>

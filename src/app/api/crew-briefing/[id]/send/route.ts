@@ -7,10 +7,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// POST: Approve and send a crew briefing draft
+// POST: Preview or approve + send a crew briefing draft
+// Body: { via?: string, confirmed?: boolean }
+// Step 1 (no confirmed): returns preview of the draft
+// Step 2 (confirmed: true, or via === 'sms'): actually sends
+// NOTE: SMS reply approval (`via: 'sms'`) is the human confirmation surface for
+// that path — see /api/sms/inbound. App-triggered sends must use the approval
+// modal (confirmed: true).
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const approvedVia = (await req.json().catch(() => ({}))).via || 'app'
+    const body = await req.json().catch(() => ({} as { via?: string; confirmed?: boolean }))
+    const approvedVia = body.via || 'app'
+    const isSmsApproval = body.via === 'sms'
 
     const { data: draft, error } = await supabase
       .from('crew_briefing_drafts')
@@ -21,6 +29,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     if (error || !draft) {
       return NextResponse.json({ error: 'Briefing not found or already sent' }, { status: 404 })
+    }
+
+    // Step 1: preview (app callers only — SMS has already approved)
+    if (!isSmsApproval && !body.confirmed) {
+      return NextResponse.json({
+        success: true,
+        preview: true,
+        to: draft.recipient_email,
+        subject: draft.subject,
+        html: draft.body_html,
+        message: 'Review this briefing. Call again with confirmed: true to send.',
+      })
     }
 
     if (!process.env.RESEND_API_KEY) {

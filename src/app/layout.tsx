@@ -6,6 +6,10 @@ import { KeyboardShortcuts } from '@/components/ui/KeyboardShortcuts'
 import { SignalGenius } from '@/components/dashboard/SignalGenius'
 import { FetchProgress } from '@/components/ui/FetchProgress'
 import { DesktopShell } from '@/components/desktop/DesktopShell'
+import { ApprovalGateProvider } from '@/lib/approval-gate'
+import { ToastProvider } from '@/lib/toast'
+import { AutoFixPrompt } from '@/components/AutoFixPrompt'
+import { GlobalErrorCatcher } from '@/components/GlobalErrorCatcher'
 
 export const metadata: Metadata = {
   title: 'Signal Lab OS',
@@ -38,6 +42,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ background: 'var(--bg)', color: 'var(--text)', margin: 0, padding: 0 }}>
+        <ApprovalGateProvider>
+        <ToastProvider>
         <FetchProgress />
         <DesktopShell
           desktopChildren={
@@ -62,6 +68,10 @@ export default function RootLayout({
             <KeyboardShortcuts />
           </div>
         </DesktopShell>
+        <AutoFixPrompt />
+        <GlobalErrorCatcher />
+        </ToastProvider>
+        </ApprovalGateProvider>
         <script dangerouslySetInnerHTML={{ __html: `
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {

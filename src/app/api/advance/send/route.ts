@@ -5,12 +5,26 @@ import { createNotification } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
   try {
-    const { gigId, gigTitle, venue, date, promoterEmail, subject, html } = await req.json()
+    const body = await req.json()
+    const { gigId, gigTitle, venue, date, promoterEmail, subject, html, confirmed } = body
 
     if (!gigId || !promoterEmail || !subject || !html) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    // Step 1: preview — return payload for approval modal
+    if (!confirmed) {
+      return NextResponse.json({
+        success: true,
+        preview: true,
+        to: promoterEmail,
+        subject,
+        html,
+        message: 'Review this advance email. Call again with confirmed: true to send.',
+      })
+    }
+
+    // Step 2: confirmed — actually send
     const resend = new Resend(process.env.RESEND_API_KEY)
 
     // Send the approved email

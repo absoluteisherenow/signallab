@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireCronAuth } from '@/lib/cron-auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,11 +11,8 @@ const supabase = createClient(
 // Cron: daily at 11:00
 // Finds confirmed gigs with a fee but no linked invoice → auto-creates them
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const unauth = requireCronAuth(req, 'invoice-backfill')
+  if (unauth) return unauth
 
   try {
     // Get all gigs with a fee > 0 that aren't cancelled

@@ -15,10 +15,10 @@ const plans = [
     price: '£29',
     tagline: "You're making music. This keeps everything in one place.",
     features: [
-      'Tour Lab — gigs, advancing, logistics',
-      'Broadcast Lab — captions + scheduling',
-      'Set Lab — track library + set building',
-      'Drop Lab — release management',
+      'Tour Lab · gigs, advancing, logistics',
+      'Broadcast Lab · captions + scheduling',
+      'Set Lab · track library + set building',
+      'Drop Lab · release management',
       'Promo mail outs',
       'Email support',
     ],
@@ -30,9 +30,9 @@ const plans = [
     featured: true,
     features: [
       'Everything in Creator',
-      'Content Strategy — trend detection + media scanning',
-      'SONIX Lab — mix chain analysis + VST plugin',
-      'Set Lab — energy scoring + Rekordbox sync',
+      'Content Strategy · trend detection + media scanning',
+      'SONIX Lab · mix chain analysis + VST plugin',
+      'Set Lab · energy scoring + Rekordbox sync',
       'Contract parser + invoice tracking',
       'Campaign builder for releases',
       'Promo mail outs + open tracking',
@@ -46,12 +46,12 @@ const plans = [
     tagline: 'Every tool. No limits. No waiting.',
     features: [
       'Everything in Artist',
-      'Two artist aliases — run multiple projects',
+      'Two artist aliases · run multiple projects',
       'Multi-currency invoicing',
-      'Team access — manager, photographer, content',
-      'Full listen tracking — who played, how long',
-      'Follow-up intelligence — know who to chase',
-      'White-label emails — your branding',
+      'Team access · manager, photographer, content',
+      'Full listen tracking · who played, how long',
+      'Follow-up intelligence · know who to chase',
+      'White-label emails · your branding',
       'Producer chain database',
       'Stem exports',
       'Priority processing on everything',
@@ -61,7 +61,7 @@ const plans = [
 ]
 
 const labs = [
-  { name: 'Tour Lab', role: 'Gigs, contracts, finances, advancing. The business side — handled.', action: 'Run the business' },
+  { name: 'Tour Lab', role: 'Gigs, contracts, finances, advancing. The business side. Handled.', action: 'Run the business' },
   { name: 'Broadcast Lab', role: 'Content intelligence, captions tuned to your voice, scheduling, trend detection.', action: 'Own the narrative' },
   { name: 'Set Lab', role: 'Track library, set building, Rekordbox sync, energy + flow scoring.', action: 'Prepare the set' },
   { name: 'SONIX Lab', role: 'Mix chain analysis, production workflow, frequency and structure data, VST plugin.', action: 'Production analysis' },
@@ -69,8 +69,8 @@ const labs = [
 ]
 
 const features = [
-  { title: 'Contract parser', desc: 'Paste a booking email. Venue, times, hotel, backline, fee, deposits — extracted. Gig created in one click.' },
-  { title: 'Content Intelligence', desc: 'Drop your footage. Four scores — Reach, Authenticity, Culture, Visual Identity. Know what to post.' },
+  { title: 'Contract parser', desc: 'Paste a booking email. Venue, times, hotel, backline, fee, deposits. All extracted. Gig created in one click.' },
+  { title: 'Content Intelligence', desc: 'Drop your footage. Four scores: Reach, Authenticity, Culture, Visual Identity. Know what to post.' },
   { title: 'Track intelligence', desc: 'Every track gets energy scoring, flow compatibility, mix-in data across your full library.' },
   { title: 'Tone profiles', desc: 'Scan the artists you study. Captions generate in your voice, not a brand\u2019s.' },
   { title: 'Rekordbox sync', desc: 'Import your full library. Every track enriched. Export sets back as Rekordbox XML.' },
@@ -83,7 +83,7 @@ const faqs = [
   },
   {
     q: 'How much does traditional advancing cost?',
-    a: 'A dedicated advancing service runs around \u00a3150 per show. At 20 shows a year, that\u2019s \u00a33,000. Signal Lab OS is \u00a359/month \u2014 \u00a3708/year \u2014 and does advancing, content, set prep, production.',
+    a: 'A dedicated advancing service runs around \u00a3150 per show. At 20 shows a year, that\u2019s \u00a33,000. Signal Lab OS is \u00a359/month (\u00a3708/year) and does advancing, content, set prep, production.',
   },
   {
     q: 'Do I need to be a touring DJ?',
@@ -91,7 +91,7 @@ const faqs = [
   },
   {
     q: 'Is there a free tier?',
-    a: 'Not yet. Private beta \u2014 focused on artists serious about their workflow. No payment details to join the waitlist.',
+    a: 'Not yet. Private beta. Focused on artists serious about their workflow. No payment details to join the waitlist.',
   },
 ]
 
@@ -166,13 +166,21 @@ export default function BRTLandingPage() {
         backgroundImage: 'repeating-linear-gradient(0deg, transparent 0 2px, rgba(255,255,255,0.015) 2px 3px)',
       }} />
 
+      {/* Responsive header tweaks — hide secondary nav links on narrow screens */}
+      <style>{`
+        @media (max-width: 640px) {
+          .brt-nav-link { display: none !important; }
+          .brt-header-inner { padding-left: 20px !important; padding-right: 20px !important; }
+        }
+      `}</style>
+
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <header style={{
         position: 'sticky', top: 0, zIndex: 30,
         background: `${BRT.bg}f2`, backdropFilter: 'blur(8px)',
         borderBottom: `1px solid ${BRT.divide}`,
       }}>
-        <div style={{ ...container, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 32px' }}>
+        <div className="brt-header-inner" style={{ ...container, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 18, letterSpacing: '-0.02em', color: BRT.ink, textTransform: 'uppercase' }}>
               Signal Lab
@@ -182,9 +190,9 @@ export default function BRTLandingPage() {
             </span>
           </div>
           <nav style={{ display: 'flex', alignItems: 'center', gap: 28, fontFamily: MONO, fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-            <a href="#labs" style={{ color: BRT.inkSoft, textDecoration: 'none' }}>Labs</a>
-            <a href="#features" style={{ color: BRT.inkSoft, textDecoration: 'none' }}>Features</a>
-            <a href="#pricing" style={{ color: BRT.inkSoft, textDecoration: 'none' }}>Pricing</a>
+            <a href="#labs" className="brt-nav-link" style={{ color: BRT.inkSoft, textDecoration: 'none' }}>Labs</a>
+            <a href="#features" className="brt-nav-link" style={{ color: BRT.inkSoft, textDecoration: 'none' }}>Features</a>
+            <a href="#pricing" className="brt-nav-link" style={{ color: BRT.inkSoft, textDecoration: 'none' }}>Pricing</a>
             <a href="#waitlist" style={{
               border: `1px solid ${BRT.red}`, color: BRT.red,
               padding: '10px 20px', textDecoration: 'none', letterSpacing: '0.22em',
@@ -200,7 +208,7 @@ export default function BRTLandingPage() {
         {/* ── HERO ────────────────────────────────────────────────────────── */}
         <section style={{ ...sectionBorder, borderTop: 'none', padding: '56px 0 80px' }}>
           <div style={container}>
-            <Eyebrow>Private Beta — Join the Waitlist</Eyebrow>
+            <Eyebrow>Private Beta · Join the Waitlist</Eyebrow>
             <h1 style={{
               fontFamily: DISPLAY, fontWeight: 900,
               fontSize: 'clamp(56px, 11vw, 180px)',
@@ -211,7 +219,7 @@ export default function BRTLandingPage() {
               Your gigs.<br />Your content.<br />Your music.<br /><span style={{ color: BRT.red }}>One OS.</span>
             </h1>
             <p style={{ fontSize: 18, lineHeight: 1.7, color: BRT.inkSoft, maxWidth: 780 }}>
-              Signal Lab OS replaces the spreadsheets, the WhatsApp threads, the five different apps. Tour management, content scheduling, production analysis, DJ set prep, release management — one system, built for electronic artists.
+              Signal Lab OS replaces the spreadsheets, the WhatsApp threads, the five different apps. Tour management, content scheduling, production analysis, DJ set prep, release management. One system, built for electronic artists.
             </p>
             <div style={{ marginTop: 40, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
               <a href="#waitlist" style={{
@@ -371,7 +379,7 @@ export default function BRTLandingPage() {
             }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.22em', color: BRT.inkDim, textTransform: 'uppercase', marginBottom: 6 }}>Running artists?</div>
-                <div style={{ fontSize: 13, lineHeight: 1.6, color: BRT.inkSoft }}>Management tier available — multi-artist dashboard, team access, white-label advance emails. Priced separately.</div>
+                <div style={{ fontSize: 13, lineHeight: 1.6, color: BRT.inkSoft }}>Management tier available · multi-artist dashboard, team access, white-label advance emails. Priced separately.</div>
               </div>
               <a href="mailto:hello@signallabos.com?subject=Management%20tier" style={{
                 background: 'transparent', color: BRT.ink,
