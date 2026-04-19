@@ -12,6 +12,10 @@
       "binding": "MEDIA_BUCKET",
       "bucket_name": "signal-lab-media"
     }
+  ],
+  "routes": [
+    { "pattern": "signallabos.com", "custom_domain": true },
+    { "pattern": "www.signallabos.com", "custom_domain": true }
   ]
   // NOTE: cron trigger intentionally NOT wired here. CF cron fires the Worker's
   // `scheduled` handler, which OpenNext doesn't route to Next.js API routes.
