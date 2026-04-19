@@ -41,6 +41,12 @@ export function MediaLibrary() {
   }
 
   const [deleting, setDeleting] = useState<Set<string>>(new Set())
+  // Initial render cap — without this we paint N DOM nodes + trigger N image
+  // fetches the instant the user clicks Media, which makes the tab feel dead
+  // for seconds when there are hundreds of gig photos in R2. Cap at 120 (~3
+  // screens at 4 columns), show a reveal-all toggle for the rest.
+  const INITIAL_CAP = 120
+  const [showAll, setShowAll] = useState(false)
 
   async function uploadFiles(files: FileList) {
     setUploading(true)
@@ -118,8 +124,15 @@ export function MediaLibrary() {
           </a>
         </div>
       ) : (
+        <>
+        {(() => {
+          const visible = items.filter(item => !item.key?.includes('error') && !item.key?.includes('screenshot'))
+          const sliced = showAll ? visible : visible.slice(0, INITIAL_CAP)
+          const hidden = visible.length - sliced.length
+          return (
+            <>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
-          {items.filter(item => !item.key?.includes('error') && !item.key?.includes('screenshot')).map(item => (
+          {sliced.map(item => (
             <div key={item.url} onClick={() => toggle(item.url)} style={{
               background: s.panel,
               border: `1px solid ${selected.has(item.url) ? s.gold : s.border}`,
@@ -128,7 +141,7 @@ export function MediaLibrary() {
               position: 'relative',
             }}>
               <div style={{ aspectRatio: '1', overflow: 'hidden', background: '#1d1d1d' }}>
-                <img src={item.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                <img src={item.url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   onError={e => { (e.target as HTMLImageElement).src = '' }} />
               </div>
               {selected.has(item.url) && (
@@ -161,6 +174,25 @@ export function MediaLibrary() {
             </div>
           ))}
         </div>
+        {hidden > 0 && (
+          <div style={{ marginTop: 24, textAlign: 'center' }}>
+            <button
+              onClick={() => setShowAll(true)}
+              style={{
+                background: 'transparent', border: `1px solid ${s.border}`,
+                color: s.dim, fontFamily: s.font, fontSize: '10px',
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                padding: '12px 28px', cursor: 'pointer',
+              }}
+            >
+              Show {hidden} more
+            </button>
+          </div>
+        )}
+            </>
+          )
+        })()}
+        </>
       )}
 
       </div>{/* end inner padding */}
