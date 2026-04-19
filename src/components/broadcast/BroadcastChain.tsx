@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BRT } from '@/lib/design/brt'
 import { supabase } from '@/lib/supabaseBrowser'
+import { ideas, type Idea } from '@/lib/nm-plan-data'
 import type { ChainScanResult } from '@/lib/chainScan'
 import { PhaseRail } from './chain/PhaseRail'
 import { SignalLabHeader } from './SignalLabHeader'
@@ -76,6 +77,16 @@ function computeAlignment(refs: VoiceRef[]): number {
  * Broadcast Lab. Phases run top to bottom: Drop → Scan → Voice → Approve.
  * Each phase reveals only when the previous one has produced its output.
  */
+/**
+ * Derive a tight caption-gen context string from an idea brief. Kept terse
+ * because Claude is already heavily primed by SKILLS_CAPTION_GEN — this just
+ * needs to plant the angle: title + kicker + the idea's own caption draft.
+ */
+function ideaToContext(idea: Idea): string {
+  const parts = [idea.title, idea.kicker, idea.caption?.trim()].filter(Boolean)
+  return parts.join(' — ')
+}
+
 export function BroadcastChain() {
   const [phase, setPhase] = useState<ChainPhase>('drop')
   const [file, setFile] = useState<File | null>(null)
@@ -85,6 +96,17 @@ export function BroadcastChain() {
   const [refs, setRefs] = useState<VoiceRef[]>([])
   const [refsOpen, setRefsOpen] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
+  // Pinned idea from /broadcast?idea=<slug>. If set, caption-gen context is
+  // seeded with the idea's angle so the user doesn't have to retype it.
+  const [pinnedIdea, setPinnedIdea] = useState<Idea | null>(null)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const slug = params.get('idea')
+    if (!slug) return
+    const found = ideas.find(i => i.slug === slug)
+    if (found) setPinnedIdea(found)
+  }, [])
   // Client-only "now" label. Rendering `new Date()` inline caused a hydration
   // mismatch because the server's second and the client's second differ. We
   // render empty on SSR, fill on mount, and tick once a minute.
@@ -290,6 +312,57 @@ export function BroadcastChain() {
 
         {/* Body — padded to match the shared header's horizontal rhythm. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, padding: '24px 48px 48px' }}>
+          {pinnedIdea && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '10px 14px',
+                background: BRT.ticket,
+                border: `1px solid ${BRT.red}`,
+                fontSize: 11,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: BRT.ink,
+              }}
+            >
+              <span style={{ color: BRT.red, fontWeight: 700 }}>◆ FROM IDEAS</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '0.02em', textTransform: 'none' }}>
+                {pinnedIdea.title}
+              </span>
+              <a
+                href={`/broadcast/ideas/${pinnedIdea.slug}`}
+                style={{ color: BRT.inkDim, textDecoration: 'none', fontSize: 10, letterSpacing: '0.18em' }}
+              >
+                VIEW BRIEF
+              </a>
+              <button
+                onClick={() => {
+                  setPinnedIdea(null)
+                  // Strip ?idea= so a refresh doesn't re-pin.
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href)
+                    url.searchParams.delete('idea')
+                    window.history.replaceState({}, '', url.pathname + url.search)
+                  }
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: BRT.inkDim,
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  padding: '0 4px',
+                  lineHeight: 1,
+                  fontFamily: 'inherit',
+                }}
+                aria-label="Unpin idea"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {phase === 'drop' && <PhaseDrop onMedia={handleMedia} voiceTrained={refs.length > 1} />}
 
           {file && phase === 'scanning' && (
@@ -381,6 +454,7 @@ export function BroadcastChain() {
                 refs={refs}
                 alignmentScore={alignmentScore}
                 onOpenRefs={() => setRefsOpen(true)}
+                initialContext={pinnedIdea ? ideaToContext(pinnedIdea) : undefined}
               />
             </>
           )}

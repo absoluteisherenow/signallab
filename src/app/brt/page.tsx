@@ -18,7 +18,7 @@ const plans = [
       'Tour Lab · gigs, advancing, logistics',
       'Broadcast Lab · captions + scheduling',
       'Set Lab · track library + set building',
-      'Drop Lab · release management',
+      'Promo Lab · release management',
       'Promo mail outs',
       'Email support',
     ],
@@ -65,7 +65,7 @@ const labs = [
   { name: 'Broadcast Lab', role: 'Content intelligence, captions tuned to your voice, scheduling, trend detection.', action: 'Own the narrative' },
   { name: 'Set Lab', role: 'Track library, set building, Rekordbox sync, energy + flow scoring.', action: 'Prepare the set' },
   { name: 'SONIX Lab', role: 'Mix chain analysis, production workflow, frequency and structure data, VST plugin.', action: 'Production analysis' },
-  { name: 'Drop Lab', role: 'Release management, campaign timelines, streaming links, promo coordination.', action: 'Ship the music' },
+  { name: 'Promo Lab', role: 'Release management, campaign timelines, streaming links, promo coordination.', action: 'Ship the music' },
 ]
 
 const features = [

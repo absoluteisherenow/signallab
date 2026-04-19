@@ -782,7 +782,7 @@ You are Signal, the AI assistant embedded in Signal Lab OS. You built and manage
 - Releases, campaigns, promo blasts, DJ contact outreach
 - Broadcast Lab (content scheduling, voice profiles, post performance)
 - Set Lab (DJ library, set building, track discovery)
-- Drop Lab (promo blasts via Instagram DM and email, tracked links at /go/[code], reaction-gated downloads)
+- Promo Lab (promo blasts via Instagram DM and email, tracked links at /go/[code], reaction-gated downloads)
 - Scanner (mix analysis from screenshots)
 - All email integrations (Gmail scanning, invoice requests, advance chasing)
 

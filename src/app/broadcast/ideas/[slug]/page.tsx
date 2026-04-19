@@ -167,11 +167,12 @@ export default function IdeaPage() {
           </Section>
         )}
 
-        {/* Use this idea CTA */}
+        {/* Drop media → Chain CTA. Chain reads ?idea= and pins the idea as
+            caption-gen context. Old /post route is dead. */}
         <div style={{ marginTop: 32, display: 'flex', gap: 12 }}>
-          <a href={`/post?context=${encodeURIComponent(idea.title)}&format=${idea.format.includes('reel') ? 'reel' : idea.format.includes('carousel') ? 'carousel' : 'post'}`}
+          <a href={`/broadcast?idea=${encodeURIComponent(idea.slug)}`}
             style={{ padding: '14px 28px', background: s.gold, color: s.bg, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700, textDecoration: 'none', fontFamily: s.font }}>
-            Use this idea
+            Drop media →
           </a>
           <a href="/broadcast/ideas" style={{ padding: '14px 20px', border: `1px solid ${s.border}`, color: s.dim, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none', fontFamily: s.font }}>
             Back to all

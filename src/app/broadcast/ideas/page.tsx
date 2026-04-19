@@ -37,23 +37,36 @@ export default function IdeasPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {sorted.map(idea => (
-            <a
+            <div
               key={idea.slug}
-              href={`/broadcast/ideas/${idea.slug}`}
-              style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', background: s.panel, border: `1px solid ${s.border}`, textDecoration: 'none', color: '#f2f2f2', transition: 'border-color 0.15s' }}
+              style={{ display: 'flex', alignItems: 'stretch', background: s.panel, border: `1px solid ${s.border}`, transition: 'border-color 0.15s' }}
               onMouseEnter={e => (e.currentTarget.style.borderColor = s.gold)}
               onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
             >
-              <span style={{ fontSize: 24, fontWeight: 700, color: scoreColor(Math.round(avg(idea) / 20)), lineHeight: 1, minWidth: 36 }}>{avg(idea)}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idea.title}</div>
-                <div style={{ fontSize: 11, color: s.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idea.kicker}</div>
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <span style={{ fontSize: 12, padding: '3px 8px', border: `1px solid ${s.border}`, color: s.dim, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{idea.format}</span>
-                {idea.targetDate && <span style={{ fontSize: 12, padding: '3px 8px', border: `1px solid ${s.border}`, color: s.dimmest, letterSpacing: '0.06em' }}>{idea.targetDate.split(',')[0]}</span>}
-              </div>
-            </a>
+              <a
+                href={`/broadcast/ideas/${idea.slug}`}
+                style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', textDecoration: 'none', color: '#f2f2f2' }}
+              >
+                <span style={{ fontSize: 24, fontWeight: 700, color: scoreColor(Math.round(avg(idea) / 20)), lineHeight: 1, minWidth: 36 }}>{avg(idea)}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idea.title}</div>
+                  <div style={{ fontSize: 11, color: s.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idea.kicker}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <span style={{ fontSize: 12, padding: '3px 8px', border: `1px solid ${s.border}`, color: s.dim, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{idea.format}</span>
+                  {idea.targetDate && <span style={{ fontSize: 12, padding: '3px 8px', border: `1px solid ${s.border}`, color: s.dimmest, letterSpacing: '0.06em' }}>{idea.targetDate.split(',')[0]}</span>}
+                </div>
+              </a>
+              {/* Drop-to-chain shortcut — skips the brief detail view. */}
+              <a
+                href={`/broadcast?idea=${encodeURIComponent(idea.slug)}`}
+                onClick={e => e.stopPropagation()}
+                title="Drop media into chain with this idea pinned"
+                style={{ display: 'flex', alignItems: 'center', padding: '0 18px', borderLeft: `1px solid ${s.border}`, color: s.gold, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 700, textDecoration: 'none', fontFamily: s.font, flexShrink: 0 }}
+              >
+                Drop →
+              </a>
+            </div>
           ))}
         </div>
       </div>

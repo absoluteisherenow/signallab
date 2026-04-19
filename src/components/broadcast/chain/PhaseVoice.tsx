@@ -17,6 +17,9 @@ interface Props {
   refs: VoiceRef[]
   alignmentScore: number
   onOpenRefs: () => void
+  /** Seed the context field from an upstream source (e.g. /broadcast?idea=).
+   *  Pre-commits so first caption render uses it without waiting for blur. */
+  initialContext?: string
 }
 
 const VARIANTS: CaptionVariant[] = ['safe', 'loose', 'raw']
@@ -47,6 +50,7 @@ export function PhaseVoice({
   refs,
   alignmentScore,
   onOpenRefs,
+  initialContext,
 }: Props) {
   const [captions, setCaptions] = useState<Record<CaptionVariant, string> | null>(null)
   // Receipts — one-sentence rationale the model returns alongside the three
@@ -106,10 +110,11 @@ export function PhaseVoice({
   // `context` is the single most important input for caption quality. Without
   // it Claude has nothing to write TOWARD (no release, no gig, no angle) and
   // falls back to poetic description — the fortune-cookie failure mode.
-  const [context, setContext] = useState('')
+  const [context, setContext] = useState(initialContext ?? '')
   // Debounced context that actually triggers regen — so typing doesn't
-  // fire a Claude call on every keystroke.
-  const [committedContext, setCommittedContext] = useState('')
+  // fire a Claude call on every keystroke. Seed with initialContext so the
+  // first generation already reflects the pinned idea's angle.
+  const [committedContext, setCommittedContext] = useState(initialContext ?? '')
 
   const gatedSend = useGatedSend()
 
