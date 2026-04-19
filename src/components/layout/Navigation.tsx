@@ -26,10 +26,17 @@ const NAV_GROUPS: NavGroup[] = [
     label: '',
     items: [
       { label: 'Broadcast Lab', href: '/broadcast', sub: [] },
+      // Grow Lab replaces the old Broadcast/Ads tab. Houses Ads + Growth
+      // trajectory + DM Automations under `/grow` — amplification &
+      // acquisition, separate from Broadcast's organic-compose loop.
+      { label: 'Grow Lab', href: '/grow', sub: [] },
       { label: 'Tour Lab', href: '/gigs', sub: [] },
       { label: 'Set Lab', href: '/setlab', sub: [] },
       { label: 'Sonix Lab', href: '/sonix', sub: [] },
-      { label: 'Drop Lab', href: '/promo', sub: [] },
+      // Renamed from "Drop Lab" → "Promo Lab" so it doesn't collide with the
+      // Drop phase of the Broadcast chain. Route is unchanged (/promo was
+      // always the real URL — "Drop Lab" was the legacy label).
+      { label: 'Promo Lab', href: '/promo', sub: [] },
     ],
   },
 ]
