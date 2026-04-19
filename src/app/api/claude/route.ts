@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { env } from '@/lib/env'
 
 // -- SQL to create the cache table (run once in Supabase SQL editor) --
 // CREATE TABLE claude_cache (
@@ -64,7 +65,10 @@ async function setCached(key: string, response: string, ttlMs: number): Promise<
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  // Read via env() helper — process.env.ANTHROPIC_API_KEY comes back undefined
+  // on Cloudflare Workers even when the secret is set, because OpenNext doesn't
+  // pipe wrangler secrets into process.env at request time.
+  const apiKey = await env('ANTHROPIC_API_KEY')
 
   if (!apiKey) {
     return NextResponse.json({ error: 'API key not configured' }, { status: 500 })

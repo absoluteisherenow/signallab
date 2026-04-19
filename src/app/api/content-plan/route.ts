@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SKILLS_CONTENT_PLAN, SKILL_INSTAGRAM_GROWTH } from '@/lib/skillPrompts'
+import { env } from '@/lib/env'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -105,11 +106,12 @@ ${refPosts.slice(0, 4).map((p: any) => `  ${p.artist_name} ${p.platform} ${p.for
       availableDates.push(d.toISOString().split('T')[0])
     }
 
+    const apiKey = (await env('ANTHROPIC_API_KEY'))!
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({

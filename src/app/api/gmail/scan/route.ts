@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getGmailClients } from '@/lib/gmail-accounts'
+import { env } from '@/lib/env'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -84,11 +85,12 @@ async function classifyEmail(from: string, subject: string, body: string, existi
     ? `Existing gigs:\n${existingGigs.map(g => `- ID: ${g.id} | ${g.title} @ ${g.venue}, ${g.location} on ${g.date}`).join('\n')}`
     : 'No gigs yet.'
 
+  const apiKey = (await env('ANTHROPIC_API_KEY'))!
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({

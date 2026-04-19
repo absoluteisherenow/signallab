@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SKILLS_CAMPAIGN, SKILL_ADS_MANAGER } from '@/lib/skillPrompts'
+import { env } from '@/lib/env'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -167,10 +168,11 @@ Keep dm_reply short (1-2 lines), genuine, conversational.
 
 Return only the JSON array, no other text.`
 
+    const apiKey = (await env('ANTHROPIC_API_KEY'))!
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },

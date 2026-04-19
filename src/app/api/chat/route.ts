@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/api-auth'
+import { env } from '@/lib/env'
 
 /**
  * POST /api/chat
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   const gate = await requireUser(req)
   if (gate instanceof NextResponse) return gate
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = await env('ANTHROPIC_API_KEY')
   if (!apiKey) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
   }

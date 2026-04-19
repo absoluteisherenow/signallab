@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SKILLS_STEM_ANALYSIS } from '@/lib/skillPrompts'
+import { env } from '@/lib/env'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -340,7 +341,7 @@ export async function POST(req: NextRequest) {
     'Access-Control-Allow-Headers': 'Content-Type',
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = await env('ANTHROPIC_API_KEY')
   if (!apiKey) {
     return NextResponse.json(
       { error: 'ANTHROPIC_API_KEY not configured' },

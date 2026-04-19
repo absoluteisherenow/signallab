@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { canRunArtistScan, recordArtistScanRun } from '@/lib/artistScanTiers'
 import { getUserTier } from '@/lib/scanTiers'
+import { env } from '@/lib/env'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -251,7 +252,7 @@ const SCAN_POST_LIMIT = 20
 const SCAN_IMAGE_LIMIT = 8
 
 async function deepAnalyse(name: string, posts: PostData[], userProfile?: UserProfile): Promise<any> {
-  const apiKey = process.env.ANTHROPIC_API_KEY!
+  const apiKey = (await env('ANTHROPIC_API_KEY'))!
 
   // Sort by engagement to find top performers, cap at SCAN_POST_LIMIT
   const sorted = [...posts].sort((a, b) => (b.likes + b.comments * 3) - (a.likes + a.comments * 3))
@@ -396,11 +397,12 @@ Return this exact JSON:
 
 // ── Lightweight analysis for manual caption paste (no images available) ───────
 async function analyseTextOnly(name: string, captions: string[]): Promise<any> {
+  const apiKey = (await env('ANTHROPIC_API_KEY'))!
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({

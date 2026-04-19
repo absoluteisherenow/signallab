@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getGmailClients } from '@/lib/gmail-accounts'
 import { extractEmailBody } from '@/lib/gmail-utils'
 import { createNotification } from '@/lib/notifications'
+import { env } from '@/lib/env'
 
 // Use service role key to bypass RLS for token reads/writes and invoice inserts
 const supabase = createClient(
@@ -27,11 +28,12 @@ async function extractInvoiceRequest(
   subject: string,
   body: string
 ): Promise<InvoiceExtraction> {
+  const apiKey = (await env('ANTHROPIC_API_KEY'))!
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({

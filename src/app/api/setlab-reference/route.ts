@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { env } from '@/lib/env'
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -417,7 +418,7 @@ RESPONSE FORMAT — return ONLY valid JSON, no markdown fences, starting with { 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = await env('ANTHROPIC_API_KEY')
   if (!apiKey) {
     return NextResponse.json(
       { success: false, error: 'ANTHROPIC_API_KEY not configured' },

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { env } from '@/lib/env'
 
 export async function POST(req: NextRequest) {
   try {
+    const apiKey = (await env('ANTHROPIC_API_KEY'))!
     const { track, contacts } = await req.json()
     // track: { title, author, description }
     // contacts: [{ name, genre, tier }]
@@ -40,7 +42,7 @@ Output only the message text. Nothing else.`
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({

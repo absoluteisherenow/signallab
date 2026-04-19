@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { env } from '@/lib/env'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,7 +34,7 @@ Today's date: ${new Date().toISOString().split('T')[0]}
 Keep replies short — max 12 words. No markdown. Be helpful with anything they ask.`
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = await env('ANTHROPIC_API_KEY')
   if (!apiKey) return NextResponse.json({ error: 'No API key' }, { status: 500 })
 
   try {

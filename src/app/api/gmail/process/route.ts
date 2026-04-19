@@ -23,6 +23,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getGmailClients } from '@/lib/gmail-accounts'
 import { createNotification } from '@/lib/notifications'
+import { env } from '@/lib/env'
 
 // Use service role key to bypass RLS for token reads/writes and gig updates
 const supabase = createClient(
@@ -140,11 +141,12 @@ async function classifyEmail(
       ).join('\n')}`
     : 'No gigs in the OS yet.'
 
+  const apiKey = (await env('ANTHROPIC_API_KEY'))!
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({

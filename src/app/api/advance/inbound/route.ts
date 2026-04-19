@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { createNotification } from '@/lib/notifications'
+import { env } from '@/lib/env'
 
 // Webhook endpoint for Resend inbound emails (promoter replies to advance requests)
 export async function POST(req: NextRequest) {
@@ -65,11 +66,12 @@ The JSON should have these keys (use null for any field not mentioned):
 Email reply:
 ${contentForExtraction}`
 
+    const apiKey = (await env('ANTHROPIC_API_KEY'))!
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({

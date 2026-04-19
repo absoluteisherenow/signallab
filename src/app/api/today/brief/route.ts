@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/api-auth'
+import { env } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!
 
 export async function GET(req: NextRequest) {
   const gate = await requireUser(req)
@@ -249,11 +248,12 @@ export async function GET(req: NextRequest) {
             : 'Nothing urgent requiring attention.',
         ].join(' ')
 
+        const apiKey = (await env('ANTHROPIC_API_KEY'))!
         const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': ANTHROPIC_API_KEY,
+            'x-api-key': apiKey,
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({

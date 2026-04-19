@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { env } from '@/lib/env'
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID!
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET!
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY!
 
 // ── Camelot wheel — compatible keys ────────────────────────────────────────
@@ -102,11 +102,12 @@ Suggest exactly ${limit} real tracks that fit this DJ's sound. Focus on ${popula
 Return ONLY a JSON array, no markdown:
 [{"artist": "Artist Name", "title": "Track Title", "camelot": "8A", "bpm": 128, "reason": "one sentence why it fits"}]`
 
+  const apiKey = (await env('ANTHROPIC_API_KEY'))!
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
@@ -147,8 +148,9 @@ export async function POST(req: NextRequest) {
     const lastFmSeeds = tracks.filter((t: any) => t.artist && t.title).slice(0, 3)
 
     // Run Claude + Last.fm in parallel (separate Promise.all to keep types clean)
+    const hasAnthropicKey = !!(await env('ANTHROPIC_API_KEY'))
     const [claudeSuggestions, lastFmBatches] = await Promise.all([
-      ANTHROPIC_API_KEY
+      hasAnthropicKey
         ? getClaudeSuggestions(tracks, maxPopularity, 15, dominantCamelot, avgBpm)
         : Promise.resolve([] as { artist: string; title: string; camelot: string; bpm: number; reason: string }[]),
       LASTFM_API_KEY && lastFmSeeds.length

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { env } from '@/lib/env'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,7 +51,7 @@ export async function GET() {
     const handles = [...new Set(rows.map(r => r.handle).filter(Boolean))]
     const avgLikes = rows.reduce((s, p) => s + (p.likes ?? 0), 0) / rows.length
 
-    const apiKey = process.env.ANTHROPIC_API_KEY
+    const apiKey = await env('ANTHROPIC_API_KEY')
     if (!apiKey) {
       return NextResponse.json({ source: 'no_data', trends: [], postsAnalysed: rows.length, artistsIncluded: handles })
     }

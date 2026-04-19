@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { env } from '@/lib/env'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +9,7 @@ const supabase = createClient(
 )
 
 async function generateRecap(gig: any, posts: any[], performance: any[], sets: any) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = await env('ANTHROPIC_API_KEY')
   if (!apiKey) return null
 
   const recapPrompt = `Generate a brief gig recap for the artist. Use ONLY the data provided — never invent statistics.

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { env } from '@/lib/env'
 
 export async function POST(req: NextRequest) {
   try {
+    const apiKey = (await env('ANTHROPIC_API_KEY'))!
     const { gigId, gigTitle, venue, date, promoterEmail, promoterName, artistName, location } = await req.json()
 
     const isLocal = location && /london|hackney|dalston|shoreditch|brixton|peckham|bermondsey|camden|islington/i.test(location)
@@ -69,7 +71,7 @@ Keep it concise — promoters are busy. One screen max.`
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({

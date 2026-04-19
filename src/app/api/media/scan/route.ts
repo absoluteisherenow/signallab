@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SKILL_CONTENT_SCORING } from '@/lib/skillPrompts'
 import { getFile } from '@/lib/storage'
+import { env } from '@/lib/env'
 
 // ── Server-side content scanner ──────────────────────────────────────────────
 // Same Sonnet vision analysis as the client-side MediaScanner, but runs
@@ -42,7 +43,10 @@ function detectCategory(tags: string[], recommendation: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  // env() helper — reads CF bindings first, falls back to process.env locally.
+  // Direct process.env read returns undefined on Cloudflare Workers because
+  // OpenNext doesn't pipe wrangler secrets into process.env at request time.
+  const apiKey = await env('ANTHROPIC_API_KEY')
   if (!apiKey) return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
 
   try {

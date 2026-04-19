@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
+import { env } from '@/lib/env'
 
 // Use service role key to bypass RLS for token reads/writes and expense inserts
 const supabase = createClient(
@@ -96,11 +97,12 @@ interface ExpenseClassification {
 }
 
 async function classifyExpense(subject: string, body: string): Promise<ExpenseClassification> {
+  const apiKey = (await env('ANTHROPIC_API_KEY'))!
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({

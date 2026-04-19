@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { env } from '@/lib/env'
 
 export async function POST(req: NextRequest) {
   try {
+    const apiKey = (await env('ANTHROPIC_API_KEY'))!
     const formData = await req.formData()
     const file = formData.get('image') as File | null
     if (!file) return NextResponse.json({ error: 'No image provided' }, { status: 400 })
@@ -16,7 +18,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({

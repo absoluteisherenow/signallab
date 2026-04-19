@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
 import { SKILLS_WEEKLY_AGENT } from '@/lib/skillPrompts'
+import { env } from '@/lib/env'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,7 +49,7 @@ async function getUpcomingReleases() {
 
 export async function GET() {
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY
+    const apiKey = await env('ANTHROPIC_API_KEY')
     if (!apiKey) return NextResponse.json({ error: 'No API key' }, { status: 500 })
 
     // Use Europe/London for correct DST handling (GMT in winter, BST in summer)

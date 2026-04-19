@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SKILLS_ASSISTANT_CONTENT, SKILL_ADS_MANAGER, SKILL_INSTAGRAM_GROWTH } from '@/lib/skillPrompts'
+import { env } from '@/lib/env'
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -288,7 +289,7 @@ RULES
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = await env('ANTHROPIC_API_KEY')
   if (!apiKey) {
     return NextResponse.json(
       { error: 'ANTHROPIC_API_KEY not configured' },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { env } from '@/lib/env'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     const { gigId } = await req.json()
     if (!gigId) return NextResponse.json({ error: 'gigId required' }, { status: 400 })
 
-    const apiKey = process.env.ANTHROPIC_API_KEY
+    const apiKey = await env('ANTHROPIC_API_KEY')
     if (!apiKey) return NextResponse.json({ error: 'No ANTHROPIC_API_KEY' }, { status: 500 })
 
     // Fetch the gig

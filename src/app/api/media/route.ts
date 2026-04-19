@@ -1,5 +1,6 @@
 import { uploadFile, listFiles, deleteFile } from '@/lib/storage'
 import { NextRequest, NextResponse } from 'next/server'
+import { env } from '@/lib/env'
 
 const MEDIA_CATEGORIES = ['promo', 'crowd', 'studio', 'artwork', 'bts', 'travel', 'other'] as const
 type MediaCategory = typeof MEDIA_CATEGORIES[number]
@@ -16,7 +17,7 @@ async function fingerprint(buf: ArrayBuffer): Promise<string> {
 }
 
 async function classifyImage(imageBytes: ArrayBuffer, mimeType: string): Promise<MediaCategory> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = await env('ANTHROPIC_API_KEY')
   if (!apiKey) return 'other'
 
   try {

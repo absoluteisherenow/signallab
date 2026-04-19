@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
 import { requireCronAuth } from '@/lib/cron-auth'
+import { env } from '@/lib/env'
 // Resend removed — all outbound goes through approve-before-send
 
 const supabase = createClient(
@@ -66,11 +67,12 @@ export async function GET(req: NextRequest) {
       // Generate a 1-sentence story caption via Claude
       let storyCaption = ''
       try {
+        const apiKey = (await env('ANTHROPIC_API_KEY'))!
         const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': process.env.ANTHROPIC_API_KEY!,
+            'x-api-key': apiKey,
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
@@ -133,11 +135,12 @@ export async function GET(req: NextRequest) {
         let briefText = ''
         let briefHtml = ''
         try {
+          const briefApiKey = (await env('ANTHROPIC_API_KEY'))!
           const briefRes = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-api-key': process.env.ANTHROPIC_API_KEY!,
+              'x-api-key': briefApiKey,
               'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({

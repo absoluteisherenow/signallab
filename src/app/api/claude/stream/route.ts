@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server'
+import { env } from '@/lib/env'
 
 // Runs on Cloudflare Workers via OpenNext — native streaming support; no
 // explicit edge-runtime directive needed (and it conflicts with bundling).
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = await env('ANTHROPIC_API_KEY')
 
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'API key not configured' }), { status: 500 })
