@@ -114,7 +114,7 @@ export function SignalLabHeader({ right, center, tabs, eyebrow, title, compact =
   const eyebrowMB = compact ? '6px' : '12px'
 
   return (
-    <div style={{ padding: `${padTop} ${padX} 0`, borderBottom: `1px solid ${s.border}` }}>
+    <div style={{ padding: `${padTop} ${padX} 0`, borderBottom: `1px solid ${s.border}`, position: 'relative', zIndex: 10, background: 'var(--bg)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: titleMB, position: 'relative' }}>
         <div>
           <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.gold, textTransform: 'uppercase', marginBottom: eyebrowMB, fontFamily: s.font }}>

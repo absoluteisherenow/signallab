@@ -12,47 +12,48 @@ interface MediaItem {
 }
 
 /**
- * Autoplays only while the tile is in the viewport. Pauses + rewinds
- * when scrolled off. `preload="metadata"` + #t=0.1 starts with just
- * enough bytes for the first frame, so the grid paints its posters
- * instantly. When an observer fires, the browser streams the rest.
+ * One shared IntersectionObserver for every video tile on the page.
  *
- * This is the pattern that keeps a grid of 100+ videos from melting
- * the main thread — only ~6-12 tiles ever play at once (whatever
- * fits in the viewport), the rest are quiescent.
+ * The old pattern created a fresh IO per tile. At 120 tiles that was 120
+ * observers + 120 `onTimeUpdate` handlers firing ~4×/sec each (480+ events
+ * /second of React→DOM work just to trim preview loops). On this page that
+ * was enough to starve the main thread and hard-crash navigation clicks
+ * after a deploy — the sub-nav `<Link>`s would not respond.
+ *
+ * New pattern: a single module-level observer, `preload="none"` so we don't
+ * spawn 120 metadata fetches on mount, and native `loop` instead of a
+ * JS-driven preview trim. Videos still pause off-screen; we just don't
+ * hand-crank currentTime anymore.
  */
+let sharedVideoObserver: IntersectionObserver | null = null
+function getSharedVideoObserver() {
+  if (sharedVideoObserver || typeof window === 'undefined') return sharedVideoObserver
+  sharedVideoObserver = new IntersectionObserver(
+    entries => {
+      for (const entry of entries) {
+        const v = entry.target as HTMLVideoElement
+        if (entry.isIntersecting) {
+          v.play().catch(() => { /* autoplay may be blocked — poster still renders */ })
+        } else {
+          v.pause()
+        }
+      }
+    },
+    { rootMargin: '200px 0px', threshold: 0.1 }
+  )
+  return sharedVideoObserver
+}
+
 function AutoplayVideo({ src }: { src: string }) {
   const ref = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     const el = ref.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      entries => {
-        for (const entry of entries) {
-          const v = entry.target as HTMLVideoElement
-          if (entry.isIntersecting) {
-            v.play().catch(() => {
-              // Browsers block autoplay in some contexts — muted+playsInline
-              // covers most, but if it fails silently, the poster frame is
-              // still visible, so no user-visible regression.
-            })
-          } else {
-            v.pause()
-          }
-        }
-      },
-      { rootMargin: '200px 0px', threshold: 0.1 }
-    )
+    const io = getSharedVideoObserver()
+    if (!el || !io) return
     io.observe(el)
-    return () => io.disconnect()
+    return () => io.unobserve(el)
   }, [])
-
-  // Loop the first ~5 seconds of movement — long enough not to feel
-  // jumpy on each restart, short enough that a grid of videos stays
-  // cheap. Scales roughly linearly with full-video duration: a 60s
-  // clip now pulls ~5s of bytes per pass instead of the full minute.
-  const PREVIEW_SECONDS = 5
 
   return (
     <video
@@ -61,11 +62,7 @@ function AutoplayVideo({ src }: { src: string }) {
       muted
       loop
       playsInline
-      preload="metadata"
-      onTimeUpdate={e => {
-        const v = e.currentTarget
-        if (v.currentTime >= PREVIEW_SECONDS) v.currentTime = 0
-      }}
+      preload="none"
       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
     />
   )
@@ -103,9 +100,11 @@ export function MediaLibrary() {
   const [deleting, setDeleting] = useState<Set<string>>(new Set())
   // Initial render cap — without this we paint N DOM nodes + trigger N image
   // fetches the instant the user clicks Media, which makes the tab feel dead
-  // for seconds when there are hundreds of gig photos in R2. Cap at 120 (~3
-  // screens at 4 columns), show a reveal-all toggle for the rest.
-  const INITIAL_CAP = 120
+  // for seconds when there are hundreds of gig photos in R2. 48 = 12 rows at
+  // 4 columns, ~2 viewports; reveal-all toggle shows the rest. Cut from 120
+  // because 120 video tiles were saturating the main thread enough to make
+  // sub-nav clicks stop responding.
+  const INITIAL_CAP = 48
   const [showAll, setShowAll] = useState(false)
 
   const [dedupeRunning, setDedupeRunning] = useState(false)
