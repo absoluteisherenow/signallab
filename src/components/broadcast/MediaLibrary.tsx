@@ -126,11 +126,36 @@ export function MediaLibrary() {
       ) : (
         <>
         {(() => {
-          const visible = items.filter(item => !item.key?.includes('error') && !item.key?.includes('screenshot'))
+          const filtered = items.filter(item => !item.key?.includes('error') && !item.key?.includes('screenshot'))
+          // Dedupe near-duplicates. Same category + same byte size = same image
+          // uploaded twice (e.g. via different flows or accidental re-uploads).
+          // Not perfect — two different photos with identical byte count would
+          // collapse — but in practice R2 filenames are unique-per-upload, so
+          // only true duplicates hit both keys.
+          const seen = new Map<string, typeof filtered[0]>()
+          for (const item of filtered) {
+            const cat = item.key?.split('/')[1] ?? 'other'
+            const sig = `${cat}:${item.size}`
+            const existing = seen.get(sig)
+            if (!existing || (item.uploadedAt && existing.uploadedAt && new Date(item.uploadedAt) > new Date(existing.uploadedAt))) {
+              seen.set(sig, item)
+            }
+          }
+          const visible = Array.from(seen.values()).sort((a, b) => {
+            const ta = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0
+            const tb = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0
+            return tb - ta
+          })
           const sliced = showAll ? visible : visible.slice(0, INITIAL_CAP)
           const hidden = visible.length - sliced.length
+          const duped = filtered.length - visible.length
           return (
             <>
+        {duped > 0 && (
+          <div style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: s.dimmer, marginBottom: 16 }}>
+            {visible.length} unique · {duped} duplicate{duped === 1 ? '' : 's'} hidden
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
           {sliced.map(item => (
             <div key={item.url} onClick={() => toggle(item.url)} style={{
