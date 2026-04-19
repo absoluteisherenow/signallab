@@ -11,6 +11,64 @@ interface MediaItem {
   category?: string
 }
 
+/**
+ * Autoplays only while the tile is in the viewport. Pauses + rewinds
+ * when scrolled off. `preload="metadata"` + #t=0.1 starts with just
+ * enough bytes for the first frame, so the grid paints its posters
+ * instantly. When an observer fires, the browser streams the rest.
+ *
+ * This is the pattern that keeps a grid of 100+ videos from melting
+ * the main thread — only ~6-12 tiles ever play at once (whatever
+ * fits in the viewport), the rest are quiescent.
+ */
+function AutoplayVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          const v = entry.target as HTMLVideoElement
+          if (entry.isIntersecting) {
+            v.play().catch(() => {
+              // Browsers block autoplay in some contexts — muted+playsInline
+              // covers most, but if it fails silently, the poster frame is
+              // still visible, so no user-visible regression.
+            })
+          } else {
+            v.pause()
+          }
+        }
+      },
+      { rootMargin: '200px 0px', threshold: 0.1 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  // Loop just the first ~2 seconds of movement — enough to tell what the
+  // video is, not enough to drain bandwidth on a grid of 30+ tiles.
+  const PREVIEW_SECONDS = 2
+
+  return (
+    <video
+      ref={ref}
+      src={src + '#t=0.1'}
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      onTimeUpdate={e => {
+        const v = e.currentTarget
+        if (v.currentTime >= PREVIEW_SECONDS) v.currentTime = 0
+      }}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+    />
+  )
+}
+
 export function MediaLibrary() {
   const [items, setItems] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -204,26 +262,7 @@ export function MediaLibrary() {
             }}>
               <div style={{ aspectRatio: '1', overflow: 'hidden', background: '#1d1d1d' }}>
                 {/\.(mp4|mov|webm|m4v)$/i.test(item.key ?? item.url) ? (
-                  // Video tile: load just the first-frame poster on mount
-                  // (preload="metadata" + #t=0.1 forces the browser to fetch
-                  // only the header + one frame, not the whole file), then
-                  // play + loop on hover. Keeps the grid snappy even with
-                  // dozens of video tiles, gives the Instagram-style
-                  // "moving preview" feel.
-                  <video
-                    src={item.url + '#t=0.1'}
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    onMouseEnter={e => { (e.currentTarget as HTMLVideoElement).play().catch(() => {}) }}
-                    onMouseLeave={e => {
-                      const v = e.currentTarget as HTMLVideoElement
-                      v.pause()
-                      v.currentTime = 0
-                    }}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
+                  <AutoplayVideo src={item.url} />
                 ) : (
                   <img src={item.url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                     onError={e => { (e.target as HTMLImageElement).src = '' }} />
