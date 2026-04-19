@@ -4,6 +4,17 @@ import { NextRequest, NextResponse } from 'next/server'
 const MEDIA_CATEGORIES = ['promo', 'crowd', 'studio', 'artwork', 'bts', 'travel', 'other'] as const
 type MediaCategory = typeof MEDIA_CATEGORIES[number]
 
+// Content fingerprint: SHA-256 of first 1MB + total byte size. Full-file
+// hash is too slow on Workers for big videos. Used to derive
+// content-addressed R2 keys so re-uploading the same photo is a no-op
+// overwrite instead of a new duplicate object.
+async function fingerprint(buf: ArrayBuffer): Promise<string> {
+  const sample = buf.byteLength > 1_048_576 ? buf.slice(0, 1_048_576) : buf
+  const digest = await crypto.subtle.digest('SHA-256', sample)
+  const hex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return hex.slice(0, 16) + '-' + buf.byteLength
+}
+
 async function classifyImage(imageBytes: ArrayBuffer, mimeType: string): Promise<MediaCategory> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return 'other'
@@ -62,13 +73,18 @@ export async function POST(req: NextRequest) {
     if (isImage) {
       const bytes = await file.arrayBuffer()
       category = await classifyImage(bytes, file.type)
-      const key = `media/${category}/${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const fp = await fingerprint(bytes)
+      // Content-addressed key — uploading the same image twice overwrites
+      // the same R2 object instead of creating a duplicate.
+      const key = `media/${category}/${fp}`
       const result = await uploadFile(Buffer.from(bytes), key, file.type)
       return NextResponse.json({ url: result.url, category, key: result.key })
     } else {
       category = 'other'
-      const key = `media/${category}/${Date.now()}-${Math.random().toString(36).slice(2)}`
-      const result = await uploadFile(file, key)
+      const bytes = await file.arrayBuffer()
+      const fp = await fingerprint(bytes)
+      const key = `media/${category}/${fp}`
+      const result = await uploadFile(Buffer.from(bytes), key, file.type)
       return NextResponse.json({ url: result.url, category, key: result.key })
     }
   } catch (err: any) {

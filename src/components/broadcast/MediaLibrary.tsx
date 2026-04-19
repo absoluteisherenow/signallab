@@ -48,6 +48,27 @@ export function MediaLibrary() {
   const INITIAL_CAP = 120
   const [showAll, setShowAll] = useState(false)
 
+  const [dedupeRunning, setDedupeRunning] = useState(false)
+
+  async function runDedupe(dupedCount: number) {
+    if (dedupeRunning) return
+    if (!window.confirm(`Delete ${dupedCount} duplicate file${dupedCount === 1 ? '' : 's'} from R2? The newest copy of each is kept. This cannot be undone.`)) return
+    setDedupeRunning(true)
+    try {
+      const res = await fetch('/api/media/dedupe', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Dedupe failed')
+      // Refresh list from server so delete keys are reflected
+      const refreshed = await fetch('/api/media').then(r => r.json())
+      setItems(refreshed.blobs || [])
+      alert(`Deleted ${data.deleted} duplicate${data.deleted === 1 ? '' : 's'}. ${data.kept} unique file${data.kept === 1 ? '' : 's'} remain.`)
+    } catch (err: any) {
+      alert(`Dedupe failed: ${err.message}`)
+    } finally {
+      setDedupeRunning(false)
+    }
+  }
+
   async function uploadFiles(files: FileList) {
     setUploading(true)
     for (const file of Array.from(files)) {
@@ -152,8 +173,24 @@ export function MediaLibrary() {
           return (
             <>
         {duped > 0 && (
-          <div style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: s.dimmer, marginBottom: 16 }}>
-            {visible.length} unique · {duped} duplicate{duped === 1 ? '' : 's'} hidden
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: s.dimmer }}>
+              {visible.length} unique · {duped} duplicate{duped === 1 ? '' : 's'} hidden
+            </div>
+            <button
+              onClick={() => runDedupe(duped)}
+              disabled={dedupeRunning}
+              style={{
+                background: dedupeRunning ? 'transparent' : 'rgba(192,64,64,0.08)',
+                border: `1px solid ${dedupeRunning ? s.border : 'rgba(192,64,64,0.4)'}`,
+                color: dedupeRunning ? s.dimmer : '#c04040',
+                fontFamily: s.font, fontSize: '10px', letterSpacing: '0.18em',
+                textTransform: 'uppercase', padding: '8px 16px',
+                cursor: dedupeRunning ? 'wait' : 'pointer',
+              }}
+            >
+              {dedupeRunning ? 'Deleting…' : `Delete ${duped} duplicate${duped === 1 ? '' : 's'}`}
+            </button>
           </div>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
