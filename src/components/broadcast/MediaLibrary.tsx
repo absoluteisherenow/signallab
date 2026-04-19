@@ -203,8 +203,31 @@ export function MediaLibrary() {
               position: 'relative',
             }}>
               <div style={{ aspectRatio: '1', overflow: 'hidden', background: '#1d1d1d' }}>
-                <img src={item.url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  onError={e => { (e.target as HTMLImageElement).src = '' }} />
+                {/\.(mp4|mov|webm|m4v)$/i.test(item.key ?? item.url) ? (
+                  // Video tile: load just the first-frame poster on mount
+                  // (preload="metadata" + #t=0.1 forces the browser to fetch
+                  // only the header + one frame, not the whole file), then
+                  // play + loop on hover. Keeps the grid snappy even with
+                  // dozens of video tiles, gives the Instagram-style
+                  // "moving preview" feel.
+                  <video
+                    src={item.url + '#t=0.1'}
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    onMouseEnter={e => { (e.currentTarget as HTMLVideoElement).play().catch(() => {}) }}
+                    onMouseLeave={e => {
+                      const v = e.currentTarget as HTMLVideoElement
+                      v.pause()
+                      v.currentTime = 0
+                    }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                ) : (
+                  <img src={item.url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    onError={e => { (e.target as HTMLImageElement).src = '' }} />
+                )}
               </div>
               {selected.has(item.url) && (
                 <div style={{ position: 'absolute', top: '8px', right: '8px', width: '22px', height: '22px', background: s.gold, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#050505', fontWeight: 600 }}>✓</div>
