@@ -69,7 +69,7 @@ export default function MobileGigs() {
     const missing = !dimmed ? missingLogistics(gig) : []
     const urgency = logisticsUrgency(gig)
     return (
-      <a href={`/api/gigs/${gig.id}/wallet`} style={{
+      <a href={`/gig-pass/${gig.id}`} style={{
         background: s.panel, border: `1px solid ${s.border}`, padding: '18px',
         textDecoration: 'none', display: 'block',
         opacity: dimmed ? 0.5 : 1,

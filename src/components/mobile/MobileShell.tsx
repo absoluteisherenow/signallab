@@ -587,7 +587,7 @@ export default function MobileShell() {
                   {nextGig.set_time && ` · ${nextGig.set_time}`}
                 </div>
               </div>
-              <a href={`/api/gigs/${nextGig.id}/wallet`} style={{
+              <a href={`/gig-pass/${nextGig.id}`} style={{
                 fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
                 color: s.gold, textDecoration: 'none', border: `1px solid ${s.gold}40`,
                 padding: '10px 16px', flexShrink: 0,
@@ -625,7 +625,7 @@ export default function MobileShell() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {otherGigs.slice(0, 4).map(g => (
-              <a key={g.id} href={`/api/gigs/${g.id}/wallet`} style={{
+              <a key={g.id} href={`/gig-pass/${g.id}`} style={{
                 background: s.panel, border: `1px solid ${s.border}`, padding: '14px 16px',
                 textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
@@ -654,7 +654,7 @@ export default function MobileShell() {
             date: formatDate(g.date),
             missing: missingLogistics(g),
             urgency: logisticsUrgency(g),
-            href: `/api/gigs/${g.id}/wallet`,
+            href: `/gig-pass/${g.id}`,
           }))
         if (alerts.length === 0) return null
         return (
