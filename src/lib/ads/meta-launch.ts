@@ -328,6 +328,157 @@ function buildMetaTargeting(t: Targeting): Record<string, unknown> {
   return out
 }
 
+// ─── IG video boost resolution ──────────────────────────────────────────────
+//
+// Meta rejects `source_instagram_media_id` for IG *video* posts with code=100
+// subcode=1815279 "Instagram video must be uploaded to Facebook". The ad API
+// specifically requires the business-level IG↔FB crosspost handshake; the
+// consumer-facing "Share to Facebook" toggle on individual posts produces a
+// FB copy but doesn't create the link the ad API is looking for.
+//
+// Strategy — two-tier, cheapest first:
+//
+//   1. PRIMARY — find the existing FB Page post that corresponds to the IG
+//      video (via `/{page_id}/videos` scanned within a time window around the
+//      IG post's timestamp). If found, reference it directly via
+//      `object_story_id: "{page_id}_{fb_post_id}"` — no upload, no transcoding
+//      wait, no duplicate on the Page. This handles the most common case:
+//      the user already shared the post to FB via IG's native toggle or has
+//      IG→FB crossposting enabled on the Page.
+//
+//   2. FALLBACK — if no crossposted FB post exists in the window, mirror the
+//      video directly onto the ad account via `/act_xxx/advideos`, poll until
+//      Meta finishes transcoding, and build the creative via
+//      `object_story_spec.video_data.video_id`. This handles videos that
+//      never made it to the Page at all.
+//
+// For IMAGE / CAROUSEL_ALBUM: `source_instagram_media_id` works as-is — only
+// videos trigger subcode 1815279.
+
+type IgMediaMeta = {
+  id?: string
+  media_type?: 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM' | string
+  media_url?: string
+  thumbnail_url?: string
+  caption?: string
+  permalink?: string
+  timestamp?: string
+}
+
+async function fetchIgMediaMeta(igMediaId: string, token: string): Promise<IgMediaMeta> {
+  const url = `https://graph.facebook.com/${META_API_VERSION}/${igMediaId}?fields=id,media_type,media_url,thumbnail_url,caption,permalink,timestamp&access_token=${encodeURIComponent(
+    token
+  )}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`IG media fetch failed (${res.status}) for ${igMediaId}: ${body.slice(0, 300)}`)
+  }
+  return (await res.json()) as IgMediaMeta
+}
+
+/**
+ * Scans the NM Page's recent videos for one crossposted from the given IG
+ * media. Returns the full FB post ID (format `{page_id}_{post_id}`) if found,
+ * or `null` if no match within the time window.
+ *
+ * Match criteria: FB video `created_time` within ±30 min of IG `timestamp`.
+ * IG→FB crossposts normally fire within seconds; 30 min handles slow syncs
+ * and manual shares without matching unrelated Page uploads.
+ */
+async function findCrosspostedFbPost(
+  igTimestamp: string,
+  token: string
+): Promise<string | null> {
+  const tsMs = new Date(igTimestamp).getTime()
+  if (!Number.isFinite(tsMs)) return null
+  // Widen slightly on the late side — IG→FB occasionally lags a few hours
+  // (especially for videos awaiting transcode on the IG side).
+  const sinceSec = Math.floor((tsMs - 60 * 60_000) / 1000) // 1h before
+  const untilSec = Math.floor((tsMs + 6 * 60 * 60_000) / 1000) // 6h after
+  const url = `https://graph.facebook.com/${META_API_VERSION}/${FB_PAGE_ID}/videos?fields=id,post_id,created_time&since=${sinceSec}&until=${untilSec}&limit=50&access_token=${encodeURIComponent(
+    token
+  )}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+  if (!res.ok) {
+    // Missing page_read_engagement/pages_show_list scope is the usual cause.
+    // Don't throw — just fall through to the /advideos mirror fallback.
+    const body = await res.text().catch(() => '')
+    console.warn('[fb_video_scan_skipped]', res.status, body.slice(0, 200))
+    return null
+  }
+  const json = (await res.json()) as {
+    data?: Array<{ id: string; post_id?: string; created_time?: string }>
+  }
+  const vids = json.data || []
+  if (!vids.length) return null
+
+  // Pick the video closest in time to the IG post. Require ≤30 min delta
+  // to avoid matching unrelated uploads that happen to fall in the window.
+  let best: { postId: string; delta: number } | null = null
+  for (const v of vids) {
+    if (!v.post_id || !v.created_time) continue
+    const delta = Math.abs(new Date(v.created_time).getTime() - tsMs)
+    if (!best || delta < best.delta) best = { postId: v.post_id, delta }
+  }
+  if (!best || best.delta > 30 * 60_000) return null
+  // /{page}/videos returns `post_id` as `{page_id}_{post_id}` already.
+  // Defensive — if it's ever just the bare post ID, prefix the page.
+  return best.postId.includes('_') ? best.postId : `${FB_PAGE_ID}_${best.postId}`
+}
+
+async function mirrorIgVideoToFacebook(
+  mediaUrl: string,
+  name: string,
+  token: string
+): Promise<string> {
+  // 1. Upload by file_url — Meta fetches the CDN-signed IG URL server-side
+  const uploadUrl = `https://graph.facebook.com/${META_API_VERSION}/${AD_ACCOUNT_ID}/advideos`
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      file_url: mediaUrl,
+      name: name.slice(0, 100),
+      access_token: token,
+    }),
+    signal: AbortSignal.timeout(30000),
+  })
+  if (!uploadRes.ok) {
+    const body = await uploadRes.text().catch(() => '')
+    throw new Error(`FB advideos upload failed (${uploadRes.status}): ${body.slice(0, 400)}`)
+  }
+  const uploadJson = (await uploadRes.json()) as { id?: string }
+  const fbVideoId = uploadJson.id
+  if (!fbVideoId) throw new Error('FB advideos upload returned no video ID')
+
+  // 2. Poll until Meta finishes transcoding. Usually 10–30s, hard timeout at 90s
+  //    (longer would break the launch UX — tell the user to retry instead).
+  const start = Date.now()
+  const timeoutMs = 90_000
+  const pollIntervalMs = 3000
+  while (Date.now() - start < timeoutMs) {
+    await new Promise(r => setTimeout(r, pollIntervalMs))
+    const statusUrl = `https://graph.facebook.com/${META_API_VERSION}/${fbVideoId}?fields=status&access_token=${encodeURIComponent(
+      token
+    )}`
+    const statusRes = await fetch(statusUrl, { signal: AbortSignal.timeout(10000) })
+    if (!statusRes.ok) continue // transient, keep polling
+    const j = (await statusRes.json()) as {
+      status?: { video_status?: string; processing_phase?: { status?: string } }
+    }
+    const vs = j.status?.video_status
+    if (vs === 'ready') return fbVideoId
+    if (vs === 'error') {
+      throw new Error(`FB video ${fbVideoId} transcode failed (status=error) — try another post`)
+    }
+    // otherwise 'processing' / 'encoding' — keep polling
+  }
+  throw new Error(
+    `FB video ${fbVideoId} still transcoding after ${timeoutMs / 1000}s — wait a minute and relaunch`
+  )
+}
+
 // ─── Actual Meta API calls — side effects ───────────────────────────────────
 async function metaPOST(
   path: string,
@@ -406,10 +557,65 @@ export async function launchToMeta(input: LaunchInput, token: string): Promise<L
   if (!adset_id) throw new Error('Meta returned no adset ID')
 
   // 3. Creative
+  //
+  // For IG-post boosts, resolve the actual creative payload at launch time:
+  //   - IMAGE/CAROUSEL → keep `source_instagram_media_id` (preview payload)
+  //   - VIDEO → (a) look for an existing crossposted FB post on the NM Page
+  //              and boost it via `object_story_id` (no re-upload), else
+  //             (b) mirror the video to the ad account via `/advideos` and
+  //              reference it via `object_story_spec.video_data.video_id`.
+  //
+  // Preview stays synchronous + display-only; this resolution step only
+  // touches the network when it actually matters (IG video boosts).
+  let creativePayload: Record<string, unknown> = preview.meta_payloads.creative
+  if (input.creative.type === 'existing_ig_post') {
+    const ig = await fetchIgMediaMeta(input.creative.ig_post_id, token)
+    if (ig.media_type === 'VIDEO') {
+      // Tier 1: existing crossposted FB post
+      let fbObjectStoryId: string | null = null
+      if (ig.timestamp) {
+        fbObjectStoryId = await findCrosspostedFbPost(ig.timestamp, token)
+      }
+      if (fbObjectStoryId) {
+        creativePayload = {
+          name: `${input.name} — creative`,
+          object_story_id: fbObjectStoryId,
+          instagram_user_id: IG_ACTOR_ID,
+        }
+      } else {
+        // Tier 2: mirror video to FB ad account, reference by video_id
+        if (!ig.media_url) {
+          throw new Error(
+            `IG post ${input.creative.ig_post_id} returned no media_url — ` +
+              `can't mirror to Facebook. Try a different post.`
+          )
+        }
+        const fbVideoId = await mirrorIgVideoToFacebook(
+          ig.media_url,
+          `${input.name} — video`,
+          token
+        )
+        creativePayload = {
+          name: `${input.name} — creative`,
+          object_story_spec: {
+            page_id: FB_PAGE_ID,
+            video_data: {
+              video_id: fbVideoId,
+              image_url: ig.thumbnail_url,
+              message: ig.caption || input.name,
+            },
+          },
+          instagram_user_id: IG_ACTOR_ID,
+        }
+      }
+    }
+    // IMAGE / CAROUSEL_ALBUM — leave `source_instagram_media_id` path alone
+  }
+
   const creativeRes = await metaPOST(
     `/${AD_ACCOUNT_ID}/adcreatives`,
     token,
-    preview.meta_payloads.creative
+    creativePayload
   )
   const creative_id = creativeRes.id as string
   if (!creative_id) throw new Error('Meta returned no creative ID')
