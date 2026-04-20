@@ -104,6 +104,14 @@ async function gmailPost(tokens: GmailTokens, path: string, body: any): Promise<
 function makeRawGmailClient(tokens: GmailTokens) {
   return {
     users: {
+      threads: {
+        async get(params: { userId: string; id: string; format?: string }) {
+          const qs = new URLSearchParams()
+          if (params.format) qs.set('format', params.format)
+          const data = await gmailFetch(tokens, `/users/${params.userId}/threads/${params.id}?${qs}`)
+          return { data }
+        },
+      },
       messages: {
         async list(params: { userId: string; q?: string; maxResults?: number; pageToken?: string }) {
           const qs = new URLSearchParams()
@@ -140,23 +148,33 @@ function makeRawGmailClient(tokens: GmailTokens) {
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-export async function getGmailClients(): Promise<Array<{
+// Multi-tenant: every function here takes the caller's `userId` and scopes
+// queries by it. `connected_email_accounts.user_id` and `artist_settings.user_id`
+// are both populated, so no cross-tenant leak is possible if callers use
+// `requireUser(req).user.id`.
+
+export async function getGmailClients(userId: string): Promise<Array<{
   gmail: ReturnType<typeof makeRawGmailClient>
   email: string
   label: string
   id: string
 }>> {
+  if (!userId) throw new Error('getGmailClients: userId required')
+
   const { data: accounts } = await supabase
     .from('connected_email_accounts')
     .select('*')
+    .eq('user_id', userId)
     .order('created_at', { ascending: true })
 
   if (!accounts || accounts.length === 0) {
-    // Fall back to legacy single-account in artist_settings
+    // Fall back to legacy single-account in artist_settings — also scoped
+    // to this user so we don't hand back another tenant's legacy inbox.
     const { data: settings } = await supabase
       .from('artist_settings')
       .select('gmail_access_token, gmail_refresh_token, gmail_token_expiry')
-      .single()
+      .eq('user_id', userId)
+      .maybeSingle()
 
     if (!settings?.gmail_refresh_token) {
       throw new Error('No Gmail accounts connected — visit Settings to connect')
@@ -216,11 +234,13 @@ export async function getGmailClients(): Promise<Array<{
   }
 
   // If all multi-account entries failed, fall back to legacy artist_settings
+  // — scoped to this caller so we don't return another tenant's legacy inbox.
   if (clients.length === 0) {
     const { data: settings } = await supabase
       .from('artist_settings')
       .select('gmail_access_token, gmail_refresh_token, gmail_token_expiry')
-      .single()
+      .eq('user_id', userId)
+      .maybeSingle()
 
     if (settings?.gmail_refresh_token) {
       const tokens: GmailTokens = {
@@ -240,15 +260,20 @@ export async function getGmailClients(): Promise<Array<{
   return clients
 }
 
-// Get connected accounts list (no tokens — safe for client display)
-export async function listConnectedAccounts(): Promise<ConnectedAccount[]> {
+// Get connected accounts list (no tokens — safe for client display).
+export async function listConnectedAccounts(userId: string): Promise<ConnectedAccount[]> {
+  if (!userId) throw new Error('listConnectedAccounts: userId required')
   const { data } = await supabase
     .from('connected_email_accounts')
     .select('id, email, label, created_at')
+    .eq('user_id', userId)
     .order('created_at', { ascending: true })
   return (data || []) as ConnectedAccount[]
 }
 
-export async function disconnectAccount(id: string) {
-  await supabase.from('connected_email_accounts').delete().eq('id', id)
+// Double-scoped on BOTH id and user_id — prevents a user from disconnecting
+// another tenant's inbox by guessing/leaking an account id.
+export async function disconnectAccount(id: string, userId: string) {
+  if (!userId) throw new Error('disconnectAccount: userId required')
+  await supabase.from('connected_email_accounts').delete().eq('id', id).eq('user_id', userId)
 }

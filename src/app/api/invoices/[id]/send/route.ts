@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getGmailClients } from '@/lib/gmail-accounts'
 import { buildInvoicePdf } from '@/lib/invoice-pdf'
+import { requireUser } from '@/lib/api-auth'
 
+// Service role for artist_settings/gigs cross-table reads, paired with manual
+// user_id filters in every query below. NEVER auto-trust this client to scope.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 function makeRFC2822(
@@ -72,10 +75,11 @@ function normaliseAddresses(v: string | string[] | undefined): string {
   return arr.map(s => s.trim()).filter(Boolean).join(', ')
 }
 
-async function buildEmailData(id: string, toOverride?: string) {
+async function buildEmailData(id: string, userId: string, toOverride?: string) {
+  // Scoped load — invoice must belong to this user.
   const [{ data: invoice }, { data: settings }] = await Promise.all([
-    supabase.from('invoices').select('*').eq('id', id).single(),
-    supabase.from('artist_settings').select('profile, payment').single(),
+    supabase.from('invoices').select('*').eq('id', id).eq('user_id', userId).single(),
+    supabase.from('artist_settings').select('profile, payment').eq('user_id', userId).maybeSingle(),
   ])
   if (!invoice) return null
 
@@ -94,7 +98,8 @@ async function buildEmailData(id: string, toOverride?: string) {
   if (invoice.gig_id) {
     // NOTE: gigs table has no promoter_name column — selecting it aborts the whole
     // query (Postgres 42703), which previously wiped promoter_email and venue too.
-    const { data: gig } = await supabase.from('gigs').select('promoter_email, venue').eq('id', invoice.gig_id).single()
+    // Scope by user so we can't pull another tenant's gig via a leaked gig_id.
+    const { data: gig } = await supabase.from('gigs').select('promoter_email, venue').eq('id', invoice.gig_id).eq('user_id', userId).single()
     if (gig) {
       promoterEmail = promoterEmail || gig.promoter_email || ''
       venue = gig.venue || ''
@@ -215,10 +220,13 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
 
 // GET — preview the email HTML in browser
 // Optional ?to=<email> to preview with a specific recipient (drives the greeting).
+// User-scoped: 404s if the invoice belongs to another tenant.
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
   try {
     const toOverride = req.nextUrl.searchParams.get('to') || undefined
-    const data = await buildEmailData(params.id, toOverride)
+    const data = await buildEmailData(params.id, gate.user.id, toOverride)
     if (!data) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
     return new NextResponse(data.html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   } catch (err: any) {
@@ -234,12 +242,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 // Step 1 (no confirmed): returns preview data for approval
 // Step 2 (confirmed: true): actually sends + stamps invoices.sent_to_promoter_at
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
   try {
     const { to, cc, confirmed, mode: rawMode } = await req.json().catch(() => ({} as any))
     const mode: 'link' | 'attach' | 'both' = rawMode === 'attach' || rawMode === 'both' ? rawMode : 'link'
     const toAddr = normaliseAddresses(to)
     const ccAddr = normaliseAddresses(cc)
-    const data = await buildEmailData(params.id, toAddr || undefined)
+    const data = await buildEmailData(params.id, userId, toAddr || undefined)
     if (!data) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
     const { artistName, invoiceUrl, invoice, dueDate, promoterEmail, subject, greeting, invoiceNumber } = data
@@ -284,14 +295,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     }
 
-    // Step 2: confirmed — actually send
-    // Try Gmail send
+    // Step 2: confirmed — actually send.
+    // Tenant-scoped: pulls only this user's connected Gmail clients.
     try {
-      const clients = await getGmailClients()
+      const clients = await getGmailClients(userId)
       if (clients.length > 0 && finalTo) {
         const { gmail, email } = clients[0]
         const raw = makeRFC2822(finalTo, `${artistName} <${email}>`, subject, html, ccAddr || undefined, attachment)
         await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
+        // Double-scope on (id, user_id) — defensive redundancy since buildEmailData
+        // already confirmed ownership.
         await supabase
           .from('invoices')
           .update({
@@ -300,6 +313,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             send_mode: mode,
           })
           .eq('id', params.id)
+          .eq('user_id', userId)
         return NextResponse.json({
           success: true, sent: true, sentFrom: email, to: finalTo, cc: ccAddr || undefined, subject, mode, attached: !!attachment,
         })

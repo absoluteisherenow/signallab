@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getGmailClients } from '@/lib/gmail-accounts'
+import { requireUser } from '@/lib/api-auth'
 import { env } from '@/lib/env'
 
+// Service role for cross-tenant idempotency lookups. Every query below MUST
+// filter by user.id manually — never trust this client to auto-scope.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 function decodeBody(data: string): string {
@@ -138,37 +141,46 @@ Return: {"type":"...","confidence":0.0-1.0,"gig_id":"uuid or null","extracted":{
   return JSON.parse(text.replace(/```json|```/g, '').trim())
 }
 
-// GET /api/gmail/scan — scan inbox and return findings WITHOUT creating any records
-export async function GET() {
+// GET /api/gmail/scan — scan inbox and return findings WITHOUT creating any records.
+// User-scoped: only scans the caller's own connected Gmail accounts and matches
+// against the caller's own gigs. Dry-run endpoint, safe to expose in UI.
+export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
+
   try {
     let clients: Awaited<ReturnType<typeof getGmailClients>>
     try {
-      clients = await getGmailClients()
+      clients = await getGmailClients(userId)
     } catch {
       // No Gmail connected — return empty findings gracefully
       return NextResponse.json({ findings: [], reason: 'no_gmail_connected' })
     }
 
-    // Get already-processed IDs so we don't re-surface them, and watermark for Gmail query
+    // TODO(multi-tenant): processed_gmail_ids has no user_id column yet.
+    // Message IDs are globally unique per Google, and this user's OAuth clients
+    // only return message IDs from their own inboxes, so false-positive dedups
+    // across tenants are theoretically possible only if two users share a mailbox
+    // (not possible via OAuth). The watermark leak is real — we workaround by
+    // using a fixed 30d lookback rather than derived-from-global-last-processed.
     const { data: processed } = await supabase
       .from('processed_gmail_ids')
-      .select('message_id, processed_at')
-      .order('processed_at', { ascending: false })
-      .limit(2000)
+      .select('message_id')
+      .limit(5000)
     const processedIds = new Set((processed || []).map((r: any) => r.message_id))
 
-    // Build "after:" watermark — last successful scan minus 2-day overlap buffer.
-    // Fallback to 30 days ago if nothing processed yet.
-    const lastProcessedAt = processed?.[0]?.processed_at
-      ? new Date(processed[0].processed_at)
-      : new Date(Date.now() - 30 * 86400000)
-    const watermark = new Date(lastProcessedAt.getTime() - 2 * 86400000)
+    // Fixed 30-day lookback. See TODO above — can tighten once processed_gmail_ids
+    // gets user_id + we derive per-user watermark.
+    const watermark = new Date(Date.now() - 30 * 86400000)
     const afterQuery = `after:${watermark.getUTCFullYear()}/${String(watermark.getUTCMonth() + 1).padStart(2, '0')}/${String(watermark.getUTCDate()).padStart(2, '0')}`
 
-    // Existing gigs for context matching
+    // Existing gigs for context matching — scoped to this user so the classifier
+    // never correlates incoming email against another tenant's gig list.
     const { data: gigs } = await supabase
       .from('gigs')
       .select('id, title, venue, location, date')
+      .eq('user_id', userId)
       .order('date', { ascending: true })
 
     const allFindings: any[] = []

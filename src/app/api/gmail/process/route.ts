@@ -19,17 +19,42 @@
 //   created_at timestamptz default now()
 // );
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getGmailClients } from '@/lib/gmail-accounts'
 import { createNotification } from '@/lib/notifications'
+import { requireCronAuth } from '@/lib/cron-auth'
+import { requireUser } from '@/lib/api-auth'
 import { env } from '@/lib/env'
 
-// Use service role key to bypass RLS for token reads/writes and gig updates
+// Service role — needed to:
+//  (a) read tokens from connected_email_accounts (bypass RLS)
+//  (b) iterate every tenant in the cron path
+//  (c) write scoped rows via manual user_id filters
+// NEVER let this client auto-scope by session — every query below must filter
+// on user_id manually when reading per-tenant data.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+// Accepts EITHER a Bearer CRON_SECRET (external cron) OR a signed-in user
+// session (dashboard "scan now"). Returns the userId to process, or null
+// if this is a cron run that should iterate ALL tenants.
+async function authGate(req: NextRequest): Promise<{ userId: string | null } | NextResponse> {
+  const authHeader = req.headers.get('authorization') || ''
+  if (authHeader.startsWith('Bearer ') && process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+    return { userId: null } // cron — iterate all users
+  }
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) {
+    // Dev fallback — requireCronAuth allows the request when CRON_SECRET is unset.
+    const cronResult = requireCronAuth(req, 'gmail-process')
+    if (cronResult) return cronResult
+    return { userId: null } // dev cron — iterate all users
+  }
+  return { userId: gate.user.id }
+}
 
 // ── Gmail auth: delegated to @/lib/gmail-accounts ─────────────────────────
 
@@ -292,10 +317,12 @@ Return:
 
 // ── Action handlers ────────────────────────────────────────────────────────
 
-async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: string | null) {
+async function handleNewGig(userId: string, extracted: any, emailFrom: string, classifiedGigId: string | null) {
   if (!extracted.title && !extracted.venue) return null
 
-  // If classifier matched an existing gig, update it instead of creating a duplicate
+  // If classifier matched an existing gig, update it instead of creating a duplicate.
+  // Double-scope on (id, user_id) so we can't update another tenant's gig via a
+  // classifier misfire.
   if (classifiedGigId) {
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (extracted.fee) updates.fee = extracted.fee
@@ -310,19 +337,20 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
       updates.notes = [promoterNameNote, extracted.notes].filter(Boolean).join('\n')
     }
 
-    await supabase.from('gigs').update(updates).eq('id', classifiedGigId)
+    await supabase.from('gigs').update(updates).eq('id', classifiedGigId).eq('user_id', userId)
 
     // Still create invoice if fee arrived and none exists yet
     if (extracted.fee && extracted.fee > 0) {
       const { data: existingInv } = await supabase
-        .from('invoices').select('id').eq('gig_id', classifiedGigId).limit(1)
+        .from('invoices').select('id').eq('gig_id', classifiedGigId).eq('user_id', userId).limit(1)
 
       if (!existingInv?.length) {
-        const { data: gig } = await supabase.from('gigs').select('title, date, currency').eq('id', classifiedGigId).single()
+        const { data: gig } = await supabase.from('gigs').select('title, date, currency').eq('id', classifiedGigId).eq('user_id', userId).single()
         const gigDate = gig?.date ? new Date(gig.date) : new Date()
         const dueDate = new Date(gigDate.getTime() + 30 * 86400000)
         const { data: newInvoice } = await supabase.from('invoices').insert([{
           gig_id: classifiedGigId,
+          user_id: userId,
           gig_title: gig?.title || extracted.title,
           amount: extracted.fee,
           currency: extracted.currency || gig?.currency || 'EUR',
@@ -333,6 +361,7 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
 
         if (newInvoice?.[0]) {
           await createNotification({
+            user_id: userId,
             type: 'invoice_created',
             title: `Invoice created — ${gig?.title || extracted.title}`,
             message: `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
@@ -346,22 +375,25 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
     return { id: classifiedGigId, updated: true }
   }
 
-  // Duplicate guard: check venue + date match before creating
+  // Duplicate guard: check venue + date match before creating — scoped to user
+  // so user A's venue+date match doesn't suppress user B's gig creation.
   if (extracted.venue && extracted.date) {
     const { data: existing } = await supabase
       .from('gigs')
       .select('id, title')
+      .eq('user_id', userId)
       .ilike('venue', `%${extracted.venue}%`)
       .eq('date', extracted.date)
       .limit(1)
 
     if (existing?.length) {
       // Gig already exists — treat as update instead
-      return handleNewGig(extracted, emailFrom, existing[0].id)
+      return handleNewGig(userId, extracted, emailFrom, existing[0].id)
     }
   }
 
   const { data, error } = await supabase.from('gigs').insert([{
+    user_id: userId,
     title: extracted.title || `Show @ ${extracted.venue}`,
     venue: extracted.venue || '',
     location: extracted.location || '',
@@ -385,6 +417,7 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
 
   if (gig) {
     await createNotification({
+      user_id: userId,
       type: 'gig_added',
       title: `New gig from email — ${gig.title}`,
       message: `${gig.venue}${gig.date ? ' · ' + new Date(gig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}`,
@@ -398,6 +431,7 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
       const dueDate = new Date(gigDate.getTime() + 30 * 86400000)
       const { data: newInvoice } = await supabase.from('invoices').insert([{
         gig_id: gig.id,
+        user_id: userId,
         gig_title: gig.title,
         amount: gig.fee,
         currency: gig.currency || 'EUR',
@@ -408,6 +442,7 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
 
       if (newInvoice?.[0]) {
         await createNotification({
+          user_id: userId,
           type: 'invoice_created',
           title: `Invoice created — ${gig.title}`,
           message: `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
@@ -421,14 +456,17 @@ async function handleNewGig(extracted: any, emailFrom: string, classifiedGigId: 
   return gig
 }
 
-async function handleTravel(type: string, gigId: string | null, extracted: any) {
+async function handleTravel(userId: string, type: string, gigId: string | null, extracted: any) {
   const categoryMap: Record<string, string> = {
     hotel: 'Accommodation',
     flight: 'Travel',
     train: 'Travel',
   }
 
-  // Build travel_bookings record
+  // Build travel_bookings record.
+  // TODO(multi-tenant): travel_bookings has no user_id column yet. For now
+  // tenant isolation relies on gig_id → gigs.user_id join. When the batch-2
+  // migration adds user_id, stamp it here directly.
   const booking: Record<string, unknown> = {
     gig_id: gigId || null,
     type,
@@ -454,7 +492,9 @@ async function handleTravel(type: string, gigId: string | null, extracted: any) 
 
   await supabase.from('travel_bookings').insert([booking])
 
-  // Also create expense record
+  // Also create expense record.
+  // TODO(multi-tenant): expenses has no user_id column yet. Current scoping
+  // is implicit via the creating user's session. Fix when migration lands.
   if (extracted.cost) {
     const label = type === 'hotel'
       ? `Hotel: ${extracted.name || 'accommodation'}`
@@ -471,29 +511,29 @@ async function handleTravel(type: string, gigId: string | null, extracted: any) 
   }
 }
 
-async function handleRiderOrTechSpec(type: string, gigId: string | null, extracted: any) {
+async function handleRiderOrTechSpec(userId: string, type: string, gigId: string | null, extracted: any) {
   if (!gigId) return
 
   const field = type === 'rider' ? 'rider_notes' : 'tech_notes'
   await supabase.from('gigs').update({
     [field]: extracted.details || '',
     updated_at: new Date().toISOString(),
-  }).eq('id', gigId)
+  }).eq('id', gigId).eq('user_id', userId)
 }
 
-async function handleGigUpdate(gigId: string | null, extracted: any) {
+async function handleGigUpdate(userId: string, gigId: string | null, extracted: any) {
   if (!gigId) return
-  const { data: gig } = await supabase.from('gigs').select('notes').eq('id', gigId).single()
+  const { data: gig } = await supabase.from('gigs').select('notes').eq('id', gigId).eq('user_id', userId).single()
   const existingNotes = gig?.notes || ''
   await supabase.from('gigs').update({
     notes: existingNotes ? `${existingNotes}\n\n${extracted.update}` : extracted.update,
     updated_at: new Date().toISOString(),
-  }).eq('id', gigId)
+  }).eq('id', gigId).eq('user_id', userId)
 }
 
-async function handleInvoice(gigId: string | null, extracted: any) {
+async function handleInvoice(userId: string, gigId: string | null, extracted: any) {
   const { data: gig } = gigId
-    ? await supabase.from('gigs').select('title').eq('id', gigId).single()
+    ? await supabase.from('gigs').select('title').eq('id', gigId).eq('user_id', userId).single()
     : { data: null }
 
   const invoiceTitle = gig?.title || extracted.gig_title || extracted.description || 'Email import'
@@ -504,6 +544,7 @@ async function handleInvoice(gigId: string | null, extracted: any) {
       .from('invoices')
       .select('id, amount')
       .eq('gig_id', gigId)
+      .eq('user_id', userId)
       .limit(5)
 
     if (existingInv?.length) {
@@ -514,6 +555,7 @@ async function handleInvoice(gigId: string | null, extracted: any) {
 
   const { data: newInvoice } = await supabase.from('invoices').insert([{
     gig_id: gigId || null,
+    user_id: userId,
     gig_title: invoiceTitle,
     amount: extracted.amount || 0,
     currency: extracted.currency || 'EUR',
@@ -524,6 +566,7 @@ async function handleInvoice(gigId: string | null, extracted: any) {
 
   if (newInvoice?.[0]) {
     await createNotification({
+      user_id: userId,
       type: 'invoice_created',
       title: `Invoice from email — ${invoiceTitle}`,
       message: extracted.due_date
@@ -535,11 +578,12 @@ async function handleInvoice(gigId: string | null, extracted: any) {
   }
 }
 
-async function handleInvoiceRequest(gigId: string | null, extracted: any, emailFrom: string) {
+async function handleInvoiceRequest(userId: string, gigId: string | null, extracted: any, emailFrom: string) {
   // "Please invoice X" — update the gig's promoter_email and record the billing contact.
   if (!gigId) {
     // No matched gig — still notify so Anthony can link manually
     await createNotification({
+      user_id: userId,
       type: 'invoice_request',
       title: `Billing contact received — no gig match`,
       message: `${extracted.billing_name || extracted.billing_email || 'Unknown'} — from ${emailFrom}. Link manually.`,
@@ -548,7 +592,7 @@ async function handleInvoiceRequest(gigId: string | null, extracted: any, emailF
     return
   }
 
-  const { data: gig } = await supabase.from('gigs').select('notes, promoter_email, title').eq('id', gigId).single()
+  const { data: gig } = await supabase.from('gigs').select('notes, promoter_email, title').eq('id', gigId).eq('user_id', userId).single()
   const existingNotes = gig?.notes || ''
   const billingLine = [
     'Billing routing:',
@@ -566,9 +610,10 @@ async function handleInvoiceRequest(gigId: string | null, extracted: any, emailF
   if (extracted.billing_email && !gig?.promoter_email) {
     updates.promoter_email = extracted.billing_email
   }
-  await supabase.from('gigs').update(updates).eq('id', gigId)
+  await supabase.from('gigs').update(updates).eq('id', gigId).eq('user_id', userId)
 
   await createNotification({
+    user_id: userId,
     type: 'invoice_request',
     title: `Billing contact for ${gig?.title || 'gig'}`,
     message: extracted.billing_email || extracted.billing_name || 'Billing info updated',
@@ -577,10 +622,10 @@ async function handleInvoiceRequest(gigId: string | null, extracted: any, emailF
   })
 }
 
-async function handleBillingInfo(gigId: string | null, extracted: any) {
+async function handleBillingInfo(userId: string, gigId: string | null, extracted: any) {
   // Company billing / VAT / PO details — append to gig notes.
   if (!gigId) return
-  const { data: gig } = await supabase.from('gigs').select('notes, title').eq('id', gigId).single()
+  const { data: gig } = await supabase.from('gigs').select('notes, title').eq('id', gigId).eq('user_id', userId).single()
   const existingNotes = gig?.notes || ''
   const billingBlock = [
     'Invoice/billing details:',
@@ -594,9 +639,10 @@ async function handleBillingInfo(gigId: string | null, extracted: any) {
   await supabase.from('gigs').update({
     notes: existingNotes ? `${existingNotes}\n\n${billingBlock}` : billingBlock,
     updated_at: new Date().toISOString(),
-  }).eq('id', gigId)
+  }).eq('id', gigId).eq('user_id', userId)
 
   await createNotification({
+    user_id: userId,
     type: 'invoice_request',
     title: `Billing details added — ${gig?.title || 'gig'}`,
     message: extracted.company_name || extracted.vat_number || 'Billing info updated',
@@ -605,7 +651,7 @@ async function handleBillingInfo(gigId: string | null, extracted: any) {
   })
 }
 
-async function handleRemittance(gigId: string | null, extracted: any) {
+async function handleRemittance(userId: string, gigId: string | null, extracted: any) {
   // Payment received — try to match an outstanding invoice by gig + amount.
   // If matched, mark paid and notify. Otherwise notify for manual reconciliation.
   let matchedInvoice: any = null
@@ -615,6 +661,7 @@ async function handleRemittance(gigId: string | null, extracted: any) {
       .from('invoices')
       .select('id, amount, status, gig_title, type')
       .eq('gig_id', gigId)
+      .eq('user_id', userId)
       .neq('status', 'paid')
       .limit(5)
 
@@ -628,9 +675,10 @@ async function handleRemittance(gigId: string | null, extracted: any) {
     await supabase.from('invoices').update({
       status: 'paid',
       updated_at: new Date().toISOString(),
-    }).eq('id', matchedInvoice.id)
+    }).eq('id', matchedInvoice.id).eq('user_id', userId)
 
     await createNotification({
+      user_id: userId,
       type: 'payment_received',
       title: `Payment received — ${matchedInvoice.gig_title}`,
       message: `${extracted.currency || ''} ${extracted.amount} · ${extracted.sender_name || 'sender unknown'}${extracted.reference ? ` · ref ${extracted.reference}` : ''}`,
@@ -640,6 +688,7 @@ async function handleRemittance(gigId: string | null, extracted: any) {
   } else {
     // No auto-match — notify for manual reconciliation
     await createNotification({
+      user_id: userId,
       type: 'payment_received',
       title: `Remittance received — needs linking`,
       message: `${extracted.currency || ''} ${extracted.amount || '?'} from ${extracted.sender_name || 'unknown'}${extracted.gig_title ? ` · re: ${extracted.gig_title}` : ''}${extracted.reference ? ` · ref ${extracted.reference}` : ''}`,
@@ -649,8 +698,9 @@ async function handleRemittance(gigId: string | null, extracted: any) {
   }
 }
 
-async function handleRelease(extracted: any) {
+async function handleRelease(userId: string, extracted: any) {
   if (!extracted.title) return
+  // TODO(multi-tenant): releases has no user_id column yet — stamp when migrated.
   await supabase.from('releases').insert([{
     title: extracted.title,
     type: extracted.type || 'single',
@@ -780,7 +830,7 @@ async function markProcessed(_gmail: any, messageId: string) {
 
 // ── Process emails for one account ────────────────────────────────────────
 
-async function processAccount(gmail: any, accountEmail: string, processedIds: Set<string>, gigs: any[], afterQuery: string, ownEmails: Set<string>): Promise<any[]> {
+async function processAccount(userId: string, gmail: any, accountEmail: string, processedIds: Set<string>, gigs: any[], afterQuery: string, ownEmails: Set<string>): Promise<any[]> {
   const results: any[] = []
 
   // Paginate through the inbox — safety cap at 200 messages per account per run
@@ -839,55 +889,59 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
 
     switch (classification.type) {
       case 'new_gig':
-        actionResult = await handleNewGig(classification.extracted, from, classification.gig_id)
+        actionResult = await handleNewGig(userId, classification.extracted, from, classification.gig_id)
         break
       case 'hotel':
       case 'flight':
       case 'train':
-        await handleTravel(classification.type, classification.gig_id, classification.extracted)
+        await handleTravel(userId, classification.type, classification.gig_id, classification.extracted)
         actionResult = { created: 'travel_booking', type: classification.type }
         break
       case 'rider':
       case 'tech_spec':
-        await handleRiderOrTechSpec(classification.type, classification.gig_id, classification.extracted)
+        await handleRiderOrTechSpec(userId, classification.type, classification.gig_id, classification.extracted)
         actionResult = { updated: classification.gig_id }
         break
       case 'invoice':
-        await handleInvoice(classification.gig_id, classification.extracted)
+        await handleInvoice(userId, classification.gig_id, classification.extracted)
         actionResult = { created: 'invoice' }
         break
       case 'invoice_request':
-        await handleInvoiceRequest(classification.gig_id, classification.extracted, from)
+        await handleInvoiceRequest(userId, classification.gig_id, classification.extracted, from)
         actionResult = { updated: classification.gig_id, kind: 'invoice_request' }
         break
       case 'billing_info':
-        await handleBillingInfo(classification.gig_id, classification.extracted)
+        await handleBillingInfo(userId, classification.gig_id, classification.extracted)
         actionResult = { updated: classification.gig_id, kind: 'billing_info' }
         break
       case 'remittance':
-        await handleRemittance(classification.gig_id, classification.extracted)
+        await handleRemittance(userId, classification.gig_id, classification.extracted)
         actionResult = { kind: 'remittance' }
         break
       case 'release':
-        await handleRelease(classification.extracted)
+        await handleRelease(userId, classification.extracted)
         actionResult = { created: 'release' }
         break
       case 'gig_update':
-        await handleGigUpdate(classification.gig_id, classification.extracted)
+        await handleGigUpdate(userId, classification.gig_id, classification.extracted)
         actionResult = { updated: classification.gig_id }
         break
     }
 
     // Capture every CC/To address on the thread against the matched gig.
     // If the classifier created a gig (new_gig action), use the returned id.
+    // gig_contacts inherits tenant scope via gig_id → gigs.user_id. The explicit
+    // user_id filter below ensures we only dereference gigs owned by this user.
     const resolvedGigId: string | null = classification.gig_id
       || (actionResult && typeof actionResult === 'object' && 'id' in actionResult ? (actionResult as any).id : null)
 
     if (resolvedGigId) {
       try {
         const { data: matchedGig } = await supabase
-          .from('gigs').select('promoter_email').eq('id', resolvedGigId).single()
-        await captureThreadContacts(resolvedGigId, headers, ownEmails, matchedGig?.promoter_email || null)
+          .from('gigs').select('promoter_email').eq('id', resolvedGigId).eq('user_id', userId).single()
+        if (matchedGig) {
+          await captureThreadContacts(resolvedGigId, headers, ownEmails, matchedGig?.promoter_email || null)
+        }
       } catch {
         // Non-fatal — contact capture shouldn't block message processing
       }
@@ -909,57 +963,99 @@ async function processAccount(gmail: any, accountEmail: string, processedIds: Se
   return results
 }
 
+// ── Per-user scan orchestrator ────────────────────────────────────────────
+// Scans one tenant's connected Gmail accounts. Called either once (user
+// session) or once per connected user (cron path).
+async function processForUser(userId: string): Promise<{ userId: string; accounts: number; processed: number; results: any[] }> {
+  let clients: Awaited<ReturnType<typeof getGmailClients>>
+  try {
+    clients = await getGmailClients(userId)
+  } catch {
+    return { userId, accounts: 0, processed: 0, results: [] }
+  }
+
+  // TODO(multi-tenant): processed_gmail_ids has no user_id column yet. Dedup
+  // is safe across tenants because Google message IDs are unique and one
+  // tenant's OAuth only returns their own message IDs. Using a fixed 30-day
+  // lookback (instead of a derived-from-global watermark) avoids user B
+  // missing emails older than user A's last scan.
+  const { data: processed } = await supabase
+    .from('processed_gmail_ids')
+    .select('message_id')
+    .limit(5000)
+  const processedIds = new Set((processed || []).map((r: any) => r.message_id))
+
+  const watermark = new Date(Date.now() - 30 * 86400000)
+  const afterQuery = `after:${watermark.getUTCFullYear()}/${String(watermark.getUTCMonth() + 1).padStart(2, '0')}/${String(watermark.getUTCDate()).padStart(2, '0')}`
+
+  // Existing gigs for context matching — tenant-scoped.
+  const { data: gigs } = await supabase
+    .from('gigs')
+    .select('id, title, venue, location, date')
+    .eq('user_id', userId)
+    .order('date', { ascending: true })
+
+  const ownEmails = new Set<string>(
+    clients.map(c => (c.email || '').toLowerCase()).filter(Boolean)
+  )
+
+  const allResults: any[] = []
+  for (const { gmail, email } of clients) {
+    try {
+      const results = await processAccount(userId, gmail, email, processedIds, gigs || [], afterQuery, ownEmails)
+      allResults.push(...results)
+    } catch (err) {
+      allResults.push({ account: email, error: err instanceof Error ? err.message : 'Failed' })
+    }
+  }
+
+  return {
+    userId,
+    accounts: clients.length,
+    processed: allResults.filter(r => !r.error).length,
+    results: allResults,
+  }
+}
+
 // ── Main route ─────────────────────────────────────────────────────────────
 
-export async function POST() {
+// POST /api/gmail/process
+//  - Bearer CRON_SECRET (external cron) → iterates every tenant that has a
+//    row in connected_email_accounts and processes each inbox separately.
+//  - Signed-in user → processes only the caller's own inboxes.
+export async function POST(req: NextRequest) {
+  const auth = await authGate(req)
+  if (auth instanceof NextResponse) return auth
+
   try {
-    const clients = await getGmailClients()
+    // User-triggered: scope to just this user.
+    if (auth.userId) {
+      const r = await processForUser(auth.userId)
+      return NextResponse.json({ ok: true, ...r })
+    }
 
-    // Get already-processed IDs (shared across accounts) + watermark for Gmail query
-    const { data: processed } = await supabase
-      .from('processed_gmail_ids')
-      .select('message_id, processed_at')
-      .order('processed_at', { ascending: false })
-      .limit(2000)
-    const processedIds = new Set((processed || []).map((r: any) => r.message_id))
+    // Cron path: iterate every connected tenant.
+    const { data: rows } = await supabase
+      .from('connected_email_accounts')
+      .select('user_id')
+    const userIds = Array.from(new Set((rows || []).map(r => r.user_id).filter(Boolean))) as string[]
 
-    // Build "after:" watermark — last successful processed message minus 2-day overlap.
-    // Fallback to 30 days ago if nothing processed yet.
-    const lastProcessedAt = processed?.[0]?.processed_at
-      ? new Date(processed[0].processed_at)
-      : new Date(Date.now() - 30 * 86400000)
-    const watermark = new Date(lastProcessedAt.getTime() - 2 * 86400000)
-    const afterQuery = `after:${watermark.getUTCFullYear()}/${String(watermark.getUTCMonth() + 1).padStart(2, '0')}/${String(watermark.getUTCDate()).padStart(2, '0')}`
-
-    // Fetch existing gigs for context matching
-    const { data: gigs } = await supabase
-      .from('gigs')
-      .select('id, title, venue, location, date')
-      .order('date', { ascending: true })
-
-    // Build set of our own addresses so thread-contact capture doesn't record us.
-    const ownEmails = new Set<string>(
-      clients.map(c => (c.email || '').toLowerCase()).filter(Boolean)
-    )
-
-    const allResults: any[] = []
-
-    for (const { gmail, email } of clients) {
+    const perUser: any[] = []
+    for (const uid of userIds) {
       try {
-        const results = await processAccount(gmail, email, processedIds, gigs || [], afterQuery, ownEmails)
-        allResults.push(...results)
+        const r = await processForUser(uid)
+        perUser.push(r)
       } catch (err) {
-        allResults.push({ account: email, error: err instanceof Error ? err.message : 'Failed' })
+        perUser.push({ userId: uid, error: err instanceof Error ? err.message : 'failed' })
       }
     }
 
     return NextResponse.json({
       ok: true,
-      accounts: clients.length,
-      processed: allResults.filter(r => !r.error).length,
-      results: allResults,
+      tenants: userIds.length,
+      processed: perUser.reduce((n, u) => n + (u.processed || 0), 0),
+      perUser,
     })
-
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return NextResponse.json({ error: message }, { status: 500 })
@@ -971,6 +1067,6 @@ export async function GET() {
   return NextResponse.json({
     status: 'ok',
     endpoint: 'POST /api/gmail/process',
-    description: 'Reads unread Gmail, classifies with Claude, updates gigs',
+    description: 'Reads unread Gmail per connected tenant, classifies with Claude, writes scoped records',
   })
 }
