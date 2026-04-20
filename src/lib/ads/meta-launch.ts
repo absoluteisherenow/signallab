@@ -201,6 +201,14 @@ export function buildPreview(input: LaunchInput): LaunchPreview {
     bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     targeting: buildMetaTargeting(input.targeting),
     start_time: new Date().toISOString(),
+    // EU Digital Services Act (DSA) — mandatory since 2024 for ads reaching
+    // EU/EEA users, enforced by Meta globally. Without these fields, the
+    // /adsets endpoint rejects with code=100 subcode=3858081 "No advertiser
+    // indicated". `dsa_beneficiary` = who the ad promotes; `dsa_payor` =
+    // who's paying. Both are NIGHT manoeuvres for NM campaigns. Override
+    // via env if Signal Lab ever hosts other artists.
+    dsa_beneficiary: process.env.META_DSA_BENEFICIARY || 'NIGHT manoeuvres',
+    dsa_payor: process.env.META_DSA_PAYOR || 'NIGHT manoeuvres',
   }
   if (input.daily_budget_gbp) {
     adset.daily_budget = Math.round(input.daily_budget_gbp * 100) // pence
