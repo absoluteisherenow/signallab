@@ -369,11 +369,20 @@ async function fetchIgMediaMeta(igMediaId: string, token: string): Promise<IgMed
   const url = `https://graph.facebook.com/${META_API_VERSION}/${igMediaId}?fields=id,media_type,media_url,thumbnail_url,caption,permalink,timestamp&access_token=${encodeURIComponent(
     token
   )}`
-  const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+  const start = Date.now()
+  // Short timeout — this is a best-effort enrichment, not on the critical path.
+  // System User tokens frequently lack instagram_basic scope and return 400.
+  let res: Response
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+  } catch (err) {
+    throw new Error(`IG media fetch threw after ${Date.now() - start}ms: ${String(err).slice(0, 200)}`)
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`IG media fetch failed (${res.status}) for ${igMediaId}: ${body.slice(0, 300)}`)
   }
+  console.log('[ig_media_fetch_ok]', `${Date.now() - start}ms`, igMediaId)
   return (await res.json()) as IgMediaMeta
 }
 
@@ -411,15 +420,35 @@ async function findCrosspostedFbPost(
   const url = `https://graph.facebook.com/${META_API_VERSION}/${FB_PAGE_ID}/videos?fields=id,post_id,created_time,description&since=${sinceSec}&until=${untilSec}&limit=50&access_token=${encodeURIComponent(
     token
   )}`
-  const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
-  if (!res.ok) {
-    // Missing page_read_engagement / pages_show_list scope is the usual cause.
-    // Don't throw — let the caller fall through.
-    const body = await res.text().catch(() => '')
-    console.warn('[fb_video_scan_skipped]', res.status, body.slice(0, 200))
+  const scanStart = Date.now()
+  // Defensive try/catch: AbortSignal.timeout() throws DOMException (not an
+  // HTTP error), and fetch itself can throw on worker subrequest limits /
+  // DNS / connection resets. If ANY of that happens, fall through to null
+  // so the caller can proceed — we must never bubble from this helper.
+  let res: Response
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  } catch (err) {
+    console.warn(
+      '[fb_video_scan_fetch_threw]',
+      `${Date.now() - scanStart}ms`,
+      String(err).slice(0, 200)
+    )
     return null
   }
-  const json = (await res.json()) as {
+  if (!res.ok) {
+    // Missing page_read_engagement / pages_show_list scope is the usual cause.
+    const body = await res.text().catch(() => '')
+    console.warn(
+      '[fb_video_scan_http_error]',
+      `${Date.now() - scanStart}ms`,
+      res.status,
+      body.slice(0, 200)
+    )
+    return null
+  }
+  console.log('[fb_video_scan_ok]', `${Date.now() - scanStart}ms`)
+  const json = (await res.json().catch(() => ({}))) as {
     data?: Array<{ id: string; post_id?: string; created_time?: string; description?: string }>
   }
   const vids = (json.data || []).filter(v => v.post_id && v.created_time)
@@ -511,12 +540,18 @@ async function metaPOST(
   body: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   const url = `https://graph.facebook.com/${META_API_VERSION}${path}`
+  const start = Date.now()
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...body, access_token: token }),
-    signal: AbortSignal.timeout(15000),
+    // 10s per Meta call. Cloudflare Workers bundled plan = 30s wall-clock
+    // total — with 4 sequential POSTs (campaign + adset + creative + ad)
+    // plus an IG fetch and crosspost scan, we need each step ≤10s to stay
+    // under 30s total and keep mobile browsers happy.
+    signal: AbortSignal.timeout(10000),
   })
+  console.log('[meta_post]', path, `${Date.now() - start}ms`, res.status)
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as {
       error?: {
@@ -564,6 +599,9 @@ async function metaPOST(
  * "go halfway".
  */
 export async function launchToMeta(input: LaunchInput, token: string): Promise<LaunchResult> {
+  const launchStart = Date.now()
+  const ts = () => `${Date.now() - launchStart}ms`
+  console.log('[launch_start]', input.name)
   const preview = buildPreview(input)
 
   // 1. Campaign
@@ -683,6 +721,7 @@ export async function launchToMeta(input: LaunchInput, token: string): Promise<L
   const ad_id = adRes.id as string
   if (!ad_id) throw new Error('Meta returned no ad ID')
 
+  console.log('[launch_done]', ts(), { campaign_id, adset_id, creative_id, ad_id })
   return {
     campaign_id,
     adset_id,
