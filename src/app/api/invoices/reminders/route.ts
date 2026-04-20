@@ -1,21 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireCronAuth } from '@/lib/cron-auth'
 import { env } from '@/lib/env'
 
+// Service role required: this is a cron that reads/writes across all tenants.
+// Anon key would break the moment RLS lands on `invoice_reminder_drafts`.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// Called by Vercel cron daily at 9am
+// Called daily at 09:00 UTC by the signal-lab-crons Worker.
 // Creates DRAFTS — never sends directly. User approves before send.
+//
+// Multi-tenant: invoices.user_id, invoice_reminder_drafts.user_id and
+// notifications.user_id are all populated so each tenant sees only their own
+// chase drafts + a per-tenant bell count at the end of the run.
 
 export async function GET(req: NextRequest) {
+  const unauth = requireCronAuth(req, 'invoice-reminders')
+  if (unauth) return unauth
   return handler()
 }
 
 export async function POST(req: NextRequest) {
+  const unauth = requireCronAuth(req, 'invoice-reminders')
+  if (unauth) return unauth
   return handler()
 }
 
@@ -138,6 +149,9 @@ async function handler() {
     if (!invoices?.length) return NextResponse.json({ drafts: 0, message: 'No pending invoices' })
 
     const results: string[] = []
+    // Per-tenant draft counters so the end-of-run notification routes to the
+    // right user (multi-tenant correctness) rather than a global bell ping.
+    const draftsByUser = new Map<string, number>()
 
     for (const invoice of invoices) {
       if (!invoice.due_date) continue
@@ -211,12 +225,16 @@ async function handler() {
 
       const bodyHtml = bodyToHtml(bodyText, subject)
 
-      // Create draft — NOT send
+      // Create draft — NOT send. user_id tags the row for tenant isolation so
+      // the review UI scopes properly and RLS (once enabled) doesn't need a
+      // join through invoices to resolve ownership.
+      const ownerId = invoice.user_id || null
       const { error: insertErr } = await supabase
         .from('invoice_reminder_drafts')
         .insert({
           invoice_id: invoice.id,
           gig_id: invoice.gig_id || null,
+          user_id: ownerId,
           milestone,
           promoter_email: promoterEmail,
           promoter_name: promoterFullName,
@@ -232,15 +250,21 @@ async function handler() {
         continue
       }
 
+      if (ownerId) {
+        draftsByUser.set(ownerId, (draftsByUser.get(ownerId) || 0) + 1)
+      }
       results.push(`Draft created [${milestone}] for ${promoterEmail}: ${subject}`)
     }
 
-    // Notify the artist there are drafts to review
+    // Notify each tenant about their own drafts (not a global bell ping).
+    // Invoices without a user_id (legacy rows) are counted in results but not
+    // notified — surfacing them would page the wrong tenant.
     const draftCount = results.filter(r => r.startsWith('Draft created')).length
-    if (draftCount > 0) {
+    for (const [userId, count] of draftsByUser.entries()) {
       await createNotification({
+        user_id: userId,
         type: 'invoice_overdue',
-        title: `${draftCount} invoice reminder${draftCount > 1 ? 's' : ''} ready to review`,
+        title: `${count} invoice reminder${count > 1 ? 's' : ''} ready to review`,
         message: 'Review and approve before sending',
         href: '/finances',
       })

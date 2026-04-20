@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireCronAuth } from '@/lib/cron-auth'
 import { env } from '@/lib/env'
 
+// Service role: iterates every tenant's yesterday-gigs and must read
+// post_performance (shared intelligence table, not per-tenant).
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
 async function generateRecap(gig: any, posts: any[], performance: any[], sets: any) {
@@ -58,9 +61,13 @@ Return JSON: { "title": "short title", "message": "the recap text", "suggested_p
   }
 }
 
-// Triggered daily at 23:00 via Vercel Cron
-// Finds gigs that finished in the last 24 hours → fires post-gig debrief + performance recap
-export async function GET() {
+// Triggered daily at 23:00 via Cloudflare cron (signal-lab-crons).
+// Finds gigs that finished in the last 24 hours → fires post-gig debrief +
+// performance recap. Per-tenant via gig.user_id.
+export async function GET(req: NextRequest) {
+  const unauth = requireCronAuth(req, 'post-gig')
+  if (unauth) return unauth
+
   try {
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
@@ -90,9 +97,12 @@ export async function GET() {
           .ilike('title', '%debrief%')
           .limit(1)
 
+        const gigOwnerId: string | undefined = gig.user_id || undefined
+
         if (!existing?.length) {
           // Send the standard debrief prompt notification
           await createNotification({
+            user_id: gigOwnerId,
             type: 'system',
             title: `How did it go? — ${gig.title}`,
             message: `${gig.venue} · ${new Date(gig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · Add notes, rate the show, or chase the invoice.`,
@@ -112,6 +122,7 @@ export async function GET() {
 
         if (invoice) {
           await createNotification({
+            user_id: gigOwnerId,
             type: 'invoice_overdue',
             title: `Chase payment — ${gig.title}`,
             message: `Invoice still pending after the show. Send a reminder to ${gig.promoter_email || 'promoter'}.`,
@@ -169,6 +180,7 @@ export async function GET() {
         if (recap) {
           // Create recap notification
           await createNotification({
+            user_id: gigOwnerId,
             type: 'system',
             title: recap.title,
             message: recap.message,
@@ -176,7 +188,10 @@ export async function GET() {
             gig_id: gig.id,
           })
 
-          // Save suggested post as draft
+          // Save suggested post as draft.
+          // TODO(multi-tenant): scheduled_posts has no user_id column yet;
+          // once migrated, set `user_id: gigOwnerId` here so RLS scopes
+          // without joining through gigs.
           if (recap.suggested_post) {
             await supabase.from('scheduled_posts').insert([{
               gig_id: gig.id,
@@ -216,7 +231,7 @@ export async function GET() {
   }
 }
 
-// Support POST as well (Vercel crons use GET, but allow manual triggers via POST)
-export async function POST() {
-  return GET()
+// Support POST as well (CF scheduled handlers fetch GET, but allow manual triggers via POST)
+export async function POST(req: NextRequest) {
+  return GET(req)
 }

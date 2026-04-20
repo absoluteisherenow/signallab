@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireUser } from '@/lib/api-auth'
 import { env } from '@/lib/env'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 // POST /api/agents/gig-content
 // Called internally after a confirmed gig is created.
 // Generates 3 content draft posts: pre-show hype, day-of story, post-show recap.
 // Saves them to scheduled_posts table and fires a notification.
+//
+// Auth: requires a signed-in user. The caller's user_id scopes the gig
+// lookup so one user can't generate content for another user's gig. Paid
+// Claude call — do not leave open.
 
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, serviceClient: supabase } = gate
+
   try {
     const { gigId } = await req.json()
     if (!gigId) return NextResponse.json({ error: 'gigId required' }, { status: 400 })
@@ -21,11 +24,12 @@ export async function POST(req: NextRequest) {
     const apiKey = await env('ANTHROPIC_API_KEY')
     if (!apiKey) return NextResponse.json({ error: 'No ANTHROPIC_API_KEY' }, { status: 500 })
 
-    // Fetch the gig
+    // Fetch the gig — scoped to the caller. Prevents cross-tenant content gen.
     const { data: gig, error: gigError } = await supabase
       .from('gigs')
       .select('*')
       .eq('id', gigId)
+      .eq('user_id', user.id)
       .single()
 
     if (gigError || !gig) {
@@ -120,6 +124,7 @@ Write exactly 3 captions. Keep each under 30 words. Lowercase. No hashtags. No e
 
     if (saved > 0) {
       await createNotification({
+        user_id: user.id,
         type: 'content_review',
         title: `${saved} content drafts created — ${venue}`,
         message: `Pre-show hype, day-of story, and post-show recap ready to review in Broadcast.`,

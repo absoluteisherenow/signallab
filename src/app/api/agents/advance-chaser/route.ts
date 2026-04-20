@@ -1,15 +1,21 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireCronAuth } from '@/lib/cron-auth'
 
+// Service role: iterates every tenant's gigs + advance_requests.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// Cron: daily at 09:00
-// Finds confirmed gigs within 21 days with no advance sent → notifies artist to review and send
-export async function GET() {
+// Cron: daily at 09:00 via signal-lab-crons Worker.
+// Finds confirmed gigs within 21 days with no advance sent → notifies artist
+// to review and send. Per-tenant via gig.user_id.
+export async function GET(req: NextRequest) {
+  const unauth = requireCronAuth(req, 'advance-chaser')
+  if (unauth) return unauth
+
   try {
     const today = new Date()
     const in21Days = new Date(today.getTime() + 21 * 86400000)
@@ -41,6 +47,7 @@ export async function GET() {
     for (const gig of needsAdvance) {
       const daysTo = Math.ceil((new Date(gig.date).getTime() - today.getTime()) / 86400000)
       await createNotification({
+        user_id: gig.user_id || undefined,
         type: 'system',
         title: `Send advance — ${gig.title}`,
         message: `${daysTo} days to show · ${gig.promoter_email} · preview and approve before sending`,
@@ -53,6 +60,7 @@ export async function GET() {
     for (const gig of noEmail) {
       const daysTo = Math.ceil((new Date(gig.date).getTime() - today.getTime()) / 86400000)
       await createNotification({
+        user_id: gig.user_id || undefined,
         type: 'system',
         title: `Add promoter email — ${gig.title}`,
         message: `${daysTo} days away · no promoter email on file`,

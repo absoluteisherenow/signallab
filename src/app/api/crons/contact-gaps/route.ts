@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
     const { data: gigs, error } = await supabase
       .from('gigs')
-      .select('id, title, venue, location, date, fee, promoter_email, hotel_name, flight_details, notes')
+      .select('id, user_id, title, venue, location, date, fee, promoter_email, hotel_name, flight_details, notes')
       .gte('date', today)
       .lte('date', in60Days)
       .in('status', ['confirmed', 'pending'])
@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
       })
 
       await createNotification({
+        user_id: gig.user_id || undefined,
         type: 'system',
         title: `Missing info — ${gig.title || gig.venue}`,
         message: `${dateStr} · ${daysOut} days · need: ${gaps.join(', ')}`,

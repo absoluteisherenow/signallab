@@ -15,10 +15,11 @@ export async function POST(req: NextRequest) {
   if (unauth) return unauth
 
   try {
-    // Get all gigs with a fee > 0 that aren't cancelled
+    // Get all gigs with a fee > 0 that aren't cancelled. user_id threads
+    // tenant ownership through to the created invoice + notification.
     const { data: gigs, error: gigsError } = await supabase
       .from('gigs')
-      .select('id, title, fee, currency, date, promoter_email')
+      .select('id, user_id, title, fee, currency, date, promoter_email')
       .gt('fee', 0)
       .neq('status', 'cancelled')
 
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
 
       const { data: newInvoice, error: insertError } = await supabase.from('invoices').insert([{
         gig_id: gig.id,
+        user_id: gig.user_id || null,
         gig_title: gig.title,
         amount: gig.fee,
         currency: gig.currency || 'EUR',
@@ -63,6 +65,7 @@ export async function POST(req: NextRequest) {
 
       if (newInvoice?.[0]) {
         await createNotification({
+          user_id: gig.user_id || undefined,
           type: 'invoice_created',
           title: `Invoice created — ${gig.title}`,
           message: `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,

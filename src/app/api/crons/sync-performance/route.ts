@@ -3,12 +3,16 @@ import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
 import { requireCronAuth } from '@/lib/cron-auth'
 
-// Vercel cron: runs daily at 09:00 UTC
-// Fetches engagement for posted scheduled_posts not yet synced (24h+ after going live)
-
+// Cloudflare cron (signal-lab-crons): runs daily at 09:00 UTC.
+// Fetches engagement for posted scheduled_posts not yet synced (24h+ after going live).
+//
+// MULTI-TENANT CAVEAT: processes scheduled_posts across all tenants. Once
+// `scheduled_posts.user_id` lands, no code change is needed here (query is
+// tenant-agnostic by design) — but verify the cursor/limit logic doesn't
+// starve any single tenant when table grows.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
 async function fetchEngagement(platformPostId: string): Promise<{ likes: number; comments: number } | null> {

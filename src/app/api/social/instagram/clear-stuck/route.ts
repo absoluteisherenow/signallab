@@ -11,6 +11,11 @@
  * Uses the service role key because `publishing` rows may have been
  * written by the cron under the service role and RLS will reject updates
  * via the anon key.
+ *
+ * MULTI-TENANT CAVEAT: invoked client-side with no user scoping. Once
+ * `scheduled_posts.user_id` is migrated, this route MUST be gated by
+ * `requireUser(req)` and filter rows by the caller's user_id so one
+ * tenant can't kick another tenant's stalled publishes off the queue.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
