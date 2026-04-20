@@ -229,20 +229,24 @@ export function buildPreview(input: LaunchInput): LaunchPreview {
     adset.end_time = end.toISOString()
   }
 
-  // Creative shape mirrors the known-good April 2026 Vespers ad: modern v25
-  // uses `instagram_user_id` at the TOP level of the creative (the legacy
-  // `instagram_actor_id` was deprecated in v22 and removed Sept 9 2025 —
-  // Meta now rejects it outright with code=100 "must be a valid Instagram
-  // account id"). `object_story_spec.page_id` is the NM FB Page the ad
-  // runs under. For boosted posts we reference the existing IG media via
-  // `source_instagram_media_id`; for new creative we inline `link_data`.
+  // Modern v25 uses `instagram_user_id` at the TOP level of the creative
+  // (the legacy `instagram_actor_id` was deprecated in v22 and removed
+  // Sept 9 2025 — Meta now rejects it outright with code=100 "must be a
+  // valid Instagram account id").
+  //
+  // Two mutually-exclusive promoted-object paths:
+  //   1. Boost existing IG post → `source_instagram_media_id` alone IS the
+  //      promoted object. Adding `object_story_spec` alongside triggers
+  //      code=100 subcode=1487929 "Ambiguous promoted object fields —
+  //      you must specify only one".
+  //   2. New creative (image + caption + link) → `object_story_spec` with
+  //      `page_id` + `link_data` describes what to promote; no source id.
   let creative: Record<string, unknown>
   if (input.creative.type === 'existing_ig_post') {
     creative = {
       name: `${input.name} — creative`,
-      object_story_spec: { page_id: FB_PAGE_ID },
-      instagram_user_id: IG_ACTOR_ID,
       source_instagram_media_id: input.creative.ig_post_id,
+      instagram_user_id: IG_ACTOR_ID,
     }
   } else {
     creative = {
