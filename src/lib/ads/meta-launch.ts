@@ -417,68 +417,96 @@ async function findCrosspostedFbPost(
     sinceSec = Math.floor((nowMs - 72 * 60 * 60_000) / 1000)
     untilSec = Math.floor(nowMs / 1000)
   }
-  const url = `https://graph.facebook.com/${META_API_VERSION}/${FB_PAGE_ID}/videos?fields=id,post_id,created_time,description&since=${sinceSec}&until=${untilSec}&limit=50&access_token=${encodeURIComponent(
-    token
-  )}`
-  const scanStart = Date.now()
-  // Defensive try/catch: AbortSignal.timeout() throws DOMException (not an
-  // HTTP error), and fetch itself can throw on worker subrequest limits /
-  // DNS / connection resets. If ANY of that happens, fall through to null
-  // so the caller can proceed — we must never bubble from this helper.
-  let res: Response
-  try {
-    res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-  } catch (err) {
-    console.warn(
-      '[fb_video_scan_fetch_threw]',
-      `${Date.now() - scanStart}ms`,
-      String(err).slice(0, 200)
-    )
-    return null
-  }
-  if (!res.ok) {
-    // Missing page_read_engagement / pages_show_list scope is the usual cause.
-    const body = await res.text().catch(() => '')
-    console.warn(
-      '[fb_video_scan_http_error]',
-      `${Date.now() - scanStart}ms`,
-      res.status,
-      body.slice(0, 200)
-    )
-    return null
-  }
-  console.log('[fb_video_scan_ok]', `${Date.now() - scanStart}ms`)
-  const json = (await res.json().catch(() => ({}))) as {
-    data?: Array<{ id: string; post_id?: string; created_time?: string; description?: string }>
-  }
-  const vids = (json.data || []).filter(v => v.post_id && v.created_time)
-  if (!vids.length) return null
 
-  let picked: { postId: string; createdMs: number } | null = null
+  // Collect Page media from multiple endpoints — Reels don't show up in
+  // /{page}/videos, and some video types don't show up in /{page}/feed.
+  // Any endpoint that returns useful data contributes candidates; we
+  // pick across all of them.
+  type Candidate = { postId: string; createdMs: number; source: string }
+  const candidates: Candidate[] = []
+
+  // Helper: run one Page endpoint, push successful matches into candidates.
+  const tryEndpoint = async (edge: string, label: string) => {
+    // `post_id` is what we actually want for object_story_id. /{page}/feed
+    // returns `id` already in `{page}_{post}` form, /{page}/videos returns
+    // a separate `post_id` field. Fetch both to cover both shapes.
+    const url = `https://graph.facebook.com/${META_API_VERSION}/${FB_PAGE_ID}/${edge}?fields=id,post_id,created_time&since=${sinceSec}&until=${untilSec}&limit=50&access_token=${encodeURIComponent(
+      token
+    )}`
+    const start = Date.now()
+    let res: Response
+    try {
+      res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    } catch (err) {
+      console.warn(`[fb_scan_${label}_threw]`, `${Date.now() - start}ms`, String(err).slice(0, 150))
+      return
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      console.warn(`[fb_scan_${label}_http]`, `${Date.now() - start}ms`, res.status, body.slice(0, 150))
+      return
+    }
+    const json = (await res.json().catch(() => ({}))) as {
+      data?: Array<{ id?: string; post_id?: string; created_time?: string }>
+    }
+    const rows = json.data || []
+    console.log(`[fb_scan_${label}_ok]`, `${Date.now() - start}ms`, `n=${rows.length}`)
+    for (const r of rows) {
+      // Prefer post_id (videos endpoint), fall back to id (feed endpoint).
+      // `id` from /feed is already in `{page}_{post}` form.
+      const raw = r.post_id || r.id
+      if (!raw || !r.created_time) continue
+      const postId = raw.includes('_') ? raw : `${FB_PAGE_ID}_${raw}`
+      candidates.push({
+        postId,
+        createdMs: new Date(r.created_time).getTime(),
+        source: label,
+      })
+    }
+  }
+
+  // Scan in parallel — all three endpoints independent. Total wall time =
+  // slowest endpoint (≤6s), not sum of three.
+  await Promise.all([
+    tryEndpoint('videos', 'videos'),
+    tryEndpoint('video_reels', 'reels'), // catches Reels the user just posted
+    tryEndpoint('feed', 'feed'), // catches anything else (image posts, etc.)
+  ])
+
+  if (!candidates.length) {
+    console.warn('[fb_scan_no_candidates]', { since: sinceSec, until: untilSec, anchor: anchorMs })
+    return null
+  }
+
+  // Dedupe by postId (same post can appear in /feed AND /videos)
+  const byId = new Map<string, Candidate>()
+  for (const c of candidates) {
+    const prev = byId.get(c.postId)
+    if (!prev) byId.set(c.postId, c)
+  }
+  const unique = Array.from(byId.values())
+
+  let picked: Candidate | null = null
   if (anchorMs !== null && Number.isFinite(anchorMs)) {
     // Tight match — closest created_time to the IG anchor, ≤30 min delta
-    let best: { postId: string; delta: number } | null = null
-    for (const v of vids) {
-      const t = new Date(v.created_time!).getTime()
-      const delta = Math.abs(t - anchorMs)
-      if (!best || delta < best.delta) best = { postId: v.post_id!, delta }
+    let best: { c: Candidate; delta: number } | null = null
+    for (const c of unique) {
+      const delta = Math.abs(c.createdMs - anchorMs)
+      if (!best || delta < best.delta) best = { c, delta }
     }
-    if (best && best.delta <= 30 * 60_000) {
-      picked = { postId: best.postId, createdMs: anchorMs }
-    }
+    if (best && best.delta <= 30 * 60_000) picked = best.c
   } else {
-    // Loose match — most recent Page video in the last 72h
-    let mostRecent: { postId: string; t: number } | null = null
-    for (const v of vids) {
-      const t = new Date(v.created_time!).getTime()
-      if (!mostRecent || t > mostRecent.t) mostRecent = { postId: v.post_id!, t }
+    // Loose match — most recent candidate across all endpoints
+    for (const c of unique) {
+      if (!picked || c.createdMs > picked.createdMs) picked = c
     }
-    if (mostRecent) picked = { postId: mostRecent.postId, createdMs: mostRecent.t }
   }
-  if (!picked) return null
-  // /{page}/videos returns `post_id` already in `{page_id}_{post_id}` form.
-  // Defensive prefix in case Meta ever changes it.
-  return picked.postId.includes('_') ? picked.postId : `${FB_PAGE_ID}_${picked.postId}`
+  if (!picked) {
+    console.warn('[fb_scan_no_match]', `candidates=${unique.length}`, `anchor=${anchorMs}`)
+    return null
+  }
+  console.log('[fb_scan_picked]', picked.source, picked.postId, new Date(picked.createdMs).toISOString())
+  return picked.postId
 }
 
 async function mirrorIgVideoToFacebook(
