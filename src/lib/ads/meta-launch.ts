@@ -378,53 +378,78 @@ async function fetchIgMediaMeta(igMediaId: string, token: string): Promise<IgMed
 }
 
 /**
- * Scans the NM Page's recent videos for one crossposted from the given IG
- * media. Returns the full FB post ID (format `{page_id}_{post_id}`) if found,
- * or `null` if no match within the time window.
+ * Scans the NM Page's recent videos for one corresponding to the IG post
+ * being boosted. Returns the full FB post ID (`{page_id}_{post_id}`) if found,
+ * or `null` if no match.
  *
- * Match criteria: FB video `created_time` within ±30 min of IG `timestamp`.
- * IG→FB crossposts normally fire within seconds; 30 min handles slow syncs
- * and manual shares without matching unrelated Page uploads.
+ * Two modes:
+ *   - anchorMs provided (IG timestamp available) → require ±30 min match
+ *     for high-confidence pairing
+ *   - anchorMs null (IG metadata unavailable — System User tokens often lack
+ *     `instagram_basic` scope, so /{ig_media_id} GETs fail) → pick the MOST
+ *     RECENT Page video within the last 72h. Safe for Stage 1 growth boosts
+ *     which always target the latest best-performing post.
+ *
+ * If neither mode matches, returns null and callers fall through to the
+ * /advideos upload path or fail with a clear message.
  */
 async function findCrosspostedFbPost(
-  igTimestamp: string,
+  anchorMs: number | null,
   token: string
 ): Promise<string | null> {
-  const tsMs = new Date(igTimestamp).getTime()
-  if (!Number.isFinite(tsMs)) return null
-  // Widen slightly on the late side — IG→FB occasionally lags a few hours
-  // (especially for videos awaiting transcode on the IG side).
-  const sinceSec = Math.floor((tsMs - 60 * 60_000) / 1000) // 1h before
-  const untilSec = Math.floor((tsMs + 6 * 60 * 60_000) / 1000) // 6h after
-  const url = `https://graph.facebook.com/${META_API_VERSION}/${FB_PAGE_ID}/videos?fields=id,post_id,created_time&since=${sinceSec}&until=${untilSec}&limit=50&access_token=${encodeURIComponent(
+  const nowMs = Date.now()
+  let sinceSec: number
+  let untilSec: number
+  if (anchorMs !== null && Number.isFinite(anchorMs)) {
+    sinceSec = Math.floor((anchorMs - 60 * 60_000) / 1000) // 1h before IG post
+    untilSec = Math.floor((anchorMs + 6 * 60 * 60_000) / 1000) // 6h after
+  } else {
+    // Fallback: pick the most recent video in the last 72h
+    sinceSec = Math.floor((nowMs - 72 * 60 * 60_000) / 1000)
+    untilSec = Math.floor(nowMs / 1000)
+  }
+  const url = `https://graph.facebook.com/${META_API_VERSION}/${FB_PAGE_ID}/videos?fields=id,post_id,created_time,description&since=${sinceSec}&until=${untilSec}&limit=50&access_token=${encodeURIComponent(
     token
   )}`
   const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
   if (!res.ok) {
-    // Missing page_read_engagement/pages_show_list scope is the usual cause.
-    // Don't throw — just fall through to the /advideos mirror fallback.
+    // Missing page_read_engagement / pages_show_list scope is the usual cause.
+    // Don't throw — let the caller fall through.
     const body = await res.text().catch(() => '')
     console.warn('[fb_video_scan_skipped]', res.status, body.slice(0, 200))
     return null
   }
   const json = (await res.json()) as {
-    data?: Array<{ id: string; post_id?: string; created_time?: string }>
+    data?: Array<{ id: string; post_id?: string; created_time?: string; description?: string }>
   }
-  const vids = json.data || []
+  const vids = (json.data || []).filter(v => v.post_id && v.created_time)
   if (!vids.length) return null
 
-  // Pick the video closest in time to the IG post. Require ≤30 min delta
-  // to avoid matching unrelated uploads that happen to fall in the window.
-  let best: { postId: string; delta: number } | null = null
-  for (const v of vids) {
-    if (!v.post_id || !v.created_time) continue
-    const delta = Math.abs(new Date(v.created_time).getTime() - tsMs)
-    if (!best || delta < best.delta) best = { postId: v.post_id, delta }
+  let picked: { postId: string; createdMs: number } | null = null
+  if (anchorMs !== null && Number.isFinite(anchorMs)) {
+    // Tight match — closest created_time to the IG anchor, ≤30 min delta
+    let best: { postId: string; delta: number } | null = null
+    for (const v of vids) {
+      const t = new Date(v.created_time!).getTime()
+      const delta = Math.abs(t - anchorMs)
+      if (!best || delta < best.delta) best = { postId: v.post_id!, delta }
+    }
+    if (best && best.delta <= 30 * 60_000) {
+      picked = { postId: best.postId, createdMs: anchorMs }
+    }
+  } else {
+    // Loose match — most recent Page video in the last 72h
+    let mostRecent: { postId: string; t: number } | null = null
+    for (const v of vids) {
+      const t = new Date(v.created_time!).getTime()
+      if (!mostRecent || t > mostRecent.t) mostRecent = { postId: v.post_id!, t }
+    }
+    if (mostRecent) picked = { postId: mostRecent.postId, createdMs: mostRecent.t }
   }
-  if (!best || best.delta > 30 * 60_000) return null
-  // /{page}/videos returns `post_id` as `{page_id}_{post_id}` already.
-  // Defensive — if it's ever just the bare post ID, prefix the page.
-  return best.postId.includes('_') ? best.postId : `${FB_PAGE_ID}_${best.postId}`
+  if (!picked) return null
+  // /{page}/videos returns `post_id` already in `{page_id}_{post_id}` form.
+  // Defensive prefix in case Meta ever changes it.
+  return picked.postId.includes('_') ? picked.postId : `${FB_PAGE_ID}_${picked.postId}`
 }
 
 async function mirrorIgVideoToFacebook(
@@ -560,36 +585,46 @@ export async function launchToMeta(input: LaunchInput, token: string): Promise<L
   //
   // For IG-post boosts, resolve the actual creative payload at launch time:
   //   - IMAGE/CAROUSEL → keep `source_instagram_media_id` (preview payload)
-  //   - VIDEO → (a) look for an existing crossposted FB post on the NM Page
-  //              and boost it via `object_story_id` (no re-upload), else
-  //             (b) mirror the video to the ad account via `/advideos` and
-  //              reference it via `object_story_spec.video_data.video_id`.
+  //   - VIDEO (or unknown type) → try the crossposted FB post on the NM Page
+  //     via object_story_id; fall back to /advideos upload if the mirror
+  //     metadata is available.
   //
-  // Preview stays synchronous + display-only; this resolution step only
-  // touches the network when it actually matters (IG video boosts).
+  // IG metadata fetch is best-effort: the System User token used for ads
+  // typically lacks `instagram_basic` scope, so /{ig_media_id} GETs return
+  // "missing permissions". We wrap in try/catch and fall through to a
+  // timestamp-less /videos scan that picks the most recent Page video in
+  // the last 72h. Safe for Stage 1 growth boosts (always target latest).
   let creativePayload: Record<string, unknown> = preview.meta_payloads.creative
   if (input.creative.type === 'existing_ig_post') {
-    const ig = await fetchIgMediaMeta(input.creative.ig_post_id, token)
-    if (ig.media_type === 'VIDEO') {
-      // Tier 1: existing crossposted FB post
-      let fbObjectStoryId: string | null = null
-      if (ig.timestamp) {
-        fbObjectStoryId = await findCrosspostedFbPost(ig.timestamp, token)
-      }
+    let ig: IgMediaMeta | null = null
+    try {
+      ig = await fetchIgMediaMeta(input.creative.ig_post_id, token)
+    } catch (err) {
+      console.warn('[ig_media_fetch_skipped]', String(err).slice(0, 300))
+    }
+
+    // If we couldn't read the IG post, we don't know if it's video or image.
+    // Default to "try video resolution" — if it's actually a photo/carousel
+    // the crosspost scan still works (FB stores them too in some cases) and
+    // we fall back to source_instagram_media_id only if we're confident it's
+    // not a video. Safer to try the crosspost path first.
+    const isVideoOrUnknown = !ig || ig.media_type === 'VIDEO'
+
+    if (isVideoOrUnknown) {
+      const anchorMs = ig?.timestamp ? new Date(ig.timestamp).getTime() : null
+      const fbObjectStoryId = await findCrosspostedFbPost(anchorMs, token)
+
       if (fbObjectStoryId) {
+        // Tier 1: boost the existing FB crosspost via object_story_id
         creativePayload = {
           name: `${input.name} — creative`,
           object_story_id: fbObjectStoryId,
           instagram_user_id: IG_ACTOR_ID,
         }
-      } else {
-        // Tier 2: mirror video to FB ad account, reference by video_id
-        if (!ig.media_url) {
-          throw new Error(
-            `IG post ${input.creative.ig_post_id} returned no media_url — ` +
-              `can't mirror to Facebook. Try a different post.`
-          )
-        }
+      } else if (ig?.media_type === 'VIDEO' && ig.media_url) {
+        // Tier 2: mirror video to FB ad account, reference by video_id.
+        // Only reachable when we have confirmed-video metadata AND a
+        // media_url — if IG fetch failed we can't mirror.
         const fbVideoId = await mirrorIgVideoToFacebook(
           ig.media_url,
           `${input.name} — video`,
@@ -607,9 +642,27 @@ export async function launchToMeta(input: LaunchInput, token: string): Promise<L
           },
           instagram_user_id: IG_ACTOR_ID,
         }
+      } else if (!ig) {
+        // IG fetch failed AND no crosspost found. Fall back to the original
+        // source_instagram_media_id payload from buildPreview — will work
+        // if the post is actually a photo/carousel, will fail with 1815279
+        // if it's a video. Better than silently picking the wrong FB post.
+        console.warn(
+          '[ads_launch] IG metadata unavailable and no recent FB crosspost found — ' +
+            'falling back to source_instagram_media_id. Video posts will likely fail.'
+        )
+      } else {
+        // ig.media_type === 'VIDEO' but no media_url — IG post may have been
+        // deleted or is still uploading. Fail clearly so the user knows.
+        throw new Error(
+          `IG post ${input.creative.ig_post_id} is a video but has no accessible ` +
+            `media_url, and no matching FB crosspost was found on the NM Page. ` +
+            `Share the post to Facebook manually, then retry.`
+        )
       }
     }
-    // IMAGE / CAROUSEL_ALBUM — leave `source_instagram_media_id` path alone
+    // IMAGE / CAROUSEL_ALBUM with confirmed metadata — leave the original
+    // `source_instagram_media_id` path alone.
   }
 
   const creativeRes = await metaPOST(
