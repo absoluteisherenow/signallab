@@ -119,9 +119,15 @@ async function main() {
     { key: 'venue', label: 'Venue', value: gig.venue.toUpperCase() },
   ]
 
-  // Row 1: City | Set
+  // Compute days-until-set as plain value. isRelative falls back to a formatted
+  // date for anything >1 day out, so we render the countdown ourselves.
+  const daysUntil = Math.max(0, Math.ceil((new Date(setIso).getTime() - Date.now()) / 86400000))
+  const countdownValue = daysUntil === 0 ? 'TONIGHT' : daysUntil === 1 ? 'TOMORROW' : `${daysUntil} DAYS`
+
+  // Row 1: City | Countdown | Set
   const secondaryFields = [
     { key: 'city', label: 'City', value: city || '—', textAlignment: 'PKTextAlignmentLeft' },
+    { key: 'countdown', label: 'Countdown', value: countdownValue, textAlignment: 'PKTextAlignmentCenter' },
     { key: 'set', label: 'Set', value: setTime || '—', textAlignment: 'PKTextAlignmentRight' },
   ]
 
@@ -131,24 +137,13 @@ async function main() {
     { key: 'flight', label: 'Flight', value: flightShort || '—', textAlignment: 'PKTextAlignmentRight' },
   ]
 
-  // Row 3 (iOS 18): Driver | Countdown | Full gig info button
+  // Driver + full gig link relegated to back-of-pass (iOS 18 additionalInfoFields
+  // doesn't reliably render on non-poster event tickets; keep front tight).
   const fullInfoUrl = `${BASE_URL.replace(/\/$/, '')}/gig-pass/${gig.id}`
-  const additionalInfoFields = [
-    { key: 'driver', label: 'Driver', value: gig.driver_name || '—', textAlignment: 'PKTextAlignmentLeft' },
-    {
-      key: 'countdown', label: 'Countdown', value: setIso,
-      dateStyle: 'PKDateStyleShort', isRelative: true,
-      textAlignment: 'PKTextAlignmentCenter',
-    },
-    {
-      key: 'gig_link', label: 'Full gig info', value: 'Open →',
-      attributedValue: `<a href="${fullInfoUrl}">Open →</a>`,
-      textAlignment: 'PKTextAlignmentRight',
-    },
-  ]
 
-  // Back of pass: address, full hotel/flight details, phone contacts, link
+  // Back of pass: driver, address, full hotel/flight details, phone contacts, link
   const backFields = []
+  if (gig.driver_name) backFields.push({ key: 'driver', label: 'Driver', value: gig.driver_name })
   const addr = gig.venue_address || gig.address || null
   if (addr) backFields.push({ key: 'address', label: 'Venue address', value: addr, dataDetectorTypes: ['PKDataDetectorTypeAddress'] })
   if (gig.doors_time) backFields.push({ key: 'doors', label: 'Doors', value: gig.doors_time })
@@ -176,6 +171,7 @@ async function main() {
   if (gig.promoter_phone) backFields.push({ key: 'promoter_phone', label: 'Promoter phone', value: gig.promoter_phone, dataDetectorTypes: ['PKDataDetectorTypePhoneNumber'] })
   if (gig.al_phone) backFields.push({ key: 'al_phone', label: 'Artist liaison', value: gig.al_phone, dataDetectorTypes: ['PKDataDetectorTypePhoneNumber'] })
   backFields.push({ key: 'full_info', label: 'Full gig info', value: fullInfoUrl, dataDetectorTypes: ['PKDataDetectorTypeLink'] })
+  backFields.push({ key: 'powered_by', label: '', value: 'Powered by Signal Lab OS' })
 
   const passJson = {
     formatVersion: 1,
@@ -190,8 +186,7 @@ async function main() {
     suppressStripShine: true,
     // Surfaces pass on iOS lock screen in the hours before set — no header-field needed.
     relevantDate: setIso,
-    preferredStyleSchemes: ['eventTicket'],
-    eventTicket: { headerFields, primaryFields, secondaryFields, auxiliaryFields, additionalInfoFields, backFields },
+    eventTicket: { headerFields, primaryFields, secondaryFields, auxiliaryFields, backFields },
   }
 
   const assets = loadAssets()

@@ -47,10 +47,28 @@ async function logoPng(widthPt, heightPt) {
 }
 
 async function backgroundPng(widthPt, heightPt) {
-  // Apple spec: 180×220 pt background. iOS auto-applies a heavy gaussian blur,
-  // so the emblem must be large and full-alpha to survive as a visible glow.
+  // Apple spec: 180×220 pt background. iOS auto-applies a heavy gaussian blur.
+  // The emblem must survive blur but NOT compete with Ash text above — use a
+  // dim charcoal tint (~25% of Ash) so the post-blur wash reads as texture.
   const emblemSize = Math.round(widthPt * 0.95)
-  const emblem = await emblemAshTransparent(emblemSize)
+  const { data, info } = await sharp(EMBLEM_SRC)
+    .trim({ background: '#000000' })
+    .resize(emblemSize, emblemSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  const w = info.width, h = info.height, ch = info.channels
+  const rgba = Buffer.alloc(w * h * 4)
+  // Tint: deep oxblood (dimmed vermilion) — moody red halo that echoes the
+  // label colour without competing. Darker than full vermilion so post-blur
+  // reads as tour-poster shadow rather than a dominant "blood X".
+  const TINT = { r: 106, g: 32, b: 32 }
+  for (let i = 0; i < w * h; i++) {
+    rgba[i * 4] = TINT.r
+    rgba[i * 4 + 1] = TINT.g
+    rgba[i * 4 + 2] = TINT.b
+    rgba[i * 4 + 3] = data[i * ch]
+  }
+  const emblem = await sharp(rgba, { raw: { width: w, height: h, channels: 4 } }).png().toBuffer()
   const left = Math.round((widthPt - emblemSize) / 2)
   const top = heightPt - emblemSize - Math.round(heightPt * 0.02)
   return sharp({
