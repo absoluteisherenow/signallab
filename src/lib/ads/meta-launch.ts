@@ -282,6 +282,14 @@ function buildMetaTargeting(t: Targeting): Record<string, unknown> {
     geo_locations: t.geo_locations,
     age_min: t.age_min,
     age_max: t.age_max,
+    // Advantage Audience flag — Meta's auto-expand feature. Required on every
+    // new adset since 2024; without it the /adsets endpoint rejects with
+    // code=100 subcode=1870227 "Advantage audience flag required". We disable
+    // it (value 0) because Signal Lab picks tight, researched interest
+    // targets on purpose — letting Meta silently widen the audience defeats
+    // the hypothesis-vs-actual read we rely on for Reports. Flip to 1 only
+    // when explicitly launching an Advantage+ experiment.
+    targeting_automation: { advantage_audience: 0 },
   }
   if (t.genders?.length) out.genders = t.genders
   if (t.interests?.length) {

@@ -1,32 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getGmailClients } from '@/lib/gmail-accounts'
+import { buildInvoicePdf } from '@/lib/invoice-pdf'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-function makeRFC2822(to: string, from: string, subject: string, html: string, cc?: string): string {
-  const boundary = `boundary_${Date.now()}`
+function makeRFC2822(
+  to: string,
+  from: string,
+  subject: string,
+  html: string,
+  cc?: string,
+  attachment?: { filename: string; contentBase64: string; mime: string }
+): string {
+  const mixedBoundary = `mixed_${Date.now()}`
+  const altBoundary = `alt_${Date.now()}`
   const headers = [
     `To: ${to}`,
     ...(cc ? [`Cc: ${cc}`] : []),
     `From: ${from}`,
     `Subject: ${subject}`,
     `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    attachment
+      ? `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`
+      : `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
   ]
-  const msg = [
-    ...headers,
-    ``,
-    `--${boundary}`,
+
+  // Wrap the HTML body in its own multipart/alternative, then optionally wrap
+  // that inside multipart/mixed alongside the PDF. Gmail clients handle both.
+  const htmlPart = [
+    `--${altBoundary}`,
     `Content-Type: text/html; charset=UTF-8`,
     `Content-Transfer-Encoding: base64`,
     ``,
     Buffer.from(html).toString('base64'),
-    `--${boundary}--`,
+    `--${altBoundary}--`,
   ].join('\r\n')
+
+  let body: string
+  if (attachment) {
+    // Chunk base64 at 76 chars per RFC 2045
+    const chunked = attachment.contentBase64.replace(/(.{76})/g, '$1\r\n')
+    body = [
+      `--${mixedBoundary}`,
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+      ``,
+      htmlPart,
+      ``,
+      `--${mixedBoundary}`,
+      `Content-Type: ${attachment.mime}; name="${attachment.filename}"`,
+      `Content-Transfer-Encoding: base64`,
+      `Content-Disposition: attachment; filename="${attachment.filename}"`,
+      ``,
+      chunked,
+      `--${mixedBoundary}--`,
+    ].join('\r\n')
+  } else {
+    body = htmlPart
+  }
+
+  const msg = [...headers, ``, body].join('\r\n')
   return Buffer.from(msg).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
@@ -191,19 +227,29 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // POST — preview OR send the invoice email
-// Body: { to?: string | string[], cc?: string | string[], confirmed?: boolean }
+// Body: { to?: string | string[], cc?: string | string[], confirmed?: boolean, mode?: 'link' | 'attach' | 'both' }
+//   mode = 'link'   → email body contains "View Invoice →" link only (default)
+//   mode = 'attach' → PDF attached, no link button
+//   mode = 'both'   → PDF attached AND link button
 // Step 1 (no confirmed): returns preview data for approval
-// Step 2 (confirmed: true): actually sends the email
+// Step 2 (confirmed: true): actually sends + stamps invoices.sent_to_promoter_at
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { to, cc, confirmed } = await req.json().catch(() => ({} as any))
+    const { to, cc, confirmed, mode: rawMode } = await req.json().catch(() => ({} as any))
+    const mode: 'link' | 'attach' | 'both' = rawMode === 'attach' || rawMode === 'both' ? rawMode : 'link'
     const toAddr = normaliseAddresses(to)
     const ccAddr = normaliseAddresses(cc)
     const data = await buildEmailData(params.id, toAddr || undefined)
     if (!data) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
-    const { artistName, invoiceUrl, invoice, dueDate, promoterEmail, subject, greeting, invoiceNumber, html } = data
+    const { artistName, invoiceUrl, invoice, dueDate, promoterEmail, subject, greeting, invoiceNumber } = data
     const finalTo = toAddr || promoterEmail
+
+    // Hide the View Invoice button when sending attach-only. Simple string
+    // swap on the rendered HTML rather than threading mode through buildEmailData.
+    const html = mode === 'attach'
+      ? data.html.replace(/<p[^>]*>View full invoice[^<]*<\/p>\s*<a[^>]*class="btn"[^>]*>[^<]*<\/a>/i, '')
+      : data.html
 
     // Step 1: return preview for approval (no sending)
     if (!confirmed) {
@@ -218,8 +264,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         invoiceNumber,
         amount: `${invoice.currency} ${Number(invoice.amount).toLocaleString()}`,
         dueDate,
+        mode,
+        hasAttachment: mode !== 'link',
         message: 'Review this invoice email. Call again with confirmed: true to send.',
       })
+    }
+
+    // Build PDF attachment on-demand for attach/both modes. Skipped for 'link'
+    // to keep the fast path fast.
+    let attachment: { filename: string; contentBase64: string; mime: string } | undefined
+    if (mode !== 'link') {
+      const pdfBytes = await buildInvoicePdf(params.id)
+      if (pdfBytes) {
+        attachment = {
+          filename: `${invoiceNumber}.pdf`,
+          contentBase64: Buffer.from(pdfBytes).toString('base64'),
+          mime: 'application/pdf',
+        }
+      }
     }
 
     // Step 2: confirmed — actually send
@@ -228,9 +290,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const clients = await getGmailClients()
       if (clients.length > 0 && finalTo) {
         const { gmail, email } = clients[0]
-        const raw = makeRFC2822(finalTo, `${artistName} <${email}>`, subject, html, ccAddr || undefined)
+        const raw = makeRFC2822(finalTo, `${artistName} <${email}>`, subject, html, ccAddr || undefined, attachment)
         await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
-        return NextResponse.json({ success: true, sent: true, sentFrom: email, to: finalTo, cc: ccAddr || undefined, subject })
+        await supabase
+          .from('invoices')
+          .update({
+            sent_to_promoter_at: new Date().toISOString(),
+            sent_to_promoter_email: finalTo,
+            send_mode: mode,
+          })
+          .eq('id', params.id)
+        return NextResponse.json({
+          success: true, sent: true, sentFrom: email, to: finalTo, cc: ccAddr || undefined, subject, mode, attached: !!attachment,
+        })
       }
     } catch {
       // Gmail not connected — fall through to mailto
