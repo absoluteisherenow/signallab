@@ -11,7 +11,24 @@
 
 const META_API_VERSION = 'v25.0'
 const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID || 'act_831371654092961'
-const IG_ACTOR_ID = process.env.META_IG_ACTOR_ID || '17841400093363542' // @nightmanoeuvres
+// @nightmanoeuvres IG actor ID — verified live via Graph API:
+//   { id: 17841465370771800, username: 'nightmanoeuvres', name: 'NIGHT manoeuvres' }
+const NM_IG_ID = '17841465370771800'
+// @absolute (token owner) — hard-blocked from ever being used as the ad
+// creative's instagram_actor_id. Signal Lab is NM-only on the publish side.
+const BLOCKED_IG_IDS = new Set(['17841400093363542'])
+const IG_ACTOR_ID = process.env.META_IG_ACTOR_ID || NM_IG_ID
+
+if (BLOCKED_IG_IDS.has(IG_ACTOR_ID)) {
+  // Fail at module load — if a deploy ever sets META_IG_ACTOR_ID to @absolute
+  // the whole ads surface refuses to function instead of silently posting to
+  // the wrong account. Explicit is better than surprise.
+  throw new Error(
+    `META_IG_ACTOR_ID resolves to a blocked account (${IG_ACTOR_ID}). ` +
+      `Signal Lab publishes ads under @nightmanoeuvres only. ` +
+      `Unset the env var or set it to ${NM_IG_ID}.`
+  )
+}
 
 export type MetaObjective =
   | 'OUTCOME_ENGAGEMENT'
@@ -100,7 +117,11 @@ export type LaunchResult = {
   adset_id: string
   creative_id: string
   ad_id: string
-  status: 'PAUSED' // always launch paused — user activates from dashboard after one more eye check
+  status: 'ACTIVE' // Goes live immediately. The in-app preview IS the
+  // eye-check — once the user hits Confirm, routing them back to Meta to
+  // click Activate is pointless friction (and broke the "1 type + 1 click"
+  // happy path rule). Policy flipped Apr 19 2026. If we ever need a safety
+  // net again, add a setting — don't re-introduce the PAUSED default.
 }
 
 // ─── Pure preview builder — NO side effects ─────────────────────────────────
@@ -153,20 +174,31 @@ export function buildPreview(input: LaunchInput): LaunchPreview {
     creativeLine = `New image ad: "${input.creative.caption?.slice(0, 60)}${(input.creative.caption?.length ?? 0) > 60 ? '…' : ''}"`
   }
 
-  // Build Meta payloads (what WILL be sent)
+  // Build Meta payloads (what WILL be sent). Campaign + adset + ad all go
+  // out as ACTIVE — the preview step is the approval gate, and anything
+  // past Confirm should start spending immediately. See LaunchResult comment
+  // above for the full rationale behind ditching the PAUSED default.
   const campaign: Record<string, unknown> = {
     name: input.name,
     objective: input.objective,
-    status: 'PAUSED', // always launch paused
+    status: 'ACTIVE',
     special_ad_categories: [], // required field, empty for music/artist ads
     buying_type: 'AUCTION',
+    // Meta v25 requires explicit true/false when NOT using Campaign Budget
+    // Optimisation (CBO). We put budget at the adset level, so set false.
+    // Without this, the /campaigns endpoint rejects with code=100 subcode=4834011.
+    is_adset_budget_sharing_enabled: false,
   }
 
   const adset: Record<string, unknown> = {
     name: `${input.name} — default adset`,
-    status: 'PAUSED',
+    status: 'ACTIVE',
     billing_event: 'IMPRESSIONS',
     optimization_goal: optimizationGoalFor(input.objective, input.intent),
+    // Automatic bidding (no bid cap, no ROAS target). Meta v25 otherwise
+    // rejects with code=100 subcode=2490487 "Bid amount or bid constraints
+    // required" because it defaults to a strategy that requires a bid_amount.
+    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     targeting: buildMetaTargeting(input.targeting),
     start_time: new Date().toISOString(),
   }
@@ -207,7 +239,7 @@ export function buildPreview(input: LaunchInput): LaunchPreview {
 
   const ad: Record<string, unknown> = {
     name: `${input.name} — ad`,
-    status: 'PAUSED',
+    status: 'ACTIVE',
     // adset_id + creative_id injected at launch time (after adset/creative created)
   }
 
@@ -273,18 +305,50 @@ async function metaPOST(
     signal: AbortSignal.timeout(15000),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    const msg = (err as { error?: { message?: string } })?.error?.message || `Meta ${res.status}`
+    const err = (await res.json().catch(() => ({}))) as {
+      error?: {
+        message?: string
+        type?: string
+        code?: number | string
+        error_subcode?: number | string
+        error_user_title?: string
+        error_user_msg?: string
+        fbtrace_id?: string
+        error_data?: { blame_field_specs?: string[][] }
+      }
+    }
+    const e = err?.error || {}
+    const parts: string[] = []
+    if (e.message) parts.push(e.message)
+    if (e.error_user_title) parts.push(`[${e.error_user_title}]`)
+    if (e.error_user_msg) parts.push(e.error_user_msg)
+    if (e.error_subcode) parts.push(`subcode=${e.error_subcode}`)
+    if (e.code) parts.push(`code=${e.code}`)
+    const blame = e.error_data?.blame_field_specs
+    if (blame && blame.length) {
+      parts.push(`fields=${blame.map(f => (Array.isArray(f) ? f.join('.') : f)).join(',')}`)
+    }
+    if (e.fbtrace_id) parts.push(`trace=${e.fbtrace_id}`)
+    const msg = parts.length ? parts.join(' | ') : `Meta ${res.status}`
+    // Also log the full body + request to the Worker so `wrangler tail` can see
+    // exactly what Meta rejected. Redact token.
+    const redactedBody = { ...body, access_token: '[REDACTED]' }
+    console.error('[meta_api_error]', { path, status: res.status, error: err, request: redactedBody })
     throw new Error(`Meta API ${path}: ${msg}`)
   }
   return res.json()
 }
 
 /**
- * Launches campaign/adset/creative/ad on Meta. All resources created PAUSED
- * so user does one final activate step in the dashboard. This matches the
- * `feedback_approve_before_send.md` spirit even post-approval — nothing is
- * accidentally spending by the time Meta accepts the payload.
+ * Launches campaign/adset/creative/ad on Meta, all ACTIVE — the Signal Lab
+ * preview step (summary + budget + audience + creative) IS the approval
+ * gate. Once the user hits Confirm, the ad goes live. We do not send users
+ * to Meta for a second activate click — that was duplicate friction and
+ * broke the "1 type + 1 click" happy path rule.
+ *
+ * `feedback_approve_before_send.md` is still honoured: nothing fires
+ * without the rendered preview + explicit go. The go just means "go", not
+ * "go halfway".
  */
 export async function launchToMeta(input: LaunchInput, token: string): Promise<LaunchResult> {
   const preview = buildPreview(input)
@@ -328,7 +392,7 @@ export async function launchToMeta(input: LaunchInput, token: string): Promise<L
     adset_id,
     creative_id,
     ad_id,
-    status: 'PAUSED',
+    status: 'ACTIVE',
   }
 }
 

@@ -63,12 +63,7 @@ export default function AdsDashboardPage() {
   const [error, setError] = useState('')
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
-  // Default to 'all' — not 'active'. Signal Lab policy is to launch every
-  // campaign PAUSED (Anthony activates in Meta after one last eye-check). If
-  // this page hides PAUSED by default, a campaign you just launched through
-  // the Growth picker appears to be missing — the "No active campaigns" empty
-  // state misleads you into thinking the launch failed.
-  const [filter, setFilter] = useState<'active' | 'paused' | 'all'>('all')
+  const [filter, setFilter] = useState<'active' | 'paused' | 'all'>('active')
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true)
@@ -183,17 +178,18 @@ export default function AdsDashboardPage() {
         {/* Explain the Ads vs. Growth split so users don't double-launch or
             assume "+ One-off boost" is the only way in. Ads tab is the
             universal campaign list; Growth tab owns the follower-trajectory
-            funnel (Stage 1 cold prospecting → Stage 2 warm retargeting). */}
+            funnel (Stage 1 cold prospecting → Stage 2 warm retargeting).
+            Confirmed launches go live immediately — no second-step activate
+            in Meta (policy flipped Apr 19 2026). */}
         <div style={{
           fontSize: 10, color: 'var(--text-dimmest, #909090)', letterSpacing: '0.08em',
           lineHeight: 1.55, marginBottom: 20, maxWidth: 720,
         }}>
-          Every Meta campaign tied to this ad account is listed here, including
-          Growth-funnel launches (visible once Meta finishes ingesting — usually
-          a minute). Growth Stage 1/2 runs from the <strong>Growth</strong> tab;
-          use <strong>+ One-off boost</strong> for releases, ticket pushes, or
-          experiments outside the funnel. All launches start PAUSED — you
-          activate in Meta after a final eye-check.
+          Every Meta campaign tied to this ad account is listed here. Growth
+          Stage 1/2 runs from the <strong>Growth</strong> tab; use{' '}
+          <strong>+ One-off boost</strong> for releases, ticket pushes, or
+          experiments outside the funnel. Confirmed launches go live
+          immediately — the in-app preview is the approval gate.
         </div>
 
         {/* ── Summary cards (active campaigns only) ── */}
@@ -275,27 +271,10 @@ function CampaignCard({ campaign, toggling, onToggle }: { campaign: Campaign; to
   const adset = campaign.adsets?.[0]
   const targeting = adset?.targeting
 
-  // "Just launched" = PAUSED + created in the last 48h. Surfaces the common
-  // state where Anthony launched a Growth-funnel or one-off boost campaign
-  // through Signal Lab (always PAUSED per policy) and hasn't yet hit Activate
-  // in Meta. Without this badge, the card looks indistinguishable from a
-  // stale PAUSED ghost campaign.
-  const startedAt = campaign.start_time ? new Date(campaign.start_time) : null
-  const hoursSinceLaunch = startedAt
-    ? (Date.now() - startedAt.getTime()) / (1000 * 60 * 60)
-    : Infinity
-  const justLaunched = !isActive && hoursSinceLaunch <= 48
-
   return (
     <div style={{
       background: 'var(--panel, #0e0e0e)',
-      border: `1px solid ${
-        justLaunched
-          ? 'rgba(255,176,32,0.5)'
-          : isActive
-            ? 'rgba(255,42,26,0.25)'
-            : 'var(--border, #222)'
-      }`,
+      border: `1px solid ${isActive ? 'rgba(255,42,26,0.25)' : 'var(--border, #222)'}`,
       padding: '20px 24px',
     }}>
       {/* ── Header row ── */}
@@ -304,19 +283,9 @@ function CampaignCard({ campaign, toggling, onToggle }: { campaign: Campaign; to
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <span style={{
               display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-              background: justLaunched ? '#ffb020' : isActive ? '#44cc66' : 'var(--text-dimmest, #909090)',
+              background: isActive ? '#44cc66' : 'var(--text-dimmest, #909090)',
             }} />
             <span style={{ fontSize: 14, fontWeight: 700 }}>{campaign.name}</span>
-            {justLaunched && (
-              <span style={{
-                fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase',
-                color: '#ffb020', border: '1px solid rgba(255,176,32,0.5)',
-                padding: '2px 8px', background: 'rgba(255,176,32,0.08)',
-                marginLeft: 4,
-              }}>
-                Just launched · activate in Meta
-              </span>
-            )}
           </div>
           <div style={{ display: 'flex', gap: 16, fontSize: 10, color: 'var(--text-dimmest, #909090)', letterSpacing: '0.1em' }}>
             <span>{formatObjective(campaign.objective)}</span>
