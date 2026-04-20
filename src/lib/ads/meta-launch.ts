@@ -14,10 +14,18 @@ const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID || 'act_831371654092961'
 // @nightmanoeuvres IG actor ID — verified live via Graph API:
 //   { id: 17841465370771800, username: 'nightmanoeuvres', name: 'NIGHT manoeuvres' }
 const NM_IG_ID = '17841465370771800'
+// NM's Facebook Page ID. Discovered by inspecting the known-good Vespers
+// creative from April 2026 which used `page_id: 672061975991340`. This Page
+// is shared to ad account act_831371654092961 but lives outside the token's
+// own Business Manager (which only owns the A B S O L U T E page), so it
+// doesn't surface via /me/accounts — the ID has to be hard-coded or pulled
+// from a prior creative.
+const NM_FB_PAGE_ID = '672061975991340'
 // @absolute (token owner) — hard-blocked from ever being used as the ad
-// creative's instagram_actor_id. Signal Lab is NM-only on the publish side.
+// creative's instagram_user_id. Signal Lab is NM-only on the publish side.
 const BLOCKED_IG_IDS = new Set(['17841400093363542'])
 const IG_ACTOR_ID = process.env.META_IG_ACTOR_ID || NM_IG_ID
+const FB_PAGE_ID = process.env.META_FB_PAGE_ID || NM_FB_PAGE_ID
 
 if (BLOCKED_IG_IDS.has(IG_ACTOR_ID)) {
   // Fail at module load — if a deploy ever sets META_IG_ACTOR_ID to @absolute
@@ -221,18 +229,26 @@ export function buildPreview(input: LaunchInput): LaunchPreview {
     adset.end_time = end.toISOString()
   }
 
+  // Creative shape mirrors the known-good April 2026 Vespers ad: modern v25
+  // uses `instagram_user_id` at the TOP level of the creative (the legacy
+  // `instagram_actor_id` was deprecated in v22 and removed Sept 9 2025 —
+  // Meta now rejects it outright with code=100 "must be a valid Instagram
+  // account id"). `object_story_spec.page_id` is the NM FB Page the ad
+  // runs under. For boosted posts we reference the existing IG media via
+  // `source_instagram_media_id`; for new creative we inline `link_data`.
   let creative: Record<string, unknown>
   if (input.creative.type === 'existing_ig_post') {
     creative = {
       name: `${input.name} — creative`,
-      object_story_id: `${IG_ACTOR_ID}_${input.creative.ig_post_id}`,
-      instagram_actor_id: IG_ACTOR_ID,
+      object_story_spec: { page_id: FB_PAGE_ID },
+      instagram_user_id: IG_ACTOR_ID,
+      source_instagram_media_id: input.creative.ig_post_id,
     }
   } else {
     creative = {
       name: `${input.name} — creative`,
       object_story_spec: {
-        instagram_actor_id: IG_ACTOR_ID,
+        page_id: FB_PAGE_ID,
         link_data: {
           image_url: input.creative.image_url,
           link: input.creative.destination_url,
@@ -242,6 +258,7 @@ export function buildPreview(input: LaunchInput): LaunchPreview {
             : undefined,
         },
       },
+      instagram_user_id: IG_ACTOR_ID,
     }
   }
 
