@@ -3,6 +3,7 @@
 // cheap to run against every generation and safe for unit tests.
 
 import type { CheckResult, OutputCheckFn } from '../types'
+import { humanizer } from './humanizer'
 
 const EM_DASH_RE = /[—–]/
 const AI_MENTION_RE = /\b(AI|artificial intelligence|llm|chatgpt|claude)\b/i
@@ -133,4 +134,5 @@ export const textCheckRegistry: Record<string, OutputCheckFn> = {
   artistCasing,
   captionMentionsPriority,
   noFabricatedNumbers,
+  humanizer,
 }

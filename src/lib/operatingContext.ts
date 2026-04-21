@@ -69,6 +69,16 @@ export interface OperatingContext {
         short_caption_pct: number | null
         no_hashtags_pct: number | null
       }
+      /** Richer voice fingerprint (optional — seeded per artist).
+       *  Empty object when unset; brain skips injection when empty. */
+      dna: {
+        word_choice?: { prefers?: string[]; avoids?: string[] }
+        rhythm?: { avg_sentence_length?: number; variance?: 'low' | 'medium' | 'high' }
+        never_says?: string[]
+        signature_moves?: string[]
+        emoji_use?: 'never' | 'rare' | 'moderate' | 'frequent'
+        punctuation_quirks?: string[]
+      }
     }
   }
   priority: {
@@ -141,7 +151,7 @@ export async function getOperatingContext(params: {
   ] = await Promise.all([
     sb
       .from('artist_profiles')
-      .select('name, handle, bio, genre, casing_rules, emblem_url, wordmark_url, palette, voice_samples, banned_patterns, lowercase_pct, short_caption_pct, no_hashtags_pct')
+      .select('name, handle, bio, genre, casing_rules, emblem_url, wordmark_url, palette, voice_samples, banned_patterns, lowercase_pct, short_caption_pct, no_hashtags_pct, voice_dna')
       .limit(1)
       .maybeSingle(),
     sb
@@ -226,6 +236,7 @@ export async function getOperatingContext(params: {
           short_caption_pct: artistRow.short_caption_pct ?? null,
           no_hashtags_pct: artistRow.no_hashtags_pct ?? null,
         },
+        dna: (artistRow.voice_dna && typeof artistRow.voice_dna === 'object') ? artistRow.voice_dna : {},
       },
     },
     priority: {

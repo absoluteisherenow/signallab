@@ -20,6 +20,7 @@ import {
   hardBlockFailures,
 } from './rules'
 import type { TaskType, InvariantVerdict } from './rules/types'
+import { buildStrategyPrimer } from './brain/strategyPrimer'
 
 type ModelId =
   | 'claude-sonnet-4-6'
@@ -93,7 +94,7 @@ function assembleSystemPrompt(
     )
   }
 
-  // 3. Voice — banned patterns + samples (truncated)
+  // 3. Voice — banned patterns + samples (truncated) + DNA fingerprint
   if (ctx.artist.voice.banned_patterns.length) {
     sections.push(
       `# Banned patterns (do not produce)\n${ctx.artist.voice.banned_patterns
@@ -101,6 +102,37 @@ function assembleSystemPrompt(
         .join('\n')}`
     )
   }
+
+  // Voice DNA — optional richer fingerprint. Injected only when any sub-field
+  // is populated so legacy artists (samples-only) are unaffected.
+  const dna = ctx.artist.voice.dna || {}
+  const dnaLines: string[] = []
+  if (dna.word_choice?.prefers?.length) {
+    dnaLines.push(`- Prefers these words/phrases: ${dna.word_choice.prefers.map((w) => `"${w}"`).join(', ')}`)
+  }
+  if (dna.word_choice?.avoids?.length) {
+    dnaLines.push(`- Avoids these words/phrases: ${dna.word_choice.avoids.map((w) => `"${w}"`).join(', ')}`)
+  }
+  if (dna.never_says?.length) {
+    dnaLines.push(`- NEVER says: ${dna.never_says.map((w) => `"${w}"`).join(', ')}`)
+  }
+  if (dna.signature_moves?.length) {
+    dnaLines.push(`- Signature moves: ${dna.signature_moves.map((m) => `"${m}"`).join(', ')}`)
+  }
+  if (dna.rhythm?.avg_sentence_length) {
+    const variance = dna.rhythm.variance ? ` (${dna.rhythm.variance} variance)` : ''
+    dnaLines.push(`- Sentence rhythm: ~${dna.rhythm.avg_sentence_length} words avg${variance}`)
+  }
+  if (dna.emoji_use) {
+    dnaLines.push(`- Emoji use: ${dna.emoji_use}`)
+  }
+  if (dna.punctuation_quirks?.length) {
+    dnaLines.push(`- Punctuation: ${dna.punctuation_quirks.join('; ')}`)
+  }
+  if (dnaLines.length) {
+    sections.push(`# Voice DNA (emulate precisely)\n${dnaLines.join('\n')}`)
+  }
+
   if (ctx.artist.voice.samples.length) {
     const samples = ctx.artist.voice.samples.slice(0, 5)
     sections.push(`# Voice reference (emulate tone + rhythm)\n${samples.map((s) => `> ${s}`).join('\n')}`)
@@ -110,12 +142,18 @@ function assembleSystemPrompt(
   const rulesBlock = buildRulesPromptBlock(ctx.rules)
   if (rulesBlock) sections.push(rulesBlock)
 
-  // 5. Priority anchor (mission / gig / release)
+  // 5. Strategy primer — platform/algorithm/release-phase knowledge per task.
+  // Replaces the bespoke strategy blocks scattered across chainCaptionGen,
+  // assistant, agents/*. Empty string when no primer applies (invoice etc).
+  const primer = buildStrategyPrimer(ctx.task)
+  if (primer) sections.push(primer)
+
+  // 6. Priority anchor (mission / gig / release)
   if (ctx.priority.formatted) {
     sections.push(`# Priority context\n${ctx.priority.formatted}`)
   }
 
-  // 6. Task instruction (the what-to-do)
+  // 7. Task instruction (the what-to-do)
   sections.push(`# Task\n${taskInstruction}`)
 
   if (extra) sections.push(extra)
