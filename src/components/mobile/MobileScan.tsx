@@ -503,16 +503,24 @@ Return ONLY the JSON, no other text.` },
           </div>
 
           {/* Captured — live feed of tracks grabbed on the fly */}
-          {captured.length > 0 && (
-            <div style={{ marginTop: 8, marginBottom: 20 }}>
+          <div style={{ marginTop: 8, marginBottom: 20 }}>
+            <div style={{
+              fontSize: 10, letterSpacing: '0.22em', color: s.dimmer,
+              textTransform: 'uppercase', fontWeight: 700, padding: '14px 2px 10px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span>Captured · {captured.length}</span>
+              <span style={{ color: s.dimmer }}>Sort on desktop</span>
+            </div>
+            {captured.length === 0 && (
               <div style={{
-                fontSize: 10, letterSpacing: '0.22em', color: s.dimmer,
-                textTransform: 'uppercase', fontWeight: 700, padding: '14px 2px 10px',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                background: s.panel, padding: '20px 14px',
+                fontSize: 12, color: s.dimmer, textAlign: 'center',
               }}>
-                <span>Captured · {captured.length}</span>
-                <span style={{ color: s.dimmer }}>Sort on desktop</span>
+                Nothing captured yet · tap Track ID above
               </div>
+            )}
+            {captured.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1, background: s.border }}>
                 {captured.map((t: any, i: number) => {
                   const when = t.created_at ? new Date(t.created_at) : null
@@ -550,8 +558,8 @@ Return ONLY the JSON, no other text.` },
                   )
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Paste overlay */}
           {showPaste && (
