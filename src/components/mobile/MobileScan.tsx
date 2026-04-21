@@ -1,1050 +1,662 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
+import { BlurredAmount } from '@/components/ui/BlurredAmount'
 
-const s = {
-  bg: 'var(--bg)', panel: 'var(--panel)', border: 'var(--border-dim)',
-  gold: 'var(--gold)', text: 'var(--text)', dim: 'var(--text-dim)', dimmer: 'var(--text-dimmer)',
-  font: 'var(--font-mono)',
+const COLOR = {
+  bg: '#050505',
+  panel: '#0e0e0e',
+  border: '#1d1d1d',
+  borderDim: '#222',
+  red: '#ff2a1a',
+  text: '#f2f2f2',
+  dim: '#d8d8d8',
+  dimmer: '#b0b0b0',
+  dimmest: '#909090',
+  green: '#2ecc71',
+  amber: '#f5a623',
 }
+const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif"
 
-interface Track {
-  artist: string
-  title: string
-}
-
-interface IdentifiedTrack {
-  artist: string
-  title: string
-  album?: string
+interface CapturedTrack {
+  title?: string
+  artist?: string
   label?: string
-  confidence: number
-  source: string
+  confidence?: 'high' | 'medium' | 'low'
+  // enrichment (set after Spotify lookup)
+  spotifyEnriched?: boolean
+  spotify_id?: string
+  album_art?: string | null
+  preview_url?: string | null
+  bpm?: number | null
+  key?: string | null
+  spotifyFound?: boolean
+  // save state
+  saved?: boolean
+  saving?: boolean
 }
 
-interface Reminder {
-  artist: string
-  title: string
-  label?: string
-  note: string
+interface ReceiptExtracted {
+  description: string
+  amount: number | null
+  currency: string
+  date: string | null
+  category: string
+  notes: string
 }
 
-type Phase = 'choose' | 'parsing' | 'review' | 'saved' | 'analysing' | 'analysed'
-  | 'listening' | 'identifying' | 'identified' | 'not_found' | 'id_added'
-  | 'reminder_parsing' | 'reminder_review' | 'reminder_saved'
+type Mode =
+  | 'choose'
+  | 'crate_uploading'
+  | 'crate_reading'
+  | 'crate_review'
+  | 'crate_empty'
+  | 'crate_error'
+  | 'receipt_parsing'
+  | 'receipt_review'
+  | 'receipt_saved'
+  | 'receipt_error'
+
+const EXPENSE_CATEGORIES = ['Travel', 'Accommodation', 'Equipment', 'Marketing', 'Venue', 'Software', 'Other']
 
 export default function MobileScan() {
-  const [phase, setPhase] = useState<Phase>('choose')
-  const [tracks, setTracks] = useState<Track[]>([])
-  const [pasteText, setPasteText] = useState('')
-  const [showPaste, setShowPaste] = useState(false)
-  const [name, setName] = useState('')
+  const [mode, setMode] = useState<Mode>('choose')
   const [error, setError] = useState('')
-  const [analysisResult, setAnalysisResult] = useState<any>(null)
-  const [identified, setIdentified] = useState<IdentifiedTrack | null>(null)
-  const [listenCountdown, setListenCountdown] = useState(10)
-  const [reminder, setReminder] = useState<Reminder | null>(null)
-  const [captured, setCaptured] = useState<any[]>([])
-  const fileRef = useRef<HTMLInputElement>(null)
-  const reminderRef = useRef<HTMLInputElement>(null)
-  const recorderRef = useRef<MediaRecorder | null>(null)
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useEffect(() => {
-    return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current)
-      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-        recorderRef.current.stop()
-      }
+  // Crate capture state
+  const [crateImageUrl, setCrateImageUrl] = useState<string | null>(null)
+  const [crateLocalPreview, setCrateLocalPreview] = useState<string | null>(null)
+  const [crateTracks, setCrateTracks] = useState<CapturedTrack[]>([])
+  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null)
+
+  // Receipt state
+  const [receipt, setReceipt] = useState<ReceiptExtracted | null>(null)
+
+  // ----- CRATE CAPTURE -----
+  function pickCrate() {
+    const inp = document.createElement('input')
+    inp.type = 'file'
+    inp.accept = 'image/*'
+    inp.capture = 'environment'
+    inp.onchange = (e) => {
+      const f = (e.target as HTMLInputElement).files?.[0]
+      if (f) handleCrate(f)
     }
-  }, [])
-
-  async function loadCaptured() {
-    try {
-      const res = await fetch('/api/tracks')
-      const data = await res.json()
-      setCaptured(Array.isArray(data.tracks) ? data.tracks.slice(0, 30) : [])
-    } catch {}
+    inp.click()
   }
 
-  useEffect(() => { loadCaptured() }, [])
-  useEffect(() => {
-    if (phase === 'choose') loadCaptured()
-  }, [phase])
-
-  async function saveTrackToSupabase(artist: string, title: string, source: string, label?: string) {
+  async function handleCrate(file: File) {
+    setError('')
+    setCrateTracks([])
+    setCrateImageUrl(null)
+    setCrateLocalPreview(URL.createObjectURL(file))
+    setMode('crate_uploading')
     try {
-      await fetch('/api/tracks', {
+      // /api/sets/from-screenshot already: uploads to R2, runs Claude vision,
+      // returns { tracks, imageUrl }. Prompt there covers vinyl / CDJ /
+      // tracklist / screenshot sources — which is exactly what we want.
+      setMode('crate_reading')
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/sets/from-screenshot', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok && !data.tracks) {
+        throw new Error(data.error || 'Could not read image')
+      }
+
+      const rawTracks = Array.isArray(data.tracks) ? data.tracks : []
+      const imageUrl: string = data.imageUrl || ''
+      setCrateImageUrl(imageUrl)
+
+      // Normalise + infer confidence. from-screenshot returns { title, artist, bpm, key, position }.
+      const normalised: CapturedTrack[] = rawTracks
+        .map((t: any) => {
+          const title = (t.title || '').trim()
+          const artist = (t.artist || '').trim()
+          const hasBoth = title && artist && artist.toLowerCase() !== 'unknown'
+          const confidence: 'high' | 'medium' | 'low' = hasBoth
+            ? 'high'
+            : (title || artist)
+              ? 'medium'
+              : 'low'
+          return { title, artist, confidence }
+        })
+        .filter((t: CapturedTrack) => (t.title || '').length > 0 || (t.artist || '').length > 0)
+
+      // Persist capture (fire and forget, but await so the user sees a clean state)
+      fetch('/api/crate-captures', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tracks: [{ artist, title, label: label || '', source }],
+          image_url: imageUrl,
+          source: 'other',
+          tracks: normalised,
+          raw_response: { raw_text: data.raw_text || null },
         }),
-      })
-    } catch (e) {
-      console.error('Failed to save track:', e)
-    }
-  }
+      }).catch(() => {})
 
-  async function startListening() {
-    setError('')
-    setListenCountdown(10)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const chunks: Blob[] = []
-
-      // Pick a format the browser supports
-      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(
-        m => MediaRecorder.isTypeSupported(m)
-      ) || ''
-
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
-      recorderRef.current = recorder
-
-      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
-
-      recorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop())
-        if (countdownRef.current) clearInterval(countdownRef.current)
-        setPhase('identifying')
-
-        try {
-          const blob = new Blob(chunks, { type: mimeType || 'audio/webm' })
-          const form = new FormData()
-          form.append('audio', blob, 'snippet.webm')
-
-          const res = await fetch('/api/fingerprint', { method: 'POST', body: form })
-          const data = await res.json()
-
-          if (data.found) {
-            const track = {
-              artist: data.artist || '',
-              title: data.title || '',
-              album: data.album,
-              label: data.label,
-              confidence: data.confidence,
-              source: data.source,
-            }
-            setIdentified(track)
-            // Auto-save to Supabase — identify = saved
-            await saveTrackToSupabase(track.artist, track.title, 'shazam', track.label)
-            setPhase('id_added')
-          } else {
-            setPhase('not_found')
-          }
-        } catch {
-          setError('Could not identify · check your connection')
-          setPhase('choose')
-        }
+      if (normalised.length === 0) {
+        setMode('crate_empty')
+        return
       }
 
-      setPhase('listening')
-      recorder.start(500) // collect data every 500ms
-
-      // Countdown
-      let secs = 10
-      countdownRef.current = setInterval(() => {
-        secs -= 1
-        setListenCountdown(secs)
-        if (secs <= 0) {
-          if (countdownRef.current) clearInterval(countdownRef.current)
-          if (recorderRef.current?.state !== 'inactive') recorderRef.current?.stop()
-        }
-      }, 1000)
-
-    } catch {
-      setError('Microphone access needed to identify tracks')
-      setPhase('choose')
-    }
-  }
-
-  function cancelListening() {
-    if (countdownRef.current) clearInterval(countdownRef.current)
-    if (recorderRef.current?.state !== 'inactive') recorderRef.current?.stop()
-    setPhase('choose')
-  }
-
-  async function addIdentifiedToPlaylist() {
-    if (!identified) return
-    await saveTrackToSupabase(identified.artist, identified.title, 'shazam', identified.label)
-    setPhase('id_added')
-  }
-
-  async function handleSmartSnap(file: File) {
-    setPhase('reminder_parsing')
-    setError('')
-    try {
-      const reader = new FileReader()
-      const base64 = await new Promise<string>((resolve) => {
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
-        reader.readAsDataURL(file)
-      })
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
-              { type: 'text', text: `Look at this image and extract music track information.
-
-If you can see MULTIPLE tracks (e.g. CDJ screen with a tracklist, Rekordbox/Traktor library, playlist view, setlist), return:
-{"type":"tracklist","tracks":[{"artist":"...","title":"..."},...]}
-
-If you can see a SINGLE track (e.g. vinyl sleeve, record label, single track on a screen, a disc sleeve), return:
-{"type":"single","artist":"...","title":"...","label":""}
-
-Return ONLY the JSON, no other text.` },
-            ],
-          }],
-        }),
-      })
-      const data = await res.json()
-      const raw = data.content?.[0]?.text || '{}'
-      const jsonMatch = raw.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) throw new Error('Could not read image')
-      const parsed = JSON.parse(jsonMatch[0])
-
-      if (parsed.type === 'tracklist' && parsed.tracks?.length > 0) {
-        setTracks(parsed.tracks)
-        setPhase('review')
-      } else if (parsed.type === 'single' && (parsed.artist || parsed.title)) {
-        const artist = parsed.artist || ''
-        const title = parsed.title || ''
-        setReminder({ artist, title, label: parsed.label || '', note: '' })
-        // Auto-save to Supabase — snap = saved
-        await saveTrackToSupabase(artist, title, 'snap', parsed.label)
-        setPhase('reminder_saved')
-      } else {
-        throw new Error('Nothing readable in that shot')
-      }
+      setCrateTracks(normalised)
+      setMode('crate_review')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not read · try a clearer shot')
-      setPhase('choose')
+      setError(err instanceof Error ? err.message : 'Could not read image')
+      setMode('crate_error')
     }
   }
 
-  async function handleReminderSnap(file: File) {
-    setPhase('reminder_parsing')
-    setError('')
+  async function enrichTrack(index: number) {
+    const t = crateTracks[index]
+    if (!t || t.spotifyEnriched) return
+    if (!t.title && !t.artist) return
     try {
-      const reader = new FileReader()
-      const base64 = await new Promise<string>((resolve) => {
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
-        reader.readAsDataURL(file)
+      const res = await fetch('/api/spotify/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artist: t.artist || 'Unknown', title: t.title || '' }),
       })
-      const res = await fetch('/api/claude', {
+      const data = await res.json()
+      setCrateTracks(prev => prev.map((row, i) => i === index ? {
+        ...row,
+        spotifyEnriched: true,
+        spotifyFound: !!data.found,
+        spotify_id: data.spotify_id,
+        album_art: data.album_art || null,
+        preview_url: data.preview_url || null,
+        bpm: data.bpm ?? null,
+        key: data.key ?? null,
+        // pull Spotify's cleaner metadata in if we got it
+        title: data.found ? (data.title || row.title) : row.title,
+        artist: data.found ? (data.artist || row.artist) : row.artist,
+      } : row))
+    } catch {
+      setCrateTracks(prev => prev.map((row, i) => i === index ? { ...row, spotifyEnriched: true, spotifyFound: false } : row))
+    }
+  }
+
+  function togglePreview(url: string | null | undefined) {
+    if (!url) return
+    if (previewAudio) {
+      previewAudio.pause()
+      setPreviewAudio(null)
+      return
+    }
+    const audio = new Audio(url)
+    audio.play().catch(() => {})
+    audio.onended = () => setPreviewAudio(null)
+    setPreviewAudio(audio)
+  }
+
+  async function saveTrack(index: number) {
+    const t = crateTracks[index]
+    if (!t || t.saved || t.saving) return
+    setCrateTracks(prev => prev.map((row, i) => i === index ? { ...row, saving: true } : row))
+    try {
+      const res = await fetch('/api/tracks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 500,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
-              { type: 'text', text: 'Identify the track in this image. This could be a record sleeve, vinyl label, CDJ screen, laptop, phone screen, or any music-related image. Extract the most prominent single track — the artist name, track/song title, and record label if visible. Return ONLY a JSON object with fields: "artist", "title", "label" (empty string if not visible). No other text.' },
-            ],
+          tracks: [{
+            title: t.title || '',
+            artist: t.artist || '',
+            bpm: t.bpm || 0,
+            key: t.key || '',
+            album_art: t.album_art || null,
+            source: 'crate_capture',
+            discovered_via: 'crate_capture',
           }],
         }),
       })
       const data = await res.json()
-      const raw = data.content?.[0]?.text || '{}'
-      const jsonMatch = raw.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) throw new Error('Could not read track')
-      const parsed = JSON.parse(jsonMatch[0])
-      if (!parsed.artist && !parsed.title) throw new Error('No track found')
-      const artist = parsed.artist || ''
-      const title = parsed.title || ''
-      setReminder({ artist, title, label: parsed.label || '', note: '' })
-      // Auto-save to Supabase — snap = saved
-      await saveTrackToSupabase(artist, title, 'snap', parsed.label)
-      setPhase('reminder_saved')
+      if (!data.success) throw new Error(data.error || 'Save failed')
+      setCrateTracks(prev => prev.map((row, i) => i === index ? { ...row, saved: true, saving: false } : row))
     } catch {
-      setError('Could not read the track · try a clearer shot')
-      setPhase('choose')
+      setCrateTracks(prev => prev.map((row, i) => i === index ? { ...row, saving: false } : row))
     }
   }
 
-  async function saveReminder() {
-    if (!reminder) return
-    await saveTrackToSupabase(reminder.artist, reminder.title, 'snap', reminder.label)
-    setPhase('reminder_saved')
+  function resetCrate() {
+    if (previewAudio) { previewAudio.pause() }
+    setPreviewAudio(null)
+    setCrateImageUrl(null)
+    setCrateLocalPreview(null)
+    setCrateTracks([])
+    setError('')
+    setMode('choose')
   }
 
-  async function handleScreenshot(file: File) {
-    setPhase('parsing')
+  // ----- RECEIPT -----
+  function pickReceipt() {
+    const inp = document.createElement('input')
+    inp.type = 'file'
+    inp.accept = 'image/*'
+    inp.capture = 'environment'
+    inp.onchange = (e) => {
+      const f = (e.target as HTMLInputElement).files?.[0]
+      if (f) handleReceipt(f)
+    }
+    inp.click()
+  }
+
+  async function handleReceipt(file: File) {
+    setMode('receipt_parsing')
     setError('')
     try {
-      const reader = new FileReader()
-      const base64 = await new Promise<string>((resolve) => {
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
-        reader.readAsDataURL(file)
-      })
-      const res = await fetch('/api/claude', {
+      const form = new FormData()
+      form.append('image', file)
+      const res = await fetch('/api/expenses/scan-receipt', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!data.success || !data.extracted) throw new Error(data.error || 'Could not read receipt')
+      setReceipt(data.extracted as ReceiptExtracted)
+      setMode('receipt_review')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not read receipt')
+      setMode('receipt_error')
+    }
+  }
+
+  async function saveReceipt() {
+    if (!receipt) return
+    try {
+      const res = await fetch('/api/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2000,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
-              { type: 'text', text: 'Extract the tracklist from this image. This might be CDJ screens, Rekordbox, Traktor, a Spotify/SoundCloud playlist, or handwritten notes. Return a JSON array of objects with "artist" and "title" fields. Only include tracks you can clearly read. Return ONLY the JSON array, no other text.' },
-            ],
-          }],
+          date: receipt.date || new Date().toISOString().split('T')[0],
+          description: receipt.description || '',
+          category: receipt.category || 'Other',
+          amount: receipt.amount || 0,
+          currency: receipt.currency || 'GBP',
+          notes: receipt.notes || '',
         }),
       })
       const data = await res.json()
-      const raw = data.content?.[0]?.text || '[]'
-      const jsonMatch = raw.match(/\[[\s\S]*\]/)
-      if (!jsonMatch) throw new Error('No tracks found')
-      setTracks(JSON.parse(jsonMatch[0]))
-      setPhase('review')
-    } catch {
-      setError('Could not read tracks · try a clearer photo')
-      setPhase('choose')
+      if (!data.success) throw new Error(data.error || 'Save failed')
+      setMode('receipt_saved')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed')
+      setMode('receipt_error')
     }
   }
 
-  async function handlePaste() {
-    if (!pasteText.trim()) return
-    setPhase('parsing')
+  function resetReceipt() {
+    setReceipt(null)
     setError('')
-    try {
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2000,
-          messages: [{
-            role: 'user',
-            content: `Parse this into a tracklist. Return a JSON array of objects with "artist" and "title" fields. If the format is ambiguous, make your best guess. Return ONLY the JSON array.\n\n${pasteText}`,
-          }],
-        }),
-      })
-      const data = await res.json()
-      const raw = data.content?.[0]?.text || '[]'
-      const jsonMatch = raw.match(/\[[\s\S]*\]/)
-      if (!jsonMatch) throw new Error('No tracks found')
-      setTracks(JSON.parse(jsonMatch[0]))
-      setPhase('review')
-      setShowPaste(false)
-    } catch {
-      setError('Could not parse tracks · try a different format')
-      setPhase('choose')
-    }
+    setMode('choose')
   }
 
-  function updateTrack(i: number, field: 'artist' | 'title', value: string) {
-    setTracks(prev => prev.map((t, idx) => idx === i ? { ...t, [field]: value } : t))
-  }
-
-  function removeTrack(i: number) {
-    setTracks(prev => prev.filter((_, idx) => idx !== i))
-  }
-
-  async function savePlaylist() {
-    const valid = tracks.filter(t => t.artist.trim() || t.title.trim())
-    if (valid.length === 0) return
-    try {
-      await fetch('/api/tracks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tracks: valid.map(t => ({
-            artist: t.artist, title: t.title, source: 'screenshot',
-            discovered_via: { playlist: name.trim() || `Tracklist ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` },
-          })),
-        }),
-      })
-    } catch (e) {
-      console.error('Failed to save tracklist:', e)
-    }
-    setPhase('saved')
-  }
-
-  async function analyseMix() {
-    const valid = tracks.filter(t => t.artist.trim() || t.title.trim())
-    if (valid.length === 0) return
-    setPhase('analysing')
-    try {
-      const tracklist = valid.map((t, i) => `${i + 1}. ${t.artist} · ${t.title}`).join('\n')
-      const res = await fetch('/api/mix-scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracklist }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setAnalysisResult(data.result)
-      setPhase('analysed')
-    } catch {
-      setError('Analysis failed · try again')
-      setPhase('review')
-    }
-  }
-
-  function scoreColor(score: number) {
-    if (score >= 8) return '#4ecb71'
-    if (score >= 6) return 'var(--gold)'
-    if (score >= 4) return '#ff2a1a'
-    return '#c06060'
-  }
-
-  function reset() {
-    setPhase('choose')
-    setTracks([])
-    setPasteText('')
-    setShowPaste(false)
-    setAnalysisResult(null)
-    setIdentified(null)
-    setReminder(null)
-    setName('')
-    setError('')
-  }
-
+  // ----- UI -----
   return (
-    <div style={{ background: s.bg, minHeight: '100vh', fontFamily: s.font, color: s.text, paddingBottom: '80px' }}>
-
+    <div style={{ background: COLOR.bg, minHeight: '100vh', fontFamily: FONT, color: COLOR.text, paddingBottom: '96px', overflowX: 'hidden' }}>
       {/* Header */}
-      <div style={{ padding: '20px 16px 16px' }}>
-        <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '26px', fontWeight: 300, marginBottom: '6px' }}>
-          Scan
-        </div>
-        <div style={{ fontSize: '12px', color: s.dimmer }}>
-          Grab tracks, build playlists, analyse mixes
+      <div style={{ padding: '20px 20px 0', minHeight: '44px', display: 'flex', alignItems: 'center' }}>
+        <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.22em', color: COLOR.text, textTransform: 'uppercase' }}>
+          SCAN
         </div>
       </div>
 
-      {/* Choose method */}
-      {phase === 'choose' && (
-        <div style={{ padding: '0 16px' }}>
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleScreenshot(f) }} />
+      {mode === 'choose' && (
+        <div style={{ padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <TileRow>
+            <Tile
+              label="CRATE CAPTURE"
+              sub="VINYL · CDJ · TRACKLIST · SCREENSHOT"
+              onPress={pickCrate}
+              variant="red"
+            />
+            <Tile
+              label="RECEIPT"
+              sub="SNAP & SAVE AN EXPENSE"
+              onPress={pickReceipt}
+              variant="black"
+            />
+          </TileRow>
+          {error && <ErrorBanner text={error} />}
+        </div>
+      )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-
-            {/* Identify a track — Shazam style */}
-            <button
-              onClick={startListening}
-              style={{
-                background: s.panel, border: `2px solid ${s.gold}40`,
-                padding: '22px 20px', textAlign: 'left', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '16px',
-              }}
-            >
-              <div style={{ fontSize: '24px', color: s.gold, flexShrink: 0 }}>◎</div>
-              <div>
-                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Track ID</div>
-                <div style={{ fontSize: '12px', color: s.dimmer }}>Listen for 10 seconds, add to your crate</div>
-              </div>
-            </button>
-
-            {/* Track ID / Capture Reminder — smart photo capture, routes by content */}
-            <button
-              onClick={() => {
-                const inp = document.createElement('input')
-                inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment'
-                inp.onchange = (e) => {
-                  const f = (e.target as HTMLInputElement).files?.[0]
-                  if (f) handleSmartSnap(f)
-                }
-                inp.click()
-              }}
-              style={{
-                background: s.panel, border: `2px solid ${s.gold}30`,
-                padding: '22px 20px', textAlign: 'left', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '16px',
-              }}
-            >
-              <div style={{ fontSize: '24px', color: s.gold, opacity: 0.8, flexShrink: 0 }}>◉</div>
-              <div>
-                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Capture Track Reminder</div>
-                <div style={{ fontSize: '12px', color: s.dimmer }}>Snap your CDJs, vinyl sleeve or screen</div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => fileRef.current?.click()}
-              style={{
-                background: s.panel, border: `1px solid ${s.border}`,
-                padding: '22px 20px', textAlign: 'left', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '16px',
-              }}
-            >
-              <div style={{ fontSize: '24px', color: s.gold, opacity: 0.6, flexShrink: 0 }}>↑</div>
-              <div>
-                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Playlist Screen Grab</div>
-                <div style={{ fontSize: '12px', color: s.dimmer }}>Spotify, SoundCloud, Beatport playlist</div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setShowPaste(true)}
-              style={{
-                background: s.panel, border: `1px solid ${s.border}`,
-                padding: '22px 20px', textAlign: 'left', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '16px',
-              }}
-            >
-              <div style={{ fontSize: '24px', color: s.gold, opacity: 0.6, flexShrink: 0 }}>≡</div>
-              <div>
-                <div style={{ fontSize: '15px', color: s.text, marginBottom: '4px' }}>Paste Tracklist</div>
-                <div style={{ fontSize: '12px', color: s.dimmer }}>Copy from anywhere, any format</div>
-              </div>
-            </button>
-
-          </div>
-
-          {/* Captured — live feed of tracks grabbed on the fly */}
-          <div style={{ marginTop: 8, marginBottom: 20 }}>
+      {(mode === 'crate_uploading' || mode === 'crate_reading') && (
+        <div style={{ padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          {crateLocalPreview && (
             <div style={{
-              fontSize: 10, letterSpacing: '0.22em', color: s.dimmer,
-              textTransform: 'uppercase', fontWeight: 700, padding: '14px 2px 10px',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              width: 120, height: 120, overflow: 'hidden',
+              border: `1px solid ${COLOR.border}`, background: COLOR.panel,
             }}>
-              <span>Captured · {captured.length}</span>
-              <span style={{ color: s.dimmer }}>Sort on desktop</span>
-            </div>
-            {captured.length === 0 && (
-              <div style={{
-                background: s.panel, padding: '20px 14px',
-                fontSize: 12, color: s.dimmer, textAlign: 'center',
-              }}>
-                Nothing captured yet · tap Track ID above
-              </div>
-            )}
-            {captured.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1, background: s.border }}>
-                {captured.map((t: any, i: number) => {
-                  const when = t.created_at ? new Date(t.created_at) : null
-                  const timeLabel = when
-                    ? (Date.now() - when.getTime() < 86400000
-                        ? when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        : when.toLocaleDateString([], { month: 'short', day: 'numeric' }))
-                    : ''
-                  const src = (t.source || '').toLowerCase()
-                  const srcBadge = src === 'shazam' ? 'ID' : src === 'snap' ? 'SNAP' : src === 'paste' ? 'PASTE' : src.toUpperCase().slice(0, 5)
-                  return (
-                    <div key={t.id || i} style={{
-                      background: s.panel, padding: '12px 14px',
-                      display: 'flex', alignItems: 'center', gap: 12,
-                    }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: s.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {t.title || '—'}
-                        </div>
-                        <div style={{ fontSize: 11, color: s.dim, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {t.artist || '—'}
-                        </div>
-                      </div>
-                      {srcBadge && (
-                        <div style={{
-                          fontSize: 9, letterSpacing: '0.15em', color: s.gold,
-                          border: `1px solid ${s.gold}40`, padding: '3px 6px',
-                          textTransform: 'uppercase', flexShrink: 0,
-                        }}>{srcBadge}</div>
-                      )}
-                      <div style={{ fontSize: 10, color: s.dimmer, flexShrink: 0, minWidth: 40, textAlign: 'right' }}>
-                        {timeLabel}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Paste overlay */}
-          {showPaste && (
-            <div style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              background: 'rgba(0,0,0,0.85)', zIndex: 100,
-              display: 'flex', flexDirection: 'column', padding: '20px',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase' }}>Paste tracklist</div>
-                <button onClick={() => setShowPaste(false)} style={{
-                  background: 'none', border: 'none', color: s.dimmer, fontSize: '12px', cursor: 'pointer', fontFamily: s.font,
-                }}>Cancel</button>
-              </div>
-              <textarea
-                value={pasteText}
-                onChange={e => setPasteText(e.target.value)}
-                placeholder={'Paste tracks here · any format works\n\nArtist - Title\n1. Artist / Title\nor just a copied playlist...'}
-                autoFocus
-                style={{
-                  flex: 1, background: s.panel, border: `1px solid ${s.border}`,
-                  color: s.text, fontFamily: s.font, fontSize: '14px', padding: '16px',
-                  outline: 'none', resize: 'none', lineHeight: 1.8,
-                }}
-              />
-              <button
-                onClick={handlePaste}
-                disabled={!pasteText.trim()}
-                style={{
-                  marginTop: '12px', background: s.gold, color: '#050505', border: 'none',
-                  padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
-                  textTransform: 'uppercase', fontFamily: s.font,
-                  cursor: pasteText.trim() ? 'pointer' : 'default',
-                  opacity: pasteText.trim() ? 1 : 0.4,
-                }}
-              >
-                Parse tracks
-              </button>
+              <img src={crateLocalPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.22em', color: COLOR.red, textTransform: 'uppercase' }}>
+            {mode === 'crate_uploading' ? 'UPLOADING' : 'READING'}
+          </div>
+        </div>
+      )}
 
-          {error && (
-            <div style={{ padding: '12px', background: 'rgba(192,64,64,0.1)', border: '1px solid rgba(192,64,64,0.3)', fontSize: '12px', color: '#c04040' }}>
-              {error}
+      {mode === 'crate_empty' && (
+        <div style={{ padding: '60px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+          {crateLocalPreview && (
+            <div style={{ width: 120, height: 120, overflow: 'hidden', border: `1px solid ${COLOR.border}`, background: COLOR.panel }}>
+              <img src={crateLocalPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
+          <div style={{ fontSize: 13, color: COLOR.dim, lineHeight: 1.5, maxWidth: 280 }}>
+            No tracks read. Try again with better lighting.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 320 }}>
+            <SolidButton onPress={() => { resetCrate(); pickCrate() }}>RETRY</SolidButton>
+            <GhostButton onPress={resetCrate}>BACK</GhostButton>
+          </div>
         </div>
       )}
 
-      {/* Listening — countdown ring */}
-      {phase === 'listening' && (
-        <div style={{ padding: '60px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '32px' }}>
-          {/* Pulsing ring */}
-          <div style={{ position: 'relative', width: '140px', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{
-              position: 'absolute', inset: 0, borderRadius: '50%',
-              border: `2px solid ${s.gold}`,
-              animation: 'pulse-ring 1.4s ease-out infinite',
-            }} />
-            <div style={{
-              position: 'absolute', inset: '12px', borderRadius: '50%',
-              border: `1px solid ${s.gold}50`,
-              animation: 'pulse-ring 1.4s ease-out infinite 0.4s',
-            }} />
-            <div style={{
-              width: '80px', height: '80px', borderRadius: '50%',
-              background: `${s.gold}15`, border: `1px solid ${s.gold}60`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexDirection: 'column',
-            }}>
-              <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '28px', fontWeight: 300, color: s.gold, lineHeight: 1 }}>
-                {listenCountdown}
+      {mode === 'crate_review' && (
+        <div style={{ padding: '20px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+            {crateLocalPreview && (
+              <div style={{ width: 72, height: 72, flexShrink: 0, overflow: 'hidden', border: `1px solid ${COLOR.border}`, background: COLOR.panel }}>
+                <img src={crateLocalPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: COLOR.dimmer, textTransform: 'uppercase' }}>
+                CAPTURED
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.035em', color: COLOR.text, marginTop: 4 }}>
+                {crateTracks.length} TRACK{crateTracks.length === 1 ? '' : 'S'}
               </div>
             </div>
           </div>
 
-          <style>{`
-            @keyframes pulse-ring {
-              0% { transform: scale(1); opacity: 0.8; }
-              100% { transform: scale(1.3); opacity: 0; }
-            }
-          `}</style>
-
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '13px', color: s.text, marginBottom: '8px' }}>Listening...</div>
-            <div style={{ fontSize: '11px', color: s.dimmer }}>Hold your phone near the speaker</div>
-          </div>
-
-          <button onClick={cancelListening} style={{
-            background: 'transparent', border: `1px solid ${s.border}`,
-            color: s.dimmer, fontFamily: s.font, fontSize: '11px',
-            letterSpacing: '0.12em', textTransform: 'uppercase',
-            padding: '12px 24px', cursor: 'pointer',
-          }}>
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* Identifying */}
-      {phase === 'identifying' && (
-        <div style={{ padding: '80px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: s.gold, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-            Matching...
-          </div>
-        </div>
-      )}
-
-      {/* Identified */}
-      {phase === 'identified' && identified && (
-        <div style={{ padding: '24px 16px' }}>
-          <div style={{ background: s.panel, border: `1px solid ${s.gold}40`, padding: '32px 24px', marginBottom: '16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '20px' }}>Found it</div>
-            <div style={{ fontSize: '22px', color: s.text, marginBottom: '8px', lineHeight: 1.3 }}>{identified.title}</div>
-            <div style={{ fontSize: '14px', color: s.dim, marginBottom: '20px' }}>{identified.artist}</div>
-            {identified.label && (
-              <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em' }}>{identified.label}</div>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button onClick={addIdentifiedToPlaylist} style={{
-              background: s.gold, color: '#050505', border: 'none',
-              padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
-              textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Add to Discoveries →
-            </button>
-            <button onClick={startListening} style={{
-              background: 'transparent', border: `1px solid ${s.border}`,
-              color: s.dim, padding: '14px', fontSize: '12px', letterSpacing: '0.14em',
-              textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Identify another
-            </button>
-            <button onClick={reset} style={{
-              background: 'transparent', border: 'none',
-              color: s.dimmer, padding: '10px', fontSize: '10px', letterSpacing: '0.1em',
-              textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Added to playlist */}
-      {phase === 'id_added' && identified && (
-        <div style={{ padding: '60px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '15px', color: s.text, marginBottom: '8px' }}>Saved to library</div>
-          <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '6px' }}>
-            {identified.artist} · {identified.title}
-          </div>
-          <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '32px' }}>
-            Available in Set Lab
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-            <button onClick={startListening} style={{
-              background: s.panel, border: `1px solid ${s.border}`, color: s.dim,
-              fontFamily: s.font, fontSize: '12px', letterSpacing: '0.12em',
-              textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer',
-            }}>
-              Identify another
-            </button>
-            <button onClick={reset} style={{
-              background: 'transparent', border: 'none',
-              color: s.dimmer, padding: '10px', fontSize: '10px', letterSpacing: '0.1em',
-              textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Not found */}
-      {phase === 'not_found' && (
-        <div style={{ padding: '60px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '14px', color: s.dim, marginBottom: '8px' }}>No match</div>
-          <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '32px' }}>Try closer to the speaker or in a quieter spot</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-            <button onClick={startListening} style={{
-              background: s.gold, color: '#050505', border: 'none',
-              padding: '14px 28px', fontSize: '12px', letterSpacing: '0.14em',
-              textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Try again
-            </button>
-            <button onClick={reset} style={{
-              background: 'transparent', border: 'none',
-              color: s.dimmer, padding: '10px', fontSize: '10px',
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Back
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Reminder parsing */}
-      {phase === 'reminder_parsing' && (
-        <div style={{ padding: '80px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: s.gold, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-            Reading track...
-          </div>
-        </div>
-      )}
-
-      {/* Reminder review — confirm and add a note */}
-      {phase === 'reminder_review' && reminder && (
-        <div style={{ padding: '24px 16px' }}>
-          <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '24px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.gold, textTransform: 'uppercase', marginBottom: '16px' }}>Track found</div>
-            <div style={{ fontSize: '18px', color: s.text, marginBottom: '6px', lineHeight: 1.3 }}>
-              <input
-                value={reminder.title}
-                onChange={e => setReminder(r => r ? { ...r, title: e.target.value } : r)}
-                placeholder="Title"
-                style={{
-                  width: '100%', background: 'transparent', border: 'none',
-                  borderBottom: `1px solid ${s.border}`, color: s.text,
-                  fontFamily: s.font, fontSize: '17px', padding: '6px 0',
-                  outline: 'none', boxSizing: 'border-box',
-                }}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, background: COLOR.border, marginBottom: 16 }}>
+            {crateTracks.map((t, i) => (
+              <TrackRow
+                key={i}
+                track={t}
+                onTap={() => enrichTrack(i)}
+                onPreview={() => togglePreview(t.preview_url)}
+                onSave={() => saveTrack(i)}
               />
-            </div>
-            <input
-              value={reminder.artist}
-              onChange={e => setReminder(r => r ? { ...r, artist: e.target.value } : r)}
-              placeholder="Artist"
-              style={{
-                width: '100%', background: 'transparent', border: 'none',
-                borderBottom: `1px solid ${s.border}`, color: s.dim,
-                fontFamily: s.font, fontSize: '14px', padding: '6px 0',
-                outline: 'none', boxSizing: 'border-box', marginBottom: '16px',
-              }}
-            />
-            {reminder.label && (
-              <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.08em', marginBottom: '16px' }}>{reminder.label}</div>
-            )}
-            <input
-              ref={reminderRef}
-              value={reminder.note}
-              onChange={e => setReminder(r => r ? { ...r, note: e.target.value } : r)}
-              placeholder="Add a note · where you heard it, why you flagged it..."
-              style={{
-                width: '100%', background: 'transparent', border: 'none',
-                borderBottom: `1px solid ${s.border}50`, color: s.dimmer,
-                fontFamily: s.font, fontSize: '12px', padding: '8px 0',
-                outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button onClick={saveReminder} style={{
-              background: s.gold, color: '#050505', border: 'none',
-              padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
-              textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Save to Discoveries →
-            </button>
-            <button onClick={reset} style={{
-              background: 'transparent', border: 'none',
-              color: s.dimmer, padding: '10px', fontSize: '10px',
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Reminder saved */}
-      {phase === 'reminder_saved' && reminder && (
-        <div style={{ padding: '60px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '15px', color: s.text, marginBottom: '8px' }}>Saved to library</div>
-          <div style={{ fontSize: '13px', color: s.dim, marginBottom: '4px' }}>{reminder.title}</div>
-          <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '32px' }}>{reminder.artist}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-            <button
-              onClick={() => {
-                setReminder(null)
-                const inp = document.createElement('input')
-                inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment'
-                inp.onchange = (e) => {
-                  const f = (e.target as HTMLInputElement).files?.[0]
-                  if (f) handleReminderSnap(f)
-                }
-                inp.click()
-              }}
-              style={{
-                background: s.panel, border: `1px solid ${s.border}`, color: s.dim,
-                fontFamily: s.font, fontSize: '12px', letterSpacing: '0.12em',
-                textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer',
-              }}
-            >
-              Snap another
-            </button>
-            <button onClick={reset} style={{
-              background: 'transparent', border: 'none',
-              color: s.dimmer, padding: '10px', fontSize: '10px',
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Parsing */}
-      {phase === 'parsing' && (
-        <div style={{ padding: '60px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: s.gold, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-            Reading tracks...
-          </div>
-        </div>
-      )}
-
-      {/* Review & edit tracks */}
-      {phase === 'review' && (
-        <div style={{ padding: '0 16px' }}>
-          <div style={{ marginBottom: '16px' }}>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Playlist name (optional)"
-              style={{
-                width: '100%', background: 'transparent', border: `1px solid ${s.border}`,
-                color: s.text, fontFamily: s.font, fontSize: '14px',
-                padding: '14px 16px', outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
-
-          <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px' }}>
-            {tracks.length} track{tracks.length !== 1 ? 's' : ''}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
-            {tracks.map((t, i) => (
-              <div key={i} style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '12px' }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div style={{ fontSize: '11px', color: s.dimmer, width: '22px', paddingTop: '10px', flexShrink: 0 }}>{i + 1}</div>
-                  <div style={{ flex: 1 }}>
-                    <input value={t.artist} onChange={e => updateTrack(i, 'artist', e.target.value)}
-                      placeholder="Artist" style={{
-                        width: '100%', background: 'transparent', border: 'none', borderBottom: `1px solid ${s.border}`,
-                        color: s.dim, fontFamily: s.font, fontSize: '13px', padding: '8px 0', outline: 'none', boxSizing: 'border-box',
-                      }} />
-                    <input value={t.title} onChange={e => updateTrack(i, 'title', e.target.value)}
-                      placeholder="Title" style={{
-                        width: '100%', background: 'transparent', border: 'none',
-                        color: s.text, fontFamily: s.font, fontSize: '13px', padding: '8px 0', outline: 'none', boxSizing: 'border-box',
-                      }} />
-                  </div>
-                  <button onClick={() => removeTrack(i)} style={{
-                    background: 'none', border: 'none', color: s.dimmer, fontSize: '14px',
-                    cursor: 'pointer', padding: '8px', alignSelf: 'flex-start',
-                  }}>x</button>
-                </div>
-              </div>
             ))}
           </div>
 
-          <button onClick={() => setTracks(prev => [...prev, { artist: '', title: '' }])} style={{
-            width: '100%', background: 'transparent', border: `1px dashed ${s.border}`,
-            color: s.dim, fontFamily: s.font, fontSize: '12px', padding: '14px',
-            cursor: 'pointer', marginBottom: '16px',
-          }}>
-            + Add track
-          </button>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={savePlaylist} style={{
-                flex: 1, background: s.gold, color: '#050505', border: 'none',
-                padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
-                textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
-              }}>
-                Save playlist
-              </button>
-              <button onClick={analyseMix} style={{
-                flex: 1, background: 'transparent', border: `1px solid ${s.gold}50`, color: s.gold,
-                padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
-                textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
-              }}>
-                Analyse mix
-              </button>
-            </div>
-            <button onClick={reset} style={{
-              background: 'transparent', border: 'none', color: s.dimmer,
-              padding: '10px', fontSize: '10px', letterSpacing: '0.1em',
-              textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
-            }}>
-              Cancel
-            </button>
-          </div>
-
-          {error && (
-            <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(192,64,64,0.1)', border: '1px solid rgba(192,64,64,0.3)', fontSize: '12px', color: '#c04040' }}>
-              {error}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Saved */}
-      {phase === 'saved' && (
-        <div style={{ padding: '48px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '15px', color: s.text, marginBottom: '12px' }}>Saved to library</div>
-          <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '24px' }}>
-            {tracks.length} tracks added · available in Set Lab
-          </div>
-          <button onClick={reset} style={{
-            background: s.panel, border: `1px solid ${s.border}`, color: s.dim,
-            fontFamily: s.font, fontSize: '12px', letterSpacing: '0.12em',
-            textTransform: 'uppercase', padding: '14px 28px', cursor: 'pointer',
-          }}>
-            Add another
-          </button>
-        </div>
-      )}
-
-      {/* Analysing */}
-      {phase === 'analysing' && (
-        <div style={{ padding: '60px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: s.gold, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-            Analysing mix...
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <GhostButton onPress={resetCrate}>DONE</GhostButton>
           </div>
         </div>
       )}
 
-      {/* Analysis results */}
-      {phase === 'analysed' && analysisResult && (
-        <div style={{ padding: '0 16px' }}>
-          <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '28px', textAlign: 'center', marginBottom: '14px' }}>
-            <div style={{
-              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '48px', fontWeight: 300,
-              color: scoreColor(analysisResult.overall_score), marginBottom: '4px',
-            }}>
-              {analysisResult.overall_score?.toFixed(1)}
+      {mode === 'crate_error' && (
+        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: COLOR.dim, marginBottom: 24 }}>{error || 'Something went wrong'}</div>
+          <GhostButton onPress={resetCrate}>BACK</GhostButton>
+        </div>
+      )}
+
+      {mode === 'receipt_parsing' && (
+        <div style={{ padding: '80px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.22em', color: COLOR.red, textTransform: 'uppercase' }}>
+            READING RECEIPT
+          </div>
+        </div>
+      )}
+
+      {mode === 'receipt_review' && receipt && (
+        <div style={{ padding: '24px 16px' }}>
+          <div style={{ background: COLOR.panel, border: `1px solid ${COLOR.border}`, padding: 20, marginBottom: 16 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: COLOR.red, textTransform: 'uppercase', marginBottom: 14 }}>
+              CONFIRM
             </div>
-            <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: s.dimmer, textTransform: 'uppercase' }}>Out of 10</div>
-            {analysisResult.headline && (
-              <div style={{ fontSize: '14px', color: s.text, marginTop: '16px', lineHeight: 1.7, fontStyle: 'italic' }}>
-                "{analysisResult.headline}"
+            <ReceiptField label="VENDOR" value={receipt.description} onChange={v => setReceipt(r => r ? { ...r, description: v } : r)} />
+            <div style={{ marginTop: 14 }}>
+              <FieldLabel>AMOUNT</FieldLabel>
+              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: COLOR.text }}>
+                <BlurredAmount>
+                  {(receipt.amount ?? 0).toFixed(2)} {receipt.currency || 'GBP'}
+                </BlurredAmount>
               </div>
-            )}
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <FieldLabel>CATEGORY</FieldLabel>
+              <select
+                value={receipt.category}
+                onChange={e => setReceipt(r => r ? { ...r, category: e.target.value } : r)}
+                style={{
+                  width: '100%', background: COLOR.bg, border: `1px solid ${COLOR.border}`,
+                  color: COLOR.text, fontFamily: FONT, fontSize: 13, padding: '10px 12px',
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              >
+                {EXPENSE_CATEGORIES.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <ReceiptField label="DATE" value={receipt.date || ''} onChange={v => setReceipt(r => r ? { ...r, date: v } : r)} placeholder="YYYY-MM-DD" mt={14} />
           </div>
 
-          {analysisResult.strengths?.length > 0 && (
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '18px', marginBottom: '10px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: '#4ecb71', textTransform: 'uppercase', marginBottom: '12px' }}>What works</div>
-              {analysisResult.strengths.map((str: string, i: number) => (
-                <div key={i} style={{ fontSize: '13px', color: s.dim, lineHeight: 1.7, marginBottom: '8px', paddingLeft: '14px', borderLeft: '2px solid rgba(78,203,113,0.2)' }}>
-                  {str}
-                </div>
-              ))}
-            </div>
-          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <SolidButton onPress={saveReceipt}>SAVE</SolidButton>
+            <GhostButton onPress={resetReceipt}>CANCEL</GhostButton>
+          </div>
+        </div>
+      )}
 
-          {analysisResult.improvements?.length > 0 && (
-            <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '18px', marginBottom: '16px' }}>
-              <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: s.gold, textTransform: 'uppercase', marginBottom: '12px' }}>Improvements</div>
-              {analysisResult.improvements.map((imp: string, i: number) => (
-                <div key={i} style={{ fontSize: '13px', color: s.dim, lineHeight: 1.7, marginBottom: '8px', paddingLeft: '14px', borderLeft: 'rgba(255,42,26,0.3)' }}>
-                  {imp}
-                </div>
-              ))}
-            </div>
-          )}
+      {mode === 'receipt_saved' && (
+        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: COLOR.text, marginBottom: 6 }}>SAVED</div>
+          <div style={{ fontSize: 11, color: COLOR.dimmer, letterSpacing: '0.14em' }}>Expense added</div>
+          <div style={{ marginTop: 28, display: 'flex', justifyContent: 'center' }}>
+            <GhostButton onPress={resetReceipt}>DONE</GhostButton>
+          </div>
+        </div>
+      )}
 
-          <button onClick={reset} style={{
-            width: '100%', background: s.panel, border: `1px solid ${s.border}`, color: s.dim,
-            padding: '16px', fontSize: '12px', letterSpacing: '0.14em',
-            textTransform: 'uppercase', fontFamily: s.font, cursor: 'pointer',
+      {mode === 'receipt_error' && (
+        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: COLOR.dim, marginBottom: 24 }}>{error || 'Something went wrong'}</div>
+          <GhostButton onPress={resetReceipt}>BACK</GhostButton>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ----- Tile row (side-by-side, stacks under 360px) -----
+function TileRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function Tile({ label, sub, onPress, variant }: { label: string; sub: string; onPress: () => void; variant: 'red' | 'black' }) {
+  const red = variant === 'red'
+  return (
+    <button
+      onClick={onPress}
+      style={{
+        width: '100%',
+        minHeight: 140,
+        background: red ? COLOR.red : COLOR.bg,
+        color: red ? '#050505' : COLOR.text,
+        border: red ? 'none' : `1px solid ${COLOR.border}`,
+        padding: '22px 18px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start',
+        cursor: 'pointer', fontFamily: FONT,
+        WebkitTapHighlightColor: 'transparent',
+        textAlign: 'left',
+      }}
+    >
+      <div style={{
+        fontSize: 24, fontWeight: 800, letterSpacing: '-0.035em',
+        textTransform: 'uppercase', lineHeight: 1, color: 'inherit',
+      }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
+        textTransform: 'uppercase', opacity: red ? 0.75 : 0.6,
+        color: 'inherit',
+      }}>
+        {sub}
+      </div>
+    </button>
+  )
+}
+
+// ----- Track row -----
+function TrackRow({ track, onTap, onPreview, onSave }: {
+  track: CapturedTrack
+  onTap: () => void
+  onPreview: () => void
+  onSave: () => void
+}) {
+  const dotColor = track.confidence === 'high' ? COLOR.green
+    : track.confidence === 'medium' ? COLOR.amber
+    : COLOR.dimmest
+
+  return (
+    <div style={{ background: COLOR.panel, padding: '14px 14px' }}>
+      <div
+        onClick={onTap}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+      >
+        {track.album_art ? (
+          <img src={track.album_art} alt="" style={{ width: 44, height: 44, objectFit: 'cover', flexShrink: 0 }} />
+        ) : (
+          <div style={{
+            width: 44, height: 44, flexShrink: 0,
+            background: COLOR.bg, border: `1px solid ${COLOR.borderDim}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            Done
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, display: 'block' }} />
+          </div>
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{
+            fontSize: 13, fontWeight: 700, color: COLOR.text,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {track.title || 'Untitled'}
+          </div>
+          <div style={{
+            fontSize: 11, color: COLOR.dim, marginTop: 2,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {track.artist || 'Unknown'}
+            {track.bpm ? ` · ${track.bpm} BPM` : ''}
+            {track.key ? ` · ${track.key}` : ''}
+          </div>
+        </div>
+        {track.album_art && (
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, display: 'block', flexShrink: 0 }} />
+        )}
+      </div>
+
+      {(track.spotifyEnriched || track.saved) && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          {track.preview_url && (
+            <button
+              onClick={onPreview}
+              style={{
+                flex: 1,
+                background: 'transparent', color: COLOR.text,
+                border: `1px solid ${COLOR.border}`,
+                padding: '9px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.2em',
+                textTransform: 'uppercase', cursor: 'pointer', fontFamily: FONT,
+              }}
+            >
+              PREVIEW
+            </button>
+          )}
+          <button
+            onClick={onSave}
+            disabled={track.saved || track.saving}
+            style={{
+              flex: 1,
+              background: track.saved ? COLOR.bg : COLOR.red,
+              color: track.saved ? COLOR.dim : '#050505',
+              border: track.saved ? `1px solid ${COLOR.border}` : 'none',
+              padding: '9px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              cursor: track.saved || track.saving ? 'default' : 'pointer',
+              fontFamily: FONT,
+              opacity: track.saving ? 0.6 : 1,
+            }}
+          >
+            {track.saved ? 'SAVED' : track.saving ? 'SAVING' : 'SAVE'}
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// ----- Small UI primitives -----
+function SolidButton({ onPress, children }: { onPress: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onPress} style={{
+      background: COLOR.red, color: '#050505', border: 'none',
+      padding: '16px', fontSize: 12, fontWeight: 800, letterSpacing: '0.22em',
+      textTransform: 'uppercase', cursor: 'pointer', fontFamily: FONT,
+    }}>
+      {children}
+    </button>
+  )
+}
+
+function GhostButton({ onPress, children }: { onPress: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onPress} style={{
+      background: 'transparent', border: `1px solid ${COLOR.border}`, color: COLOR.dim,
+      padding: '14px 28px', fontSize: 11, fontWeight: 700, letterSpacing: '0.2em',
+      textTransform: 'uppercase', cursor: 'pointer', fontFamily: FONT,
+    }}>
+      {children}
+    </button>
+  )
+}
+
+function ReceiptField({ label, value, onChange, placeholder, mt }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; mt?: number }) {
+  return (
+    <div style={{ marginTop: mt }}>
+      <FieldLabel>{label}</FieldLabel>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width: '100%', background: COLOR.bg, border: `1px solid ${COLOR.border}`,
+          color: COLOR.text, fontFamily: FONT, fontSize: 13, padding: '10px 12px',
+          outline: 'none', boxSizing: 'border-box',
+        }}
+      />
+    </div>
+  )
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.22em', color: COLOR.dimmer, textTransform: 'uppercase', marginBottom: 6 }}>
+      {children}
+    </div>
+  )
+}
+
+function ErrorBanner({ text }: { text: string }) {
+  return (
+    <div style={{
+      padding: '12px 14px',
+      background: 'rgba(255,42,26,0.08)',
+      border: `1px solid ${COLOR.red}50`,
+      fontSize: 12, color: COLOR.red,
+    }}>
+      {text}
     </div>
   )
 }

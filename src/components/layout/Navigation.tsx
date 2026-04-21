@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState, useRef } from 'react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
 import { LogoIcon } from '@/components/layout/Logo'
+import { HomeIcon, ScanIcon, PostIcon, TourIcon, PassIcon, MindIcon } from '@/components/layout/MobileTabIcons'
 
 interface AliasInfo {
   id: string
@@ -109,7 +110,7 @@ export function Navigation() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith('/go/')) {
+  if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith('/go/') || pathname.startsWith('/gl/') || pathname.startsWith('/advance/') || pathname.startsWith('/gig-pass/')) {
     return null
   }
 
@@ -436,7 +437,7 @@ export function Navigation() {
             color: isActive('/dashboard') ? '#ff2a1a' : 'var(--text-dimmer)',
             minHeight: 44, flex: 1,
           }}>
-            <div style={{ fontSize: '20px', lineHeight: 1, marginBottom: '2px' }}>▢</div>
+            <div style={{ lineHeight: 1, marginBottom: '2px', display: 'flex' }}><HomeIcon /></div>
             Home
           </Link>
 
@@ -447,7 +448,7 @@ export function Navigation() {
             color: isActive('/setlab') ? '#ff2a1a' : 'var(--text-dimmer)',
             minHeight: 44, flex: 1,
           }}>
-            <div style={{ fontSize: '20px', lineHeight: 1, marginBottom: '2px' }}>◎</div>
+            <div style={{ lineHeight: 1, marginBottom: '2px', display: 'flex' }}><ScanIcon /></div>
             Scan
           </Link>
 
@@ -458,7 +459,7 @@ export function Navigation() {
             color: isActive('/mobile/post') ? '#ff2a1a' : 'var(--text-dimmer)',
             minHeight: 44, flex: 1,
           }}>
-            <div style={{ fontSize: '20px', lineHeight: 1, marginBottom: '2px' }}>↗</div>
+            <div style={{ lineHeight: 1, marginBottom: '2px', display: 'flex' }}><PostIcon /></div>
             Post
           </Link>
 
@@ -469,11 +470,11 @@ export function Navigation() {
             color: isActive('/gigs') ? '#ff2a1a' : 'var(--text-dimmer)',
             minHeight: 44, flex: 1,
           }}>
-            <div style={{ fontSize: '20px', lineHeight: 1, marginBottom: '2px' }}>◆</div>
+            <div style={{ lineHeight: 1, marginBottom: '2px', display: 'flex' }}><TourIcon /></div>
             Tour
           </Link>
 
-          {/* Adaptive 5th slot — PASS on gig day, + on normal day */}
+          {/* Adaptive 5th slot — PASS on gig day, MIND on a normal day */}
           {tonightGigId ? (
             <Link href={`/gig-pass/${tonightGigId}`} style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
@@ -483,20 +484,20 @@ export function Navigation() {
               textShadow: '0 0 12px rgba(255,42,26,0.6)',
             }}>
               <div style={{
-                fontSize: '20px', lineHeight: 1, marginBottom: '2px',
+                lineHeight: 1, marginBottom: '2px', display: 'flex',
                 filter: 'drop-shadow(0 0 6px rgba(255,42,26,0.8))',
-              }}>❙❙❙</div>
+              }}><PassIcon /></div>
               Pass
             </Link>
           ) : (
-            <Link href="/mobile/create" style={{
+            <Link href="/meditate" style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
               textDecoration: 'none', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 700,
-              color: isActive('/mobile/create') ? '#ff2a1a' : 'var(--text-dimmer)',
+              color: isActive('/meditate') ? '#ff2a1a' : 'var(--text-dimmer)',
               minHeight: 44, flex: 1,
             }}>
-              <div style={{ fontSize: '22px', lineHeight: 1, marginBottom: '2px' }}>+</div>
-              New
+              <div style={{ lineHeight: 1, marginBottom: '2px', display: 'flex' }}><MindIcon /></div>
+              Mind
             </Link>
           )}
         </div>
