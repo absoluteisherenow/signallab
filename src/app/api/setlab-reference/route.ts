@@ -5,8 +5,7 @@ import { callClaude } from '@/lib/callClaude'
 // TODO: thread requireUser + userId. CORS-enabled endpoint used by the Set Lab
 // desktop app — ship a bearer-token auth path and move the artist name / set
 // history lookup to ctx.artist. Today runs tenantless through callClaude so
-// pricing + api_usage logging still apply, with a placeholder system prompt
-// that still references "Night Manoeuvres" — remove once ctx wired.
+// pricing + api_usage logging still apply, with a generic system prompt.
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -394,7 +393,7 @@ function buildEstimated(resolved: ClaudeTrackResolution): StemMeasurements {
 // ── Claude resolution ─────────────────────────────────────────────────────────
 
 function buildResolutionSystemPrompt(todayStr: string): string {
-  return `You are an expert DJ set analyst for Night Manoeuvres, an electronic music artist based in Dublin. You help identify specific tracks from natural language descriptions like "the track I closed my set with at Pitch last week" or "the opening track from my techno set in Berlin".
+  return `You are an expert DJ set analyst. You help identify specific tracks from natural language descriptions like "the track I closed my set with at Pitch last week" or "the opening track from my techno set in Berlin".
 
 TODAY'S DATE: ${todayStr}
 When resolving time references — "last week", "yesterday", "last month", "last night" — compute them relative to today's date (${todayStr}).

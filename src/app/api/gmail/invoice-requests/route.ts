@@ -110,7 +110,7 @@ async function extractFromThread(subject: string, combinedBody: string, userId?:
     feature: 'gmail_scanner',
     model: 'claude-sonnet-4-6',
     max_tokens: 1100,
-    system: `You classify email threads addressed to a DJ / electronic music artist (NIGHT manoeuvres) or their management (Turbo Mgmt). Threads come from booking agents, promoters, festivals, venues, travel coordinators.
+    system: `You classify email threads addressed to a DJ / electronic music artist or their management. Threads come from booking agents, promoters, festivals, venues, travel coordinators.
 
 Classify into one ThreadKind:
 - "new_invoice": thread signals the artist needs to submit/send an invoice (NEW ask — "please invoice", "send us the invoice", settlement / final fee / balance due / hold fee confirmation / advance threads where fee is confirmed).

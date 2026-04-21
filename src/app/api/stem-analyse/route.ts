@@ -3,10 +3,10 @@ import { SKILLS_STEM_ANALYSIS } from '@/lib/skillPrompts'
 import { callClaude } from '@/lib/callClaude'
 
 // TODO: thread requireUser + userId. CORS-enabled endpoint used by the Set Lab
-// desktop app — the hardcoded "Night Manoeuvres aesthetic guidelines" block in
-// buildSystemPrompt() must move to ctx.artist.voice.samples + casing rules
-// once auth is wired. Today runs tenantless through callClaude so pricing +
-// api_usage logging still apply.
+// desktop app — once auth is wired, tenant-scope the aesthetic guidelines via
+// ctx.artist.voice.samples + genre. Today runs tenantless through callClaude
+// so pricing + api_usage logging still apply, with generic electronic-music
+// aesthetic guidelines in the system prompt.
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -137,10 +137,10 @@ RMS dB:
   -24 to -18 → ideal processing level
   < -30 dB → quiet, may need gain before processing
 
-Night Manoeuvres aesthetic guidelines for each instrument type:
-- KICKS: Must be punchy with clear transient click, controlled sub (not boomy), tight compression (4–8:1), minimal or no reverb
+Electronic/underground aesthetic guidelines for each instrument type:
+- KICKS: Punchy with clear transient click, controlled sub (not boomy), tight compression (4–8:1), minimal or no reverb
 - BASS/808: Deep sub foundation, mid-range presence, mono below 100Hz
-- SYNTHS: Dark character, saturation welcome, width in mid-highs
+- SYNTHS: Characterful, saturation welcome, width in mid-highs
 - HATS/PERCUSSION: Crisp, transient-forward, careful high-frequency management
 - PADS/TEXTURES: Width, warmth, can use reverb and subtle modulation
 - VOCALS: Clarity, presence, controlled dynamics, de-essing if bright
