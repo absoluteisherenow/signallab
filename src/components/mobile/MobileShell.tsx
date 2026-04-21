@@ -57,8 +57,12 @@ function notifTimeAgo(iso: string) {
 }
 
 function formatCityDate(gig: Gig) {
-  const d = new Date(gig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toUpperCase()
-  return `${gig.city.toUpperCase()} · ${d}`
+  let d = ''
+  try {
+    d = new Date(gig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toUpperCase()
+  } catch {}
+  const city = (gig.city || '').toUpperCase()
+  return city ? `${city} · ${d}` : d
 }
 
 function daysAway(dateStr: string) {
