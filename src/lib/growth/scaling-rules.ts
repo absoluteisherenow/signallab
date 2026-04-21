@@ -67,20 +67,48 @@ export function evaluateScalingRules(input: ScalingInput): RuleResult[] {
   return results
 }
 
+/**
+ * Computes the stacked scale multiplier when ctr_scale_up fires. Exported so
+ * buildActionPayload in the evaluator cron can attach it to the verdict's
+ * action_payload without re-deriving the logic.
+ *
+ * Tiers (Lever #3 "tighten the scale ladder"):
+ *   • CTR≥2% + CPM<£10 + freq<2        → 1.5× (three-signal stack)
+ *   • Plain CTR≥2%                     → 1.2× (original rule)
+ * cheap_follower_scale uses its own 2.0× multiplier (see cheapFollowerScaleMultiplier).
+ */
+export function ctrScaleMultiplier(i: ScalingInput): number {
+  if (i.ctr == null || i.ctr < 2.0) return 1
+  const cpmHealthy = i.cpm != null && i.cpm < 10
+  const freqHealthy = i.frequency != null && i.frequency < 2
+  if (cpmHealthy && freqHealthy) return 1.5
+  return 1.2
+}
+
+export function cheapFollowerScaleMultiplier(i: ScalingInput): number {
+  return i.cost_per_follower_gbp != null && i.cost_per_follower_gbp < 0.5 ? 2.0 : 1
+}
+
 function ctrScaleUp(i: ScalingInput): RuleResult {
   if (i.ctr == null || i.hours_since_launch == null) {
-    return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget +20%', 'CTR ≥ 2.0% after 72h', 'insufficient_data', null, null)
+    return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget', 'CTR ≥ 2.0% after 72h', 'insufficient_data', null, null)
   }
   if (i.hours_since_launch < 72) {
-    return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget +20%', 'CTR ≥ 2.0% after 72h', 'safe', i.ctr, `Too early (running ${Math.round(i.hours_since_launch)}h). Wait until 72h.`)
+    return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget', 'CTR ≥ 2.0% after 72h', 'safe', i.ctr, `Too early (running ${Math.round(i.hours_since_launch)}h). Wait until 72h.`)
   }
   if (i.ctr >= 2.0) {
-    return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget +20%', 'CTR ≥ 2.0% after 72h', 'action', i.ctr, 'CTR is strong — increase daily budget by 20%.')
+    const m = ctrScaleMultiplier(i)
+    const pct = Math.round((m - 1) * 100)
+    const rec =
+      m >= 1.5
+        ? `CTR strong AND CPM<£10 AND frequency<2 — stack signals, scale budget +${pct}%.`
+        : `CTR strong — increase daily budget by +${pct}%.`
+    return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget', 'CTR ≥ 2.0% after 72h', 'action', i.ctr, rec)
   }
   if (i.ctr >= 1.5) {
-    return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget +20%', 'CTR ≥ 2.0% after 72h', 'warning', i.ctr, 'Close to scale-up threshold. Hold.')
+    return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget', 'CTR ≥ 2.0% after 72h', 'warning', i.ctr, 'Close to scale-up threshold. Hold.')
   }
-  return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget +20%', 'CTR ≥ 2.0% after 72h', 'safe', i.ctr, null)
+  return base('ctr_scale_up', 'CTR > 2% after 72h → scale budget', 'CTR ≥ 2.0% after 72h', 'safe', i.ctr, null)
 }
 
 function engagementLookalikeExpand(i: ScalingInput): RuleResult {
@@ -98,7 +126,7 @@ function cheapFollowerScale(i: ScalingInput): RuleResult {
     return base('cheap_follower_scale', 'Cost/follower < £0.50 → scale aggressively', 'cost/follower < £0.50', 'insufficient_data', null, 'Need UTM tracking or follower_delta to measure.')
   }
   if (i.cost_per_follower_gbp < 0.50) {
-    return base('cheap_follower_scale', 'Cost/follower < £0.50 → scale aggressively', 'cost/follower < £0.50', 'action', i.cost_per_follower_gbp, 'Unit economics are strong — stack budget on this creative.')
+    return base('cheap_follower_scale', 'Cost/follower < £0.50 → scale 2×', 'cost/follower < £0.50', 'action', i.cost_per_follower_gbp, 'Unit economics are strong — double daily budget (2×).')
   }
   if (i.cost_per_follower_gbp < 0.75) {
     return base('cheap_follower_scale', 'Cost/follower < £0.50 → scale aggressively', 'cost/follower < £0.50', 'warning', i.cost_per_follower_gbp, 'Close to scale threshold. Hold 48h then re-evaluate.')

@@ -247,6 +247,13 @@ export function buildPreview(input: LaunchInput): LaunchPreview {
       name: `${input.name} — creative`,
       source_instagram_media_id: input.creative.ig_post_id,
       instagram_user_id: IG_ACTOR_ID,
+      // Meta now hard-requires a landing URL on every ad (even post boosts).
+      // Profile link satisfies the validator; post engagement still goes to
+      // the IG post itself because source_instagram_media_id controls render.
+      call_to_action: {
+        type: 'LEARN_MORE',
+        value: { link: 'https://signallabos.com/nm' },
+      },
     }
   } else {
     creative = {
@@ -662,73 +669,12 @@ export async function launchToMeta(input: LaunchInput, token: string): Promise<L
   // the last 72h. Safe for Stage 1 growth boosts (always target latest).
   let creativePayload: Record<string, unknown> = preview.meta_payloads.creative
   if (input.creative.type === 'existing_ig_post') {
-    let ig: IgMediaMeta | null = null
-    try {
-      ig = await fetchIgMediaMeta(input.creative.ig_post_id, token)
-    } catch (err) {
-      console.warn('[ig_media_fetch_skipped]', String(err).slice(0, 300))
-    }
-
-    // If we couldn't read the IG post, we don't know if it's video or image.
-    // Default to "try video resolution" — if it's actually a photo/carousel
-    // the crosspost scan still works (FB stores them too in some cases) and
-    // we fall back to source_instagram_media_id only if we're confident it's
-    // not a video. Safer to try the crosspost path first.
-    const isVideoOrUnknown = !ig || ig.media_type === 'VIDEO'
-
-    if (isVideoOrUnknown) {
-      const anchorMs = ig?.timestamp ? new Date(ig.timestamp).getTime() : null
-      const fbObjectStoryId = await findCrosspostedFbPost(anchorMs, token)
-
-      if (fbObjectStoryId) {
-        // Tier 1: boost the existing FB crosspost via object_story_id
-        creativePayload = {
-          name: `${input.name} — creative`,
-          object_story_id: fbObjectStoryId,
-          instagram_user_id: IG_ACTOR_ID,
-        }
-      } else if (ig?.media_type === 'VIDEO' && ig.media_url) {
-        // Tier 2: mirror video to FB ad account, reference by video_id.
-        // Only reachable when we have confirmed-video metadata AND a
-        // media_url — if IG fetch failed we can't mirror.
-        const fbVideoId = await mirrorIgVideoToFacebook(
-          ig.media_url,
-          `${input.name} — video`,
-          token
-        )
-        creativePayload = {
-          name: `${input.name} — creative`,
-          object_story_spec: {
-            page_id: FB_PAGE_ID,
-            video_data: {
-              video_id: fbVideoId,
-              image_url: ig.thumbnail_url,
-              message: ig.caption || input.name,
-            },
-          },
-          instagram_user_id: IG_ACTOR_ID,
-        }
-      } else if (!ig) {
-        // IG fetch failed AND no crosspost found. Fall back to the original
-        // source_instagram_media_id payload from buildPreview — will work
-        // if the post is actually a photo/carousel, will fail with 1815279
-        // if it's a video. Better than silently picking the wrong FB post.
-        console.warn(
-          '[ads_launch] IG metadata unavailable and no recent FB crosspost found — ' +
-            'falling back to source_instagram_media_id. Video posts will likely fail.'
-        )
-      } else {
-        // ig.media_type === 'VIDEO' but no media_url — IG post may have been
-        // deleted or is still uploading. Fail clearly so the user knows.
-        throw new Error(
-          `IG post ${input.creative.ig_post_id} is a video but has no accessible ` +
-            `media_url, and no matching FB crosspost was found on the NM Page. ` +
-            `Share the post to Facebook manually, then retry.`
-        )
-      }
-    }
-    // IMAGE / CAROUSEL_ALBUM with confirmed metadata — leave the original
-    // `source_instagram_media_id` path alone.
+    creativePayload = await resolveIgCreativePayload(
+      input.creative.ig_post_id,
+      input.name,
+      token,
+      creativePayload
+    )
   }
 
   const creativeRes = await metaPOST(
@@ -740,11 +686,17 @@ export async function launchToMeta(input: LaunchInput, token: string): Promise<L
   if (!creative_id) throw new Error('Meta returned no creative ID')
 
   // 4. Ad (link adset + creative)
+  // Meta now hard-requires a website URL on every ad (even IG post boosts where
+  // the destination is the post itself). Default to the NM IG profile domain
+  // so Stage 1 Video-Views launches don't fail with subcode=2061015.
   const adPayload = {
     ...preview.meta_payloads.ad,
     adset_id,
     creative: { creative_id },
+    conversion_domain: 'signallabos.com',
   }
+  console.log('[ads_launch] POST /ads payload:', JSON.stringify(adPayload))
+  console.log('[ads_launch] creative used:', JSON.stringify(creativePayload))
   const adRes = await metaPOST(`/${AD_ACCOUNT_ID}/ads`, token, adPayload)
   const ad_id = adRes.id as string
   if (!ad_id) throw new Error('Meta returned no ad ID')
@@ -760,3 +712,133 @@ export async function launchToMeta(input: LaunchInput, token: string): Promise<L
 }
 
 export const META_CONFIG = { AD_ACCOUNT_ID, IG_ACTOR_ID, API_VERSION: META_API_VERSION }
+
+/**
+ * Shared IG → creative-payload resolver. Same three-tier fallback used by
+ * launchToMeta, exposed so creative rotation can build new ads on existing
+ * adsets without duplicating the logic.
+ *
+ * fallbackPayload is the source_instagram_media_id payload from buildPreview,
+ * returned unchanged when none of the video tiers match.
+ */
+export async function resolveIgCreativePayload(
+  igPostId: string,
+  name: string,
+  token: string,
+  fallbackPayload: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  let ig: IgMediaMeta | null = null
+  try {
+    ig = await fetchIgMediaMeta(igPostId, token)
+  } catch (err) {
+    console.warn('[ig_media_fetch_skipped]', String(err).slice(0, 300))
+  }
+
+  const isVideoOrUnknown = !ig || ig.media_type === 'VIDEO'
+  if (!isVideoOrUnknown) return fallbackPayload
+
+  const anchorMs = ig?.timestamp ? new Date(ig.timestamp).getTime() : null
+  const fbObjectStoryId = await findCrosspostedFbPost(anchorMs, token)
+
+  if (fbObjectStoryId) {
+    return {
+      name: `${name} — creative`,
+      object_story_id: fbObjectStoryId,
+      instagram_user_id: IG_ACTOR_ID,
+      call_to_action: {
+        type: 'LEARN_MORE',
+        value: { link: 'https://signallabos.com/nm' },
+      },
+    }
+  }
+  if (ig?.media_type === 'VIDEO' && ig.media_url) {
+    const fbVideoId = await mirrorIgVideoToFacebook(ig.media_url, `${name} — video`, token)
+    return {
+      name: `${name} — creative`,
+      object_story_spec: {
+        page_id: FB_PAGE_ID,
+        video_data: {
+          video_id: fbVideoId,
+          image_url: ig.thumbnail_url,
+          message: ig.caption || name,
+        },
+      },
+      instagram_user_id: IG_ACTOR_ID,
+    }
+  }
+  if (!ig) {
+    console.warn(
+      '[ads_launch] IG metadata unavailable and no recent FB crosspost found — ' +
+        'falling back to source_instagram_media_id. Video posts will likely fail.'
+    )
+    return fallbackPayload
+  }
+  throw new Error(
+    `IG post ${igPostId} is a video but has no accessible media_url, and no matching ` +
+      `FB crosspost was found on the NM Page. Share the post to Facebook manually, then retry.`
+  )
+}
+
+/**
+ * Creates a new creative + ad on an existing adset, then pauses any existing
+ * active ads on that adset. Used for one-click creative rotation when a fatigue
+ * rule fires. Returns the new creative + ad IDs.
+ */
+export async function rotateCreativeOnAdset(
+  adsetId: string,
+  igPostId: string,
+  name: string,
+  token: string
+): Promise<{ creative_id: string; ad_id: string; paused_ad_ids: string[] }> {
+  // Build a minimal source_instagram_media_id payload as the fallback.
+  const fallbackPayload: Record<string, unknown> = {
+    name: `${name} — creative`,
+    source_instagram_media_id: igPostId,
+    instagram_user_id: IG_ACTOR_ID,
+    call_to_action: {
+      type: 'LEARN_MORE',
+      value: { link: 'https://signallabos.com/nm' },
+    },
+  }
+  const creativePayload = await resolveIgCreativePayload(igPostId, name, token, fallbackPayload)
+
+  const creativeRes = await metaPOST(`/${AD_ACCOUNT_ID}/adcreatives`, token, creativePayload)
+  const creative_id = creativeRes.id as string
+  if (!creative_id) throw new Error('Meta returned no creative ID on rotate')
+
+  const adPayload = {
+    name: `${name} — ad`,
+    status: 'ACTIVE',
+    adset_id: adsetId,
+    creative: { creative_id },
+    conversion_domain: 'signallabos.com',
+  }
+  const adRes = await metaPOST(`/${AD_ACCOUNT_ID}/ads`, token, adPayload)
+  const ad_id = adRes.id as string
+  if (!ad_id) throw new Error('Meta returned no ad ID on rotate')
+
+  // Pause existing active ads on the adset (everything except the one we just created).
+  const listUrl = `https://graph.facebook.com/${META_API_VERSION}/${adsetId}/ads?fields=id,status&access_token=${encodeURIComponent(token)}`
+  const listRes = await fetch(listUrl, { signal: AbortSignal.timeout(10000) })
+  const paused_ad_ids: string[] = []
+  if (listRes.ok) {
+    const listData = (await listRes.json()) as { data?: Array<{ id: string; status: string }> }
+    for (const a of listData.data ?? []) {
+      if (a.id === ad_id) continue
+      if (a.status !== 'ACTIVE') continue
+      try {
+        await fetch(`https://graph.facebook.com/${META_API_VERSION}/${a.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'PAUSED', access_token: token }),
+          signal: AbortSignal.timeout(8000),
+        })
+        paused_ad_ids.push(a.id)
+      } catch {
+        // Non-fatal — new ad is live; leaving the old one running is acceptable
+      }
+    }
+  }
+
+  return { creative_id, ad_id, paused_ad_ids }
+}

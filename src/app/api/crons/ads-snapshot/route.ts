@@ -9,8 +9,10 @@ import { META_CONFIG } from '@/lib/ads/meta-launch'
  * Daily (09:00 UTC via signal-lab-crons Worker). Two jobs:
  *   1. For each campaign with status in ('active','paused'), fetch insights
  *      from Meta and upsert into campaign_metrics_snapshots.
- *   2. Fetch follower count for NM's IG account via business_discovery and
- *      upsert into follower_snapshots.
+ *   2. For each tenant with profile.instagram set, fetch follower count via
+ *      business_discovery and upsert into follower_snapshots. The row is
+ *      written with the tenant's real user_id so /api/growth/overview (which
+ *      filters by auth.uid) can read it.
  *
  * Idempotent — unique (campaign_id, captured_for_date) and (handle, platform,
  * captured_for_date) mean re-running the same day is a no-op.
@@ -23,8 +25,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-const NM_HANDLE = '@nightmanoeuvres'
 
 export async function GET(req: NextRequest) {
   const unauth = requireCronAuth(req, 'ads-snapshot')
@@ -40,14 +40,33 @@ export async function GET(req: NextRequest) {
     campaigns_processed: 0,
     campaigns_snapshot_ok: 0,
     campaigns_snapshot_failed: 0,
-    follower_snapshot_ok: false,
+    follower_snapshots_ok: 0,
+    follower_snapshots_failed: 0,
     errors: [] as string[],
   }
+
+  // Resolve each active tenant's IG handle once — used for per-campaign
+  // follower delta lookups (§1) and for the tenant-iterating follower
+  // snapshot job (§2). A tenant without profile.instagram gets skipped.
+  const { data: tenants } = await supabase
+    .from('artist_settings')
+    .select('user_id, profile')
+    .not('user_id', 'is', null)
+
+  interface Tenant { userId: string; handle: string; username: string }
+  const igTenants: Tenant[] = (tenants || [])
+    .map(t => {
+      const profile = (t.profile ?? {}) as { instagram?: string | null }
+      const raw = (profile.instagram || '').trim().replace(/^@/, '')
+      if (!raw || !t.user_id) return null
+      return { userId: t.user_id, username: raw, handle: `@${raw}` } as Tenant
+    })
+    .filter((t): t is Tenant => t !== null)
 
   // ─── 1. Campaign metrics snapshots ────────────────────────────────────────
   const { data: campaigns, error: campaignsErr } = await supabase
     .from('campaigns')
-    .select('id, meta_campaign_id, status, name')
+    .select('id, user_id, meta_campaign_id, status, name')
     .in('status', ['active', 'paused'])
     .not('meta_campaign_id', 'is', null)
 
@@ -56,20 +75,34 @@ export async function GET(req: NextRequest) {
   } else if (campaigns) {
     summary.campaigns_processed = campaigns.length
 
-    // Fetch followers for delta computation (today vs yesterday)
+    // Per-tenant follower delta: today vs yesterday, keyed by handle.
+    // If a campaign's owner has no IG handle, followers_delta stays null.
     const yesterdayStr = new Date(Date.now() - 24 * 3600_000).toISOString().slice(0, 10)
-    const { data: priorFollowers } = await supabase
-      .from('follower_snapshots')
-      .select('followers_count, captured_for_date')
-      .eq('handle', NM_HANDLE)
-      .in('captured_for_date', [today, yesterdayStr])
-      .order('captured_for_date', { ascending: false })
-      .limit(2)
+    const handlesForDelta = Array.from(new Set(igTenants.map(t => t.handle)))
+    const deltaByHandle = new Map<string, number | null>()
+    if (handlesForDelta.length > 0) {
+      const { data: priorFollowers } = await supabase
+        .from('follower_snapshots')
+        .select('handle, followers_count, captured_for_date')
+        .in('handle', handlesForDelta)
+        .in('captured_for_date', [today, yesterdayStr])
 
-    const todayFollowers = priorFollowers?.find(r => r.captured_for_date === today)?.followers_count
-    const yesterdayFollowers = priorFollowers?.find(r => r.captured_for_date === yesterdayStr)?.followers_count
-    const totalFollowerDelta =
-      todayFollowers != null && yesterdayFollowers != null ? todayFollowers - yesterdayFollowers : null
+      const latestByHandle = new Map<string, { today?: number; yesterday?: number }>()
+      for (const row of priorFollowers || []) {
+        const bucket = latestByHandle.get(row.handle) || {}
+        if (row.captured_for_date === today) bucket.today = row.followers_count ?? undefined
+        if (row.captured_for_date === yesterdayStr) bucket.yesterday = row.followers_count ?? undefined
+        latestByHandle.set(row.handle, bucket)
+      }
+      for (const [handle, bucket] of latestByHandle.entries()) {
+        deltaByHandle.set(
+          handle,
+          bucket.today != null && bucket.yesterday != null ? bucket.today - bucket.yesterday : null
+        )
+      }
+    }
+
+    const handleByUserId = new Map(igTenants.map(t => [t.userId, t.handle]))
 
     for (const c of campaigns) {
       try {
@@ -124,7 +157,7 @@ export async function GET(req: NextRequest) {
             profile_visits: getAction('profile_visit') ?? getAction('page_engagement'),
             video_views: getAction('video_view'),
             video_views_75pct,
-            followers_delta: totalFollowerDelta, // account-level proxy; scoring engine will weight accordingly
+            followers_delta: deltaByHandle.get(handleByUserId.get(c.user_id) || '') ?? null,
             quality_ranking: insights.quality_ranking ?? null,
             engagement_ranking: insights.engagement_ranking ?? null,
             conversion_ranking: insights.conversion_ranking ?? null,
@@ -147,47 +180,59 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ─── 2. Follower snapshot via business_discovery ──────────────────────────
-  try {
-    const bdUrl =
-      `https://graph.facebook.com/${META_CONFIG.API_VERSION}/${META_CONFIG.IG_ACTOR_ID}` +
-      `?fields=business_discovery.username(nightmanoeuvres){followers_count,follows_count,media_count}` +
-      `&access_token=${token}`
+  // ─── 2. Follower snapshots via business_discovery (per tenant) ───────────
+  // One Meta system-user token can inspect any public IG business account via
+  // business_discovery, so we iterate the resolved igTenants and write each
+  // row with the owning tenant's real user_id (never the 00000000-… system
+  // placeholder, which RLS-scoped readers like /api/growth/overview never see).
+  for (const tenant of igTenants) {
+    try {
+      const bdUrl =
+        `https://graph.facebook.com/${META_CONFIG.API_VERSION}/${META_CONFIG.IG_ACTOR_ID}` +
+        `?fields=business_discovery.username(${encodeURIComponent(tenant.username)}){followers_count,follows_count,media_count}` +
+        `&access_token=${token}`
 
-    const bdRes = await fetch(bdUrl, { signal: AbortSignal.timeout(10000) })
-    if (!bdRes.ok) {
-      const errBody = await bdRes.json().catch(() => ({}))
-      summary.errors.push(`follower_bd: meta ${bdRes.status} ${(errBody as { error?: { message?: string } })?.error?.message || ''}`)
-    } else {
+      const bdRes = await fetch(bdUrl, { signal: AbortSignal.timeout(10000) })
+      if (!bdRes.ok) {
+        const errBody = await bdRes.json().catch(() => ({}))
+        summary.errors.push(`follower_bd[${tenant.handle}]: meta ${bdRes.status} ${(errBody as { error?: { message?: string } })?.error?.message || ''}`)
+        summary.follower_snapshots_failed++
+        continue
+      }
+
       const bdData = await bdRes.json()
       const bd = bdData.business_discovery
-      if (bd?.followers_count != null) {
-        const { error: fsErr } = await supabase.from('follower_snapshots').upsert(
-          {
-            user_id: '00000000-0000-0000-0000-000000000000', // system user for cron-written rows
-            handle: NM_HANDLE,
-            platform: 'instagram',
-            followers_count: bd.followers_count,
-            following_count: bd.follows_count ?? null,
-            posts_count: bd.media_count ?? null,
-            captured_for_date: today,
-            source: 'business_discovery',
-            raw_jsonb: bdData,
-          },
-          { onConflict: 'handle,platform,captured_for_date' }
-        )
-
-        if (fsErr) {
-          summary.errors.push(`follower_upsert: ${fsErr.message}`)
-        } else {
-          summary.follower_snapshot_ok = true
-        }
-      } else {
-        summary.errors.push('follower_bd: no followers_count in response')
+      if (bd?.followers_count == null) {
+        summary.errors.push(`follower_bd[${tenant.handle}]: no followers_count in response`)
+        summary.follower_snapshots_failed++
+        continue
       }
+
+      const { error: fsErr } = await supabase.from('follower_snapshots').upsert(
+        {
+          user_id: tenant.userId,
+          handle: tenant.handle,
+          platform: 'instagram',
+          followers_count: bd.followers_count,
+          following_count: bd.follows_count ?? null,
+          posts_count: bd.media_count ?? null,
+          captured_for_date: today,
+          source: 'business_discovery',
+          raw_jsonb: bdData,
+        },
+        { onConflict: 'handle,platform,captured_for_date' }
+      )
+
+      if (fsErr) {
+        summary.errors.push(`follower_upsert[${tenant.handle}]: ${fsErr.message}`)
+        summary.follower_snapshots_failed++
+      } else {
+        summary.follower_snapshots_ok++
+      }
+    } catch (err) {
+      summary.errors.push(`follower_bd[${tenant.handle}]: ${err instanceof Error ? err.message : String(err)}`)
+      summary.follower_snapshots_failed++
     }
-  } catch (err) {
-    summary.errors.push(`follower_bd: ${err instanceof Error ? err.message : String(err)}`)
   }
 
   return NextResponse.json(summary)

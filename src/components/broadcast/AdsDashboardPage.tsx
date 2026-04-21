@@ -4,6 +4,38 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { SignalLabHeader } from '@/components/broadcast/SignalLabHeader'
 import { BlurredAmount } from '@/components/ui/BlurredAmount'
+import type { CampaignHealth } from '@/lib/ads/campaign-health'
+
+type AdRanking = 'ABOVE_AVERAGE' | 'AVERAGE' | 'BELOW_AVERAGE_35' | 'BELOW_AVERAGE_20' | 'BELOW_AVERAGE_10' | 'UNKNOWN'
+
+interface CampaignDetails {
+  campaign: { id: string; name: string; status: string; objective: string; start_time: string; stop_time: string | null }
+  insights: CampaignInsights & { frequency?: string } | null
+  daily: { date: string; reach: number; spend: number; impressions: number; cpm: number }[]
+  ageGender: { age: string; gender: string; reach: number; impressions: number; spend: number }[]
+  placements: { platform: string; position: string; reach: number; impressions: number; spend: number }[]
+  ads: {
+    id: string
+    name: string
+    status: string
+    thumbnail: string | null
+    body: string | null
+    title: string | null
+    insights: {
+      spend: number
+      reach: number
+      impressions: number
+      clicks: number
+      ctr: number
+      cpc: number
+      cpm: number
+      quality_ranking?: AdRanking
+      engagement_rate_ranking?: AdRanking
+      conversion_rate_ranking?: AdRanking
+    } | null
+  }[]
+  health: CampaignHealth
+}
 
 interface CampaignInsights {
   spend: string
@@ -270,6 +302,32 @@ function CampaignCard({ campaign, toggling, onToggle }: { campaign: Campaign; to
   const ins = campaign.insights
   const adset = campaign.adsets?.[0]
   const targeting = adset?.targeting
+  const [expanded, setExpanded] = useState(false)
+  const [details, setDetails] = useState<CampaignDetails | null>(null)
+  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsError, setDetailsError] = useState('')
+
+  const loadDetails = useCallback(async () => {
+    if (details || detailsLoading) return
+    setDetailsLoading(true)
+    setDetailsError('')
+    try {
+      const res = await fetch(`/api/ads/${campaign.id}/details`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `API ${res.status}`)
+      setDetails(data)
+    } catch (err: any) {
+      setDetailsError(err.message || 'Failed to load details')
+    } finally {
+      setDetailsLoading(false)
+    }
+  }, [campaign.id, details, detailsLoading])
+
+  function handleToggleExpand() {
+    const next = !expanded
+    setExpanded(next)
+    if (next) loadDetails()
+  }
 
   return (
     <div style={{
@@ -294,16 +352,27 @@ function CampaignCard({ campaign, toggling, onToggle }: { campaign: Campaign; to
             {campaign.daily_budget && <span><BlurredAmount>{'\u00A3'}{campaign.daily_budget}/day</BlurredAmount></span>}
           </div>
         </div>
-        <button onClick={onToggle} disabled={toggling} style={{
-          padding: '6px 16px', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
-          border: `1px solid ${isActive ? 'rgba(255,50,50,0.3)' : 'rgba(68,204,102,0.3)'}`,
-          color: isActive ? '#ff6b6b' : '#44cc66',
-          background: isActive ? 'rgba(255,50,50,0.06)' : 'rgba(68,204,102,0.06)',
-          cursor: toggling ? 'wait' : 'pointer', fontFamily: 'inherit',
-          opacity: toggling ? 0.4 : 1,
-        }}>
-          {toggling ? '...' : isActive ? 'Pause' : 'Activate'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={handleToggleExpand} style={{
+            padding: '6px 16px', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+            border: '1px solid var(--border, #222)',
+            color: expanded ? 'var(--text, #f2f2f2)' : 'var(--text-dimmer, #b0b0b0)',
+            background: expanded ? 'rgba(255,255,255,0.04)' : 'transparent',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+            {expanded ? 'Hide details' : 'Show details'}
+          </button>
+          <button onClick={onToggle} disabled={toggling} style={{
+            padding: '6px 16px', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+            border: `1px solid ${isActive ? 'rgba(255,50,50,0.3)' : 'rgba(68,204,102,0.3)'}`,
+            color: isActive ? '#ff6b6b' : '#44cc66',
+            background: isActive ? 'rgba(255,50,50,0.06)' : 'rgba(68,204,102,0.06)',
+            cursor: toggling ? 'wait' : 'pointer', fontFamily: 'inherit',
+            opacity: toggling ? 0.4 : 1,
+          }}>
+            {toggling ? '...' : isActive ? 'Pause' : 'Activate'}
+          </button>
+        </div>
       </div>
 
       {/* ── Metrics row ── */}
@@ -345,6 +414,21 @@ function CampaignCard({ campaign, toggling, onToggle }: { campaign: Campaign; to
           )}
         </div>
       )}
+
+      {/* ── Expanded details ── */}
+      {expanded && (
+        <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border-dim, #1d1d1d)' }}>
+          {detailsLoading && (
+            <div style={{ fontSize: 11, color: 'var(--text-dimmest, #909090)', textAlign: 'center', padding: '20px 0', letterSpacing: '0.1em' }}>
+              Loading deeper read from Meta...
+            </div>
+          )}
+          {detailsError && (
+            <div style={{ fontSize: 11, color: '#ff6b6b', padding: '10px 0' }}>{detailsError}</div>
+          )}
+          {details && <CampaignDetailsPanel details={details} />}
+        </div>
+      )}
     </div>
   )
 }
@@ -368,4 +452,255 @@ function getActionValue(actions: { action_type: string; value: string }[] | unde
   if (!actions) return '-'
   const action = actions.find(a => a.action_type === type)
   return action ? action.value : '-'
+}
+
+// ── Drill-down panel ────────────────────────────────────────────────────────
+
+const GRADE_COLOR: Record<CampaignHealth['grade'], { fg: string; bg: string; border: string; label: string }> = {
+  strong:      { fg: '#44cc66', bg: 'rgba(68,204,102,0.10)',  border: 'rgba(68,204,102,0.35)',  label: 'Strong' },
+  working:     { fg: '#88cc44', bg: 'rgba(136,204,68,0.10)',  border: 'rgba(136,204,68,0.30)',  label: 'Working' },
+  watch:       { fg: '#e6b800', bg: 'rgba(230,184,0,0.10)',   border: 'rgba(230,184,0,0.35)',   label: 'Needs attention' },
+  weak:        { fg: '#ff6b6b', bg: 'rgba(255,107,107,0.10)', border: 'rgba(255,107,107,0.35)', label: 'Underperforming' },
+  too_early:   { fg: '#b0b0b0', bg: 'rgba(255,255,255,0.04)', border: 'var(--border, #222)',    label: 'Too early to tell' },
+}
+
+const SIGNAL_COLOR: Record<'good' | 'ok' | 'bad' | 'neutral', string> = {
+  good: '#44cc66',
+  ok: '#e6b800',
+  bad: '#ff6b6b',
+  neutral: '#909090',
+}
+
+function CampaignDetailsPanel({ details }: { details: CampaignDetails }) {
+  const { health, daily, ads, ageGender, placements } = details
+  const grade = GRADE_COLOR[health.grade]
+  const maxReach = Math.max(1, ...daily.map(d => d.reach))
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* ── Verdict chip ── */}
+      <div style={{
+        border: `1px solid ${grade.border}`,
+        background: grade.bg,
+        padding: '16px 20px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <span style={{
+            fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase',
+            color: grade.fg, fontWeight: 700,
+            padding: '3px 10px', border: `1px solid ${grade.border}`,
+          }}>{grade.label}</span>
+          {health.grade !== 'too_early' && (
+            <span style={{ fontSize: 10, color: 'var(--text-dimmest, #909090)', letterSpacing: '0.1em' }}>
+              Health score {Math.round(health.score)}/100
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--text, #f2f2f2)', marginBottom: 10 }}>
+          {health.headline}
+        </div>
+        {health.nextAction && (
+          <div style={{ fontSize: 11, color: 'var(--text-dimmer, #b0b0b0)', letterSpacing: '0.04em' }}>
+            <span style={{ color: 'var(--text-dimmest, #909090)', letterSpacing: '0.14em', textTransform: 'uppercase', marginRight: 8 }}>Next</span>
+            {health.nextAction}
+          </div>
+        )}
+      </div>
+
+      {/* ── Reason grid (plain English signals) ── */}
+      {health.reasons.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+          {health.reasons.map((r, i) => (
+            <div key={i} style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--border-dim, #1d1d1d)',
+              padding: '12px 14px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)' }}>
+                  {r.label}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: SIGNAL_COLOR[r.signal] }}>{r.value}</span>
+              </div>
+              <div style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--text-dimmer, #b0b0b0)' }}>{r.plain}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Daily reach sparkline ── */}
+      {daily.length >= 2 && (
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 10 }}>
+            Daily reach
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 60 }}>
+            {daily.map((d, i) => (
+              <div key={i} title={`${d.date}: ${d.reach.toLocaleString()} reached`} style={{
+                flex: 1,
+                height: `${Math.max(4, (d.reach / maxReach) * 100)}%`,
+                background: 'rgba(255,42,26,0.55)',
+                minWidth: 6,
+              }} />
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 9, color: 'var(--text-dimmest, #909090)', letterSpacing: '0.08em' }}>
+            <span>{daily[0]?.date}</span>
+            <span>{daily[daily.length - 1]?.date}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Per-ad breakdown ── */}
+      {ads.length > 0 && (
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 10 }}>
+            Creatives in this campaign
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {ads.map(ad => <AdRow key={ad.id} ad={ad} />)}
+          </div>
+        </div>
+      )}
+
+      {/* ── Placement split ── */}
+      {placements.length > 0 && (
+        <BreakdownBlock
+          title="Where people are seeing it"
+          rows={placements.map(p => ({
+            label: `${formatPlatform(p.platform)}${p.position && p.position !== 'unknown' ? ` \u00B7 ${formatPosition(p.position)}` : ''}`,
+            reach: p.reach,
+            impressions: p.impressions,
+          }))}
+        />
+      )}
+
+      {/* ── Age + gender split ── */}
+      {ageGender.length > 0 && (
+        <BreakdownBlock
+          title="Who's seeing it"
+          rows={ageGender.map(ag => ({
+            label: `${ag.age} \u00B7 ${formatGender(ag.gender)}`,
+            reach: ag.reach,
+            impressions: ag.impressions,
+          }))}
+        />
+      )}
+    </div>
+  )
+}
+
+function AdRow({ ad }: { ad: CampaignDetails['ads'][number] }) {
+  const ins = ad.insights
+  const quality = ins?.quality_ranking
+  const qualityColor =
+    quality === 'ABOVE_AVERAGE' ? '#44cc66'
+    : quality === 'AVERAGE' ? '#e6b800'
+    : quality && quality !== 'UNKNOWN' ? '#ff6b6b'
+    : '#909090'
+  const qualityLabel =
+    quality === 'ABOVE_AVERAGE' ? 'Above average'
+    : quality === 'AVERAGE' ? 'Average'
+    : quality === 'BELOW_AVERAGE_35' ? 'Bottom 35%'
+    : quality === 'BELOW_AVERAGE_20' ? 'Bottom 20%'
+    : quality === 'BELOW_AVERAGE_10' ? 'Bottom 10%'
+    : quality === 'UNKNOWN' ? 'Not enough data'
+    : 'No data'
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14,
+      background: 'rgba(255,255,255,0.02)',
+      border: '1px solid var(--border-dim, #1d1d1d)',
+      padding: 10,
+    }}>
+      {ad.thumbnail ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={ad.thumbnail} alt={ad.name} style={{ width: 56, height: 56, objectFit: 'cover', background: '#000' }} />
+      ) : (
+        <div style={{ width: 56, height: 56, background: '#0a0a0a', border: '1px solid var(--border, #222)' }} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text, #f2f2f2)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {ad.name}
+        </div>
+        <div style={{ display: 'flex', gap: 14, fontSize: 10, color: 'var(--text-dimmer, #b0b0b0)', letterSpacing: '0.06em' }}>
+          {ins && <span>Reach <strong style={{ color: 'var(--text, #f2f2f2)' }}>{ins.reach.toLocaleString()}</strong></span>}
+          {ins && ins.ctr > 0 && <span>CTR <strong style={{ color: 'var(--text, #f2f2f2)' }}>{ins.ctr.toFixed(2)}%</strong></span>}
+          {ins && ins.cpm > 0 && <span>CPM <BlurredAmount>{`£${ins.cpm.toFixed(2)}`}</BlurredAmount></span>}
+        </div>
+      </div>
+      <div style={{
+        fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase',
+        color: qualityColor, padding: '4px 8px',
+        border: `1px solid ${qualityColor}44`,
+        whiteSpace: 'nowrap',
+      }}>
+        {qualityLabel}
+      </div>
+    </div>
+  )
+}
+
+function BreakdownBlock({ title, rows }: { title: string; rows: { label: string; reach: number; impressions: number }[] }) {
+  const aggregated = aggregateRows(rows)
+  const max = Math.max(1, ...aggregated.map(r => r.reach))
+  return (
+    <div>
+      <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 10 }}>
+        {title}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {aggregated.map((r, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11 }}>
+            <span style={{ width: 140, color: 'var(--text-dimmer, #b0b0b0)' }}>{r.label}</span>
+            <div style={{ flex: 1, height: 10, background: 'rgba(255,255,255,0.04)', position: 'relative' }}>
+              <div style={{ width: `${(r.reach / max) * 100}%`, height: '100%', background: 'rgba(255,42,26,0.45)' }} />
+            </div>
+            <span style={{ width: 70, textAlign: 'right', color: 'var(--text, #f2f2f2)', fontWeight: 600 }}>
+              {r.reach.toLocaleString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function aggregateRows(rows: { label: string; reach: number; impressions: number }[]) {
+  const map = new Map<string, { label: string; reach: number; impressions: number }>()
+  for (const r of rows) {
+    const existing = map.get(r.label)
+    if (existing) {
+      existing.reach += r.reach
+      existing.impressions += r.impressions
+    } else {
+      map.set(r.label, { ...r })
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.reach - a.reach)
+}
+
+function formatPlatform(p: string) {
+  if (p === 'facebook') return 'Facebook'
+  if (p === 'instagram') return 'Instagram'
+  if (p === 'audience_network') return 'Audience Network'
+  if (p === 'messenger') return 'Messenger'
+  return p
+}
+
+function formatPosition(p: string) {
+  if (p === 'feed') return 'Feed'
+  if (p === 'story') return 'Stories'
+  if (p === 'reels') return 'Reels'
+  if (p === 'instream_video') return 'In-stream'
+  if (p === 'explore') return 'Explore'
+  if (p === 'facebook_reels') return 'FB Reels'
+  return p.replace(/_/g, ' ')
+}
+
+function formatGender(g: string) {
+  if (g === 'male') return 'Men'
+  if (g === 'female') return 'Women'
+  return g
 }

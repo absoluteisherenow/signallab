@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import type { LaunchInput, LaunchPreview, MetaObjective, LaunchIntent } from '@/lib/ads/meta-launch'
 
 type PrefillInput = {
@@ -12,6 +13,35 @@ type PrefillInput = {
   duration_days?: number
   phase_label?: string
   hypothesis?: string
+  daily_budget_gbp?: number
+  countries?: string
+}
+
+type RecentPost = {
+  id: string
+  caption_excerpt: string
+  media_type: string
+  timestamp: string
+  permalink?: string
+  like_count: number
+  comments_count: number
+  engagement_score: number
+  thumbnail_url?: string
+  // Ranking signals (null when no insight data cached yet)
+  view_rate: number | null
+  save_rate: number | null
+  reach: number | null
+  video_views: number | null
+  saves: number | null
+  low_data: boolean
+}
+
+type RecentPostsMeta = {
+  candidates_considered: number
+  with_insight_data: number
+  ranker_version: string
+  ig_actor_id?: string
+  handle?: string
 }
 
 type Props = {
@@ -19,6 +49,12 @@ type Props = {
   onClose: () => void
   onLaunched?: (campaignId: string) => void
   prefill?: PrefillInput
+  /**
+   * When true, replaces the free-text IG post ID input with a dropdown of the
+   * last 10 @nightmanoeuvres video posts ranked by engagement. Removes the
+   * biggest friction in the Stage 1 launch flow (users never know the post ID).
+   */
+  postPickerMode?: boolean
 }
 
 /**
@@ -32,15 +68,15 @@ type Props = {
  *   3. Approve  → window.confirm + /api/ads/launch with approved_at + hash
  *   4. Done     → Meta resources created PAUSED; user activates in dashboard
  */
-export default function LaunchConfigModal({ open, onClose, onLaunched, prefill }: Props) {
+export default function LaunchConfigModal({ open, onClose, onLaunched, prefill, postPickerMode }: Props) {
   const [step, setStep] = useState<'configure' | 'preview' | 'launching' | 'done' | 'error'>('configure')
   const [name, setName] = useState(prefill?.name ?? '')
   const [objective, setObjective] = useState<MetaObjective>(prefill?.objective ?? 'OUTCOME_ENGAGEMENT')
   const [intent, setIntent] = useState<LaunchIntent>(prefill?.intent ?? 'boost')
   const [phaseLabel, setPhaseLabel] = useState(prefill?.phase_label ?? '')
-  const [dailyBudget, setDailyBudget] = useState<number>(5)
+  const [dailyBudget, setDailyBudget] = useState<number>(prefill?.daily_budget_gbp ?? 5)
   const [durationDays, setDurationDays] = useState<number>(prefill?.duration_days ?? 7)
-  const [countries, setCountries] = useState('GB')
+  const [countries, setCountries] = useState(prefill?.countries ?? 'GB')
   const [ageMin, setAgeMin] = useState(prefill?.age_min ?? 22)
   const [ageMax, setAgeMax] = useState(prefill?.age_max ?? 45)
   const [interestsRaw, setInterestsRaw] = useState('')
@@ -48,11 +84,68 @@ export default function LaunchConfigModal({ open, onClose, onLaunched, prefill }
   const [hypothesis, setHypothesis] = useState(prefill?.hypothesis ?? '')
   const [notes, setNotes] = useState('')
 
+  const modalScrollRef = useRef<HTMLDivElement>(null)
+  // Scroll the modal container back to top whenever the step changes so the
+  // user doesn't land mid-scroll on preview or error states.
+  useEffect(() => {
+    if (modalScrollRef.current) modalScrollRef.current.scrollTop = 0
+  }, [step])
+
+  const [recentPosts, setRecentPosts] = useState<RecentPost[]>([])
+  const [postsMeta, setPostsMeta] = useState<RecentPostsMeta | null>(null)
+  const [postsLoading, setPostsLoading] = useState(false)
+  const [postsError, setPostsError] = useState<string | null>(null)
+
   const [preview, setPreview] = useState<LaunchPreview | null>(null)
   const [previewHash, setPreviewHash] = useState<string | null>(null)
   const [launchInput, setLaunchInput] = useState<LaunchInput | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [successCampaignId, setSuccessCampaignId] = useState<string | null>(null)
+
+  // Fetch top recent posts when picker mode is on.
+  useEffect(() => {
+    if (!open || !postPickerMode) return
+    let cancelled = false
+    setPostsLoading(true)
+    setPostsError(null)
+    // Pull ALL recent post types (videos, carousels, images). Filtering by
+    // media_type used to hide release announcements + gig posters from the
+    // picker — too aggressive. Keep everything; annotate non-video rows in
+    // the dropdown so Stage 1 users know which posts support Video Views.
+    // Cache-bust on the client too — browsers + service workers will happily
+    // serve a stale JSON from last deploy. Unique `_t` per open defeats that.
+    fetch(`/api/ads/growth/recent-posts?limit=20&_t=${Date.now()}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(body => {
+        if (cancelled) return
+        if (body.error) {
+          setPostsError(body.error)
+          return
+        }
+        const posts: RecentPost[] = body.posts || []
+        setRecentPosts(posts)
+        setPostsMeta(body.meta ?? null)
+        // Auto-select top-ranked post.
+        if (posts.length > 0 && !igPostId) setIgPostId(posts[0].id)
+      })
+      .catch(err => {
+        if (cancelled) return
+        setPostsError(err.message || 'failed to load posts')
+      })
+      .finally(() => {
+        if (!cancelled) setPostsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, postPickerMode])
+
+  // Portal target — only exists on the client. Guard SSR.
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setPortalTarget(document.body)
+  }, [])
 
   if (!open) return null
 
@@ -177,7 +270,13 @@ export default function LaunchConfigModal({ open, onClose, onLaunched, prefill }
     }
   }
 
-  return (
+  // Render into document.body via a portal so ancestors with `transform` /
+  // `filter` / `will-change` on the Growth page can't capture our
+  // `position: fixed` overlay (which would push the modal far down the page
+  // instead of keeping it viewport-centered). Classic CSS containing-block gotcha.
+  if (!portalTarget) return null
+
+  const modalTree = (
     <div
       style={{
         position: 'fixed',
@@ -192,6 +291,7 @@ export default function LaunchConfigModal({ open, onClose, onLaunched, prefill }
       onClick={onClose}
     >
       <div
+        ref={modalScrollRef}
         onClick={e => e.stopPropagation()}
         style={{
           background: '#0f0f0f',
@@ -280,12 +380,24 @@ export default function LaunchConfigModal({ open, onClose, onLaunched, prefill }
                 <input value={interestsRaw} onChange={e => setInterestsRaw(e.target.value)} placeholder="e.g. 6003020834693, 6003107902433" style={inputStyle} />
               </Field>
 
-              <Field label="Instagram post ID to boost">
-                <input value={igPostId} onChange={e => setIgPostId(e.target.value)} placeholder="e.g. 17945123456789012" style={inputStyle} />
-                <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
-                  Find this on Instagram: … → Insights → top-right share → "Copy media ID", or Meta Ads Manager.
-                </div>
-              </Field>
+              {postPickerMode ? (
+                <PostPicker
+                  postsLoading={postsLoading}
+                  postsError={postsError}
+                  recentPosts={recentPosts}
+                  postsMeta={postsMeta}
+                  igPostId={igPostId}
+                  setIgPostId={setIgPostId}
+                  objective={objective}
+                />
+              ) : (
+                <Field label="Instagram post ID to boost">
+                  <input value={igPostId} onChange={e => setIgPostId(e.target.value)} placeholder="e.g. 17945123456789012" style={inputStyle} />
+                  <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                    Find this on Instagram: … → Insights → top-right share → "Copy media ID", or Meta Ads Manager.
+                  </div>
+                </Field>
+              )}
 
               <Field label="Hypothesis (what you're testing)">
                 <textarea value={hypothesis} onChange={e => setHypothesis(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} placeholder="e.g. Live set clips at UK RA audience convert at <£0.50/follower" />
@@ -381,6 +493,8 @@ export default function LaunchConfigModal({ open, onClose, onLaunched, prefill }
       </div>
     </div>
   )
+
+  return createPortal(modalTree, portalTarget)
 }
 
 // ─── Inline subcomponents (keep modal self-contained) ───────────────────────
@@ -459,4 +573,308 @@ const btnGhost: React.CSSProperties = {
   border: '1px solid #2a2a2a',
   cursor: 'pointer',
   fontFamily: 'inherit',
+}
+
+/**
+ * PostPicker — Stage 1 post selector ranked by attention quality (not likes).
+ *
+ * Stage 1 runs Meta's THRUPLAY / Video Views optimisation, which rewards
+ * creatives that already HOLD attention. Picking the top-liked post doesn't
+ * correlate — view-through-rate does. So this picker ranks by
+ * `video_views / reach` (primary) and `saves / reach` (secondary), both pulled
+ * from cached IG Insights in the `instagram_posts` table.
+ *
+ * When a post has no insight data yet (very fresh, not synced), we flag it as
+ * `low_data` and the picker surfaces the warning so the user knows the ranking
+ * is unreliable for that row.
+ */
+function PostPicker({
+  postsLoading,
+  postsError,
+  recentPosts,
+  postsMeta,
+  igPostId,
+  setIgPostId,
+  objective,
+}: {
+  postsLoading: boolean
+  postsError: string | null
+  recentPosts: RecentPost[]
+  postsMeta: RecentPostsMeta | null
+  igPostId: string
+  setIgPostId: (id: string) => void
+  objective: MetaObjective
+}) {
+  // Two ways to order the picker:
+  //   performance (default) — server rank (view_rate → save_rate → fallback engagement)
+  //   recent              — freshest post first, ignoring all signals
+  // Use "recent" when boosting a just-dropped release or a momentum post; the
+  // star badge in the list moves to whichever is top of the current sort.
+  // Default to 'recent' so just-posted content (e.g. yesterday's Pitch Music +
+  // Arts carousel) surfaces at the top of the picker. Old insight-rich posts
+  // would otherwise drown out the fresh stuff users actually want to boost.
+  const [sortMode, setSortMode] = useState<'performance' | 'recent'>('recent')
+
+  const orderedPosts =
+    sortMode === 'recent'
+      ? [...recentPosts].sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )
+      : recentPosts
+
+  // When the user flips sort, auto-select the new top-of-list so the CTA
+  // reflects the intended choice without a second click.
+  useEffect(() => {
+    if (orderedPosts.length === 0) return
+    if (!orderedPosts.some(p => p.id === igPostId)) {
+      setIgPostId(orderedPosts[0].id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortMode])
+
+  const selected = orderedPosts.find(p => p.id === igPostId) ?? null
+  const coverageNote =
+    postsMeta && postsMeta.candidates_considered > postsMeta.with_insight_data
+      ? `${postsMeta.with_insight_data}/${postsMeta.candidates_considered} ranked candidates have synced IG Insights. The rest are sorted by raw engagement as a fallback until the next sync.`
+      : null
+
+  const handle = postsMeta?.handle ?? '@nightmanoeuvres'
+  const fieldLabel =
+    sortMode === 'recent'
+      ? `Which ${handle} post to boost (most recent first)`
+      : `Which ${handle} post to boost (ranked by view rate, then save rate)`
+
+  return (
+    <Field label={fieldLabel}>
+      {postsLoading && (
+        <div style={{ fontSize: 12, color: '#888', padding: '8px 0' }}>Loading recent posts…</div>
+      )}
+
+      {postsError && (
+        <div style={{ fontSize: 12, color: '#ff6666', padding: '8px 0' }}>
+          Couldn&rsquo;t load posts: {postsError}
+        </div>
+      )}
+
+      {!postsLoading && !postsError && recentPosts.length === 0 && (
+        <div style={{ fontSize: 12, color: '#eeaa88', background: '#2a1a1a', border: '1px solid #5a2a2a', padding: 10, lineHeight: 1.5 }}>
+          No recent video posts found on @nightmanoeuvres. Post a video first, then come back &mdash; Stage 1 needs an existing video to boost.
+        </div>
+      )}
+
+      {!postsLoading && !postsError && recentPosts.length > 0 && (
+        <>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            <SortPill
+              active={sortMode === 'performance'}
+              onClick={() => setSortMode('performance')}
+              label="★ Top performer"
+            />
+            <SortPill
+              active={sortMode === 'recent'}
+              onClick={() => setSortMode('recent')}
+              label="🕐 Most recent"
+            />
+          </div>
+          <select
+            value={igPostId}
+            onChange={e => setIgPostId(e.target.value)}
+            style={inputStyle}
+          >
+            {orderedPosts.map((p, i) => {
+              const captionBit =
+                (p.caption_excerpt || '').slice(0, 50).replace(/\s+/g, ' ').trim() || '(no caption)'
+              const signalBit = p.low_data
+                ? `likes ${p.like_count} · comments ${p.comments_count}`
+                : `view ${((p.view_rate ?? 0) * 100).toFixed(1)}% · saves ${((p.save_rate ?? 0) * 100).toFixed(2)}%`
+              const star = i === 0 ? '★ ' : ''
+              const typeBadge =
+                p.media_type === 'VIDEO' || p.media_type === 'REELS'
+                  ? '🎬'
+                  : p.media_type === 'CAROUSEL_ALBUM'
+                    ? '🖼️'
+                    : '📷'
+              const dateBit = new Date(p.timestamp).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+              })
+              return (
+                <option key={p.id} value={p.id}>
+                  {star}
+                  {typeBadge} {dateBit} · {captionBit} · {signalBit}
+                </option>
+              )
+            })}
+          </select>
+
+          {selected && (
+            <div
+              style={{
+                display: 'flex',
+                gap: 12,
+                marginTop: 10,
+                padding: 10,
+                background: '#141414',
+                border: '1px solid #222',
+                alignItems: 'flex-start',
+              }}
+            >
+              {selected.thumbnail_url ? (
+                <img
+                  src={selected.thumbnail_url}
+                  alt=""
+                  style={{
+                    width: 88,
+                    height: 88,
+                    objectFit: 'cover',
+                    flexShrink: 0,
+                    background: '#0a0a0a',
+                    border: '1px solid #222',
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 88,
+                    height: 88,
+                    flexShrink: 0,
+                    background: '#0a0a0a',
+                    border: '1px solid #222',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#555',
+                    fontSize: 10,
+                  }}
+                >
+                  no preview
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0, fontSize: 11, color: '#ccc', lineHeight: 1.5 }}>
+                <div style={{ color: '#888', letterSpacing: '0.1em', textTransform: 'uppercase', fontSize: 10, marginBottom: 4 }}>
+                  Selected post · {new Date(selected.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                </div>
+                <div
+                  style={{
+                    color: '#eee',
+                    overflow: 'hidden',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: 'vertical',
+                    marginBottom: 6,
+                  }}
+                >
+                  {selected.caption_excerpt || '(no caption)'}
+                </div>
+                {selected.permalink && (
+                  <a
+                    href={selected.permalink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#888', fontSize: 10, textDecoration: 'underline' }}
+                  >
+                    Open on Instagram ↗
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {selected && !selected.low_data && (
+            <div
+              style={{
+                fontSize: 11,
+                color: '#bbb',
+                background: '#141414',
+                border: '1px solid #222',
+                padding: 10,
+                marginTop: 8,
+                lineHeight: 1.5,
+              }}
+            >
+              <div style={{ color: '#888', letterSpacing: '0.1em', textTransform: 'uppercase', fontSize: 10, marginBottom: 4 }}>
+                Signal (from synced IG Insights)
+              </div>
+              <div>View rate: {((selected.view_rate ?? 0) * 100).toFixed(1)}% ({(selected.video_views ?? 0).toLocaleString()} views / {(selected.reach ?? 0).toLocaleString()} reach)</div>
+              <div>Save rate: {((selected.save_rate ?? 0) * 100).toFixed(2)}% ({(selected.saves ?? 0).toLocaleString()} saves)</div>
+            </div>
+          )}
+
+          {selected && selected.low_data && (
+            <div
+              style={{
+                fontSize: 11,
+                color: '#eeaa88',
+                background: '#2a1a1a',
+                border: '1px solid #5a2a2a',
+                padding: 10,
+                marginTop: 8,
+                lineHeight: 1.5,
+              }}
+            >
+              No IG Insights synced yet for this post — ranking it by raw likes + comments only. Pick a different post if you want a view-rate-backed signal, or wait for the next sync.
+            </div>
+          )}
+
+          {selected && objective === 'OUTCOME_AWARENESS' &&
+            selected.media_type !== 'VIDEO' && selected.media_type !== 'REELS' && (
+            <div
+              style={{
+                fontSize: 11,
+                color: '#ff6666',
+                background: '#2a1a1a',
+                border: '1px solid #5a2a2a',
+                padding: 10,
+                marginTop: 8,
+                lineHeight: 1.5,
+              }}
+            >
+              This post is {selected.media_type === 'CAROUSEL_ALBUM' ? 'a carousel' : 'an image'}, not a video. Stage 1 (Video Views / THRUPLAY) needs a VIDEO or REEL to build a completion-based retargeting pool. Pick a 🎬 post or switch the objective to Engagement.
+            </div>
+          )}
+
+          <div style={{ fontSize: 11, color: '#888', marginTop: 8, lineHeight: 1.5 }}>
+            Stage 1 runs Meta&rsquo;s Video Views / THRUPLAY optimisation — it rewards posts that <em>hold</em> attention, not the ones with the most likes. That&rsquo;s why we rank by view rate + save rate, not engagement.
+            {coverageNote && (
+              <>
+                <br />
+                {coverageNote}
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </Field>
+  )
+}
+
+function SortPill({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: '5px 10px',
+        fontSize: 10,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        background: active ? '#ff2a1a' : 'transparent',
+        color: active ? '#000' : '#888',
+        border: `1px solid ${active ? '#ff2a1a' : '#2a2a2a'}`,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        fontWeight: active ? 700 : 400,
+      }}
+    >
+      {label}
+    </button>
+  )
 }
