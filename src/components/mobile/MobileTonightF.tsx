@@ -120,8 +120,6 @@ export function MobileTonightF({
   tonightGig: Gig
   tonightTravel?: TravelBooking[]
 }) {
-  const [feeRevealed, setFeeRevealed] = useState(false)
-
   const setStart = tonightGig.set_time || '23:00'
   const setEnd = tonightGig.set_end_time
   const setLen = setLengthMin(setStart, setEnd)
@@ -145,8 +143,8 @@ export function MobileTonightF({
     .toUpperCase() || '··'
 
   const smsHref = tonightGig.al_phone
-    ? `sms:${tonightGig.al_phone}?&body=Hi ${promoterFirst}, just landed — heading to ${tonightGig.venue} now.`
-    : `sms:&body=Hi ${promoterFirst}, just landed — heading to ${tonightGig.venue} now.`
+    ? `sms:${tonightGig.al_phone}?&body=Hi ${promoterFirst}, just landed, heading to ${tonightGig.venue} now.`
+    : `sms:&body=Hi ${promoterFirst}, just landed, heading to ${tonightGig.venue} now.`
 
   return (
     <div style={{
@@ -187,23 +185,6 @@ export function MobileTonightF({
           inset 0 0 0 1px rgba(255,255,255,0.04)
         `,
       }}>
-        {/* RED HEADER */}
-        <div style={{
-          background: C.red,
-          padding: '12px 16px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          color: C.bg,
-        }}>
-          <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, textTransform: 'uppercase' }}>
-            NIGHT MANOEUVRES
-          </div>
-          <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, textTransform: 'uppercase' }}>
-            ENTRY PASS
-          </div>
-        </div>
-
         {/* HERO */}
         <div style={{ padding: '22px 16px 20px' }}>
           <div style={{
@@ -273,7 +254,7 @@ export function MobileTonightF({
                 </div>
               )}
             </div>
-            {cd.ready && (
+            {setDate && (
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 9, letterSpacing: '0.22em', color: C.inkDim, textTransform: 'uppercase', marginBottom: 8, fontWeight: 700 }}>
                   UNTIL ON
@@ -286,9 +267,9 @@ export function MobileTonightF({
                   color: C.red,
                   fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {String(cd.h).padStart(2, '0')}
+                  {cd.ready ? String(cd.h).padStart(2, '0') : '--'}
                   <span style={{ fontSize: 18, color: C.inkFaint }}>H</span>
-                  {String(cd.m).padStart(2, '0')}
+                  {cd.ready ? String(cd.m).padStart(2, '0') : '--'}
                 </div>
               </div>
             )}
@@ -341,44 +322,6 @@ export function MobileTonightF({
                   <div style={{ fontSize: 9, color: C.inkDim, marginTop: 5, letterSpacing: '0.15em', fontWeight: 700 }}>
                     {fmtIATA(flight.to_location)} {fmtCity(flight.to_location)}
                   </div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* FEE — blurred until tap */}
-        {tonightGig.fee != null && (
-          <>
-            <Perforation />
-            <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div>
-                <div style={{ fontSize: 9, letterSpacing: '0.22em', color: C.inkDim, textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>
-                  FEE
-                </div>
-                <div
-                  onClick={() => setFeeRevealed(v => !v)}
-                  style={{
-                    fontSize: 22,
-                    fontWeight: 800,
-                    color: C.ink,
-                    fontVariantNumeric: 'tabular-nums',
-                    letterSpacing: '-0.02em',
-                    filter: feeRevealed ? 'none' : 'blur(7px)',
-                    userSelect: 'none',
-                    cursor: 'pointer',
-                    transition: 'filter 0.2s',
-                  }}
-                >
-                  £{tonightGig.fee.toLocaleString()}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 9, letterSpacing: '0.22em', color: C.inkDim, textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>
-                  PAID
-                </div>
-                <div style={{ fontSize: 11, color: C.red, letterSpacing: '0.1em', fontWeight: 800, textTransform: 'uppercase' }}>
-                  ON THE NIGHT
                 </div>
               </div>
             </div>

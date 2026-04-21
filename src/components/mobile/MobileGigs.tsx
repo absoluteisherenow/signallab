@@ -38,7 +38,9 @@ export default function MobileGigs() {
   }, [])
 
   const now = new Date()
-  const upcoming = gigs.filter(g => new Date(g.date) >= now).sort((a, b) => a.date.localeCompare(b.date))
+  const today = now.toISOString().split('T')[0]
+  const tonightGig = gigs.find(g => g.date === today)
+  const upcoming = gigs.filter(g => new Date(g.date) >= now && g.date !== today).sort((a, b) => a.date.localeCompare(b.date))
   const past = gigs.filter(g => new Date(g.date) < now).sort((a, b) => b.date.localeCompare(a.date))
 
   function formatDate(d: string) {
@@ -110,6 +112,30 @@ export default function MobileGigs() {
           {upcoming.length} upcoming · {past.length} past
         </div>
       </div>
+
+      {tonightGig && (
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 10,
+          background: '#ff2a1a', color: '#050505',
+          padding: '10px 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          fontFamily: s.font,
+        }}>
+          <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', fontWeight: 800 }}>
+            Tonight · {tonightGig.venue}{tonightGig.set_time ? ` · ${tonightGig.set_time}` : ''}
+          </div>
+          <a
+            href={`/gig-pass/${tonightGig.id}`}
+            style={{
+              fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', fontWeight: 800,
+              color: '#050505', textDecoration: 'none', padding: '4px 8px',
+              border: '1px solid #050505',
+            }}
+          >
+            Pass →
+          </a>
+        </div>
+      )}
 
       {loading && (
         <div style={{ padding: '40px 16px', fontSize: '13px', color: s.dimmer }}>Loading...</div>

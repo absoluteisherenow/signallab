@@ -323,7 +323,7 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
             fontWeight: 500,
           }}
         >
-          Offline — showing saved data
+          Offline · showing saved data
         </div>
       )}
 
@@ -341,45 +341,51 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
           </a>
         </div>
 
-        {/* Hero */}
-        <div style={{ marginTop: 24, marginBottom: 32 }}>
-          <h1
-            className="display"
-            style={{
-              fontSize: 'clamp(28px, 7vw, 42px)',
-              fontWeight: 300,
-              color: '#ffffff',
-              margin: '0 0 8px 0',
-              lineHeight: 1.1,
-            }}
-          >
-            {data.venue}
-          </h1>
-          <div style={{ fontSize: 18, color: colors.dim, marginBottom: 4 }}>{data.location}</div>
-          <div style={{ fontSize: 18, color: colors.dim }}>{formatDateDisplay(data.date)}</div>
-        </div>
-
-        {/* Set Time */}
+        {/* Set Time — HERO */}
         {data.setTime && (
-          <div style={{ borderTop: `3px solid ${colors.gold}`, paddingTop: 16, marginBottom: 32 }}>
+          <div style={{ marginTop: 16, marginBottom: 20 }}>
             <div style={labelStyle}>YOUR SET</div>
             <div
               className="display"
               style={{
-                fontSize: 'clamp(48px, 12vw, 72px)',
-                fontWeight: 300,
+                fontSize: 'clamp(64px, 16vw, 80px)',
+                fontWeight: 800,
                 color: colors.gold,
-                lineHeight: 1,
-                marginBottom: 4,
+                lineHeight: 0.9,
+                marginBottom: 8,
+                letterSpacing: '-0.035em',
+                fontVariantNumeric: 'tabular-nums',
               }}
             >
               {formatTime(data.setTime)}
             </div>
             {data.doorsTime && (
-              <div style={{ fontSize: 18, color: colors.dim }}>Doors {formatTime(data.doorsTime)}</div>
+              <div style={{ fontSize: 14, color: colors.dim, marginBottom: 10 }}>Doors {formatTime(data.doorsTime)}</div>
+            )}
+            {data.advanceStatus && (
+              <div style={{ marginTop: 4 }}>{statusBadge(data.advanceStatus)}</div>
             )}
           </div>
         )}
+
+        {/* Venue + date (secondary) */}
+        <div style={{ marginBottom: 28, borderTop: `1px solid ${colors.border}`, paddingTop: 16 }}>
+          <h1
+            className="display"
+            style={{
+              fontSize: 'clamp(24px, 6vw, 32px)',
+              fontWeight: 700,
+              color: colors.text,
+              margin: '0 0 6px 0',
+              lineHeight: 1.15,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {data.venue}
+          </h1>
+          <div style={{ fontSize: 15, color: colors.dim, marginBottom: 2 }}>{data.location}</div>
+          <div style={{ fontSize: 15, color: colors.dim }}>{formatDateDisplay(data.date)}</div>
+        </div>
 
         {/* Contacts */}
         <div style={{ marginBottom: 24 }}>
@@ -514,9 +520,6 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
 
         {/* Footer */}
         <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: 20, textAlign: 'center' }}>
-          <div style={{ marginBottom: 12 }}>
-            {statusBadge(data.advanceStatus)}
-          </div>
           {lastUpdated && (
             <div style={{ fontSize: 14, color: colors.dimmer }}>
               Last updated: {new Date(lastUpdated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
@@ -537,7 +540,7 @@ export default function GigPassPageClient({ params }: { params: { id: string } }
                 textTransform: 'uppercase' as const,
               }}
             >
-              Offline — cached
+              Offline · cached
             </span>
           )}
         </div>

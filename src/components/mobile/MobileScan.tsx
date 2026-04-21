@@ -119,7 +119,7 @@ export default function MobileScan() {
             setPhase('not_found')
           }
         } catch {
-          setError('Could not identify — check your connection')
+          setError('Could not identify · check your connection')
           setPhase('choose')
         }
       }
@@ -208,7 +208,7 @@ Return ONLY the JSON, no other text.` },
         throw new Error('Nothing readable in that shot')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not read — try a clearer shot')
+      setError(err instanceof Error ? err.message : 'Could not read · try a clearer shot')
       setPhase('choose')
     }
   }
@@ -250,7 +250,7 @@ Return ONLY the JSON, no other text.` },
       await saveTrackToSupabase(artist, title, 'snap', parsed.label)
       setPhase('reminder_saved')
     } catch {
-      setError('Could not read the track — try a clearer shot')
+      setError('Could not read the track · try a clearer shot')
       setPhase('choose')
     }
   }
@@ -292,7 +292,7 @@ Return ONLY the JSON, no other text.` },
       setTracks(JSON.parse(jsonMatch[0]))
       setPhase('review')
     } catch {
-      setError('Could not read tracks — try a clearer photo')
+      setError('Could not read tracks · try a clearer photo')
       setPhase('choose')
     }
   }
@@ -322,7 +322,7 @@ Return ONLY the JSON, no other text.` },
       setPhase('review')
       setShowPaste(false)
     } catch {
-      setError('Could not parse tracks — try a different format')
+      setError('Could not parse tracks · try a different format')
       setPhase('choose')
     }
   }
@@ -360,7 +360,7 @@ Return ONLY the JSON, no other text.` },
     if (valid.length === 0) return
     setPhase('analysing')
     try {
-      const tracklist = valid.map((t, i) => `${i + 1}. ${t.artist} — ${t.title}`).join('\n')
+      const tracklist = valid.map((t, i) => `${i + 1}. ${t.artist} · ${t.title}`).join('\n')
       const res = await fetch('/api/mix-scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -371,7 +371,7 @@ Return ONLY the JSON, no other text.` },
       setAnalysisResult(data.result)
       setPhase('analysed')
     } catch {
-      setError('Analysis failed — try again')
+      setError('Analysis failed · try again')
       setPhase('review')
     }
   }
@@ -504,7 +504,7 @@ Return ONLY the JSON, no other text.` },
               <textarea
                 value={pasteText}
                 onChange={e => setPasteText(e.target.value)}
-                placeholder={'Paste tracks here — any format works\n\nArtist - Title\n1. Artist — Title\nor just a copied playlist...'}
+                placeholder={'Paste tracks here · any format works\n\nArtist - Title\n1. Artist / Title\nor just a copied playlist...'}
                 autoFocus
                 style={{
                   flex: 1, background: s.panel, border: `1px solid ${s.border}`,
@@ -638,7 +638,7 @@ Return ONLY the JSON, no other text.` },
         <div style={{ padding: '60px 16px', textAlign: 'center' }}>
           <div style={{ fontSize: '15px', color: s.text, marginBottom: '8px' }}>Saved to library</div>
           <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '6px' }}>
-            {identified.artist} — {identified.title}
+            {identified.artist} · {identified.title}
           </div>
           <div style={{ fontSize: '11px', color: s.dimmer, marginBottom: '32px' }}>
             Available in Set Lab
@@ -732,7 +732,7 @@ Return ONLY the JSON, no other text.` },
               ref={reminderRef}
               value={reminder.note}
               onChange={e => setReminder(r => r ? { ...r, note: e.target.value } : r)}
-              placeholder="Add a note — where you heard it, why you flagged it..."
+              placeholder="Add a note · where you heard it, why you flagged it..."
               style={{
                 width: '100%', background: 'transparent', border: 'none',
                 borderBottom: `1px solid ${s.border}50`, color: s.dimmer,
@@ -902,7 +902,7 @@ Return ONLY the JSON, no other text.` },
         <div style={{ padding: '48px 16px', textAlign: 'center' }}>
           <div style={{ fontSize: '15px', color: s.text, marginBottom: '12px' }}>Saved to library</div>
           <div style={{ fontSize: '12px', color: s.dimmer, marginBottom: '24px' }}>
-            {tracks.length} tracks added — available in Set Lab
+            {tracks.length} tracks added · available in Set Lab
           </div>
           <button onClick={reset} style={{
             background: s.panel, border: `1px solid ${s.border}`, color: s.dim,

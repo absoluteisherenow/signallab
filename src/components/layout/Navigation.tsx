@@ -51,7 +51,17 @@ export function Navigation() {
   const [activeAliasId, setActiveAliasId] = useState<string | null>(null)
   const [artistName, setArtistName] = useState('Signal Lab')
   const [showAliasSwitcher, setShowAliasSwitcher] = useState(false)
+  const [tonightGigId, setTonightGigId] = useState<string | null>(null)
   const aliasSwitcherRef = useRef<HTMLDivElement>(null)
+
+  // Fetch today's gig for adaptive 5th tab slot
+  useEffect(() => {
+    fetch('/api/gigs').then(r => r.json()).then(d => {
+      const today = new Date().toISOString().split('T')[0]
+      const g = (d.gigs || []).find((x: { id: string; date: string }) => x.date === today)
+      if (g) setTonightGigId(g.id)
+    }).catch(() => {})
+  }, [])
 
   async function handleLogout() {
     const { createBrowserClient } = await import('@supabase/auth-helpers-nextjs')
@@ -418,61 +428,77 @@ export function Navigation() {
         fontFamily: 'var(--font-mono)',
         backdropFilter: 'blur(16px)',
       }}>
-        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'space-evenly', width: '100%', position: 'relative' }}>
+        <div style={{ display: 'flex', height: '100%', alignItems: 'stretch', justifyContent: 'space-evenly', width: '100%', position: 'relative' }}>
           {/* Home */}
           <Link href="/dashboard" style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: isActive('/dashboard') ? 'var(--gold)' : 'var(--text-dimmer)',
-            padding: '8px 0', flex: 1,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+            textDecoration: 'none', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 700,
+            color: isActive('/dashboard') ? '#ff2a1a' : 'var(--text-dimmer)',
+            minHeight: 44, flex: 1,
           }}>
-            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>—</div>
+            <div style={{ fontSize: '20px', lineHeight: 1, marginBottom: '2px' }}>▢</div>
             Home
           </Link>
 
           {/* Scan */}
           <Link href="/setlab" style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: isActive('/setlab') ? 'var(--gold)' : 'var(--text-dimmer)',
-            padding: '8px 0', flex: 1,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+            textDecoration: 'none', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 700,
+            color: isActive('/setlab') ? '#ff2a1a' : 'var(--text-dimmer)',
+            minHeight: 44, flex: 1,
           }}>
-            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>◎</div>
+            <div style={{ fontSize: '20px', lineHeight: 1, marginBottom: '2px' }}>◎</div>
             Scan
           </Link>
 
-          {/* Promo */}
-          <Link href="/promo?tab=promo" style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: (isActive('/promo') || isActive('/releases')) ? 'var(--gold)' : 'var(--text-dimmer)',
-            padding: '8px 0', flex: 1,
+          {/* Post */}
+          <Link href="/mobile/post" style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+            textDecoration: 'none', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 700,
+            color: isActive('/mobile/post') ? '#ff2a1a' : 'var(--text-dimmer)',
+            minHeight: 44, flex: 1,
           }}>
-            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>↗</div>
-            Promo
+            <div style={{ fontSize: '20px', lineHeight: 1, marginBottom: '2px' }}>↗</div>
+            Post
           </Link>
 
           {/* Tour */}
           <Link href="/gigs" style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: isActive('/gigs') ? 'var(--gold)' : 'var(--text-dimmer)',
-            padding: '8px 0', flex: 1,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+            textDecoration: 'none', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 700,
+            color: isActive('/gigs') ? '#ff2a1a' : 'var(--text-dimmer)',
+            minHeight: 44, flex: 1,
           }}>
-            <div style={{ fontSize: '18px', lineHeight: 1, marginBottom: '2px' }}>◆</div>
+            <div style={{ fontSize: '20px', lineHeight: 1, marginBottom: '2px' }}>◆</div>
             Tour
           </Link>
 
-          {/* Recharge */}
-          <Link href="/meditate" style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            textDecoration: 'none', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: isActive('/meditate') ? 'var(--gold)' : 'var(--text-dimmer)',
-            padding: '8px 0', flex: 1,
-          }}>
-            <div style={{ fontSize: '16px', lineHeight: 1, marginBottom: '2px' }}>✦</div>
-            Mind
-          </Link>
+          {/* Adaptive 5th slot — PASS on gig day, + on normal day */}
+          {tonightGigId ? (
+            <Link href={`/gig-pass/${tonightGigId}`} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+              textDecoration: 'none', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 700,
+              color: '#ff2a1a',
+              minHeight: 44, flex: 1,
+              textShadow: '0 0 12px rgba(255,42,26,0.6)',
+            }}>
+              <div style={{
+                fontSize: '20px', lineHeight: 1, marginBottom: '2px',
+                filter: 'drop-shadow(0 0 6px rgba(255,42,26,0.8))',
+              }}>❙❙❙</div>
+              Pass
+            </Link>
+          ) : (
+            <Link href="/mobile/create" style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+              textDecoration: 'none', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 700,
+              color: isActive('/mobile/create') ? '#ff2a1a' : 'var(--text-dimmer)',
+              minHeight: 44, flex: 1,
+            }}>
+              <div style={{ fontSize: '22px', lineHeight: 1, marginBottom: '2px' }}>+</div>
+              New
+            </Link>
+          )}
         </div>
       </nav>
     </>
