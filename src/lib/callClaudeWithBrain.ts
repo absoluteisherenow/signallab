@@ -21,6 +21,7 @@ import {
 } from './rules'
 import type { TaskType, InvariantVerdict } from './rules/types'
 import { buildStrategyPrimer } from './brain/strategyPrimer'
+import { formatTrendsBlock } from './brain/trends'
 
 type ModelId =
   | 'claude-sonnet-4-6'
@@ -145,15 +146,35 @@ function assembleSystemPrompt(
   // 5. Strategy primer — platform/algorithm/release-phase knowledge per task.
   // Replaces the bespoke strategy blocks scattered across chainCaptionGen,
   // assistant, agents/*. Empty string when no primer applies (invoice etc).
-  const primer = buildStrategyPrimer(ctx.task)
+  const primer = buildStrategyPrimer(ctx.task, ctx)
   if (primer) sections.push(primer)
 
-  // 6. Priority anchor (mission / gig / release)
+  // 6. Scene signal (nightly trend snapshot) — empty when no snapshot/ stale.
+  const trendsBlock = formatTrendsBlock(ctx.trends)
+  if (trendsBlock) sections.push(trendsBlock)
+
+  // 7. Recent performance narrative + red flags — skip when include_recent_perf
+  // was false (interpreter returns empty narrative in that case).
+  if (ctx.recent_performance.narrative || ctx.recent_performance.red_flags.length) {
+    const perfLines: string[] = ['# Recent performance signal']
+    if (ctx.recent_performance.narrative) perfLines.push(ctx.recent_performance.narrative)
+    if (ctx.recent_performance.positive_signals.length) {
+      perfLines.push('Working right now:')
+      for (const s of ctx.recent_performance.positive_signals) perfLines.push(`- ${s}`)
+    }
+    if (ctx.recent_performance.red_flags.length) {
+      perfLines.push('Watch-outs:')
+      for (const f of ctx.recent_performance.red_flags) perfLines.push(`- ${f}`)
+    }
+    sections.push(perfLines.join('\n'))
+  }
+
+  // 8. Priority anchor (mission / gig / release)
   if (ctx.priority.formatted) {
     sections.push(`# Priority context\n${ctx.priority.formatted}`)
   }
 
-  // 7. Task instruction (the what-to-do)
+  // 9. Task instruction (the what-to-do)
   sections.push(`# Task\n${taskInstruction}`)
 
   if (extra) sections.push(extra)

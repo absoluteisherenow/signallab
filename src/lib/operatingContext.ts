@@ -13,6 +13,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { fetchActiveRules } from './rules'
 import type { Rule, TaskType } from './rules/types'
+import { interpretPerformance } from './brain/analytics'
+import { loadTrendSnapshot, type TrendSnapshot } from './brain/trends'
 
 export type { TaskType } from './rules/types'
 
@@ -92,6 +94,14 @@ export interface OperatingContext {
     top_posts: Array<{ caption: string; format: string; score: number | null }>
     reach_baseline: number | null
     save_rate: number | null
+    /** Interpreter-derived heuristic flags. Safe to skip if empty — built from
+     *  what `post_performance` has (estimated_score + format). Extended as more
+     *  columns (saves, reach, completion) are populated. */
+    red_flags: string[]
+    positive_signals: string[]
+    /** One-line narrative summary for the brain to inject. Built by
+     *  `interpretPerformance` (lib/brain/analytics.ts). */
+    narrative: string
   }
   connections: {
     ig_handle: string | null
@@ -99,6 +109,10 @@ export interface OperatingContext {
     gmail_from: string | null
     platforms_connected: string[]
   }
+  /** Latest trend snapshot (nightly or on-demand). Empty when no snapshot
+   *  exists or the freshest is older than TTL. The brain decides whether to
+   *  inject based on shape. */
+  trends: TrendSnapshot
 }
 
 function admin() {
@@ -148,6 +162,7 @@ export async function getOperatingContext(params: {
     igRes,
     gmailRes,
     perfRes,
+    trendsSnap,
   ] = await Promise.all([
     sb
       .from('artist_profiles')
@@ -198,10 +213,13 @@ export async function getOperatingContext(params: {
     params.opts?.include_recent_perf
       ? sb
           .from('post_performance')
-          .select('caption, format, estimated_score')
+          .select('caption, format, estimated_score, actual_likes, actual_comments, platform, context')
           .order('estimated_score', { ascending: false, nullsFirst: false })
-          .limit(5)
+          .limit(30)
       : Promise.resolve({ data: null }),
+    // Trends — loaded for every brain call (cheap, single row) so release/gig
+    // and caption tasks alike see scene signal.
+    loadTrendSnapshot(sb, userId),
   ])
 
   const artistRow: any = artistRes.data || {}
@@ -246,20 +264,23 @@ export async function getOperatingContext(params: {
       formatted: formatPriority(missionRow, gigRow, releaseRow),
     },
     rules,
-    recent_performance: {
-      top_posts: perfRows.map((p) => ({
-        caption: p.caption || '',
-        format: p.format || '',
-        score: p.estimated_score ?? null,
-      })),
-      reach_baseline: null,
-      save_rate: null,
-    },
+    recent_performance: (() => {
+      const reading = interpretPerformance(perfRows)
+      return {
+        top_posts: reading.top_posts,
+        reach_baseline: null,
+        save_rate: null,
+        red_flags: reading.red_flags,
+        positive_signals: reading.positive_signals,
+        narrative: reading.narrative,
+      }
+    })(),
     connections: {
       ig_handle: igRow?.handle || null,
       ig_token: igRow?.access_token || null,
       gmail_from: gmailRow?.email || null,
       platforms_connected: platforms,
     },
+    trends: trendsSnap,
   }
 }
