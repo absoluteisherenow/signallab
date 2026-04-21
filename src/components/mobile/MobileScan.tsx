@@ -44,6 +44,7 @@ export default function MobileScan() {
   const [identified, setIdentified] = useState<IdentifiedTrack | null>(null)
   const [listenCountdown, setListenCountdown] = useState(10)
   const [reminder, setReminder] = useState<Reminder | null>(null)
+  const [captured, setCaptured] = useState<any[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const reminderRef = useRef<HTMLInputElement>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -57,6 +58,19 @@ export default function MobileScan() {
       }
     }
   }, [])
+
+  async function loadCaptured() {
+    try {
+      const res = await fetch('/api/tracks')
+      const data = await res.json()
+      setCaptured(Array.isArray(data.tracks) ? data.tracks.slice(0, 30) : [])
+    } catch {}
+  }
+
+  useEffect(() => { loadCaptured() }, [])
+  useEffect(() => {
+    if (phase === 'choose') loadCaptured()
+  }, [phase])
 
   async function saveTrackToSupabase(artist: string, title: string, source: string, label?: string) {
     try {
@@ -487,6 +501,57 @@ Return ONLY the JSON, no other text.` },
             </button>
 
           </div>
+
+          {/* Captured — live feed of tracks grabbed on the fly */}
+          {captured.length > 0 && (
+            <div style={{ marginTop: 8, marginBottom: 20 }}>
+              <div style={{
+                fontSize: 10, letterSpacing: '0.22em', color: s.dimmer,
+                textTransform: 'uppercase', fontWeight: 700, padding: '14px 2px 10px',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <span>Captured · {captured.length}</span>
+                <span style={{ color: s.dimmer }}>Sort on desktop</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1, background: s.border }}>
+                {captured.map((t: any, i: number) => {
+                  const when = t.created_at ? new Date(t.created_at) : null
+                  const timeLabel = when
+                    ? (Date.now() - when.getTime() < 86400000
+                        ? when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : when.toLocaleDateString([], { month: 'short', day: 'numeric' }))
+                    : ''
+                  const src = (t.source || '').toLowerCase()
+                  const srcBadge = src === 'shazam' ? 'ID' : src === 'snap' ? 'SNAP' : src === 'paste' ? 'PASTE' : src.toUpperCase().slice(0, 5)
+                  return (
+                    <div key={t.id || i} style={{
+                      background: s.panel, padding: '12px 14px',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: s.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {t.title || '—'}
+                        </div>
+                        <div style={{ fontSize: 11, color: s.dim, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {t.artist || '—'}
+                        </div>
+                      </div>
+                      {srcBadge && (
+                        <div style={{
+                          fontSize: 9, letterSpacing: '0.15em', color: s.gold,
+                          border: `1px solid ${s.gold}40`, padding: '3px 6px',
+                          textTransform: 'uppercase', flexShrink: 0,
+                        }}>{srcBadge}</div>
+                      )}
+                      <div style={{ fontSize: 10, color: s.dimmer, flexShrink: 0, minWidth: 40, textAlign: 'right' }}>
+                        {timeLabel}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Paste overlay */}
           {showPaste && (
