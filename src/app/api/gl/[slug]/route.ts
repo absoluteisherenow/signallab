@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sendSms } from '@/lib/sms'
 
 /**
  * Public guest-list endpoints (no auth). Used by /gl/<slug> signup form.
  *
- * GET  /api/gl/[slug]   → { gig: { title, date, venue, lineup } } (404 if slug unknown)
- * POST /api/gl/[slug]   { name, plus_ones?, response?, instagram?, email?, phone?, notes? }
+ * GET  /api/gl/[slug]   → { gig, offers_discount, offers_guestlist } (404 if slug unknown)
+ * POST /api/gl/[slug]   { name, plus_ones?, response?, email?, phone?, notes? }
  *                       → { success }
  *
  * Lightweight anti-abuse: name required, plus_ones clamped 0–10, fields length-capped.
@@ -14,10 +15,10 @@ import { createClient } from '@supabase/supabase-js'
 
 const LIMITS = {
   name: 80,
-  instagram: 40,
   email: 120,
   phone: 30,
   notes: 300,
+  city: 80,
 }
 
 function serviceClient() {
@@ -33,7 +34,7 @@ export async function GET(_req: NextRequest, { params }: { params: { slug: strin
   const svc = serviceClient()
   const { data: invite } = await svc
     .from('guest_list_invites')
-    .select('id, gig_id')
+    .select('id, gig_id, offers_discount, offers_guestlist')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -41,20 +42,35 @@ export async function GET(_req: NextRequest, { params }: { params: { slug: strin
 
   const { data: gig } = await svc
     .from('gigs')
-    .select('title, date, venue, lineup')
+    .select('title, date, venue, lineup, artwork_url, ticket_url')
     .eq('id', invite.gig_id)
     .maybeSingle()
 
   return NextResponse.json({
     gig: gig
-      ? { title: gig.title || '', date: gig.date || '', venue: gig.venue || '', lineup: gig.lineup || '' }
+      ? {
+          title: gig.title || '',
+          date: gig.date || '',
+          venue: gig.venue || '',
+          lineup: gig.lineup || '',
+          artwork_url: gig.artwork_url || '',
+        }
       : null,
+    offers_discount: invite.offers_discount !== false,
+    offers_guestlist: invite.offers_guestlist !== false,
   })
 }
 
 function clamp(v: any, max: number): string {
   if (typeof v !== 'string') return ''
   return v.trim().slice(0, max)
+}
+
+function fmtGigDate(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
@@ -71,15 +87,15 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   const allowedResponses = new Set(['coming', 'guestlist', 'maybe'])
   const response = allowedResponses.has(body.response) ? body.response : 'coming'
 
-  const instagram = clamp(body.instagram, LIMITS.instagram).replace(/^@/, '')
   const email = clamp(body.email, LIMITS.email)
   const phone = clamp(body.phone, LIMITS.phone)
   const notes = clamp(body.notes, LIMITS.notes)
+  const city = clamp(body.city, LIMITS.city)
 
   const svc = serviceClient()
   const { data: invite } = await svc
     .from('guest_list_invites')
-    .select('id')
+    .select('id, gig_id')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -92,12 +108,40 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
       name,
       plus_ones,
       response,
-      instagram: instagram || null,
       email: email || null,
       phone: phone || null,
       notes: notes || null,
+      city: city || null,
     })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Fire SMS only for the paid-ticket path. For guest-list requests we hold
+  // the SMS until the artist confirms the name — sent from the owner's PATCH
+  // on /api/guest-list/[slug]/responses.
+  if (phone && response === 'coming') {
+    try {
+      const { data: gig } = await svc
+        .from('gigs')
+        .select('venue, date, ticket_url')
+        .eq('id', invite.gig_id)
+        .maybeSingle()
+
+      const ticketUrl = gig?.ticket_url || ''
+      if (ticketUrl) {
+        const venue = gig?.venue || 'the show'
+        const dateLabel = fmtGigDate(gig?.date || '')
+        const where = `${venue} ${dateLabel}`.trim()
+        const smsResult = await sendSms({
+          to: phone,
+          body: `Night Manoeuvres. Discount ticket for ${where}: ${ticketUrl}. See you there.`,
+        })
+        if (!smsResult.success) console.warn('GL ticket SMS failed:', smsResult.error)
+      }
+    } catch (e: any) {
+      console.warn('GL SMS error:', e?.message || e)
+    }
+  }
+
   return NextResponse.json({ success: true })
 }

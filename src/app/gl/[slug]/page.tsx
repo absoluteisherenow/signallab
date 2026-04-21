@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
-type Gig = { title: string; date: string; venue: string; lineup: string }
+type Gig = { title: string; date: string; venue: string; lineup: string; artwork_url?: string }
 
 const S = {
   bg: '#050505',
@@ -50,15 +50,18 @@ export default function GuestListPage() {
   const slug = params?.slug || ''
 
   const [gig, setGig] = useState<Gig | null>(null)
+  const [offersDiscount, setOffersDiscount] = useState(true)
+  const [offersGuestlist, setOffersGuestlist] = useState(true)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
-  const [name, setName] = useState('')
-  const [plusOnes, setPlusOnes] = useState(0)
-  const [response, setResponse] = useState<'coming' | 'guestlist' | 'maybe'>('coming')
-  const [instagram, setInstagram] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [response, setResponse] = useState<'coming' | 'guestlist'>('coming')
+  const [email, setEmail] = useState('')
+  const [phoneCode, setPhoneCode] = useState('+44')
   const [phone, setPhone] = useState('')
-  const [notes, setNotes] = useState('')
+  const [city, setCity] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
@@ -70,14 +73,31 @@ export default function GuestListPage() {
         if (r.status === 404) { setNotFound(true); return null }
         return r.json()
       })
-      .then(d => { if (d?.gig) setGig(d.gig) })
+      .then(d => {
+        if (!d) return
+        if (d.gig) setGig(d.gig)
+        const od = d.offers_discount !== false
+        const og = d.offers_guestlist !== false
+        setOffersDiscount(od)
+        setOffersGuestlist(og)
+        // Default response to first offered option
+        if (od) setResponse('coming')
+        else if (og) setResponse('guestlist')
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [slug])
 
+  const bothOffered = offersDiscount && offersGuestlist
+  const onlyOne = (offersDiscount ? 1 : 0) + (offersGuestlist ? 1 : 0) === 1
+  const singleOfferLabel = offersDiscount ? 'Discount ticket' : 'Guest list'
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) { setError('Your name is required'); return }
+    if (!firstName.trim()) { setError('First name is required'); return }
+    if (!lastName.trim()) { setError('Last name is required'); return }
+    if (!email.trim()) { setError('Email is required'); return }
+    if (!phone.trim()) { setError('Phone is required'); return }
     setSubmitting(true)
     setError('')
     try {
@@ -85,12 +105,12 @@ export default function GuestListPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
-          plus_ones: plusOnes,
+          name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+          plus_ones: 0,
           response,
-          instagram: instagram.trim(),
-          phone: phone.trim(),
-          notes: notes.trim(),
+          email: email.trim(),
+          phone: `${phoneCode} ${phone.trim()}`.trim(),
+          city: city.trim(),
         }),
       })
       const data = await res.json()
@@ -134,16 +154,16 @@ export default function GuestListPage() {
 
   if (submitted) {
     return (
-      <div style={wrapperStyle}>
-        <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', color: S.accent, marginBottom: '16px' }}>
-            You're on the list
+      <div style={{ ...wrapperStyle, alignItems: 'center', padding: '20px', minHeight: '100dvh' }}>
+        <div style={{ maxWidth: '520px', width: '100%', textAlign: 'center' }}>
+          <div style={{ fontSize: '12px', letterSpacing: '0.24em', textTransform: 'uppercase', color: S.accent, marginBottom: '32px' }}>
+            Submitted
           </div>
-          <div style={{ fontSize: '14px', color: S.text, marginBottom: '8px', fontWeight: 300 }}>
-            Thanks {name.split(' ')[0] || 'mate'}.
+          <div style={{ fontSize: '28px', color: S.text, marginBottom: '24px', fontWeight: 300, lineHeight: 1.25 }}>
+            Thanks {firstName.trim() || 'mate'}.
           </div>
-          <div style={{ fontSize: '12px', color: S.dim, lineHeight: 1.7 }}>
-            We'll confirm the spot shortly. See you there.
+          <div style={{ fontSize: '18px', color: S.dim, lineHeight: 1.5, fontWeight: 300 }}>
+            You'll get a text once NIGHT manoeuvres has confirmed you on the guest list.
           </div>
         </div>
       </div>
@@ -160,6 +180,13 @@ export default function GuestListPage() {
           </div>
           {gig && (
             <>
+              {gig.artwork_url && (
+                <img
+                  src={gig.artwork_url}
+                  alt=""
+                  style={{ width: '100%', height: 'auto', display: 'block', marginBottom: 20, border: `1px solid ${S.border}` }}
+                />
+              )}
               <div style={{ fontSize: '22px', color: S.text, lineHeight: 1.2, marginBottom: '8px', fontWeight: 300 }}>
                 {gig.title}
               </div>
@@ -176,45 +203,94 @@ export default function GuestListPage() {
         </div>
 
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={labelStyle}>Your name</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)}
-              placeholder="First last" required maxLength={80} style={inputStyle} />
-          </div>
-
           <div style={{ display: 'flex', gap: '12px' }}>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>+1s</label>
-              <select value={plusOnes} onChange={e => setPlusOnes(Number(e.target.value))} style={{ ...inputStyle, appearance: 'none' }}>
-                {[0, 1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
+              <label style={labelStyle}>First name</label>
+              <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
+                placeholder="First" required maxLength={40} style={inputStyle} />
             </div>
-            <div style={{ flex: 2 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Second name</label>
+              <input type="text" value={lastName} onChange={e => setLastName(e.target.value)}
+                placeholder="Last" required maxLength={40} style={inputStyle} />
+            </div>
+          </div>
+
+          {bothOffered && (
+            <div>
               <label style={labelStyle}>I'm…</label>
               <select value={response} onChange={e => setResponse(e.target.value as any)} style={{ ...inputStyle, appearance: 'none' }}>
-                <option value="coming">Buying a ticket</option>
+                <option value="coming">Discount ticket</option>
                 <option value="guestlist">Asking for guest list</option>
-                <option value="maybe">Maybe</option>
               </select>
+            </div>
+          )}
+
+          {onlyOne && (
+            <div>
+              <label style={labelStyle}>Requesting</label>
+              <div style={{
+                fontSize: '13px', color: S.text, padding: '12px 14px',
+                border: `1px solid ${S.border}`, background: S.panel, letterSpacing: '0.02em',
+              }}>
+                {singleOfferLabel}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label style={labelStyle}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@email.com" required maxLength={120} style={inputStyle} />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Phone</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <select value={phoneCode} onChange={e => setPhoneCode(e.target.value)}
+                style={{ ...inputStyle, width: '110px', appearance: 'none', flexShrink: 0 }}>
+                <option value="+44">UK +44</option>
+                <option value="+1">US/CA +1</option>
+                <option value="+33">FR +33</option>
+                <option value="+49">DE +49</option>
+                <option value="+31">NL +31</option>
+                <option value="+32">BE +32</option>
+                <option value="+34">ES +34</option>
+                <option value="+39">IT +39</option>
+                <option value="+30">GR +30</option>
+                <option value="+351">PT +351</option>
+                <option value="+353">IE +353</option>
+                <option value="+41">CH +41</option>
+                <option value="+43">AT +43</option>
+                <option value="+45">DK +45</option>
+                <option value="+46">SE +46</option>
+                <option value="+47">NO +47</option>
+                <option value="+48">PL +48</option>
+                <option value="+420">CZ +420</option>
+                <option value="+36">HU +36</option>
+                <option value="+90">TR +90</option>
+                <option value="+61">AU +61</option>
+                <option value="+64">NZ +64</option>
+                <option value="+81">JP +81</option>
+                <option value="+82">KR +82</option>
+                <option value="+86">CN +86</option>
+                <option value="+852">HK +852</option>
+                <option value="+65">SG +65</option>
+                <option value="+971">AE +971</option>
+                <option value="+972">IL +972</option>
+                <option value="+27">ZA +27</option>
+                <option value="+52">MX +52</option>
+                <option value="+55">BR +55</option>
+              </select>
+              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                placeholder="7700 000000" required maxLength={20} style={{ ...inputStyle, flex: 1 }} />
             </div>
           </div>
 
           <div>
-            <label style={labelStyle}>Instagram <span style={{ color: S.dimmer, textTransform: 'none', letterSpacing: 0 }}>(so we recognise you)</span></label>
-            <input type="text" value={instagram} onChange={e => setInstagram(e.target.value)}
-              placeholder="@handle" maxLength={40} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Phone <span style={{ color: S.dimmer, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
-            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-              placeholder="+44 7…" maxLength={30} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Anything to tell us?</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} maxLength={300}
-              placeholder="Bringing someone, dietary notes, etc." style={{ ...inputStyle, resize: 'vertical', minHeight: '70px', fontFamily: S.font }} />
+            <label style={labelStyle}>City <span style={{ color: S.dimmer, textTransform: 'none', letterSpacing: 0, fontSize: '10px' }}>(optional)</span></label>
+            <input type="text" value={city} onChange={e => setCity(e.target.value)}
+              placeholder="e.g. Athens" maxLength={80} style={inputStyle} />
           </div>
 
           {error && (
@@ -223,20 +299,24 @@ export default function GuestListPage() {
             </div>
           )}
 
-          <button type="submit" disabled={submitting || !name.trim()}
+          <div style={{ fontSize: '11px', color: S.dimmer, lineHeight: 1.6, letterSpacing: '0.02em' }}>
+            By sending you agree to be added to the Night Manoeuvres mailing list.
+          </div>
+
+          <button type="submit" disabled={submitting || !firstName.trim() || !lastName.trim()}
             style={{
-              background: submitting || !name.trim() ? S.panelAlt : S.accent,
-              border: `1px solid ${submitting || !name.trim() ? S.border : S.accent}`,
-              color: submitting || !name.trim() ? S.dim : S.bg,
+              background: submitting || !firstName.trim() || !lastName.trim() ? S.panelAlt : S.accent,
+              border: `1px solid ${submitting || !firstName.trim() || !lastName.trim() ? S.border : S.accent}`,
+              color: submitting || !firstName.trim() || !lastName.trim() ? S.dim : S.bg,
               fontFamily: S.font,
               fontSize: '11px',
               letterSpacing: '0.22em',
               textTransform: 'uppercase',
               padding: '16px 24px',
-              cursor: submitting || !name.trim() ? 'not-allowed' : 'pointer',
+              cursor: submitting || !firstName.trim() || !lastName.trim() ? 'not-allowed' : 'pointer',
               marginTop: '8px',
             }}>
-            {submitting ? 'Sending…' : 'Put me down'}
+            {submitting ? 'Sending…' : response === 'coming' ? 'Send me the link' : 'Put me down'}
           </button>
         </form>
       </div>

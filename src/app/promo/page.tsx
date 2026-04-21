@@ -11,6 +11,7 @@ import { useSearchParams } from 'next/navigation'
 import { useMobile } from '@/hooks/useMobile'
 import { ReleasesTab } from '@/components/promo/ReleasesTab'
 import { DJPromoTab } from '@/components/promo/DJPromoTab'
+import { GuestListTab } from '@/components/promo/GuestListTab'
 
 export default function PromoPage() {
   return (
@@ -23,7 +24,13 @@ export default function PromoPage() {
 function PromoInner() {
   const mobile = useMobile()
   const searchParams = useSearchParams()
-  const [tab, setTab] = useState<'releases' | 'promo'>(searchParams.get('tab') === 'promo' ? 'promo' : 'releases')
+  const initialTab = (() => {
+    const t = searchParams.get('tab')
+    if (t === 'promo') return 'promo' as const
+    if (t === 'guestlist') return 'guestlist' as const
+    return 'releases' as const
+  })()
+  const [tab, setTab] = useState<'releases' | 'promo' | 'guestlist'>(initialTab)
   const [initialPromoUrl, setInitialPromoUrl] = useState('')
   const [initialReleaseId, setInitialReleaseId] = useState<string | null>(null)
 
@@ -43,7 +50,7 @@ function PromoInner() {
               <span style={{ display: 'block', width: '28px', height: '1px', background: s.gold }} />Promo Lab
             </div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 7vw, 96px)', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 0.9, textTransform: 'uppercase' }}>
-              {tab === 'releases' ? 'Your catalogue' : 'DJ Promo'}
+              {tab === 'releases' ? 'Your catalogue' : tab === 'promo' ? 'DJ Promo' : 'Guest list'}
             </div>
           </div>
           {tab === 'releases' ? (
@@ -54,7 +61,7 @@ function PromoInner() {
         </div>
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '0' }}>
-          {(['releases', 'promo'] as const).map(t => (
+          {(['releases', 'promo', 'guestlist'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: '10px 20px', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase',
               background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: s.font,
@@ -62,15 +69,15 @@ function PromoInner() {
               borderBottom: tab === t ? `1px solid ${s.gold}` : '1px solid transparent',
               marginBottom: '-1px',
             }}>
-              {t === 'releases' ? 'Releases' : 'DJ Promo'}
+              {t === 'releases' ? 'Releases' : t === 'promo' ? 'DJ Promo' : 'Guest list'}
             </button>
           ))}
         </div>
       </div>
 
-      {tab === 'releases'
-        ? <ReleasesTab s={s} mobile={mobile} onSendPromo={(url, releaseId) => { setInitialPromoUrl(url); setInitialReleaseId(releaseId ?? null); setTab('promo') }} />
-        : <DJPromoTab s={s} initialUrl={initialPromoUrl} initialReleaseId={initialReleaseId} onUrlConsumed={() => { setInitialPromoUrl(''); setInitialReleaseId(null) }} />}
+      {tab === 'releases' && <ReleasesTab s={s} mobile={mobile} onSendPromo={(url, releaseId) => { setInitialPromoUrl(url); setInitialReleaseId(releaseId ?? null); setTab('promo') }} />}
+      {tab === 'promo' && <DJPromoTab s={s} initialUrl={initialPromoUrl} initialReleaseId={initialReleaseId} onUrlConsumed={() => { setInitialPromoUrl(''); setInitialReleaseId(null) }} />}
+      {tab === 'guestlist' && <GuestListTab s={s} mobile={mobile} />}
     </div>
   )
 }

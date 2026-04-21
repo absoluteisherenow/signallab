@@ -4,8 +4,8 @@ import { requireUser } from '@/lib/api-auth'
 /**
  * /api/guest-list
  *
- * GET  → { invites: [{ id, gig_id, slug, created_at }] }
- * POST { gig_id } → { success, invite }
+ * GET  → { invites: [{ id, gig_id, slug, offers_discount, offers_guestlist, created_at }] }
+ * POST { gig_id, offers_discount?, offers_guestlist? } → { success, invite }
  *
  * Creates a short public slug for a gig so the user can share a guest-list
  * signup link. One invite per (user_id, gig_id) — POST returns the existing
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   try {
     const { data, error } = await serviceClient
       .from('guest_list_invites')
-      .select('id, gig_id, slug, created_at')
+      .select('id, gig_id, slug, offers_discount, offers_guestlist, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
@@ -49,10 +49,13 @@ export async function POST(req: NextRequest) {
     const gig_id = typeof body.gig_id === 'string' ? body.gig_id : ''
     if (!gig_id) return NextResponse.json({ error: 'gig_id required' }, { status: 400 })
 
+    const offers_discount = body.offers_discount === undefined ? true : !!body.offers_discount
+    const offers_guestlist = body.offers_guestlist === undefined ? true : !!body.offers_guestlist
+
     // If an invite already exists, return it rather than creating a duplicate
     const { data: existing } = await serviceClient
       .from('guest_list_invites')
-      .select('id, gig_id, slug, created_at')
+      .select('id, gig_id, slug, offers_discount, offers_guestlist, created_at')
       .eq('user_id', user.id)
       .eq('gig_id', gig_id)
       .maybeSingle()
@@ -66,8 +69,8 @@ export async function POST(req: NextRequest) {
       const slug = makeSlug()
       const { data, error } = await serviceClient
         .from('guest_list_invites')
-        .insert({ user_id: user.id, gig_id, slug })
-        .select('id, gig_id, slug, created_at')
+        .insert({ user_id: user.id, gig_id, slug, offers_discount, offers_guestlist })
+        .select('id, gig_id, slug, offers_discount, offers_guestlist, created_at')
         .single()
       if (!error) { invite = data; break }
       lastErr = error
