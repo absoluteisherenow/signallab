@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
+
+// TODO: thread requireUser + userId. CORS-enabled endpoint used by the Set Lab
+// desktop app — ship a bearer-token auth path and move the artist name / set
+// history lookup to ctx.artist. Today runs tenantless through callClaude so
+// pricing + api_usage logging still apply, with a placeholder system prompt
+// that still references "Night Manoeuvres" — remove once ctx wired.
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -418,14 +424,6 @@ RESPONSE FORMAT — return ONLY valid JSON, no markdown fences, starting with { 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) {
-    return NextResponse.json(
-      { success: false, error: 'ANTHROPIC_API_KEY not configured' },
-      { status: 500, headers: corsHeaders }
-    )
-  }
-
   // ── Parse body ──────────────────────────────────────────────────────────────
   let body: SetLabReferenceRequest
   try {
@@ -494,32 +492,24 @@ Identify the single track being referenced. Return only the JSON.`
 
   let resolved: ClaudeTrackResolution
   try {
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 600,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+    const claudeRes = await callClaude({
+      userId: null,
+      feature: 'setlab_reference',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 600,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const claudeData = await claudeRes.json()
-
     if (!claudeRes.ok) {
-      const msg = claudeData?.error?.message || `Anthropic API error ${claudeRes.status}`
+      const msg = claudeRes.data?.error?.message || `Anthropic API error ${claudeRes.status}`
       return NextResponse.json(
         { success: false, error: msg },
         { status: claudeRes.status, headers: corsHeaders }
       )
     }
 
-    const rawText: string = claudeData?.content?.[0]?.text ?? ''
+    const rawText = claudeRes.text
     if (!rawText) {
       return NextResponse.json(
         { success: false, error: 'Empty response from Claude' },

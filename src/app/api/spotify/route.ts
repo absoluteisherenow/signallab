@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
+
+// TODO: thread requireUser + userId so Claude suggestions are logged per
+// tenant. Today this runs as a null-tenant utility — goes through callClaude
+// (pricing + caching + api_usage) but api_usage rows land with user_id=null.
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID!
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET!
@@ -102,22 +107,15 @@ Suggest exactly ${limit} real tracks that fit this DJ's sound. Focus on ${popula
 Return ONLY a JSON array, no markdown:
 [{"artist": "Artist Name", "title": "Track Title", "camelot": "8A", "bpm": 128, "reason": "one sentence why it fits"}]`
 
-  const apiKey = (await env('ANTHROPIC_API_KEY'))!
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1200,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+  const res = await callClaude({
+    userId: null,
+    feature: 'spotify_suggest',
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1200,
+    messages: [{ role: 'user', content: prompt }],
   })
-  const data = await res.json()
-  const text = data.content?.[0]?.text || '[]'
+  if (!res.ok) return []
+  const text = res.text || '[]'
   try {
     return JSON.parse(text.replace(/```json|```/g, '').trim())
   } catch {

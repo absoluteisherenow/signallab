@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { env } from '@/lib/env'
+import { requireUser } from '@/lib/api-auth'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// Command-bar assistant. Brain injects artist identity/casing/voice/rules/priority
+// automatically — we only add the pre-fetched user data (invoices/gigs/releases/
+// contacts) and the action schema. Previous hardcoded "Night Manoeuvres /
+// ABSOLUTE." block removed; the brain loads ctx.artist.name per user.
 
-const SYSTEM_PROMPT = `You are Signal — the command bar assistant for Signal Lab OS, a creative business operating system for electronic music artists. You help NIGHT MANOEUVRES / ABSOLUTE. with everything: gigs, invoices, releases, content, set prep, contacts, and anything else they need.
-
-You understand shorthand: "southwave" = Southwave, "hoopla" = Mighty Hoopla, "poof doof" or "pd" = POOF DOOF, "pitch" = Pitch Music & Arts.
-Artist aliases: ABSOLUTE. (POOF DOOF, Southwave, Mighty Hoopla), Night Manoeuvres (Pitch Music & Arts).
+const ACTION_SCHEMA = `You are Signal — the command bar assistant for Signal Lab OS, a creative business operating system for electronic music artists.
 
 When the user types a command, return ONLY valid JSON in this exact format:
 {
@@ -34,19 +31,22 @@ Today's date: ${new Date().toISOString().split('T')[0]}
 Keep replies short — max 12 words. No markdown. Be helpful with anything they ask.`
 
 export async function POST(req: NextRequest) {
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) return NextResponse.json({ error: 'No API key' }, { status: 500 })
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
+  const service = gate.serviceClient
 
   try {
     const { message } = await req.json()
     if (!message?.trim()) return NextResponse.json({ reply: 'Type a command to get started.' })
 
-    // Fetch full context — invoices, gigs, releases, contacts
+    // User-scoped data fetch. serviceClient (service-role) must always filter
+    // by user_id explicitly — RLS isn't assumed here.
     const [invoicesR, gigsR, releasesR, contactsR] = await Promise.allSettled([
-      supabase.from('invoices').select('id, gig_title, amount, currency, status, due_date, type, artist_name').order('created_at', { ascending: false }).limit(20),
-      supabase.from('gigs').select('id, venue, city, date, set_time, status, fee, currency, promoter_email, al_name').order('date', { ascending: true }).limit(20),
-      supabase.from('releases').select('id, title, artist, type, release_date, label, status').order('release_date', { ascending: false }).limit(10),
-      supabase.from('contacts').select('id, name, email, role, company').limit(20),
+      service.from('invoices').select('id, gig_title, amount, currency, status, due_date, type, artist_name').eq('user_id', userId).order('created_at', { ascending: false }).limit(20),
+      service.from('gigs').select('id, venue, city, date, set_time, status, fee, currency, promoter_email, al_name').eq('user_id', userId).order('date', { ascending: true }).limit(20),
+      service.from('releases').select('id, title, artist, type, release_date, label, status').eq('user_id', userId).order('release_date', { ascending: false }).limit(10),
+      service.from('contacts').select('id, name, email, role, company').eq('user_id', userId).limit(20),
     ])
 
     const invoices = invoicesR.status === 'fulfilled' ? invoicesR.value.data || [] : []
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     const contacts = contactsR.status === 'fulfilled' ? contactsR.value.data || [] : []
 
     const invoiceContext = invoices
-      .map((i: any) => `- ${i.gig_title} (${i.artist_name || 'NM'}) | ${i.currency} ${i.amount} | ${i.status} | due ${i.due_date || 'none'} | id:${i.id}`)
+      .map((i: any) => `- ${i.gig_title} (${i.artist_name || '?'}) | ${i.currency} ${i.amount} | ${i.status} | due ${i.due_date || 'none'} | id:${i.id}`)
       .join('\n')
 
     const gigContext = gigs
@@ -77,28 +77,17 @@ export async function POST(req: NextRequest) {
       contactContext ? `Contacts:\n${contactContext}` : '',
     ].filter(Boolean).join('\n\n')
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 400,
-        system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: `${fullContext || 'No data loaded'}\n\nCommand: ${message}`,
-          },
-        ],
-      }),
+    const result = await callClaudeWithBrain({
+      userId,
+      task: 'assistant.chat',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 400,
+      taskInstruction: ACTION_SCHEMA,
+      userMessage: `${fullContext || 'No data loaded'}\n\nCommand: ${message}`,
+      runPostCheck: false,
     })
 
-    const data = await res.json()
-    const raw = data?.content?.[0]?.text?.trim() || '{}'
+    const raw = (result.text || '{}').trim()
     const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 
     let parsed: { reply: string; action: Record<string, unknown> | null }
@@ -108,22 +97,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ reply: "Didn't understand that — try again." })
     }
 
-    // Execute the action
     const action = parsed.action
     if (action?.type === 'mark_paid') {
-      await supabase.from('invoices').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', action.invoice_id)
+      await service.from('invoices').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', action.invoice_id).eq('user_id', userId)
     } else if (action?.type === 'update_invoice') {
-      await supabase.from('invoices').update(action.updates as Record<string, unknown>).eq('id', action.invoice_id)
+      await service.from('invoices').update(action.updates as Record<string, unknown>).eq('id', action.invoice_id).eq('user_id', userId)
     } else if (action?.type === 'add_invoice') {
       const { type: _, ...insertData } = action as Record<string, unknown>
-      await supabase.from('invoices').insert([{ ...insertData, status: 'pending' }])
+      await service.from('invoices').insert([{ ...insertData, user_id: userId, status: 'pending' }])
     } else if (action?.type === 'delete_invoice') {
-      await supabase.from('invoices').delete().eq('id', action.invoice_id)
+      await service.from('invoices').delete().eq('id', action.invoice_id).eq('user_id', userId)
     } else if (action?.type === 'add_gig') {
       const { type: _, ...gigData } = action as Record<string, unknown>
-      await supabase.from('gigs').insert([{ ...gigData, status: 'confirmed' }])
+      await service.from('gigs').insert([{ ...gigData, user_id: userId, status: 'confirmed' }])
     } else if (action?.type === 'update_gig') {
-      await supabase.from('gigs').update(action.updates as Record<string, unknown>).eq('id', action.gig_id)
+      await service.from('gigs').update(action.updates as Record<string, unknown>).eq('id', action.gig_id).eq('user_id', userId)
     }
 
     return NextResponse.json({ reply: parsed.reply, action: action?.type || null, navigate: action?.type === 'navigate' ? action.href : null })

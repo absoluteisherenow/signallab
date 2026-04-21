@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SKILLS_STEM_ANALYSIS } from '@/lib/skillPrompts'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
+
+// TODO: thread requireUser + userId. CORS-enabled endpoint used by the Set Lab
+// desktop app — the hardcoded "Night Manoeuvres aesthetic guidelines" block in
+// buildSystemPrompt() must move to ctx.artist.voice.samples + casing rules
+// once auth is wired. Today runs tenantless through callClaude so pricing +
+// api_usage logging still apply.
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -341,14 +347,6 @@ export async function POST(req: NextRequest) {
     'Access-Control-Allow-Headers': 'Content-Type',
   }
 
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'ANTHROPIC_API_KEY not configured' },
-      { status: 500, headers: corsHeaders }
-    )
-  }
-
   let body: unknown
 
   try {
@@ -422,35 +420,24 @@ export async function POST(req: NextRequest) {
   const maxTokens = isReferenceMode ? 1000 : 800
 
   try {
-    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        messages: [
-          { role: 'user', content: userPrompt },
-        ],
-      }),
+    const anthropicResponse = await callClaude({
+      userId: null,
+      feature: 'stem_analyse',
+      model: 'claude-sonnet-4-6',
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const data = await anthropicResponse.json()
-
     if (!anthropicResponse.ok) {
-      const msg = data?.error?.message || `Anthropic API error ${anthropicResponse.status}`
+      const msg = anthropicResponse.data?.error?.message || `Anthropic API error ${anthropicResponse.status}`
       return NextResponse.json(
         { error: msg },
         { status: anthropicResponse.status, headers: corsHeaders }
       )
     }
 
-    // Extract text content from Claude's response
-    const rawText: string = data?.content?.[0]?.text ?? ''
+    const rawText = anthropicResponse.text
 
     if (!rawText) {
       return NextResponse.json(

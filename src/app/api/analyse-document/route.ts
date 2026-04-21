@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
+import { requireUser } from '@/lib/api-auth'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 export const runtime = 'nodejs'
 
+// User-scoped document/receipt analyser. PDFs + images supported.
+// Routed via the brain so per-tenant identity + rules load, even though the
+// output is free-text analysis (runPostCheck:false — no voice enforcement
+// applies to extracted finance data).
 export async function POST(req: NextRequest) {
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) {
-    return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
-  }
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
 
   try {
     const formData = await req.formData()
@@ -21,57 +25,44 @@ export async function POST(req: NextRequest) {
     const buffer = await file.arrayBuffer()
     const base64 = Buffer.from(buffer).toString('base64')
     const mimeType = file.type || 'application/pdf'
-
-    // Build content array — images use 'image' block, PDFs use 'document' block
     const isImage = mimeType.startsWith('image/')
-    const content: any[] = [
-      isImage
-        ? {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: mimeType,
-              data: base64,
-            },
-          }
-        : {
-            type: 'document',
-            source: {
-              type: 'base64',
-              media_type: 'application/pdf',
-              data: base64,
-            },
-          },
-      {
-        type: 'text',
-        text: context || 'Please analyse this document. Extract all key financial data, amounts, dates, and any important details. Be specific with numbers.',
-      },
-    ]
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'pdfs-2024-09-25',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content }],
-      }),
+    const fileBlock = isImage
+      ? {
+          type: 'image' as const,
+          source: {
+            type: 'base64' as const,
+            media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+            data: base64,
+          },
+        }
+      : {
+          type: 'document' as const,
+          source: {
+            type: 'base64' as const,
+            media_type: 'application/pdf' as const,
+            data: base64,
+          },
+        }
+
+    const result = await callClaudeWithBrain({
+      userId,
+      task: 'gmail.scan',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      taskInstruction:
+        'You analyse documents (invoices, contracts, receipts, statements) and extract the key financial data, amounts, dates, and any important details. Be specific with numbers.',
+      messagesOverride: [{
+        role: 'user',
+        content: [
+          fileBlock,
+          { type: 'text', text: context || 'Please analyse this document. Extract all key financial data, amounts, dates, and any important details. Be specific with numbers.' },
+        ],
+      }],
+      runPostCheck: false,
     })
 
-    if (!response.ok) {
-      const err = await response.text()
-      return NextResponse.json({ error: err }, { status: response.status })
-    }
-
-    const result = await response.json()
-    const text = result.content?.[0]?.text || 'Could not read document'
-
-    return NextResponse.json({ text, usage: result.usage })
+    return NextResponse.json({ text: result.text, usage: result.usage })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

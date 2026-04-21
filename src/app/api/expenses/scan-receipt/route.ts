@@ -1,30 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
+import { requireUser } from '@/lib/api-auth'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
+// User-scoped vision extractor: parses a receipt/screenshot into an expense row.
+// Routed through the brain so casing/voice/rule_registry load per-tenant even
+// though this task is structured-extraction (runPostCheck:false — no voice
+// enforcement on pure JSON output).
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
+
   try {
-    const apiKey = (await env('ANTHROPIC_API_KEY'))!
     const formData = await req.formData()
     const file = formData.get('image') as File | null
     if (!file) return NextResponse.json({ error: 'No image provided' }, { status: 400 })
 
-    // Convert to base64
     const bytes = await file.arrayBuffer()
     const base64 = Buffer.from(bytes).toString('base64')
     const mediaType = (file.type || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
 
-    // Call Claude Sonnet with vision
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 400,
-        system: `You extract expense data from receipt images, screenshots of bank transactions, online order confirmations, or any financial document.
+    const taskInstruction = `You extract expense data from receipt images, screenshots of bank transactions, online order confirmations, or any financial document.
 
 Return ONLY valid JSON with these exact fields:
 {
@@ -45,30 +41,25 @@ Category guidance for a DJ/music artist:
 - Venue: stage fees, room hire, backline
 - Other: everything else
 
-If you cannot determine a field with reasonable confidence, use null for dates and amounts, "Other" for category, and your best guess for description.`,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType, data: base64 },
-            },
-            {
-              type: 'text',
-              text: 'Extract the expense data from this image.',
-            },
-          ],
-        }],
-      }),
+If you cannot determine a field with reasonable confidence, use null for dates and amounts, "Other" for category, and your best guess for description.`
+
+    const result = await callClaudeWithBrain({
+      userId,
+      task: 'gmail.scan',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 400,
+      taskInstruction,
+      messagesOverride: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: 'Extract the expense data from this image.' },
+        ],
+      }],
+      runPostCheck: false,
     })
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err.error?.message || `Claude API error ${res.status}`)
-    }
-
-    const data = await res.json()
-    const text = data.content?.[0]?.text || '{}'
+    const text = result.text || '{}'
     const extracted = JSON.parse(text.replace(/```json|```/g, '').trim())
 
     return NextResponse.json({ success: true, extracted })

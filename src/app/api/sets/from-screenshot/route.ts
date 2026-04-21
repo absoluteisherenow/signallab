@@ -1,13 +1,11 @@
 import { uploadFile } from '@/lib/storage'
 import { NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
+
+// TODO: thread requireUser + userId. Today runs tenantless through callClaude
+// so pricing + api_usage logging still apply.
 
 export async function POST(req: NextRequest) {
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) {
-    return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
-  }
-
   try {
     const form = await req.formData()
     const file = form.get('file') as File
@@ -28,17 +26,12 @@ export async function POST(req: NextRequest) {
     const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
 
     // Send to Claude Vision for track extraction
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        system: `You are a DJ tracklist extraction tool. You read screenshots of any source containing track information and extract every track visible.
+    const response = await callClaude({
+      userId: null,
+      feature: 'sets_from_screenshot',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      system: `You are a DJ tracklist extraction tool. You read screenshots of any source containing track information and extract every track visible.
 
 Sources you can read:
 - DJ software (Rekordbox, Traktor, Serato, CDJ screens)
@@ -65,34 +58,31 @@ Rules:
 - Preserve the exact order shown in the screenshot
 - If you cannot determine artist, use "Unknown"
 - Skip headers, column labels, UI chrome, and non-track content`,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: base64,
-              },
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: mediaType,
+              data: base64,
             },
-            {
-              type: 'text',
-              text: 'Extract all tracks from this DJ software screenshot. Return ONLY a JSON array.',
-            },
-          ],
-        }],
-      }),
+          },
+          {
+            type: 'text',
+            text: 'Extract all tracks from this DJ software screenshot. Return ONLY a JSON array.',
+          },
+        ],
+      }],
     })
 
-    const data = await response.json()
-
     if (!response.ok) {
-      const msg = data?.error?.message || `Vision API error ${response.status}`
+      const msg = response.data?.error?.message || `Vision API error ${response.status}`
       return NextResponse.json({ error: msg }, { status: response.status })
     }
 
-    const rawText = data.content?.[0]?.text || '[]'
+    const rawText = response.text || '[]'
 
     // Parse the JSON array from the response
     const jsonMatch = rawText.match(/\[[\s\S]*\]/)

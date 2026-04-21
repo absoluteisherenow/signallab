@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { canRunArtistScan, recordArtistScanRun } from '@/lib/artistScanTiers'
 import { getUserTier } from '@/lib/scanTiers'
-import { env } from '@/lib/env'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,7 +50,6 @@ interface ScrapeResult {
   userProfile?: UserProfile
 }
 
-// ── Calculate real engagement + caption stats from actual data ────────────────
 function calcEngagementRate(posts: PostData[], followerCount?: number): string | undefined {
   if (!followerCount || followerCount === 0 || posts.length === 0) return undefined
   const totalEngagement = posts.reduce((sum, p) => sum + (p.likes || 0) + (p.comments || 0), 0)
@@ -82,15 +81,12 @@ function calcCaptionStats(captions: string[]) {
     const trimmed = cap.trim()
     if (!trimmed) continue
 
-    // Lowercase: caption has no uppercase letters (ignoring emojis/numbers/symbols)
     const letters = trimmed.replace(/[^a-zA-Z]/g, '')
     if (letters.length === 0 || letters === letters.toLowerCase()) lowercaseCount++
 
-    // Short: under 10 words
     const wordCount = trimmed.split(/\s+/).filter(w => w.length > 0).length
     if (wordCount < 10) shortCount++
 
-    // No hashtags
     if (!trimmed.includes('#')) noHashtagCount++
   }
 
@@ -102,7 +98,6 @@ function calcCaptionStats(captions: string[]) {
   }
 }
 
-// ── HikerAPI scraper — extract EVERYTHING ────────────────────────────────────
 async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
   const key = process.env.HIKER_API_KEY
   if (!key) return { posts: [], captions: [] }
@@ -119,7 +114,6 @@ async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
     const userId = user?.pk || user?.id
     if (!userId) return { posts: [], captions: [] }
 
-    // Extract full user profile
     const userProfile: UserProfile = {
       biography: user?.biography || user?.bio || undefined,
       followerCount: user?.follower_count || user?.followers || undefined,
@@ -144,16 +138,13 @@ async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
       const caption = typeof cap === 'string' ? cap : (cap?.text || '')
       const mediaTypeMap: Record<number, 'photo' | 'video' | 'carousel'> = { 1: 'photo', 2: 'video', 8: 'carousel' }
 
-      // Extract best image URL
       const imageUrl = p?.image_versions2?.candidates?.[0]?.url
         || p?.carousel_media?.[0]?.image_versions2?.candidates?.[0]?.url
         || p?.thumbnail_url
         || undefined
 
-      // Extract location
       const location = p?.location?.name || p?.location?.short_name || undefined
 
-      // Extract usertags
       const usertags: string[] = (p?.usertags?.in || [])
         .map((t: any) => t?.user?.username)
         .filter(Boolean)
@@ -178,7 +169,6 @@ async function scrapeViaHikerAPI(username: string): Promise<ScrapeResult> {
   }
 }
 
-// ── Apify fallback ────────────────────────────────────────────────────────────
 async function scrapeViaApify(username: string): Promise<ScrapeResult> {
   const key = process.env.APIFY_API_KEY
   if (!key) return { posts: [], captions: [] }
@@ -220,7 +210,6 @@ async function scrapeViaApify(username: string): Promise<ScrapeResult> {
   }
 }
 
-// ── Store post engagement in Supabase ─────────────────────────────────────────
 async function savePostPerformance(artistName: string, posts: PostData[]) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return
   try {
@@ -247,35 +236,26 @@ async function savePostPerformance(artistName: string, posts: PostData[]) {
   } catch { /* non-critical */ }
 }
 
-// ── Deep analysis — Sonnet on top 20, images + engagement ───────────────────
 const SCAN_POST_LIMIT = 20
 const SCAN_IMAGE_LIMIT = 8
 
-async function deepAnalyse(name: string, posts: PostData[], userProfile?: UserProfile): Promise<any> {
-  const apiKey = (await env('ANTHROPIC_API_KEY'))!
+const ANALYST_INSTRUCTION = 'You are an elite music industry content analyst. You deeply understand electronic music culture, underground aesthetics, and what makes artist brands resonate. Respond ONLY with valid JSON, no markdown.'
 
-  // Sort by engagement to find top performers, cap at SCAN_POST_LIMIT
+async function deepAnalyse(userId: string, name: string, posts: PostData[], userProfile?: UserProfile): Promise<any> {
   const sorted = [...posts].sort((a, b) => (b.likes + b.comments * 3) - (a.likes + a.comments * 3))
   const topPosts = sorted.slice(0, SCAN_POST_LIMIT)
 
-  // Get image URLs for top-performing posts
   const imageUrls = topPosts
     .filter(p => p.imageUrl)
     .slice(0, SCAN_IMAGE_LIMIT)
     .map(p => p.imageUrl!)
 
-  // Build the content array — text analysis + images
   const content: any[] = []
 
-  // Add top-performing images for visual analysis
   for (const url of imageUrls) {
-    content.push({
-      type: 'image',
-      source: { type: 'url', url },
-    })
+    content.push({ type: 'image', source: { type: 'url', url } })
   }
 
-  // Build rich post data for text analysis
   const postSummary = posts.map((p, i) => {
     const engagement = p.likes + (p.comments * 3)
     const parts = [
@@ -298,7 +278,6 @@ async function deepAnalyse(name: string, posts: PostData[], userProfile?: UserPr
     userProfile.externalUrl ? `Link: ${userProfile.externalUrl}` : null,
   ].filter(Boolean).join('\n') : ''
 
-  // Engagement stats
   const avgLikes = Math.round(posts.reduce((s, p) => s + p.likes, 0) / posts.length)
   const avgComments = Math.round(posts.reduce((s, p) => s + p.comments, 0) / posts.length)
   const photoCount = posts.filter(p => p.mediaType === 'photo').length
@@ -353,80 +332,70 @@ Return this exact JSON:
   "brand_positioning": "2-3 sentences on how they position themselves — mysterious vs accessible, underground vs mainstream, personal vs professional",
   "collaboration_network": "who they tag and work with — labels, venues, other artists",
   "content_strategy_notes": "3-4 specific, actionable observations about their strategy that could inform someone in the same lane"
-}`
+}`,
   })
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+  try {
+    const result = await callClaudeWithBrain({
+      userId,
+      task: 'trend.scan',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2000,
-      system: 'You are an elite music industry content analyst. You deeply understand electronic music culture, underground aesthetics, and what makes artist brands resonate. Respond ONLY with valid JSON, no markdown.',
-      messages: [{ role: 'user', content }],
-    }),
-  })
-
-  const data = await res.json()
-  if (data.error) {
-    console.error(`[deepAnalyse] API error for ${name}:`, data.error)
-    // Retry without images if image URLs caused the error
+      taskInstruction: ANALYST_INSTRUCTION,
+      messagesOverride: [{ role: 'user', content }],
+      runPostCheck: false,
+    })
+    const text = result.text || '{}'
+    console.log(`[deepAnalyse] ${name}: got ${text.length} chars response`)
+    return JSON.parse(text.replace(/```json|```/g, '').trim())
+  } catch (err: any) {
+    console.error(`[deepAnalyse] brain error for ${name}:`, err.message)
+    // Image-URL retries are a common failure mode — drop images and retry with Opus
     if (imageUrls.length > 0) {
       console.log(`[deepAnalyse] Retrying ${name} without images...`)
-      const textOnlyContent = content.filter((c: any) => c.type !== 'image')
-      const retryRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: 'claude-opus-4-6', max_tokens: 2000, system: 'You are an elite music industry content analyst. Respond ONLY with valid JSON, no markdown.', messages: [{ role: 'user', content: textOnlyContent }] }),
-      })
-      const retryData = await retryRes.json()
-      if (retryData.error) { console.error(`[deepAnalyse] Retry also failed:`, retryData.error); return {} }
-      const retryText = retryData.content?.[0]?.text || '{}'
-      return JSON.parse(retryText.replace(/```json|```/g, '').trim())
+      try {
+        const textOnlyContent = content.filter((c: any) => c.type !== 'image')
+        const retry = await callClaudeWithBrain({
+          userId,
+          task: 'trend.scan',
+          model: 'claude-opus-4-6',
+          max_tokens: 2000,
+          taskInstruction: ANALYST_INSTRUCTION,
+          messagesOverride: [{ role: 'user', content: textOnlyContent }],
+          runPostCheck: false,
+        })
+        const retryText = retry.text || '{}'
+        return JSON.parse(retryText.replace(/```json|```/g, '').trim())
+      } catch (retryErr: any) {
+        console.error(`[deepAnalyse] Retry also failed:`, retryErr.message)
+        return {}
+      }
     }
     return {}
   }
-  const text = data.content?.[0]?.text || '{}'
-  console.log(`[deepAnalyse] ${name}: got ${text.length} chars response`)
-  return JSON.parse(text.replace(/```json|```/g, '').trim())
 }
 
-// ── Lightweight analysis for manual caption paste (no images available) ───────
-async function analyseTextOnly(name: string, captions: string[]): Promise<any> {
-  const apiKey = (await env('ANTHROPIC_API_KEY'))!
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1200,
-      system: 'You are an elite music industry content analyst. Respond ONLY with valid JSON, no markdown.',
-      messages: [{
-        role: 'user',
-        content: `Analyse the exact social media voice of music artist "${name}" from these ${captions.length} real Instagram captions:\n\n${captions.map((c, i) => `${i + 1}. ${JSON.stringify(c)}`).join('\n')}\n\nReturn this exact JSON:\n{\n  "handle": "@instagramhandle",\n  "genre": "genre (2-3 words max)",\n  "lowercase_pct": number 0-100,\n  "short_caption_pct": number 0-100 (captions under 10 words),\n  "no_hashtags_pct": number 0-100,\n  "chips": ["5-7 short style descriptors, max 2 words each"],\n  "highlight_chips": [0, 1, 2],\n  "style_rules": "6-8 sentences. Specific and actionable: what do they always do structurally, what do they never do, signature moves, what triggers saves, emotional register.",\n  "brand_positioning": "2-3 sentences on how they position themselves",\n  "content_strategy_notes": "3-4 specific observations about their caption strategy"\n}`,
-      }],
-    }),
+async function analyseTextOnly(userId: string, name: string, captions: string[]): Promise<any> {
+  const userPrompt = `Analyse the exact social media voice of music artist "${name}" from these ${captions.length} real Instagram captions:\n\n${captions.map((c, i) => `${i + 1}. ${JSON.stringify(c)}`).join('\n')}\n\nReturn this exact JSON:\n{\n  "handle": "@instagramhandle",\n  "genre": "genre (2-3 words max)",\n  "lowercase_pct": number 0-100,\n  "short_caption_pct": number 0-100 (captions under 10 words),\n  "no_hashtags_pct": number 0-100,\n  "chips": ["5-7 short style descriptors, max 2 words each"],\n  "highlight_chips": [0, 1, 2],\n  "style_rules": "6-8 sentences. Specific and actionable: what do they always do structurally, what do they never do, signature moves, what triggers saves, emotional register.",\n  "brand_positioning": "2-3 sentences on how they position themselves",\n  "content_strategy_notes": "3-4 specific observations about their caption strategy"\n}`
+
+  const result = await callClaudeWithBrain({
+    userId,
+    task: 'trend.scan',
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1200,
+    taskInstruction: ANALYST_INSTRUCTION,
+    userMessage: userPrompt,
+    runPostCheck: false,
   })
-  const data = await res.json()
-  const text = data.content?.[0]?.text || '{}'
+  const text = result.text || '{}'
   return JSON.parse(text.replace(/```json|```/g, '').trim())
 }
 
-// ── Route handler ─────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const { name, handle, manualCaptions } = await req.json()
     if (!name) return NextResponse.json({ success: false, error: 'Artist name required' }, { status: 400 })
 
-    // Tier-gate BEFORE any model call (Sonnet) to avoid token burn on a 402
     const userId = await resolveUserId(req)
     if (!userId) {
       return NextResponse.json({ success: false, error: 'No user session' }, { status: 401 })
@@ -445,11 +414,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Manual caption paste — text-only analysis (no images)
     if (manualCaptions && Array.isArray(manualCaptions) && manualCaptions.length > 0) {
-      const profile = await analyseTextOnly(name, manualCaptions)
+      const profile = await analyseTextOnly(userId, name, manualCaptions)
       const realStats = calcCaptionStats(manualCaptions)
-      // Ledger the run — manual paste still counts (Sonnet was called)
       try {
         const tierAtRun = await getUserTier(userId)
         await recordArtistScanRun(userId, (handle || name).toLowerCase(), tierAtRun)
@@ -458,7 +425,7 @@ export async function POST(req: NextRequest) {
         success: true,
         profile: {
           name, ...profile,
-          ...realStats, // override Claude's guesses with real calculated stats
+          ...realStats,
           data_source: 'manual',
           post_count_analysed: manualCaptions.length,
           last_scanned: new Date().toISOString().split('T')[0],
@@ -487,18 +454,15 @@ export async function POST(req: NextRequest) {
       }, { status: 404 })
     }
 
-    // Save engagement data (non-blocking)
     savePostPerformance(name, result.posts)
 
-    // Deep analysis — Opus with images + captions + engagement + profile
     console.log(`[artist-scan] ${name}: ${result.posts.length} posts, userProfile: ${!!result.userProfile}, dataSource: ${dataSource}`)
-    const profile = await deepAnalyse(name, result.posts, result.userProfile)
+    const profile = await deepAnalyse(userId, name, result.posts, result.userProfile)
     console.log(`[artist-scan] ${name}: deepAnalyse returned keys:`, Object.keys(profile))
     const realStats = calcCaptionStats(result.captions)
     const realEngagement = calcEngagementRate(result.posts, result.userProfile?.followerCount)
     const realBestFormat = calcBestFormat(result.posts)
 
-    // Override Claude's guesses with real calculated values
     if (profile.content_performance) {
       if (realEngagement) profile.content_performance.engagement_rate = realEngagement
       if (realBestFormat) profile.content_performance.best_type = realBestFormat
@@ -515,13 +479,11 @@ export async function POST(req: NextRequest) {
       biography: result.userProfile?.biography || undefined,
     }
 
-    // Auto-save to artist_profiles so scan data is never lost
     supabase.from('artist_profiles').upsert(fullProfile, { onConflict: 'name' }).then(({ error }) => {
       if (error) console.error(`[artist-scan] Failed to save ${name}:`, error.message)
       else console.log(`[artist-scan] Saved ${name} to artist_profiles`)
     })
 
-    // Ledger the run for tier accounting (after successful scrape + Sonnet only)
     try {
       const tierAtRun = await getUserTier(userId)
       await recordArtistScanRun(userId, targetUsername, tierAtRun)

@@ -1,6 +1,6 @@
 import { uploadFile, listFiles, deleteFile } from '@/lib/storage'
 import { NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
 
 const MEDIA_CATEGORIES = ['promo', 'crowd', 'studio', 'artwork', 'bts', 'travel', 'other'] as const
 type MediaCategory = typeof MEDIA_CATEGORIES[number]
@@ -16,43 +16,34 @@ async function fingerprint(buf: ArrayBuffer): Promise<string> {
   return hex.slice(0, 16) + '-' + buf.byteLength
 }
 
+// TODO: wrap POST in requireUser + thread userId through classifyImage so
+// api_usage logs the classification under the uploader's tenant. Until then
+// this runs as a null-tenant utility call (still goes through callClaude so
+// cost tracking + pricing + caching still apply).
 async function classifyImage(imageBytes: ArrayBuffer, mimeType: string): Promise<MediaCategory> {
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) return 'other'
-
   try {
     const base64 = Buffer.from(imageBytes).toString('base64')
     const mediaType = mimeType.startsWith('image/') ? mimeType : 'image/jpeg'
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 20,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType, data: base64 },
-            },
-            {
-              type: 'text',
-              text: 'Classify this image into exactly ONE category for an electronic music artist\'s media library. Reply with ONLY the category word, nothing else.\n\nCategories:\n- promo (press shots, portraits, headshots, posed photos)\n- crowd (live gigs, crowds, venues, dancefloors, festival shots)\n- studio (studio sessions, gear, synths, mixing desks, DAWs)\n- artwork (cover art, sleeve designs, visual art, graphics)\n- bts (behind the scenes, backstage, soundcheck, setup)\n- travel (hotels, airports, travel shots, tour life)\n- other (anything that doesn\'t fit above)',
-            },
-          ],
-        }],
-      }),
+    const res = await callClaude({
+      userId: null,
+      feature: 'media_classify',
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 20,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          {
+            type: 'text',
+            text: 'Classify this image into exactly ONE category for an electronic music artist\'s media library. Reply with ONLY the category word, nothing else.\n\nCategories:\n- promo (press shots, portraits, headshots, posed photos)\n- crowd (live gigs, crowds, venues, dancefloors, festival shots)\n- studio (studio sessions, gear, synths, mixing desks, DAWs)\n- artwork (cover art, sleeve designs, visual art, graphics)\n- bts (behind the scenes, backstage, soundcheck, setup)\n- travel (hotels, airports, travel shots, tour life)\n- other (anything that doesn\'t fit above)',
+          },
+        ],
+      }],
     })
 
     if (!res.ok) return 'other'
-    const data = await res.json()
-    const answer = (data.content?.[0]?.text || '').trim().toLowerCase()
+    const answer = (res.text || '').trim().toLowerCase()
     return MEDIA_CATEGORIES.includes(answer as MediaCategory) ? answer as MediaCategory : 'other'
   } catch {
     return 'other'

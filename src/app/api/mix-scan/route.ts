@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
 
 // ── POST /api/mix-scan ─────────────────────────────────────────────────────
 // Accepts JSON body with tracklist + optional context
 // Calls Claude for expert DJ mix analysis, returns structured result + rating
 // RULE: Never fabricate. Only analyse what's actually provided.
+//
+// TODO: thread requireUser + userId. Today runs tenantless through callClaude
+// so pricing + api_usage logging still apply.
 
 interface MixScanRequest {
   tracklist?: string   // free-text tracklist
@@ -12,11 +15,6 @@ interface MixScanRequest {
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) {
-    return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
-  }
-
   let body: MixScanRequest
   try {
     body = await req.json()
@@ -90,32 +88,25 @@ CRITICAL: Keep your TOTAL response under 3000 tokens. Be concise. Only state fac
 `
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        system: `You are an expert DJ, electronic music producer, and booker with 20+ years of experience. You analyse DJ set tracklists with precision and honesty.
+    const response = await callClaude({
+      userId: null,
+      feature: 'mix_scan',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      system: `You are an expert DJ, electronic music producer, and booker with 20+ years of experience. You analyse DJ set tracklists with precision and honesty.
 
 CORE RULE: NEVER fabricate or guess. Only state what you genuinely know or can determine from the provided data. If you cannot assess something, say so clearly rather than making something up. Credibility is everything — one fabricated detail destroys trust.
 
 Return ONLY valid JSON, no markdown, no code fences.`,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+      messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const data = await response.json()
     if (!response.ok) {
-      const msg = data?.error?.message || `Claude error ${response.status}`
+      const msg = response.data?.error?.message || `Claude error ${response.status}`
       return NextResponse.json({ error: msg }, { status: response.status })
     }
 
-    const raw = data.content?.[0]?.text || '{}'
+    const raw = response.text || '{}'
     let cleaned = raw.replace(/```json|```/g, '').trim()
 
     // Robust JSON repair for truncated responses
