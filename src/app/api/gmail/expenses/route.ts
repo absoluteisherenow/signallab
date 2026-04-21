@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
 
 // Use service role key to bypass RLS for token reads/writes and expense inserts
 const supabase = createClient(
@@ -97,18 +97,18 @@ interface ExpenseClassification {
 }
 
 async function classifyExpense(subject: string, body: string): Promise<ExpenseClassification> {
-  const apiKey = (await env('ANTHROPIC_API_KEY'))!
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 400,
-      system: `You are an expense classifier for a professional DJ and electronic music artist.
+  // Legacy single-tenant route reads `artist_settings` directly (no user_id).
+  // Routing via callClaude (userId=null) so api_usage still logs the cost
+  // without requiring a tenant resolution here. Full brain wiring belongs with
+  // the broader refactor of this route to getGmailClients(userId).
+  // TODO: migrate this route to requireUser + per-tenant gmail_accounts, then
+  // swap this to callClaudeWithBrain({ task: 'gmail.scan' }).
+  const response = await callClaude({
+    userId: null,
+    feature: 'gmail_expenses_classify',
+    model: 'claude-sonnet-4-6',
+    max_tokens: 400,
+    system: `You are an expense classifier for a professional DJ and electronic music artist.
 Scan this email and determine if it represents a business expense.
 
 Business expense categories for a DJ/artist:
@@ -133,15 +133,13 @@ Return ONLY valid JSON:
 }
 
 If is_expense is false or confidence < 0.65, return { "is_expense": false }.`,
-      messages: [{
-        role: 'user',
-        content: `Subject: ${subject}\n\nBody:\n${body.slice(0, 2000)}`,
-      }],
-    }),
+    messages: [{
+      role: 'user',
+      content: `Subject: ${subject}\n\nBody:\n${body.slice(0, 2000)}`,
+    }],
   })
 
-  const data = await res.json()
-  const text = data.content?.[0]?.text || '{ "is_expense": false }'
+  const text = response.text || '{ "is_expense": false }'
   return JSON.parse(text.replace(/```json|```/g, '').trim()) as ExpenseClassification
 }
 

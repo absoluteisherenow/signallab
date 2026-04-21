@@ -16,6 +16,7 @@ export const DEEP_DIVE_TIERS: Record<PlanTier, DeepDiveTier> = {
   creator:    { rollingDays: 90, limit: 1 },
   artist:     { monthlyLimit: 1 },
   pro:        { monthlyLimit: 2 },
+  road:       { monthlyLimit: 8 },
   management: { monthlyLimit: 8 },  // 1 per tracked artist/month, ~8 artists
 }
 

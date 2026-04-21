@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
 import { requireCronAuth } from '@/lib/cron-auth'
-import { env } from '@/lib/env'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 // Resend removed — all outbound goes through approve-before-send
 
 // Service role required: iterates every tenant's gigs and must read/write
@@ -97,30 +97,24 @@ export async function GET(req: NextRequest) {
         .single()
       const setStatus = linkedSet ? `Set ready: "${linkedSet.name}"` : 'No set built — open SetLab'
 
-      // Generate a 1-sentence story caption via Claude
+      // Generate a 1-sentence story caption through the brain — artist
+      // identity comes from ctx so we don't need to pass artistName.
       let storyCaption = ''
-      try {
-        const apiKey = (await env('ANTHROPIC_API_KEY'))!
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
+      if (gigOwnerId) {
+        try {
+          const result = await callClaudeWithBrain({
+            userId: gigOwnerId,
+            task: 'gig.content',
             model: 'claude-sonnet-4-6',
             max_tokens: 80,
-            messages: [{
-              role: 'user',
-              content: `Write a single Instagram Story caption for tonight's show. Artist: ${artistName}. Venue: ${gig.venue}. Date: tomorrow. Keep it under 10 words, no hashtags, lowercase, raw and direct.`,
-            }],
-          }),
-        })
-        const aiData = await aiRes.json()
-        storyCaption = aiData.content?.[0]?.text?.trim() || ''
-      } catch {
-        // Caption generation failure is non-critical
+            userMessage: `Venue: ${gig.venue}. Date: tomorrow.`,
+            taskInstruction: 'Write a single Instagram Story caption for tonight\'s show. Under 10 words, no hashtags, lowercase where natural, raw and direct. Output ONLY the caption text.',
+            runPostCheck: false,
+          })
+          storyCaption = result.text.trim()
+        } catch {
+          // Caption generation failure is non-critical
+        }
       }
 
       const gigDate = new Date(gig.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -168,49 +162,37 @@ export async function GET(req: NextRequest) {
           }
         } catch { /* non-critical */ }
 
-        // Generate brief via Claude
+        // Generate brief through the brain
         let briefText = ''
         let briefHtml = ''
-        try {
-          const briefApiKey = (await env('ANTHROPIC_API_KEY'))!
-          const briefRes = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': briefApiKey,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
+        if (gigOwnerId) {
+          try {
+            const briefResult = await callClaudeWithBrain({
+              userId: gigOwnerId,
+              task: 'gig.content',
               model: 'claude-sonnet-4-6',
               max_tokens: 800,
-              messages: [{
-                role: 'user',
-                content: `Write a short content brief for a photographer/videographer shooting tomorrow's show.
-
-Artist: ${artistName}
-Venue: ${gig.venue}
+              userMessage: `Show: ${gig.venue}
 Location: ${gig.location || ''}
 Date: ${gigDate}
 Set time: ${gig.slot_time || gig.set_time || 'TBC'}
 ${gig.venue_address ? `Address: ${gig.venue_address}` : ''}
 
 ${topContent ? `Top performing content recently:\n${topContent}\n` : ''}
-Upload link: ${uploadUrl}
+Upload link: ${uploadUrl}`,
+              taskInstruction: `Write a short content brief for a photographer/videographer shooting tomorrow's show. Plain text with clear sections:
 
-Write the brief as plain text with clear sections. Include:
 1. SHOW INFO: venue, date, set time, address
 2. WHAT WORKS: based on the top content data (or general electronic music content advice if no data), suggest 3-4 specific shot types/moments to capture
 3. REQUIREMENTS: vertical video (9:16) for Stories/Reels, horizontal for feed posts, minimum 1080p, raw files preferred
 4. UPLOAD: direct upload link + mention they can also share a Google Drive or Dropbox link by replying to the email
-5. Keep it warm, direct, concise. No corporate tone. This is from a fellow creative.
 
-Never mention AI. Output the brief only, no preamble.`,
-              }],
-            }),
-          })
-          const briefData = await briefRes.json()
-          briefText = briefData.content?.[0]?.text?.trim() || ''
-        } catch { /* non-critical */ }
+Warm, direct, concise. No corporate tone. This is from a fellow creative. Never mention AI. Output the brief only, no preamble.`,
+              runPostCheck: false,
+            })
+            briefText = briefResult.text.trim()
+          } catch { /* non-critical */ }
+        }
 
         // Fallback brief if Claude fails
         if (!briefText) {

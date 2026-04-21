@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
+import { requireUser } from '@/lib/api-auth'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
+import { scrubBrandText } from '@/lib/scrubBrandText'
 
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
+
   try {
-    const apiKey = (await env('ANTHROPIC_API_KEY'))!
-    const { gigId, gigTitle, venue, date, promoterEmail, promoterName, artistName, location } = await req.json()
+    const { gigId, gigTitle, venue, date, promoterEmail, promoterName, location } = await req.json()
 
     const isLocal = location && /london|hackney|dalston|shoreditch|brixton|peckham|bermondsey|camden|islington/i.test(location)
 
@@ -19,84 +24,52 @@ export async function POST(req: NextRequest) {
       month: 'long',
       year: 'numeric',
     })
-    const artist = artistName || 'Night Manoeuvres'
     const promoter = promoterName || ''
 
-    const systemPrompt = `You write emails for ${artist}, an electronic music artist. Voice: warm, insider tone, mixed case (not all caps), emoji used sparingly as punctuation. Professional but never corporate. You sound like a real person who does this for a living — not a template.
+    const taskInstruction = `You write advance-request emails on behalf of the artist above. The artist name, casing rules, voice, and no-em-dash / no-AI-mention rules all come from the identity + rules blocks — follow them exactly.
 
-Never mention AI, automation, bots, or anything about how this email was generated. This reads like a hand-written email from the artist or their team.
+The email asks the promoter to fill in advance details for an upcoming show. Tone: warm insider, professional but never corporate, sounds like a real person who does this for a living.${
+      isLocal
+        ? '\n\nThis is a LOCAL gig (London area). No need to ask about hotels, transfers, or parking. Focus on the essentials: times, tech, and contact info.'
+        : '\n\nThis is an OUT-OF-TOWN gig. Travel logistics matter. Hotel, transfer, and parking questions belong here.'
+    }
 
-The email asks the promoter to fill in advance details for an upcoming show. Include all the advance questions INLINE in the email body so the promoter can just hit reply and fill them in. Also include a link to the online form as a backup option.${isLocal ? '\n\nThis is a LOCAL gig (London area) — no need to ask about hotels, transfers, or parking. Keep the questions focused on the essentials: times, tech, and contact info.' : '\n\nThis is an OUT-OF-TOWN gig — travel logistics matter. Make sure hotel, transfer, and parking questions are clearly included.'}
+Output valid JSON with exactly these keys (no markdown fences, raw JSON only):
+- "subject": short, natural subject line
+- "body": email body in plain text with line breaks`
 
-Output valid JSON with exactly these keys:
-- "subject": a short, natural subject line
-- "body": the email body in plain text with line breaks (used to generate both HTML and plain text versions)
+    const userPrompt = `Write a SHORT advance request email for this show:
 
-Do NOT wrap in markdown code fences. Output raw JSON only.`
-
-    const userPrompt = `Write an advance request email for this show:
-
-Artist: ${artist}
 Show: ${gigTitle}
 Venue: ${venue}
 Date: ${displayDate}
 ${promoter ? `Promoter name: ${promoter}` : 'Promoter name: not known'}
 Promoter email: ${promoterEmail}
 
-The email should:
-1. Open with a warm greeting${promoter ? ` to ${promoter}` : ''}
-2. Reference the show naturally
-3. Ask them to fill in the advance details below, either by replying to this email or using the online form
-4. Include these questions inline, formatted clearly so they can reply directly:
+Keep it very short. No inline questions. Just:
+1. Warm one-line greeting${promoter ? ` to ${promoter}` : ''}
+2. One sentence referencing the show naturally
+3. One sentence asking them to fill in advance details at the online form
+4. The form link on its own line: ${formUrl}
+5. Warm one-line close (e.g. "Cheers," / "Thanks," then sign off with the artist's name exactly as written in identity)
 
-   - Load-in / soundcheck time:
-   - Doors time:
-   - Set time / set length:${isLocal ? '' : `
-   - Parking available?:`}
-   - WiFi details (network + password):
-   - Dressing room / hospitality:${isLocal ? '' : `
-   - Hotel name + address (if being provided):
-   - Hotel check-in date + time:
-   - Airport/station transfer arranged? (driver name + phone + pickup details):`}
-   - Local contact name + phone:
-   - Any backline / technical requirements to note:
-   - Additional notes:
+Absolute max 6 short lines of body text plus the link. Promoters are busy. One paragraph, not a list.`
 
-5. Mention the online form link as a backup: ${formUrl}
-6. Close warmly
-
-Keep it concise — promoters are busy. One screen max.`
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        messages: [
-          { role: 'user', content: userPrompt },
-        ],
-        system: systemPrompt,
-      }),
+    const result = await callClaudeWithBrain({
+      userId,
+      task: 'gig.advance',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      userMessage: userPrompt,
+      taskInstruction,
     })
 
-    if (!response.ok) {
-      const errBody = await response.text()
-      throw new Error(`Claude API error: ${response.status} — ${errBody}`)
-    }
-
-    const result = await response.json()
-    const text = result.content?.[0]?.text || ''
+    const text = result.text || ''
 
     let parsed: { subject: string; body: string }
     try {
       parsed = JSON.parse(text)
     } catch {
-      // Try to extract JSON from the response if it has extra text
       const jsonMatch = text.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         parsed = JSON.parse(jsonMatch[0])
@@ -104,6 +77,11 @@ Keep it concise — promoters are busy. One screen max.`
         throw new Error('Failed to parse generated email content')
       }
     }
+
+    parsed.subject = scrubBrandText(parsed.subject || '')
+    parsed.body = scrubBrandText(parsed.body || '')
+
+    const artistLabel = result.operating_context.artist.name || 'advance request'
 
     // Convert plain text body to HTML email
     const bodyLines = parsed.body.split('\n')
@@ -115,7 +93,7 @@ Keep it concise — promoters are busy. One screen max.`
       .join('\n')
 
     const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;background:#050505;color:#f2f2f2;padding:40px;max-width:580px">
-  <div style="color:#ff2a1a;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:24px">NIGHT MANOEUVRES — ADVANCE REQUEST</div>
+  <div style="color:#ff2a1a;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:24px">${artistLabel} . advance request</div>
   <h2 style="margin:0 0 8px;font-size:20px;font-weight:600">${gigTitle}</h2>
   <p style="color:#909090;margin:0 0 24px;font-size:14px">${venue} &middot; ${displayDate}</p>
   <div style="color:#f2f2f2;font-size:14px;line-height:1.7">
@@ -127,7 +105,7 @@ Keep it concise — promoters are busy. One screen max.`
   <a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:6px;margin-top:40px;padding-top:20px;border-top:1px solid #1d1d1d;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#909090;text-decoration:none"><svg width="12" height="12" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" stroke-width="1.5" opacity="0.4"/><polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Powered by Signal Lab OS</a>
 </div>`
 
-    const plainText = parsed.body + `\n\n---\nOnline form: ${formUrl}\n\nPowered by Signal Lab OS — https://signallabos.com/waitlist`
+    const plainText = parsed.body + `\n\n---\nOnline form: ${formUrl}\n\nPowered by Signal Lab OS . https://signallabos.com/waitlist`
 
     return NextResponse.json({
       subject: parsed.subject,

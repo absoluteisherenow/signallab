@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SKILLS_CAMPAIGN, SKILL_ADS_MANAGER } from '@/lib/skillPrompts'
-import { env } from '@/lib/env'
+import { requireUser } from '@/lib/api-auth'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,8 +34,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
+
   try {
-    // Fetch release
+    // Fetch release, scoped to caller
     const { data: release, error: releaseError } = await supabase
       .from('releases')
       .select('*')
@@ -45,23 +50,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: 'Release not found' }, { status: 404 })
     }
 
-    // Fetch artist settings
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('profile')
-      .single()
-
-    const profile = settings?.profile || {}
-    const artistName = profile.name || 'the artist'
-    const genre = profile.genre || 'electronic music'
-    const voiceNotes = profile.style_rules || ''
-
     const releaseDate = new Date(release.release_date)
     const releaseDateStr = releaseDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
-    const systemPrompt = `You are a specialist music marketing strategist for electronic music with deep knowledge of what's actually working in 2024–2025. You've studied how artists like Objekt, Overmono, Four Tet, Burial, Floating Points, Peggy Gou, and similar acts build releases. You understand underground culture, what makes a post feel authentic vs corporate, and crucially — what the current platform algorithms reward.
+    const taskInstruction = `You are a specialist music marketing strategist for electronic music with deep knowledge of what's working in 2024–2025. You've studied how artists like Objekt, Overmono, Four Tet, Burial, Floating Points, Peggy Gou build releases. You understand underground culture, what makes a post feel authentic vs corporate, and what platform algorithms reward.
 
-You write in the artist's voice. Not marketing copy. Posts that feel like they came from a real person who makes music and occasionally talks about it online.
+Write in the artist's voice (see identity above). Not marketing copy. Posts that feel like they came from a real person who makes music and occasionally talks about it online.
 
 WHAT'S WORKING RIGHT NOW (incorporate this intelligence):
 - Audio preview clips drive 3-5x more saves and shares than static posts — 20–30 second Reel/TikTok previews of the most arresting section (not the intro, not the obvious hook — the moment that makes a DJ stop)
@@ -96,11 +90,8 @@ When generating the campaign, include a PAID AMPLIFICATION section at the end wi
 
     const userPrompt = `Generate a complete 10-post release campaign for:
 
-Artist: ${artistName}
-Genre/style: ${genre}
 Release: "${release.title}" — ${release.type} on ${release.label || 'independent'}
 Release date: ${releaseDateStr}
-${voiceNotes ? `Voice/style notes: ${voiceNotes}` : ''}
 ${release.notes ? `Release notes from artist: ${release.notes}` : ''}
 
 Generate exactly 10 posts:
@@ -143,7 +134,7 @@ React to what's actually happened — plays, DJ support, a message you received,
 For RA/blogs/label one-sheets. 2–3 sentences, third person. Describes the sound, mood, context. No hyperbole. Written the way Resident Advisor would actually run it.
 
 VOICE RULES:
-- Write in ${artistName}'s voice — minimal, understated, no corporate speak
+- Write in the artist's voice above — minimal, understated, no corporate speak
 - Lowercase-leaning unless the voice data says otherwise
 - No hashtags unless they feel entirely natural for this artist
 - Audio preview captions should be especially short — they exist to frame the clip
@@ -168,32 +159,19 @@ Keep dm_reply short (1-2 lines), genuine, conversational.
 
 Return only the JSON array, no other text.`
 
-    const apiKey = (await env('ANTHROPIC_API_KEY'))!
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+    const result = await callClaudeWithBrain({
+      userId,
+      task: 'release.rollout',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4000,
+      userMessage: userPrompt,
+      taskInstruction,
+      runPostCheck: false,
     })
-
-    if (!response.ok) {
-      throw new Error(`Anthropic API error: ${response.status}`)
-    }
-
-    const aiData = await response.json()
-    const raw = aiData.content?.[0]?.text || ''
 
     let posts: CampaignPost[] = []
     try {
-      const jsonMatch = raw.match(/\[[\s\S]*\]/)
+      const jsonMatch = result.text.match(/\[[\s\S]*\]/)
       if (jsonMatch) posts = JSON.parse(jsonMatch[0])
     } catch {
       return NextResponse.json({ error: 'Failed to parse campaign posts' }, { status: 500 })

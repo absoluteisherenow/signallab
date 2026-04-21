@@ -43,7 +43,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/waitlist', req.url))
   }
 
-  const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
+  // HMAC-signed invoice approval page — SMS recipient (Anthony) taps on
+  // mobile where he isn't logged in. The token IS the authorisation. Never
+  // force a login redirect here.
+  const isApprovePage = /^\/invoices\/[^/]+\/approve$/.test(pathname)
+
+  const isPublic = isApprovePage
+    || PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
     || pathname.startsWith('/api/auth')     // Supabase auth callbacks — public
     || pathname.startsWith('/auth')         // Supabase OAuth redirect — public
     || pathname.startsWith('/api/waitlist') // waitlist signup — public

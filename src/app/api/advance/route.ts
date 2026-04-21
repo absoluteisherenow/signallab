@@ -14,15 +14,17 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query
     if (error) throw error
 
-    // If a specific gig was requested, also return gig details + rider for the public advance form
+    // If a specific gig was requested, also return gig details + rider + prefill data for the public advance form
     let gig = null
     let techRider = null
     let hospitalityRider = null
+    let prefill: Record<string, string> = {}
     if (gigId) {
-      const [gigRes, settingsRes, advanceRes] = await Promise.all([
-        supabase.from('gigs').select('title, venue, date, location').eq('id', gigId).single(),
+      const [gigRes, settingsRes, advanceRes, travelRes] = await Promise.all([
+        supabase.from('gigs').select('title, venue, date, location, al_name, al_phone, driver_name, driver_phone, promoter_name, promoter_phone').eq('id', gigId).single(),
         supabase.from('artist_settings').select('tech_rider, hospitality_rider, tech_rider_presets, profile').single(),
-        supabase.from('advance_requests').select('rider_type').eq('gig_id', gigId).maybeSingle(),
+        supabase.from('advance_requests').select('*').eq('gig_id', gigId).maybeSingle(),
+        supabase.from('travel_bookings').select('*').eq('gig_id', gigId),
       ])
       gig = gigRes.data
       hospitalityRider = settingsRes.data?.hospitality_rider || null
@@ -35,9 +37,42 @@ export async function GET(req: NextRequest) {
       } else {
         techRider = settingsRes.data?.tech_rider || null
       }
+
+      // Prefill: start from any previously-saved advance row, layer on gig contacts + travel
+      const adv = advanceRes?.data as Record<string, any> | null
+      if (adv) {
+        const KEYS = [
+          'local_contact_name','local_contact_phone','driver_name','driver_contact',
+          'artist_liaison_name','artist_liaison_contact','videographer_name','videographer_contact',
+          'sound_tech_name','sound_tech_contact','set_time','running_order','additional_notes',
+          'hotel_name','hotel_address','hotel_checkin_date','hotel_checkin_time','hotel_reference',
+          'transfer_driver_name','transfer_driver_phone','transfer_pickup_location','transfer_pickup_time',
+        ]
+        for (const k of KEYS) if (adv[k]) prefill[k] = String(adv[k])
+      }
+      const g = gig as Record<string, any> | null
+      if (g) {
+        if (!prefill.local_contact_name && (g.promoter_name || g.al_name)) prefill.local_contact_name = g.promoter_name || g.al_name
+        if (!prefill.local_contact_phone && (g.promoter_phone || g.al_phone)) prefill.local_contact_phone = g.promoter_phone || g.al_phone
+        if (!prefill.driver_name && g.driver_name) prefill.driver_name = g.driver_name
+        if (!prefill.driver_contact && g.driver_phone) prefill.driver_contact = g.driver_phone
+      }
+      const travel = travelRes.data || []
+      const hotel = travel.find((t: any) => t.type === 'hotel')
+      if (hotel) {
+        if (!prefill.hotel_name && hotel.name) prefill.hotel_name = hotel.name
+        if (!prefill.hotel_address && hotel.from_location) prefill.hotel_address = hotel.from_location
+        if (!prefill.hotel_checkin_date && hotel.check_in) prefill.hotel_checkin_date = String(hotel.check_in).slice(0, 10)
+        if (!prefill.hotel_reference && hotel.reference) prefill.hotel_reference = hotel.reference
+      }
+      const transfer = travel.find((t: any) => t.source === 'advance' && (t.type === 'train' || t.type === 'transfer')) || travel.find((t: any) => t.type === 'transfer')
+      if (transfer) {
+        if (!prefill.transfer_driver_name && transfer.name) prefill.transfer_driver_name = transfer.name
+        if (!prefill.transfer_pickup_time && transfer.departure_at) prefill.transfer_pickup_time = transfer.departure_at
+      }
     }
 
-    return NextResponse.json({ requests: data || [], gig, techRider, hospitalityRider })
+    return NextResponse.json({ requests: data || [], gig, techRider, hospitalityRider, prefill })
   } catch (err: any) {
     if (err?.code === '42P01') return NextResponse.json({ requests: [], gig: null })
     return NextResponse.json({ error: err.message, requests: [], gig: null }, { status: 500 })

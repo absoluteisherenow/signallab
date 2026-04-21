@@ -19,6 +19,7 @@ export type NotificationType =
   | 'payment_received'
   | 'cron_error'
   | 'content_review'
+  | 'ads_action'
   | 'system'
 
 // Money-critical notification types — these get SMS + email by default

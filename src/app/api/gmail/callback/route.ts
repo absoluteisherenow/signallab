@@ -119,6 +119,9 @@ export async function GET(req: NextRequest) {
         refresh_token: refreshToken,
         token_expiry: expiryDate,
         updated_at: new Date().toISOString(),
+        needs_reauth: false,
+        last_error_at: null,
+        last_error: null,
       }, { onConflict: 'email' })
 
       if (upsertError) console.error('[gmail/callback] upsert error:', upsertError)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/api-auth'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
 
 export const dynamic = 'force-dynamic'
 
@@ -248,23 +248,15 @@ export async function GET(req: NextRequest) {
             : 'Nothing urgent requiring attention.',
         ].join(' ')
 
-        const apiKey = (await env('ANTHROPIC_API_KEY'))!
-        const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 150,
-            system: 'You are Signal Lab OS. Write a 2-sentence morning brief for an electronic music artist. Be concise and actionable. No emojis. No AI-sounding language.',
-            messages: [{ role: 'user', content: `Here is today's state:\n${stateDescription}` }],
-          }),
+        const claudeRes = await callClaude({
+          userId: gate.user.id,
+          feature: 'today_brief',
+          model: 'claude-sonnet-4-6',
+          max_tokens: 150,
+          system: 'You are Signal Lab OS. Write a 2-sentence morning brief for an electronic music artist. Be concise and actionable. No emojis. No AI-sounding language.',
+          messages: [{ role: 'user', content: `Here is today's state:\n${stateDescription}` }],
         })
-        const claudeData = await claudeRes.json()
-        brief = claudeData.content?.[0]?.text || null
+        brief = claudeRes.text || null
       } catch (err) {
         // Brief generation is non-critical — build a fallback
         console.error('Brief generation failed:', err)

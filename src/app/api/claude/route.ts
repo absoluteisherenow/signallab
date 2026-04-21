@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { env } from '@/lib/env'
+import type { TaskType } from '@/lib/rules/types'
+import { fetchActiveRules, runOutputChecks, logInvariants } from '@/lib/rules'
+import { getOperatingContext } from '@/lib/operatingContext'
 
 // -- SQL to create the cache table (run once in Supabase SQL editor) --
 // CREATE TABLE claude_cache (
@@ -15,11 +18,14 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// Haiku pricing (per 1M tokens, as of 2025)
+// Per-1M-token pricing. Opus-4-7 is required here because the new
+// caption + scanner polish passes route to it; without an entry the
+// cost logger falls back to Haiku pricing and massively underreports.
 const PRICING: Record<string, { input: number; output: number }> = {
   'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
   'claude-sonnet-4-6':        { input: 3.00, output: 15.00 },
   'claude-opus-4-6':          { input: 15.00, output: 75.00 },
+  'claude-opus-4-7':          { input: 15.00, output: 75.00 },
 }
 
 /** Simple non-cryptographic hash — good enough for cache keys */
@@ -114,7 +120,14 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model,
         max_tokens: body.max_tokens || 600,
-        ...(body.system && { system: body.system }),
+        // Wrap string system prompts in cache-enabled content blocks for 90%
+        // discount on repeated input tokens (Anthropic ephemeral cache, 5 min TTL).
+        // Array system prompts are passed through — caller already controls caching.
+        ...(body.system && {
+          system: typeof body.system === 'string'
+            ? [{ type: 'text', text: body.system, cache_control: { type: 'ephemeral' } }]
+            : body.system,
+        }),
         // Forward temperature when the caller passes it. Scanner pins 0 for
         // reproducible scoring; caption gen leaves it unset (defaults to 1).
         ...(typeof body.temperature === 'number' && { temperature: body.temperature }),
@@ -135,22 +148,52 @@ export async function POST(req: NextRequest) {
     }
     // --- End cache write ---
 
-    // Track usage in Supabase (fire and forget — don't block response)
+    // Track usage in Supabase (fire and forget — don't block response).
+    // Callers can pass `feature` in the body for granular cost attribution;
+    // defaults to 'claude_generic' so legacy callers still log cleanly.
     const inputTokens = data.usage?.input_tokens || 0
     const outputTokens = data.usage?.output_tokens || 0
+    const cacheReadTokens = data.usage?.cache_read_input_tokens || 0
+    const cacheWriteTokens = data.usage?.cache_creation_input_tokens || 0
     const pricing = PRICING[model] || PRICING['claude-haiku-4-5-20251001']
-    const costUsd = (inputTokens / 1_000_000) * pricing.input + (outputTokens / 1_000_000) * pricing.output
-    const month = new Date().toISOString().slice(0, 7)
+    const costUsd =
+      (inputTokens / 1_000_000) * pricing.input +
+      (outputTokens / 1_000_000) * pricing.output +
+      (cacheReadTokens / 1_000_000) * (pricing.input * 0.1) +
+      (cacheWriteTokens / 1_000_000) * (pricing.input * 1.25)
 
     supabase.from('api_usage').insert({
-      month,
+      user_id: body.userId || null,
+      feature: body.feature || 'claude_generic',
       model,
       input_tokens: inputTokens,
       output_tokens: outputTokens,
+      cache_read_tokens: cacheReadTokens,
+      cache_write_tokens: cacheWriteTokens,
       cost_usd: costUsd,
       called_at: new Date().toISOString(),
     }).then(() => {})
-    // Note: upsert adds to existing — handled via DB trigger or RPC ideally, but simple insert works for now
+
+    // Brain post-check: when caller passes `task` + `userId`, load operating
+    // context, run every applicable rule check against the output text, and
+    // log verdicts to invariant_log. Fire-and-forget so it never blocks.
+    // This is how chainCaptionGen (and future callers) feeds drift telemetry
+    // into the central brain without each feature rolling its own checker.
+    const task = body.task as TaskType | undefined
+    const userIdForBrain = typeof body.userId === 'string' ? body.userId : null
+    if (task && userIdForBrain) {
+      const outputText: string = data?.content?.[0]?.text || ''
+      void (async () => {
+        try {
+          const ctx = await getOperatingContext({ userId: userIdForBrain, task })
+          const rules = ctx.rules.length ? ctx.rules : await fetchActiveRules({ userId: userIdForBrain, task })
+          const verdicts = runOutputChecks(outputText, rules, ctx)
+          await logInvariants({ userId: userIdForBrain, task, verdicts, outputSample: outputText })
+        } catch {
+          // Telemetry must never break the primary call.
+        }
+      })()
+    }
 
     return NextResponse.json(data, {
       headers: { 'x-cache': 'MISS' },

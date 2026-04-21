@@ -25,7 +25,7 @@ import { getGmailClients } from '@/lib/gmail-accounts'
 import { createNotification } from '@/lib/notifications'
 import { requireCronAuth } from '@/lib/cron-auth'
 import { requireUser } from '@/lib/api-auth'
-import { env } from '@/lib/env'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 // Service role — needed to:
 //  (a) read tokens from connected_email_accounts (bypass RLS)
@@ -154,6 +154,7 @@ function extractEmailBody(payload: any): string {
 // ── Claude email classifier ────────────────────────────────────────────────
 
 async function classifyEmail(
+  userId: string,
   from: string,
   subject: string,
   body: string,
@@ -166,18 +167,7 @@ async function classifyEmail(
       ).join('\n')}`
     : 'No gigs in the OS yet.'
 
-  const apiKey = (await env('ANTHROPIC_API_KEY'))!
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 800,
-      system: `You are an email classifier for a DJ/electronic music artist. Classify incoming emails and extract relevant info. Return ONLY valid JSON.
+  const taskInstruction = `You are an email classifier for a DJ/electronic music artist. Classify incoming emails and extract relevant info. Return ONLY valid JSON.
 
 ${gigsContext}
 
@@ -287,31 +277,36 @@ Return:
     // For gig_update:
     "update": "one sentence summary of the change"
   }
-}`,
-      messages: [{
-        role: 'user',
-        content: pdfs.length > 0
-          ? [
-              {
-                type: 'text',
-                text: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}\n\n(${pdfs.length} PDF attachment${pdfs.length > 1 ? 's' : ''} included — extract fields from them too.)`,
-              },
-              ...pdfs.map(pdf => ({
-                type: 'document' as const,
-                source: {
-                  type: 'base64' as const,
-                  media_type: 'application/pdf' as const,
-                  data: pdf.base64,
-                },
-              })),
-            ]
-          : `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}`,
-      }],
-    }),
+}`
+
+  const userContent = pdfs.length > 0
+    ? [
+        {
+          type: 'text' as const,
+          text: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}\n\n(${pdfs.length} PDF attachment${pdfs.length > 1 ? 's' : ''} included — extract fields from them too.)`,
+        },
+        ...pdfs.map(pdf => ({
+          type: 'document' as const,
+          source: {
+            type: 'base64' as const,
+            media_type: 'application/pdf' as const,
+            data: pdf.base64,
+          },
+        })),
+      ]
+    : `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}`
+
+  const result = await callClaudeWithBrain({
+    userId,
+    task: 'gmail.scan',
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 800,
+    taskInstruction,
+    messagesOverride: [{ role: 'user', content: userContent }],
+    runPostCheck: false,
   })
 
-  const data = await res.json()
-  const text = data.content?.[0]?.text || '{}'
+  const text = result.text || '{}'
   return JSON.parse(text.replace(/```json|```/g, '').trim())
 }
 
@@ -875,7 +870,7 @@ async function processAccount(userId: string, gmail: any, accountEmail: string, 
 
     let classification: any
     try {
-      classification = await classifyEmail(from, subject, body, gigs, pdfs)
+      classification = await classifyEmail(userId, from, subject, body, gigs, pdfs)
     } catch {
       continue
     }

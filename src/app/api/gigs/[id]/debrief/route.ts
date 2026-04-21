@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
-import { env } from '@/lib/env'
+import { requireUser } from '@/lib/api-auth'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,6 +10,10 @@ const supabase = createClient(
 )
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
+
   try {
     const { rating, notes, standout_track_ids } = await req.json()
     const gigId = params.id
@@ -76,34 +81,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         .eq('id', linkedSet.id)
     }
 
-    // Generate post-gig caption via Claude
+    // Generate post-gig caption through the brain — artist identity, voice,
+    // and casing rules come from ctx so we don't need to load artist_settings.
     let caption = ''
     try {
-      const { data: settings } = await supabase
-        .from('artist_settings')
-        .select('artist_name')
-        .single()
-      const artistName = settings?.artist_name || 'Artist'
-
-      const apiKey = (await env('ANTHROPIC_API_KEY'))!
-      const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 150,
-          messages: [{
-            role: 'user',
-            content: `Write a short post-gig Instagram caption for ${artistName} after playing at ${gig.venue}. Rating: ${rating}/5. Notes: ${notes || 'none'}. Keep it under 20 words, lowercase, no hashtags, honest and direct.`,
-          }],
-        }),
+      const result = await callClaudeWithBrain({
+        userId,
+        task: 'gig.recap',
+        model: 'claude-sonnet-4-6',
+        max_tokens: 150,
+        userMessage: `Post-gig Instagram caption. Venue: ${gig.venue}. Rating: ${rating}/5. Notes: ${notes || 'none'}.`,
+        taskInstruction: 'Write a short post-gig Instagram caption. Under 20 words, lowercase where natural, no hashtags, honest and direct. Output ONLY the caption text — no preamble.',
       })
-      const aiData = await aiRes.json()
-      caption = aiData.content?.[0]?.text?.trim() || ''
+      caption = result.text.trim()
     } catch {
       caption = `${gig.venue} — done.`
     }

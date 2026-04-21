@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getGmailClients } from '@/lib/gmail-accounts'
 import { requireUser } from '@/lib/api-auth'
-import { env } from '@/lib/env'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 // Service role for cross-tenant idempotency lookups. Every query below MUST
 // filter by user.id manually — never trust this client to auto-scope.
@@ -83,29 +83,18 @@ async function fetchPdfsForClaude(
   return out
 }
 
-async function classifyEmail(from: string, subject: string, body: string, existingGigs: any[], pdfs: Array<{ filename: string; base64: string }> = []): Promise<any> {
+async function classifyEmail(userId: string, from: string, subject: string, body: string, existingGigs: any[], pdfs: Array<{ filename: string; base64: string }> = []): Promise<any> {
   const gigsContext = existingGigs.length
     ? `Existing gigs:\n${existingGigs.map(g => `- ID: ${g.id} | ${g.title} @ ${g.venue}, ${g.location} on ${g.date}`).join('\n')}`
     : 'No gigs yet.'
 
-  const apiKey = (await env('ANTHROPIC_API_KEY'))!
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 800,
-      system: `You are an email classifier for a DJ/electronic music artist. Classify incoming emails. Return ONLY valid JSON.
+  const taskInstruction = `You are an email classifier for a DJ/electronic music artist. Classify incoming emails. Return ONLY valid JSON.
 
 ${gigsContext}
 
 Email types: new_gig, hotel, flight, train, tech_spec, rider, invoice, invoice_request, billing_info, release, gig_update, remittance, ignore.
 "remittance" = payment received / remittance advice / bank transfer confirmation / wire transfer notification. Keywords: remittance, payment advice, "payment has been made", "funds transferred", BACS, SWIFT.
-"invoice_request" = someone asking Anthony to send an invoice or specifying where to bill. Keywords: "please invoice", "send the invoice to", "bill us at", "our accounts email".
+"invoice_request" = someone asking to send an invoice or specifying where to bill. Keywords: "please invoice", "send the invoice to", "bill us at", "our accounts email".
 "billing_info" = company billing / VAT / finance details for an existing gig (VAT number, company name, PO number, billing address).
 
 Return: {"type":"...","confidence":0.0-1.0,"gig_id":"uuid or null","extracted":{
@@ -120,24 +109,29 @@ Return: {"type":"...","confidence":0.0-1.0,"gig_id":"uuid or null","extracted":{
   // tech_spec / rider: details
   // gig_update: update
   // remittance: amount, currency, sender_name, reference, gig_title, payment_date, description
-}}`,
-      messages: [{
-        role: 'user',
-        content: pdfs.length > 0
-          ? [
-              { type: 'text', text: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}\n\n(${pdfs.length} PDF attachment${pdfs.length > 1 ? 's' : ''} included — extract fields from them too.)` },
-              ...pdfs.map(pdf => ({
-                type: 'document' as const,
-                source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: pdf.base64 },
-              })),
-            ]
-          : `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}`,
-      }],
-    }),
+}}`
+
+  const userContent = pdfs.length > 0
+    ? [
+        { type: 'text', text: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}\n\n(${pdfs.length} PDF attachment${pdfs.length > 1 ? 's' : ''} included — extract fields from them too.)` },
+        ...pdfs.map(pdf => ({
+          type: 'document' as const,
+          source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: pdf.base64 },
+        })),
+      ]
+    : `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.slice(0, 3000)}`
+
+  const result = await callClaudeWithBrain({
+    userId,
+    task: 'gmail.scan',
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 800,
+    taskInstruction,
+    messagesOverride: [{ role: 'user', content: userContent }],
+    runPostCheck: false,
   })
 
-  const data = await res.json()
-  const text = data.content?.[0]?.text || '{}'
+  const text = result.text || '{}'
   return JSON.parse(text.replace(/```json|```/g, '').trim())
 }
 
@@ -225,7 +219,7 @@ export async function GET(req: NextRequest) {
             : []
 
           try {
-            const classification = await classifyEmail(from, subject, body, gigs || [], pdfs)
+            const classification = await classifyEmail(userId, from, subject, body, gigs || [], pdfs)
             if (classification.confidence >= 0.5 && classification.type !== 'ignore') {
               allFindings.push({
                 messageId: msg.id,

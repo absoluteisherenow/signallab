@@ -14,32 +14,56 @@ import { evaluateScalingRules, ScalingInput } from '@/lib/growth/scaling-rules'
  *
  * One round-trip keeps the page snappy (core UX rule: show the intelligence,
  * keep it streamlined).
+ *
+ * Tenant scoping: all rows are filtered by the caller's user_id. The IG handle
+ * is derived from artist_settings.profile.instagram — if the caller hasn't set
+ * one yet, trajectory surfaces return empty (onboarding state, not an error).
  */
-const NM_HANDLE = '@nightmanoeuvres'
 
 export async function GET(req: NextRequest) {
   const gate = await requireUser(req)
   if (gate instanceof NextResponse) return gate
 
+  const userId = gate.user.id
   const sb = gate.serviceClient
+
+  // Derive the caller's IG handle from their profile. If missing, trajectory
+  // and monthly-target queries skip the network round-trip and return empty.
+  const { data: settingsRow } = await sb
+    .from('artist_settings')
+    .select('profile')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  const profileIg = ((settingsRow?.profile ?? {}) as { instagram?: string | null }).instagram
+  const rawHandle = (profileIg || '').trim().replace(/^@/, '')
+  const igHandle = rawHandle ? `@${rawHandle}` : null
 
   // ─── Trajectory: follower history + monthly targets ─────────────────────
   const [{ data: followerHistory }, { data: monthlyTargets }] = await Promise.all([
-    sb
-      .from('follower_snapshots')
-      .select('captured_for_date, followers_count')
-      .eq('handle', NM_HANDLE)
-      .order('captured_for_date', { ascending: true }),
-    sb
-      .from('growth_monthly_targets')
-      .select('month, planned_spend_gbp, projection_conservative, projection_realistic, projection_optimistic, notes')
-      .eq('handle', NM_HANDLE)
-      .order('month', { ascending: true }),
+    igHandle
+      ? sb
+          .from('follower_snapshots')
+          .select('captured_for_date, followers_count')
+          .eq('user_id', userId)
+          .eq('handle', igHandle)
+          .order('captured_for_date', { ascending: true })
+      : Promise.resolve({ data: [] as Array<{ captured_for_date: string; followers_count: number | null }> }),
+    igHandle
+      ? sb
+          .from('growth_monthly_targets')
+          .select('month, planned_spend_gbp, projection_conservative, projection_realistic, projection_optimistic, notes')
+          .eq('user_id', userId)
+          .eq('handle', igHandle)
+          .order('month', { ascending: true })
+      : Promise.resolve({ data: [] as Array<{ month: string; planned_spend_gbp: number | null; projection_conservative: number | null; projection_realistic: number | null; projection_optimistic: number | null; notes: string | null }> }),
   ])
 
   const currentFollowers = followerHistory?.at(-1)?.followers_count ?? null
   const targetFollowers = 10000
-  const baselineFollowers = followerHistory?.[0]?.followers_count ?? currentFollowers ?? 1318
+  // Never-fabricate: if we have no history, baseline stays null. No NM-specific
+  // fallback — that would bleed one tenant's figure into another's dashboard.
+  const baselineFollowers = followerHistory?.[0]?.followers_count ?? currentFollowers ?? null
 
   // ─── Active campaigns (for funnel + scaling rules) ──────────────────────
   const { data: activeCampaigns } = await sb
@@ -172,6 +196,7 @@ export async function GET(req: NextRequest) {
   const { data: captureMoments } = await sb
     .from('growth_capture_moments')
     .select('id, moment_date, label, why, content_captured, gig_id')
+    .eq('user_id', userId)
     .order('moment_date', { ascending: true })
 
   // ─── Verdict: on track vs projection ────────────────────────────────────

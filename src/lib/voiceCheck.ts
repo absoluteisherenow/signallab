@@ -24,6 +24,27 @@ const CLICHES = [
   /\brealm\b/i,
   /\bin (today'?s|the) (digital )?landscape\b/i,
   /\bat the forefront\b/i,
+  // Process-poetry tells — specifically the NM-flagged failure mode:
+  // "no arrangement, no safety net, just seeing what holds up when we play
+  // it through. more of this coming." These are the exact phrases that
+  // slipped past the prompt layer. Hard-catch them here.
+  /\bsafety net\b/i,
+  /\bno arrangement\b/i,
+  /\bno script\b/i,
+  /\bno blueprint\b/i,
+  /\bno rehearsal\b/i,
+  /\bno plan\b/i,
+  /\bjust seeing\b/i,
+  /\bseeing what (holds|sticks|lands|breaks)\b/i,
+  /\bwhat holds up\b/i,
+  /\bplay(ing)? it through\b/i,
+  /\bsee(ing)? it through\b/i,
+  /\brun(ning)? it through\b/i,
+  /\bbuilding (it |them |the )?out\b/i,
+  /\bmore (of this )?coming\b/i,
+  /\bmore soon\b/i,
+  /\bfiguring (it )?out\b/i,
+  /\bworking through\b/i,
 ]
 const SUPERLATIVES = [
   /\bunbeliev(able|ably)\b/i,

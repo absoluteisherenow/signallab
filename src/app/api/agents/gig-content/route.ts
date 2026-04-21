@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createNotification } from '@/lib/notifications'
 import { requireUser } from '@/lib/api-auth'
-import { env } from '@/lib/env'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 // POST /api/agents/gig-content
 // Called internally after a confirmed gig is created.
@@ -20,9 +20,6 @@ export async function POST(req: NextRequest) {
   try {
     const { gigId } = await req.json()
     if (!gigId) return NextResponse.json({ error: 'gigId required' }, { status: 400 })
-
-    const apiKey = await env('ANTHROPIC_API_KEY')
-    if (!apiKey) return NextResponse.json({ error: 'No ANTHROPIC_API_KEY' }, { status: 500 })
 
     // Fetch the gig — scoped to the caller. Prevents cross-tenant content gen.
     const { data: gig, error: gigError } = await supabase
@@ -50,45 +47,33 @@ export async function POST(req: NextRequest) {
     // Set all to 10:00 local time
     ;[preShowDate, dayOfDate, postShowDate].forEach(d => d.setHours(10, 0, 0, 0))
 
-    const prompt = `Generate 3 social media post captions for a DJ/electronic music artist (Night Manoeuvres).
-
-Gig details:
+    // Brain wraps: loads operating context (artist identity, casing, voice,
+    // priority mission, active rules) so no hardcoded "Night Manoeuvres".
+    const userMessage = `Gig details:
 - Venue: ${venue}${location ? ` in ${location}` : ''}
-- Date: ${dayOfWeek} ${formattedDate}
+- Date: ${dayOfWeek} ${formattedDate}`
 
-Write exactly 3 captions. Keep each under 30 words. Lowercase. No hashtags. No emojis unless they really land. Minimal punctuation. Return ONLY valid JSON — no markdown, no explanation:
+    const taskInstruction = `Generate exactly 3 Instagram captions for this gig: one pre-show (3 days before), one day-of (behind-the-scenes angle), one post-show (day-after recap).
+
+Keep each under 30 words. Lowercase. No hashtags. No emojis unless they truly land. Minimal punctuation. Return ONLY valid JSON — no markdown, no explanation:
 
 [
-  {
-    "type": "pre_show",
-    "caption": "3-days-before hype post — e.g. 'playing ${venue} this ${dayOfWeek}...'"
-  },
-  {
-    "type": "day_of",
-    "caption": "gig day — behind the scenes angle, feeling in the room"
-  },
-  {
-    "type": "post_show",
-    "caption": "day after recap — e.g. 'last night at ${venue}...'"
-  }
+  { "type": "pre_show", "caption": "..." },
+  { "type": "day_of", "caption": "..." },
+  { "type": "post_show", "caption": "..." }
 ]`
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 400,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    const brain = await callClaudeWithBrain({
+      userId: user.id,
+      task: 'gig.content',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 500,
+      userMessage,
+      taskInstruction,
+      runPostCheck: false, // JSON-wrapper; per-caption checks run on generation
     })
 
-    const aiData = await response.json()
-    const raw = aiData.content?.[0]?.text?.trim() || '[]'
+    const raw = brain.text.trim() || '[]'
 
     let drafts: { type: string; caption: string }[] = []
     try {

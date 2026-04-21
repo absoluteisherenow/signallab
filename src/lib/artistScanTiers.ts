@@ -12,6 +12,7 @@ export const ARTIST_SCAN_TIERS: Record<PlanTier, { monthlyLimit: number }> = {
   creator:    { monthlyLimit: 5   },
   artist:     { monthlyLimit: 15  },
   pro:        { monthlyLimit: 40  },
+  road:       { monthlyLimit: 100 },
   management: { monthlyLimit: 100 },
 }
 

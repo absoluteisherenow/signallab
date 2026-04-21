@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SKILLS_ASSISTANT_CONTENT, SKILL_ADS_MANAGER, SKILL_INSTAGRAM_GROWTH } from '@/lib/skillPrompts'
 import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -505,29 +506,20 @@ USER QUERY: "${body.query.trim()}"
 Respond with the appropriate JSON structure. Be specific, direct, and actionable. Use real data from ARTIST DATA above.`
 
   try {
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+    const claudeRes = await callClaude({
+      feature: 'assistant',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1200,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const data = await anthropicRes.json()
-
-    if (!anthropicRes.ok) {
-      const msg = data?.error?.message || `Anthropic API error ${anthropicRes.status}`
-      return NextResponse.json({ error: msg }, { status: anthropicRes.status, headers: corsHeaders })
+    if (!claudeRes.ok) {
+      const msg = claudeRes.data?.error?.message || `Anthropic API error ${claudeRes.status}`
+      return NextResponse.json({ error: msg }, { status: claudeRes.status, headers: corsHeaders })
     }
 
-    const rawText: string = data?.content?.[0]?.text ?? ''
+    const rawText: string = claudeRes.text
     if (!rawText) {
       return NextResponse.json({ error: 'Empty response' }, { status: 502, headers: corsHeaders })
     }

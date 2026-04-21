@@ -4,12 +4,26 @@
 // Cost per scan: ~£0.004 (Haiku API)
 // Update these when pricing is finalised
 
-export type PlanTier = 'creator' | 'artist' | 'pro' | 'management'
+export type PlanTier = 'creator' | 'artist' | 'pro' | 'management' | 'road'
+
+// Inbox-scanner cadence in minutes. Cron fires every 5min at the CF layer,
+// but each user's scan is gated against this floor — "worst-case latency"
+// from a new email arriving to the scanner picking it up.
+// Dedup via processed_invoice_gmail_ids means cadence doesn't drive cost;
+// it only sets how stale a user's inbox is allowed to get.
+export const SCANNER_CADENCE_MIN: Record<PlanTier, number> = {
+  creator: 120,
+  artist: 60,
+  pro: 30,
+  road: 5,
+  management: 5,
+}
 
 export const SCAN_TIERS: Record<PlanTier, { batchLimit: number; monthlyLimit: number }> = {
   creator:    { batchLimit: 3,  monthlyLimit: 20  },
   artist:     { batchLimit: 10, monthlyLimit: 60  },
   pro:        { batchLimit: 25, monthlyLimit: 150 },
+  road:       { batchLimit: 50, monthlyLimit: 400 },
   management: { batchLimit: 50, monthlyLimit: 400 },
 }
 

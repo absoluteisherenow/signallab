@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
 import { requireCronAuth } from '@/lib/cron-auth'
-import { env } from '@/lib/env'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 // Service role: iterates every tenant's yesterday-gigs and must read
 // post_performance (shared intelligence table, not per-tenant).
@@ -11,50 +11,48 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-async function generateRecap(gig: any, posts: any[], performance: any[], sets: any) {
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) return null
+// Brain-wired recap generator. Returns null if we have no userId to attach
+// the brain context to — the cron still writes a generic debrief prompt
+// notification, so null here is an acceptable no-op.
+async function generateRecap(
+  userId: string | undefined,
+  gig: any,
+  posts: any[],
+  performance: any[],
+  sets: any,
+) {
+  if (!userId) return null
 
-  const recapPrompt = `Generate a brief gig recap for the artist. Use ONLY the data provided — never invent statistics.
-
-Gig: ${gig.title} at ${gig.venue}, ${gig.location}
+  const userMessage = `Gig: ${gig.title} at ${gig.venue}, ${gig.location}
 Date: ${gig.date}
 
 ${posts?.length ? `Posts created: ${posts.length}` : 'No posts created for this gig'}
 ${performance?.length ? `Post performance:\n${performance.map((p: any) => `- ${p.caption?.slice(0, 50)}... | ${p.likes || 0} likes, ${p.comments || 0} comments`).join('\n')}` : ''}
-${sets ? `Set played: ${sets.name || 'Unnamed'} (${(sets.dj_tracks || []).length} tracks)` : 'No set linked'}
+${sets ? `Set played: ${sets.name || 'Unnamed'} (${(sets.dj_tracks || []).length} tracks)` : 'No set linked'}`
+
+  const taskInstruction = `Generate a brief gig recap. Use ONLY the data provided — never invent statistics or numbers.
 
 Write a 2-3 sentence recap in a warm, professional tone. Include:
-- A headline stat if data exists (e.g. reach, engagement)
+- A headline observation if data exists (engagement, reach, etc.)
 - One actionable suggestion for follow-up content
 - If no performance data, suggest posting a recap/thank you
 
-Do NOT mention AI, automation, or how this was generated. Sound like a knowledgeable music industry professional.
-Return JSON: { "title": "short title", "message": "the recap text", "suggested_post": "optional follow-up caption" }`
+Do NOT mention AI, automation, or how this was generated.
+Return ONLY JSON (no markdown fences): { "title": "short title", "message": "the recap text", "suggested_post": "optional follow-up caption" }`
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 600,
-        messages: [{ role: 'user', content: recapPrompt }],
-      }),
+    const result = await callClaudeWithBrain({
+      userId,
+      task: 'gig.recap',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 600,
+      userMessage,
+      taskInstruction,
+      runPostCheck: false,
     })
 
-    const data = await response.json()
-    if (!response.ok) return null
-
-    const text = data.content?.[0]?.text || ''
-    // Extract JSON from response (handle markdown code blocks)
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    const jsonMatch = result.text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) return null
-
     return JSON.parse(jsonMatch[0])
   } catch {
     return null
@@ -174,8 +172,8 @@ export async function GET(req: NextRequest) {
         const performance = performanceResult.data || []
         const sets = setsResult.data
 
-        // Generate recap with Claude Sonnet
-        const recap = await generateRecap(gig, posts, performance, sets)
+        // Generate recap through the brain, scoped to the gig's owner
+        const recap = await generateRecap(gigOwnerId, gig, posts, performance, sets)
 
         if (recap) {
           // Create recap notification

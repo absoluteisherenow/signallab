@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,18 +59,18 @@ async function extractContractWithClaude(
 }> {
   const combinedText = [emailBody, ...attachmentTexts].join('\n\n')
 
-  const apiKey = (await env('ANTHROPIC_API_KEY'))!
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1400,
-      system: `You are a contract parser for a music artist. Extract all gig and rider details from booking emails and attachments. Return ONLY valid JSON (no markdown or explanation). If a field is missing, use null. Date format: YYYY-MM-DD. Time format: HH:MM (24h). Fee as number.
+  // Inbound webhook has no user context — the email arrives at a shared intake
+  // address before we know which tenant it belongs to. Routes via the base
+  // callClaude wrapper (userId=null) so api_usage still logs the cost; the
+  // extraction is pure structural parsing, no voice/rules involvement.
+  // TODO: once we wire user routing on inbound (To: → artist_profiles alias),
+  // lift this into callClaudeWithBrain with the resolved tenant.
+  const response = await callClaude({
+    userId: null,
+    feature: 'contracts_email_extract',
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1400,
+    system: `You are a contract parser for a music artist. Extract all gig and rider details from booking emails and attachments. Return ONLY valid JSON (no markdown or explanation). If a field is missing, use null. Date format: YYYY-MM-DD. Time format: HH:MM (24h). Fee as number.
 
 For techRider: extract the technical setup being provided by the venue — DJ equipment (CDJ model, mixer model), PA system, booth dimensions, monitor setup, soundcheck time. Write as concise bullet-point lines joined with newlines.
 For hospitalityRider: extract what the promoter is providing — hotel nights, catering, transport/airport pickup, green room, guest list allocation. Write as concise bullet-point lines joined with newlines.
@@ -91,21 +91,19 @@ Return:
   "techRider": "line 1\nline 2\nline 3" or null,
   "hospitalityRider": "line 1\nline 2\nline 3" or null
 }`,
-      messages: [
-        {
-          role: 'user',
-          content: `Extract gig details from this contract:\n\n${combinedText}`,
-        },
-      ],
-    }),
+    messages: [
+      {
+        role: 'user',
+        content: `Extract gig details from this contract:\n\n${combinedText}`,
+      },
+    ],
   })
 
-  const data = await res.json()
-  if (!res.ok) {
-    throw new Error(`Claude error: ${data.error?.message || 'Unknown error'}`)
+  if (!response.ok) {
+    throw new Error(`Claude error: ${response.data?.error?.message || 'Unknown error'}`)
   }
 
-  const content = data.content?.[0]?.text || '{}'
+  const content = response.text || '{}'
   return JSON.parse(content.replace(/```json|```/g, '').trim())
 }
 

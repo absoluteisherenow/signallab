@@ -41,9 +41,18 @@ async function refreshAccessToken(tokens: GmailTokens): Promise<string> {
       grant_type: 'refresh_token',
     }),
   })
-  const data = await res.json() as { access_token?: string; expires_in?: number }
+  const data = await res.json() as { access_token?: string; expires_in?: number; error?: string; error_description?: string }
   if (!data.access_token) {
-    throw new Error('Failed to refresh Gmail access token')
+    // invalid_grant = refresh token revoked/expired. Flag account so scanner
+    // skips it silently on future runs until user reconnects in Settings.
+    if (data.error === 'invalid_grant' && tokens.accountId && tokens.accountId !== 'legacy') {
+      await supabase.from('connected_email_accounts').update({
+        needs_reauth: true,
+        last_error_at: new Date().toISOString(),
+        last_error: data.error_description || data.error,
+      }).eq('id', tokens.accountId)
+    }
+    throw new Error(`Failed to refresh Gmail access token: ${data.error || 'unknown'}`)
   }
   // Persist refreshed token
   const newExpiry = Date.now() + (data.expires_in || 3600) * 1000
@@ -165,6 +174,7 @@ export async function getGmailClients(userId: string): Promise<Array<{
     .from('connected_email_accounts')
     .select('*')
     .eq('user_id', userId)
+    .or('needs_reauth.is.null,needs_reauth.eq.false')
     .order('created_at', { ascending: true })
 
   if (!accounts || accounts.length === 0) {
@@ -269,6 +279,18 @@ export async function listConnectedAccounts(userId: string): Promise<ConnectedAc
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
   return (data || []) as ConnectedAccount[]
+}
+
+// List accounts flagged as needing reauth — scanner surfaces these so user
+// can reconnect via Settings instead of scanning silently failing forever.
+export async function listAccountsNeedingReauth(userId: string): Promise<Array<{ id: string; email: string; label: string }>> {
+  if (!userId) return []
+  const { data } = await supabase
+    .from('connected_email_accounts')
+    .select('id, email, label')
+    .eq('user_id', userId)
+    .eq('needs_reauth', true)
+  return (data || []) as Array<{ id: string; email: string; label: string }>
 }
 
 // Double-scoped on BOTH id and user_id — prevents a user from disconnecting

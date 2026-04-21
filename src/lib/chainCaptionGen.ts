@@ -9,6 +9,7 @@
 
 import { SKILLS_CAPTION_GEN } from './skillPromptsClient'
 import { scrubAiTells } from './voiceCheck'
+import { scrubBrandText } from './scrubBrandText'
 import type { ChainScanResult } from './chainScan'
 import type { VoiceRef, Platform, CaptionVariant } from '@/components/broadcast/chain/types'
 import { PLATFORM_LABEL, PLATFORM_LIMITS } from '@/components/broadcast/chain/types'
@@ -116,7 +117,66 @@ function weightedStructural(refs: VoiceRef[]): {
   }
 }
 
+/**
+ * Format the FULL scanner read as a block Claude can anchor to.
+ *
+ * Before this existed, caption gen only saw `tone_match` and `tags` — two
+ * strings out of ~12 fields of rich intelligence the scanner had already
+ * produced (the best moment, what's shareable, what the post is FOR, the
+ * platform fit + reasoning, the energy score). That meant the scanner and
+ * the voice generator were effectively disconnected — the scanner knew the
+ * clip was "Dot on the OB-6 at 2:14 AM" and the caption gen only saw
+ * "studio, intimate". The fortune-cookie failure mode was baked in.
+ *
+ * This block wires every concrete noun the scanner identified directly into
+ * the caption prompt, so Claude can never write "new." when the scanner
+ * already said "Dot doing an OB-6 pad at the 14s mark."
+ */
+function buildScannerBlock(scan: ChainScanResult): string {
+  // Dedupe moment reasons from best_moment + moments[]. Cap to 4 so Claude
+  // has specifics but doesn't over-fit to a transient.
+  const reasons = new Set<string>()
+  if (scan.best_moment?.reason) reasons.add(scan.best_moment.reason.trim())
+  for (const m of scan.moments || []) {
+    if (m?.reason) reasons.add(m.reason.trim())
+    if (reasons.size >= 4) break
+  }
+
+  const bits: string[] = []
+  if (scan.wow_note) bits.push(`Editorial director's WOW read: ${scan.wow_note.trim()}`)
+  if (scan.editorial_angle) bits.push(`Editorial posting call: ${scan.editorial_angle.trim()}`)
+  if (scan.caption_context) bits.push(`What the clip's about: ${scan.caption_context.trim()}`)
+  if (scan.post_recommendation) bits.push(`What to do with it: ${scan.post_recommendation.trim()}`)
+  if (scan.content_score?.shareable_core_note && scan.content_score.shareable_core_note.toLowerCase() !== 'none found') {
+    bits.push(`The shareable core: ${scan.content_score.shareable_core_note.trim()}`)
+  }
+  if (reasons.size) bits.push(`Moments the scanner flagged:\n  - ${Array.from(reasons).join('\n  - ')}`)
+  if (typeof scan.overall_energy === 'number') bits.push(`Energy read: ${scan.overall_energy}/10`)
+  if (scan.tone_match) bits.push(`Closest tone reference: ${scan.tone_match.trim()}`)
+  if (scan.tags?.length) bits.push(`Tags: ${scan.tags.slice(0, 8).join(', ')}`)
+  const top = [...(scan.platform_ranking || [])].sort((a, b) => b.score - a.score)[0]
+  if (top) bits.push(`Best platform fit: ${top.platform} (${top.score}/100) — ${top.reason}`)
+
+  if (!bits.length) {
+    return `SCANNER READ (content analysis of the actual image/video):
+(no structured read available — rely on the image only)`
+  }
+
+  return `SCANNER READ — this is what a deep vision scan ALREADY identified in the exact image/video you are looking at. These are facts, not prompts. Treat every concrete noun below as available material for the caption. If the scanner named a specific subject (a collaborator, a gear piece, a moment, a setting), you MAY surface it in a variant — it is not invented, it is confirmed visible. You must NOT write in a way that contradicts the scanner's read.
+
+${bits.join('\n')}
+
+RULES FOR USING THE SCANNER READ:
+- The scanner's job is to tell you what the clip is FOR (studio / press / live / release), not to script the caption. Use the ANGLE, not the noun-pile.
+- Gear model names from the scanner are GUESSES unless the context line confirms them. The scanner cannot read serial numbers — it guesses "Nord" or "OB-6" from silhouettes. NEVER surface a specific gear model from the scanner alone. Only surface a gear model if: (a) the context line names it, OR (b) it is NM's canonical rig (4× CDJ-3000, V10, Technics 1210s, OB-6, Ableton Move) AND the scanner agrees. If in doubt, use generic ("synth", "the rig", "studio"), not the model.
+- If the user's CONTEXT line is present, the context is the PRIMARY angle; the scanner is confirmation + detail. If context is absent, the scanner read supplies the subject (not the narration).
+- Never contradict the scanner on POST TYPE. If the scanner says "studio shot", do NOT write "live." or invent a venue.
+- Do NOT parrot the scanner's language verbatim ("the shareable core is..."). Translate it into NM voice.
+- NEVER convert the scanner's compositional description (e.g. "wide overhead, dual-keyboard, LED glow, blonde hair, watch detail") into caption copy. That is image narration. The viewer can see it.`
+}
+
 const VARIANT_GUIDE: Record<CaptionVariant, string> = {
+  long:  'Long: the extended, heartfelt register. Target 3–6 sentences, still plain NM voice. Use this for thank-yous, release notes, tour recaps, milestone reflections — posts that earn length because they carry real substance. Name actual people, venues, days, gear. First-person plural. Everything in BANNED PATTERNS still applies — no mystical fragments, no metaphors about the image, no "somewhere between" / "a study in" / "moments like this". Real feeling, plainly stated, grounded in concrete nouns. Can end with 🌓 but does not have to. LENGTH FLOOR: if the CONTEXT line contains a concrete noun, collaborator, occasion, or substance worth saying, LONG MUST be at least 2 full sentences and at least 20 words. Collapsing to a 2-word fragment ("back in it.", "in it.", "studio.") is ONLY acceptable when there is zero context AND the scanner shows nothing nameable — in that rare case, return one plain sentence, never a poetic fragment. Never collapse LONG below SAFE length when context is present.',
   safe:  'Safe: the most restrained read. One or two short lines. Lands a concrete stance, not a vibe. Uses NM signatures (first-person plural, 🌓 sign-off) if they fit. Lowercase-leaning, but proper nouns stay capitalised.',
   loose: 'Loose: more confident. One concrete detail earned from the image + context (a gear name, a city, a day, a collaborator). Tight. 🌓 where natural. Lowercase-leaning, proper nouns keep their caps.',
   raw:   'Raw: shortest possible. A fragment, a single word, a timestamp. Texts-to-a-friend energy. Ending with 🌓 is encouraged. Default to lowercase, but if a proper noun appears (a venue, a person, NIGHT, a city) keep it capitalised.',
@@ -140,8 +200,10 @@ WRONG (AI fortune-cookie, never ship these):
   ✗ "moments like this don't ask for permission."
   ✗ "a study in light and shadow."
   ✗ "blue on one side, amber on the other. the colours argue."
+  ✗ "studio. Nord stacked on top, lower board glowing underneath, both hands working across both at once. building out the live rig, no arrangement, no safety net, just seeing what holds up when we play it through. more of this coming. 🌓"
+     ↑ this is the exact failure mode NM flagged. Three compounded sins: (1) image narration — gear stack + body position + LED glow are all ALREADY VISIBLE; (2) process-poetry — "no arrangement, no safety net, just seeing what holds up" is romanticised studio-diary flourish, not how real people speak; (3) generic tease — "more of this coming" adds nothing. Also over-commits to "Nord" — scanner guessed it, but NM only names gear when confirmed. Correct rewrite: "studio. 🌓" OR "building the live rig. 🌓" (if context warrants it) OR "back in it." — nothing more.
 
-Every "WRONG" example shares the same failure: metaphor about the image, no subject, no stance, no signature. Generic enough that ANY artist could have posted it. That's the fail.
+Every "WRONG" example shares the same failure: metaphor/narration about the image, no subject, no stance, no signature. Generic enough that ANY artist could have posted it. That's the fail.
 
 RIGHT (NM-aligned, ship these):
   ✓ "press. 🌓"                                ← context: "press shots, no info"
@@ -164,6 +226,22 @@ ANTI-PATTERN — DO NOT SHIP. These look NM but strip the context down to nothin
   ✗ "new photos. us. 🌓"      ← same failure, adding "us" doesn't save it.
   ✗ "shots." / "pics." / "photos." → all drop the reason. If context named it, name it.
 
+LONG variant — extended/heartfelt register. SAME NM voice, just more of it. Only goes long when the context gives substance to fill it with. Never pads. Never reaches for metaphor.
+
+RIGHT (LONG — ship when context earns it):
+  ✓ "we played warehouse 9 on Saturday. first room that ever said yes to this. the crowd stayed for the last track at 3. thank you for turning up, all of you. we're back in June with Dot. 🌓"
+  ✓ "album's done. twelve months of sessions between London and Bristol, mostly on the OB-6. Dot mixed it. we didn't know if it'd land like this, so if it moves you, tell us. dates for the live show drop next week."
+  ✓ "last show of the year. thank you to every promoter who booked us, every photographer who shot us, and everyone who stayed past last train. see you in 2027. 🌓"
+  ✓ "records that shaped us, part 2. this one is Burial, Untrue, 2007. bought it on CD from Fopp the week it came out. still the reason half our tracks breathe the way they do. 🌓"
+  ✓ "radio tonight on Rinse, 10pm. three hours, all new material we've been sitting on. first time any of it leaves the studio. tune in if you can, replay's up after."
+
+WRONG (LONG — never ship these, even at length):
+  ✗ "somewhere between the take and the final mix, we found something we didn't know we were looking for. this is for everyone who's been patient."   ← mystical + vague, zero concrete nouns
+  ✗ "the last year has been a journey. thank you to everyone who has been part of it."   ← "journey" is banned, zero specifics
+  ✗ "we've been making music for a long time. this feels different. we hope you feel it too."   ← no subject, no venue, no collaborator, no gear, no date — just vibes
+
+The ONLY thing that licenses length in LONG is substance: real people named, real venues, real dates, real gear, real numbers. If you can't name any of those from the context, write SHORT instead.
+
 Casing rule: lowercase is the DEFAULT, not a ceiling. Real NM data is ~72% lowercase, meaning ~28% of captions have at least one capital. Proper nouns (people's first names, venue names, city names, "NIGHT" in NIGHT manoeuvres, gear model names like OB-6/CDJ-3000) ALWAYS keep their natural capitalisation. Never lowercase "Saturday" to "saturday" — that reads as an affectation, not as authenticity.
 
 Every "RIGHT" example has either: a concrete subject (press, release, tour, gear), a signature (first-person plural, 🌓), or radical brevity. Never poetic paraphrase of the image.`
@@ -183,7 +261,159 @@ const BANNED_PATTERNS = `BANNED SENTENCE PATTERNS — if your draft contains any
 - "colour/light arguing" / "X on one side, Y on the other"
 - any sentence of the shape "ADJECTIVE noun, ADJECTIVE noun. [vague claim about both]"
 
+PROCESS-POETRY PATTERNS (newly banned — these are the exact failure mode NM flagged):
+- "no safety net" / "no net" / "no map" / "no blueprint" / "no plan"
+- "no arrangement" / "no script" / "no rehearsal" (as romanticised boast)
+- "just seeing what ___" / "seeing what holds up" / "seeing where it goes" / "seeing what sticks"
+- "what holds up" / "what lands" / "what breaks" (as evaluative closers)
+- "building out" / "working through" / "figuring out" (as studio-diary flourishes)
+- "more of this coming" / "more coming" / "more soon" (generic tease without a real noun)
+- "no safety / no rules / no anything" construction
+- "playing it through" / "seeing it through" / "running it through" — process-stagey
+- Compound gear-narration like "X on top, Y underneath, both hands working" — this is DESCRIBING THE IMAGE. Don't.
+
+HARD ANTI-NARRATION RULE:
+- The image is visible. Do NOT describe what the viewer will already see. Lists of gear + body positions + lighting conditions = image narration. Kill on detect.
+- "Nord stacked on top, lower board glowing underneath, both hands working across both at once" is the exact failure. It reads the image back at the viewer. Rewrite to NM stance: name the subject once ("studio.") + one earned detail OR a stance ("back in it.") + 🌓. Nothing else.
+
 If your draft reads like something a generic "moody artist AI" would write, it's wrong. NM writes plainly about real subjects, with one concrete detail per caption, signed off with 🌓 when natural.`
+
+/**
+ * Opus oversight pass. Runs AFTER Sonnet has drafted the 4 variants.
+ * Reviews each draft against the full NM voice standard, rewrites any
+ * that drift (AI clichés, missed context, weak hooks, wrong casing,
+ * fabricated specifics), and returns the final publish-ready set.
+ *
+ * This is the architecture the user asked for: Sonnet does the grunt
+ * work (the expensive vision + structured writing), Opus oversees for
+ * quality. Cost-wise this is cheaper than an Opus pre-pass because
+ * the oversight call is text-only (no image tokens) and input is
+ * bounded to the 4 drafts + source material.
+ *
+ * Non-fatal: if Opus errors, we ship Sonnet's drafts directly.
+ */
+async function runCaptionPolish(args: {
+  drafts: { long: string; safe: string; loose: string; raw: string }
+  scan: ChainScanResult
+  refs: VoiceRef[]
+  platform: Platform
+  context?: string
+  priorityContext?: string
+}): Promise<{
+  long: string
+  safe: string
+  loose: string
+  raw: string
+} | null> {
+  const { drafts, scan, refs, platform, context, priorityContext } = args
+  const hasContext = !!(context && context.trim())
+  const hasPriority = !!(priorityContext && priorityContext.trim())
+
+  const system = `You are the QUALITY DIRECTOR for NIGHT manoeuvres' caption system. A faster writer (Sonnet) has drafted four caption variants for a specific post. Your job is to oversee, polish, and publish-gate them.
+
+NIGHT manoeuvres is an electronic music duo. If ONE caption ships and sounds like AI, they lose faith in this whole product. You catch what Sonnet missed.
+
+${SKILLS_CAPTION_GEN}
+
+${FEW_SHOT}
+
+${BANNED_PATTERNS}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR REVIEW PROCESS (apply to every variant)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Read the variant cold. Does it sound like a real person posting? If it reads AI-ish in any dimension, rewrite.
+2. Does it surface the actual subject from the scan + context? If not, rewrite using the real concrete noun.
+3. Does it hit a banned pattern ("somewhere between", "a study in", "diving in", etc.)? Rewrite.
+4. Does proper-noun casing hold (Saturday, OB-6, Dot, NIGHT, Rinse)? Fix if not.
+5. Does it use em-dashes / @mentions / hashtags in the caption body? Strip.
+6. Is it within the platform char limit (${PLATFORM_LIMITS[platform]} for ${PLATFORM_LABEL[platform]})? Trim if over.
+7. Does it fit its variant's register? (LONG = 2–6 sentences with real substance; SAFE = 1–2 short lines; LOOSE = one concrete detail + 🌓; RAW = fragment/word/timestamp.)
+
+HARD LENGTH FLOOR — LONG variant only:
+If CONTEXT contains a concrete noun, collaborator, occasion, or substance worth saying, LONG MUST be ≥ 2 sentences AND ≥ 20 words. If Sonnet's LONG draft is a fragment (e.g. "back in it.", "studio.", "in it. 🌓") AND there is real context, REWRITE LONG to 3–5 sentences grounded in that context — never ship a fragment as LONG. Collapsing to a fragment is ONLY acceptable when context is empty AND scanner has nothing concrete; in that rare case, return one plain sentence, never a single-word fragment. SAFE and LONG should NEVER be identical — LONG must carry more substance.
+
+If Sonnet's draft already clears all 7 checks AND the length floor, keep it verbatim. If any check fails, rewrite the variant in NM voice. You are strict but not meddling — the bar is "would the artist ship this"? If yes, keep. If no, rewrite.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Return ONLY this JSON object. No markdown, no commentary.
+{
+  "long":  "<final publish-ready LONG caption>",
+  "safe":  "<final publish-ready SAFE caption>",
+  "loose": "<final publish-ready LOOSE caption>",
+  "raw":   "<final publish-ready RAW caption>"
+}`
+
+  const voiceBlock = buildVoiceBlock(refs)
+  const scannerBlock = buildScannerBlock(scan)
+  const priorityPolishBlock = hasPriority
+    ? `PRIORITY ANCHOR (active phase — the post should quietly tie back here unless a specific CONTEXT overrides):\n"${priorityContext!.trim()}"\n`
+    : ''
+  const contextBlock = hasContext
+    ? `CONTEXT (artist's stated angle):\n"${context!.trim()}"`
+    : `NO CONTEXT GIVEN — ${hasPriority ? 'lean on the PRIORITY ANCHOR for craft-flavoured posts; use scanner read + image for subject.' : 'the captions must lean on the scanner read + image only. Brevity is the default.'}`
+
+  const userText = `${voiceBlock}
+
+${scannerBlock}
+
+${priorityPolishBlock}${contextBlock}
+
+Platform: ${PLATFORM_LABEL[platform]}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SONNET'S DRAFTS (review + polish these, do not start from scratch unless a draft is unsalvageable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LONG draft:
+${drafts.long || '(empty)'}
+
+SAFE draft:
+${drafts.safe || '(empty)'}
+
+LOOSE draft:
+${drafts.loose || '(empty)'}
+
+RAW draft:
+${drafts.raw || '(empty)'}
+
+Produce the JSON described in your instructions. Keep Sonnet's drafts verbatim when they already clear the bar. Rewrite only what needs rewriting.`
+
+  try {
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-opus-4-7',
+        system,
+        max_tokens: 1500,
+        messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok || data.error) return null
+    const text = data.content?.[0]?.text
+    if (!text) return null
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim()) as {
+      long?: string
+      safe?: string
+      loose?: string
+      raw?: string
+    }
+    if (!parsed.long && !parsed.safe && !parsed.loose && !parsed.raw) return null
+    return {
+      long:  parsed.long  || drafts.long,
+      safe:  parsed.safe  || drafts.safe,
+      loose: parsed.loose || drafts.loose,
+      raw:   parsed.raw   || drafts.raw,
+    }
+  } catch {
+    return null
+  }
+}
 
 export async function generateCaptionVariants(args: {
   scan: ChainScanResult
@@ -196,9 +426,26 @@ export async function generateCaptionVariants(args: {
    *  "track id dropped in chat", etc. Single highest-leverage input for quality —
    *  without it Claude falls back to describing the image. */
   context?: string
-}): Promise<{ safe: string; loose: string; raw: string; rationale: string }> {
-  const { scan, refs, platform, fileName, imageDataUrl, context } = args
+  /** Active priority gig/release the post should quietly anchor to (e.g.
+   *  "Vespers · London · 12 June 2026 — 9-week audition"). Surfaced so that
+   *  studio / process / live / teaser posts tie back to the north star
+   *  (bookings + followers) instead of floating. See
+   *  rule_caption_always_anchor_to_priority.md. Omit for posts where the
+   *  anchor makes no sense (e.g. old archival footage, unrelated collab). */
+  priorityContext?: string
+  /** Caller's Supabase user id — enables brain post-check + invariant logging
+   *  on the /api/claude side. Captions still generate without this, but drift
+   *  telemetry is lost. Pass the current authed user.id whenever possible. */
+  userId?: string
+}): Promise<{ long: string; safe: string; loose: string; raw: string }> {
+  const { scan, refs, platform, fileName, imageDataUrl, context, priorityContext, userId } = args
   const hasContext = !!(context && context.trim())
+  const hasPriority = !!(priorityContext && priorityContext.trim())
+
+  // Architecture: Sonnet drafts (fast + cheap + vision-capable), Opus
+  // polishes (post-pass oversight). No pre-pass director — the brief is
+  // produced by Opus as part of the polish call so we only pay for one
+  // premium-model hop per caption generation, not two.
 
   const system = `You write social captions for NIGHT manoeuvres, an electronic music duo. You are looking at the actual image that will be posted. NM reads every caption before shipping. If it sounds like AI, they lose faith in this entire product and switch it off. Your job is to never trigger that.
 
@@ -240,7 +487,20 @@ OUTPUT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Return ONLY this JSON object. No markdown, no commentary, no outer quotes.
-{"safe":"…","loose":"…","raw":"…","rationale":"one short sentence of receipts: which concrete noun(s) from the context you surfaced, which ref's cadence dominated the blend, and one tradeoff you made (e.g. 'kept Dot + album from context; leaned 72% lowercase from You with Burial's brevity; skipped date tease because no date was given')."}`
+{"long":"…","safe":"…","loose":"…","raw":"…"}`
+
+  const priorityBlock = hasPriority
+    ? `PRIORITY ANCHOR (active phase — what NM is currently pushing):
+"${priorityContext!.trim()}"
+
+HOW TO USE THIS ANCHOR:
+- If the user's CONTEXT line directly names a different subject (a press shoot, a remix drop, a thank-you), CONTEXT WINS. Do not force the anchor.
+- If the user's CONTEXT line is absent, OR names a craft-flavoured subject (studio, process, rehearsal, new music, live rig, writing, recording, tour prep, teaser), at least one of the LOOSE or LONG variants SHOULD tie back to this anchor. Example: "new music for Hybrid Live. Vespers, 12 June. 🌓" or "writing for the Hybrid Live set. Vespers, London. 🌓"
+- Never shoehorn the anchor into thank-you or release posts where it doesn't fit. Silence > forced tie-in.
+- Capitalise proper nouns in the anchor exactly as shown ("Hybrid Live", "Vespers", "London", "12 June").
+- Treat the anchor as a soft north star, not a hard constraint. SAFE / RAW can stay anchor-less if their brevity demands it.
+`
+    : ''
 
   const contextBlock = hasContext
     ? `CONTEXT (what this post is FOR — the angle/reason, from the artist themselves):
@@ -252,22 +512,28 @@ HARD CONTEXT RULES (violations invalidate the caption):
 3. If the context mentions a collaborator by handle or name (e.g. "dot + nm"), surface the collaborator in at least the LOOSE variant. Capitalise first names ("Dot").
 4. If the context includes a tease ("no date yet", "soon", "incoming"), the caption may tease — "album incoming.", "dates soon." — but NEVER invent a date, venue, or title.
 5. The image informs tone; the CONTEXT is the subject. If image and context disagree, context wins.`
-    : `NO CONTEXT GIVEN.
-Default to extreme brevity — a fragment, a single word, a timestamp, a lowercase observation. Examples of acceptable output: "press.", "dot + nm.", "new.", "saturday.", "today's work."
-DO NOT invent an event, release, or collaboration. DO NOT describe the image. When in doubt, make it shorter.`
+    : `NO EXPLICIT CONTEXT GIVEN.
+${hasPriority
+  ? `Default behaviour: for craft-flavoured posts (studio, process, writing, live rig, teaser) anchor at least one variant to the PRIORITY ANCHOR above. For ambiguous / pure-vibe posts, go fragment-short per the decision tree. Never invent specifics beyond what the anchor contains.`
+  : `Default to extreme brevity — a fragment, a single word, a timestamp, a lowercase observation. Examples: "press.", "dot + nm.", "new.", "saturday.", "today's work."`}
+DO NOT invent an event, release, or collaboration outside what the anchor states. DO NOT describe the image.`
 
   const userText = `${buildVoiceBlock(refs)}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${hasPriority ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${priorityBlock}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+` : ''}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${contextBlock}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+${buildScannerBlock(scan)}
+
 Platform: ${PLATFORM_LABEL[platform]} (file: ${fileName})
-Scanner mood read: ${scan.tone_match || 'unstated'}
-Scanner tags: ${(scan.tags || []).join(', ') || 'none'}
 
-Write three caption variants for the SAME post, each applying the weighted voice blend above.
+Write four caption variants for the SAME post, each applying the weighted voice blend above. Variants span from extended to minimal — pick different stances, never pad.
 
+- LONG: ${VARIANT_GUIDE.long}
 - SAFE: ${VARIANT_GUIDE.safe}
 - LOOSE: ${VARIANT_GUIDE.loose}
 - RAW: ${VARIANT_GUIDE.raw}
@@ -301,6 +567,11 @@ Return the JSON object described in the system prompt.`
       system,
       max_tokens: 1200,
       messages: [{ role: 'user', content }],
+      // Brain hook: server-side rule post-check + invariant_log telemetry.
+      // No-ops gracefully if userId is absent.
+      task: platform === 'instagram' ? 'caption.instagram' : platform === 'tiktok' ? 'caption.tiktok' : 'caption.threads',
+      userId,
+      feature: 'chain_caption_gen',
     }),
   })
   const data = await res.json()
@@ -309,17 +580,43 @@ Return the JSON object described in the system prompt.`
   if (!text) throw new Error('Empty caption response')
 
   const parsed = JSON.parse(text.replace(/```json|```/g, '').trim()) as {
+    long?: string
     safe?: string
     loose?: string
     raw?: string
-    rationale?: string
   }
+
+  // Sonnet's drafts, pre-polish. These still go through the scrubbers
+  // because the polish pass can error (network, parse, rate-limit) and
+  // we need a non-embarrassing fallback.
+  const sonnetDrafts = {
+    long:  scrubBrandText(scrubAiTells(parsed.long  || '')),
+    safe:  scrubBrandText(scrubAiTells(parsed.safe  || '')),
+    loose: scrubBrandText(scrubAiTells(parsed.loose || '')),
+    raw:   scrubBrandText(scrubAiTells(parsed.raw   || '')),
+  }
+
+  // Opus oversight. Reviews all four variants against the full NM voice
+  // standard, rewrites what drifted, and returns the brief. Text-only
+  // call (no image re-upload) to keep cost down. Falls back to Sonnet's
+  // drafts on error so the user is never blocked.
+  const polished = await runCaptionPolish({
+    drafts: sonnetDrafts,
+    scan,
+    refs,
+    platform,
+    context,
+    priorityContext,
+  })
+
+  if (!polished) {
+    return sonnetDrafts
+  }
+
   return {
-    safe:  scrubAiTells(parsed.safe  || ''),
-    loose: scrubAiTells(parsed.loose || ''),
-    raw:   scrubAiTells(parsed.raw   || ''),
-    // rationale is receipts text shown to the artist, not a caption. Skip
-    // scrubAiTells (which is tuned for captions) and just trim.
-    rationale: (parsed.rationale || '').trim(),
+    long:  scrubBrandText(scrubAiTells(polished.long)),
+    safe:  scrubBrandText(scrubAiTells(polished.safe)),
+    loose: scrubBrandText(scrubAiTells(polished.loose)),
+    raw:   scrubBrandText(scrubAiTells(polished.raw)),
   }
 }

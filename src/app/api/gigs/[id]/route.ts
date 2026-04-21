@@ -53,6 +53,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         driver_phone: body.driver_phone || null,
         driver_notes: body.driver_notes || null,
         notes: body.notes || null,
+        ticket_url: body.ticket_url || null,
       })
       .eq('id', params.id)
       .select()

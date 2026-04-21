@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { createNotification } from '@/lib/notifications'
-import { env } from '@/lib/env'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 // Webhook endpoint for Resend inbound emails (promoter replies to advance requests)
 export async function POST(req: NextRequest) {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     // Find the matching advance_request by promoter email
     const { data: advanceRecord, error: lookupError } = await supabase
       .from('advance_requests')
-      .select('*, gigs!inner(id, title, venue, date)')
+      .select('*, gigs!inner(id, title, venue, date, user_id)')
       .eq('promoter_email', senderEmail)
       .eq('status', 'sent')
       .order('created_at', { ascending: false })
@@ -39,8 +39,20 @@ export async function POST(req: NextRequest) {
     // Use plain text for extraction, fall back to stripping HTML
     const contentForExtraction = textBody || htmlBody.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
 
-    // Call Claude to extract structured data from the freeform reply
-    const extractionPrompt = `Extract advance/show details from this promoter's email reply. Return valid JSON only — no markdown fences, no extra text.
+    const gigId = advanceRecord?.gig_id
+    const ownerId: string | null =
+      advanceRecord?.user_id || advanceRecord?.gigs?.user_id || null
+    const gigTitle = advanceRecord?.gigs?.title
+      ? `${advanceRecord.gigs.title} at ${advanceRecord.gigs.venue}`
+      : subject || 'Unknown show'
+
+    // Only run extraction when we have a matched owner — brain requires user_id
+    // for identity/rules/logging. Unmatched webhooks just fire a notification
+    // so the artist can manually match the reply.
+    let extracted: Record<string, string | null> = {}
+
+    if (ownerId) {
+      const extractionPrompt = `Extract advance/show details from this promoter's email reply. Return valid JSON only — no markdown fences, no extra text.
 
 The JSON should have these keys (use null for any field not mentioned):
 {
@@ -66,39 +78,27 @@ The JSON should have these keys (use null for any field not mentioned):
 Email reply:
 ${contentForExtraction}`
 
-    const apiKey = (await env('ANTHROPIC_API_KEY'))!
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        messages: [
-          { role: 'user', content: extractionPrompt },
-        ],
-        system: 'You extract structured data from emails. Output raw JSON only. No markdown code fences. Be precise — only include information explicitly stated in the email.',
-      }),
-    })
-
-    let extracted: Record<string, string | null> = {}
-
-    if (response.ok) {
-      const result = await response.json()
-      const text = result.content?.[0]?.text || ''
       try {
-        extracted = JSON.parse(text)
-      } catch {
-        const jsonMatch = text.match(/\{[\s\S]*\}/)
-        if (jsonMatch) {
-          extracted = JSON.parse(jsonMatch[0])
+        const result = await callClaudeWithBrain({
+          userId: ownerId,
+          task: 'gig.advance',
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          userMessage: extractionPrompt,
+          taskInstruction:
+            'You extract structured data from emails. Output raw JSON only. No markdown code fences. Be precise — only include information explicitly stated in the email.',
+          runPostCheck: false,
+        })
+        const text = result.text || ''
+        try {
+          extracted = JSON.parse(text)
+        } catch {
+          const jsonMatch = text.match(/\{[\s\S]*\}/)
+          if (jsonMatch) extracted = JSON.parse(jsonMatch[0])
         }
+      } catch (claudeErr: any) {
+        console.error('Claude extraction failed:', claudeErr?.message || claudeErr)
       }
-    } else {
-      console.error('Claude extraction failed:', response.status, await response.text())
     }
 
     // Build the update payload — only include non-null extracted fields
@@ -113,12 +113,6 @@ ${contentForExtraction}`
         updateData[key] = value
       }
     }
-
-    // Determine which gig this belongs to
-    const gigId = advanceRecord?.gig_id
-    const gigTitle = advanceRecord?.gigs?.title
-      ? `${advanceRecord.gigs.title} at ${advanceRecord.gigs.venue}`
-      : subject || 'Unknown show'
 
     if (gigId) {
       // Upsert the advance request with extracted data
@@ -159,6 +153,7 @@ ${contentForExtraction}`
 
       // Notify the artist
       await createNotification({
+        user_id: ownerId || undefined,
         type: 'advance_received',
         title: `Advance reply received — ${gigTitle}`,
         message: `${senderEmail} replied with show details`,

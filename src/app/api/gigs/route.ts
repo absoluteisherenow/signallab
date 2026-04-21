@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
         status: body.status || 'pending',
         promoter_email: body.promoter_email || null,
         notes: body.notes || null,
+        ticket_url: body.ticket_url || null,
       }])
       .select()
     if (error) throw error

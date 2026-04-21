@@ -1,62 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
+import { requireUser } from '@/lib/api-auth'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
+import { scrubBrandText } from '@/lib/scrubBrandText'
 
+// Promo DM writer — brain-wired so the outreach voice comes from the artist's
+// rules + voice samples instead of a hardcoded "Night Manoeuvres" system
+// prompt. The brain also enforces casing + banned patterns + priority anchor
+// (promoter gets a DM that references the current mission where relevant).
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
+
   try {
-    const apiKey = (await env('ANTHROPIC_API_KEY'))!
     const { track, contacts } = await req.json()
-    // track: { title, author, description }
-    // contacts: [{ name, genre, tier }]
-
     const genres = [...new Set((contacts || []).map((c: any) => c.genre).filter(Boolean))].join(', ')
-    const tierBreakdown = (contacts || []).filter((c: any) => c.tier === 'priority').length > 0
-      ? `Includes ${(contacts || []).filter((c: any) => c.tier === 'priority').length} priority contacts.`
-      : ''
+    const priorityContacts = (contacts || []).filter((c: any) => c.tier === 'priority').length
+    const tierBreakdown = priorityContacts > 0 ? `Includes ${priorityContacts} priority contacts.` : ''
 
-    const systemPrompt = `You write outreach DMs for Night Manoeuvres, an underground electronic music artist. Your job is to write short, direct, human messages to DJs, promoters, and labels — not press releases.
+    const taskInstruction = `Write a short, direct, human outreach DM — like one musician messaging another they respect. Underground music industry style: understated confidence, no hype.
 
 Tone rules:
-- Direct and human. Like one musician messaging another they respect.
-- Underground music industry style — understated confidence, no hype.
-- Short. 3–4 sentences maximum.
+- 3–4 sentences maximum.
 - No corporate openers ("hope this finds you", "just wanted to reach out").
-- No excessive emojis. One at most, only if it feels natural.
+- No hyperbole ("exclusive", "banging", "fire", "slap").
 - No sign-off like "Best," or "Cheers," — the name will be added separately.
-- Never say "exclusive", "banging", "fire", "slap", or any hyperbole.
-- End with a low-pressure ask — interested to hear what they think, or would love their support.`
+- One emoji at most, and only if it feels natural.
+- End with a low-pressure ask — interested to hear what they think, or would love their support.
+- Output ONLY the message text. Nothing else.`
 
-    const userPrompt = `Write a promo DM for this track:
+    const userMessage = `Write a promo DM for this track:
 
-Title: ${track.title || 'new track'}
-Artist: ${track.author || 'Night Manoeuvres'}
-${track.description ? `SoundCloud description: ${track.description}` : ''}
+Title: ${track?.title || 'new track'}
+Artist: ${track?.author || ''}
+${track?.description ? `SoundCloud description: ${track.description}` : ''}
 
 ${genres ? `Being sent to DJs/promoters in: ${genres}` : ''}
 ${tierBreakdown}
 
-The private SoundCloud link will be added automatically after the message — don't mention "link below" or reference it explicitly. Just write the message.
+The private SoundCloud link will be added automatically after the message — don't mention "link below" or reference it explicitly.`
 
-Output only the message text. Nothing else.`
-
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 300,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+    const result = await callClaudeWithBrain({
+      userId,
+      task: 'release.announce',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 300,
+      userMessage,
+      taskInstruction,
     })
 
-    const data = await res.json()
-    if (!res.ok) return NextResponse.json({ error: data?.error?.message || 'Write failed' }, { status: 500 })
-
-    const message = data.content?.[0]?.text || ''
+    const message = scrubBrandText(result.text || '')
     return NextResponse.json({ message })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

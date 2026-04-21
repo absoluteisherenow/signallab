@@ -25,6 +25,7 @@ interface SchedulePostInput {
   user_tags?: unknown           // [{username, x, y, slide_index}] (new)
   first_comment?: string        // posted as comment #1 after publish (new)
   hashtags?: string[]           // flattened into first_comment at post time (new)
+  collaborators?: string[]      // IG co-author usernames (new)
   location_name?: string
   location_id?: string
   preview_approved_at?: string  // ISO timestamp set by frontend on approval
@@ -44,6 +45,9 @@ function rowFromInput(p: SchedulePostInput, post_group_id: string | null) {
     user_tags: p.user_tags ?? null,
     first_comment: p.first_comment || null,
     hashtags: p.hashtags && p.hashtags.length ? p.hashtags : null,
+    collaborators: p.collaborators && p.collaborators.length
+      ? p.collaborators.map(u => (u || '').replace(/^@/, '').trim()).filter(Boolean)
+      : null,
     location_name: p.location_name || null,
     location_id: p.location_id || null,
     preview_approved_at: p.preview_approved_at || null,

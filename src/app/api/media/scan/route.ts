@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SKILL_CONTENT_SCORING } from '@/lib/skillPrompts'
 import { getFile } from '@/lib/storage'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
 
 // ── Server-side content scanner ──────────────────────────────────────────────
 // Same Sonnet vision analysis as the client-side MediaScanner, but runs
@@ -43,12 +43,6 @@ function detectCategory(tags: string[], recommendation: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  // env() helper — reads CF bindings first, falls back to process.env locally.
-  // Direct process.env read returns undefined on Cloudflare Workers because
-  // OpenNext doesn't pipe wrangler secrets into process.env at request time.
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
-
   try {
     const { url, key, gigId, fileName, mimeType } = await req.json()
     if (!url && !key) return NextResponse.json({ error: 'No URL or key provided' }, { status: 400 })
@@ -164,37 +158,25 @@ Return JSON exactly:
 }`
 
     // 4. Call Anthropic Sonnet vision
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType, data: base64 },
-            },
-            { type: 'text', text: textPrompt },
-          ],
-        }],
-      }),
+    const res = await callClaude({
+      feature: 'media_scan',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: textPrompt },
+        ],
+      }],
     })
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
-      throw new Error(errData?.error?.message || `Anthropic API error ${res.status}`)
+      throw new Error(res.data?.error?.message || `Anthropic API error ${res.status}`)
     }
 
-    const data = await res.json()
-    const rawText = data.content?.[0]?.text || ''
+    const rawText = res.text || ''
     const parsed = JSON.parse(rawText.replace(/```json|```/g, '').trim())
 
     // 5. Calculate scores
@@ -230,20 +212,7 @@ Return JSON exactly:
       console.error('Failed to save scan result:', dbError.message)
     }
 
-    // 7. Track API usage
-    const inputTokens = data.usage?.input_tokens || 0
-    const outputTokens = data.usage?.output_tokens || 0
-    const costUsd = (inputTokens / 1_000_000) * 3.00 + (outputTokens / 1_000_000) * 15.00
-    try {
-      await supabase.from('api_usage').insert({
-        month: new Date().toISOString().slice(0, 7),
-        model: 'claude-sonnet-4-6',
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
-        cost_usd: costUsd,
-        called_at: new Date().toISOString(),
-      })
-    } catch { /* usage tracking is non-critical */ }
+    // Usage tracked automatically by callClaude → api_usage.
 
     return NextResponse.json({
       scanId: row?.id,

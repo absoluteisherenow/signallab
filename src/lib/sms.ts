@@ -15,17 +15,23 @@ export async function sendSms({ to, body }: SendSmsOptions): Promise<{ success: 
     return { success: false, error: 'Twilio not configured' }
   }
 
-  if (!process.env.TWILIO_PHONE_NUMBER) {
-    console.warn('SMS: TWILIO_PHONE_NUMBER not set')
+  // Prefer Messaging Service SID when set (supports A2P 10DLC + alpha senders);
+  // otherwise fall back to a bare from-number. Accept either env-var naming
+  // since prod historically uses TWILIO_FROM_NUMBER and older code wrote
+  // TWILIO_PHONE_NUMBER.
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID
+  const fromNumber = process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER
+
+  if (!messagingServiceSid && !fromNumber) {
+    console.warn('SMS: neither TWILIO_MESSAGING_SERVICE_SID nor TWILIO_FROM_NUMBER/TWILIO_PHONE_NUMBER set')
     return { success: false, error: 'No sender phone number' }
   }
 
   try {
-    const message = await client.messages.create({
-      to,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      body: body.slice(0, 1600), // Twilio max
-    })
+    const payload: Record<string, string> = { to, body: body.slice(0, 1600) }
+    if (messagingServiceSid) payload.messagingServiceSid = messagingServiceSid
+    else if (fromNumber) payload.from = fromNumber
+    const message = await client.messages.create(payload as any)
     return { success: true, sid: message.sid }
   } catch (err: any) {
     console.error('SMS send failed:', err.message)

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { canRunDeepDive, recordDeepDiveRun } from '@/lib/deepDiveTiers'
 import { getUserTier } from '@/lib/scanTiers'
-import { env } from '@/lib/env'
+import { callClaude } from '@/lib/callClaude'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -223,24 +223,16 @@ Return this exact JSON:
 }`
     })
 
-    const apiKey = (await env('ANTHROPIC_API_KEY'))!
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-6',
-        max_tokens: 2500,
-        system: 'You are an elite music industry content analyst with deep understanding of electronic music culture. You have access to PRIVATE Instagram data (saves, reach, impressions) that is normally invisible. Use this privileged data to give genuinely valuable insights. Respond ONLY with valid JSON, no markdown.',
-        messages: [{ role: 'user', content }],
-      }),
+    const aiRes = await callClaude({
+      userId,
+      feature: 'instagram_deep_dive',
+      model: 'claude-opus-4-6',
+      max_tokens: 2500,
+      system: 'You are an elite music industry content analyst with deep understanding of electronic music culture. You have access to PRIVATE Instagram data (saves, reach, impressions) that is normally invisible. Use this privileged data to give genuinely valuable insights. Respond ONLY with valid JSON, no markdown.',
+      messages: [{ role: 'user', content }],
     })
 
-    const aiData = await aiRes.json()
-    const text = aiData.content?.[0]?.text || '{}'
+    const text = aiRes.text || '{}'
     const analysis = JSON.parse(text.replace(/```json|```/g, '').trim())
 
     // 9. Save the deep dive results

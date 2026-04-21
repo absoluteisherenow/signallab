@@ -37,6 +37,7 @@ type ScheduledPost = {
   user_tags: unknown
   first_comment: string | null
   hashtags: unknown
+  collaborators: string[] | null
   location_id: string | null
   location_name: string | null
   post_group_id: string | null
@@ -110,11 +111,15 @@ export async function GET(req: NextRequest) {
 
     // Build body for /api/social/instagram/post
     const mediaUrls = Array.isArray(row.media_urls) ? row.media_urls.filter(Boolean) : []
+    const firstCollab = Array.isArray(row.collaborators) && row.collaborators.length
+      ? (row.collaborators[0] || '').replace(/^@/, '').trim() || null
+      : null
     const baseBody: Record<string, unknown> = {
       caption: row.caption || '',
       user_tags: row.user_tags ?? null,
       first_comment: row.first_comment ?? null,
       hashtags: row.hashtags ?? null,
+      collab_with: firstCollab,
       location_id: row.location_id ?? null,
     }
 

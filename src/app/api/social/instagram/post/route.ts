@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireConfirmed } from '@/lib/require-confirmed'
+import { requestCheckRegistry } from '@/lib/rules/checks/requestChecks'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,6 +30,30 @@ interface PostBody {
   first_comment?: string
   hashtags?: string[]
   location_id?: string
+  /**
+   * REELS only. Millisecond offset into the video to use as the cover frame.
+   * Before this landed, Signal Lab had no way to override Meta's default
+   * (first frame) — the cover picker UI generates this from the extracted
+   * 6-frame strip. 0 = first frame; > duration gets clamped server-side.
+   */
+  thumb_offset?: number
+  /**
+   * REELS only. If true (default on IG), the Reel also lands on the main
+   * grid. Toggleable in the chain details panel.
+   */
+  share_to_feed?: boolean
+  /**
+   * IG collab — single username invited as co-author. Graph API v25 accepts
+   * a `collaborators` field (JSON array of usernames) on the media container.
+   * Post only lands on collaborator's grid after they accept the invite.
+   */
+  collab_with?: string | null
+  /**
+   * Multiple collaborators. UI currently sends first-comment-tag style; this
+   * path lands them as official IG Collab co-authors. Each must accept the
+   * invite before the post shows on their grid.
+   */
+  collaborators?: string[]
   /**
    * Explicit user confirmation gate — see HARD RULE feedback_approve_before_send.md.
    * POST without `confirmed` returns a 400 so the caller is forced through the
@@ -90,6 +115,16 @@ export async function POST(req: NextRequest) {
   const body = (await req.json()) as PostBody
   const gate = requireConfirmed(body)
   if (gate) return gate
+
+  // Pre-Meta URL-shape guard (rule slug: platform_media_url_shape). Meta Graph
+  // can only fetch public HTTPS URLs — data:, blob:, localhost, http: silently
+  // fail on their side. This rejects them with a clear error BEFORE we waste
+  // an API call. Running the check directly (not via the brain) keeps this
+  // path tight; brain logging happens on the chainCaptionGen path instead.
+  const urlCheck = requestCheckRegistry.platformMediaUrlShape(body as unknown as Record<string, unknown>, {} as any)
+  if (!urlCheck.passed) {
+    return NextResponse.json({ error: urlCheck.detail || 'Invalid media URL shape' }, { status: 400 })
+  }
   const {
     caption,
     image_url,
@@ -101,7 +136,21 @@ export async function POST(req: NextRequest) {
     first_comment,
     hashtags,
     location_id,
+    collab_with,
+    collaborators,
+    thumb_offset,
+    share_to_feed,
   } = body
+
+  // `collab_with` is a single handle; `collaborators` is an array. Merge and
+  // dedupe so the request body can use either shape without losing data.
+  const collabList = [
+    ...(collab_with ? [collab_with] : []),
+    ...(Array.isArray(collaborators) ? collaborators : []),
+  ]
+    .map(c => (c || '').replace(/^@/, '').trim())
+    .filter(Boolean)
+  const uniqCollabs = Array.from(new Set(collabList))
 
   // ── Validate presence of media ─────────────────────────────────────────────
   const isCarousel = Array.isArray(image_urls) && image_urls.length >= 2
@@ -152,6 +201,7 @@ export async function POST(req: NextRequest) {
       }
       if (caption) parentBody.caption = caption
       if (location_id) parentBody.location_id = location_id
+      if (uniqCollabs.length) parentBody.collaborators = JSON.stringify(uniqCollabs)
       const parent = await graphPost(`/${platform_user_id}/media`, parentBody)
 
       // 3. Publish the parent
@@ -181,6 +231,17 @@ export async function POST(req: NextRequest) {
         containerBody.image_url = image_url!
       }
 
+      // REELS-only extras — Meta silently ignores these on IMAGE containers,
+      // but we scope them anyway so the API surface stays clean.
+      if (video_url) {
+        if (typeof thumb_offset === 'number' && Number.isFinite(thumb_offset) && thumb_offset >= 0) {
+          containerBody.thumb_offset = String(Math.round(thumb_offset))
+        }
+        if (share_to_feed === false) {
+          containerBody.share_to_feed = 'false'
+        }
+      }
+
       // Single-image user tags — only apply where no slide_index or slide_index === 0
       if (!video_url && user_tags && user_tags.length) {
         const singleTags = user_tags
@@ -189,6 +250,7 @@ export async function POST(req: NextRequest) {
         if (singleTags.length) containerBody.user_tags = JSON.stringify(singleTags)
       }
       if (location_id) containerBody.location_id = location_id
+      if (uniqCollabs.length) containerBody.collaborators = JSON.stringify(uniqCollabs)
 
       const container = await graphPost(`/${platform_user_id}/media`, containerBody)
       const mediaId: string = container.id
