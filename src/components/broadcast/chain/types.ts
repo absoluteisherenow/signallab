@@ -4,7 +4,7 @@
 
 export type ChainPhase = 'drop' | 'scanning' | 'scanned' | 'voice'
 
-export type CaptionVariant = 'safe' | 'loose' | 'raw'
+export type CaptionVariant = 'long' | 'safe' | 'loose' | 'raw'
 
 export type Platform = 'instagram' | 'tiktok' | 'threads' | 'x'
 

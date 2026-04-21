@@ -461,6 +461,10 @@ export default function Dashboard() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
+  // Mobile early-return — must come after ALL hooks but before any other early
+  // returns so the desktop tonight/dashboard paths never render on a phone.
+  if (mobile) return <MobileShell />
+
   function toggleAudioBrief() {
     if (speaking) {
       audioRef.current?.pause()
@@ -832,8 +836,6 @@ export default function Dashboard() {
       </div>
     )
   }
-
-  if (mobile) return <MobileShell />
 
   const todayStr2 = new Date().toISOString().slice(0, 10)
   // Next gig = nearest upcoming, any date window

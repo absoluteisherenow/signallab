@@ -1,28 +1,36 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BRT } from '@/lib/design/brt'
 import { useGatedSend } from '@/lib/outbound'
 import { generateCaptionVariants } from '@/lib/chainCaptionGen'
 import { runVoiceCheck } from '@/lib/voiceCheck'
 import type { ChainScanResult } from '@/lib/chainScan'
+import { extractFrames, type ScanFrame } from '@/lib/chainScan'
+import { supabase } from '@/lib/supabaseBrowser'
 import type { VoiceRef, Platform, CaptionVariant } from './types'
 import { PLATFORM_LABEL, PLATFORM_LIMITS } from './types'
 
 interface Props {
   scan: ChainScanResult
+  /** The actual File blob. Null after a session restore (sessionStorage
+   *  can't round-trip blobs) — publish is gated on reattach. Required to
+   *  upload to R2 and hand Meta Graph a public URL; data URLs / blob URLs
+   *  will not resolve from their side. */
+  file: File | null
   fileName: string
   isVideo: boolean
   thumbnail: string | null
   refs: VoiceRef[]
   alignmentScore: number
   onOpenRefs: () => void
+  onRemoveRef?: (id: string) => void
   /** Seed the context field from an upstream source (e.g. /broadcast?idea=).
    *  Pre-commits so first caption render uses it without waiting for blur. */
   initialContext?: string
 }
 
-const VARIANTS: CaptionVariant[] = ['safe', 'loose', 'raw']
+const VARIANTS: CaptionVariant[] = ['long', 'safe', 'loose', 'raw']
 
 /**
  * Intent chips — one-tap context presets for the most common NM post types.
@@ -44,20 +52,17 @@ const INTENT_CHIPS: { key: string; label: string; prefill: string }[] = [
 
 export function PhaseVoice({
   scan,
+  file,
   fileName,
   isVideo,
   thumbnail,
   refs,
   alignmentScore,
   onOpenRefs,
+  onRemoveRef,
   initialContext,
 }: Props) {
   const [captions, setCaptions] = useState<Record<CaptionVariant, string> | null>(null)
-  // Receipts — one-sentence rationale the model returns alongside the three
-  // variants. Shown in the approval preview + as a small subtitle under the
-  // caption editor so the artist sees WHY Claude wrote what it wrote (which
-  // context nouns got surfaced, whose cadence dominated, tradeoffs).
-  const [rationale, setRationale] = useState<string>('')
   // Per-variant user edits. Overrides the AI output. Wiped when a fresh
   // regen lands so the user's local tweaks don't shadow better generations.
   const [edits, setEdits] = useState<Partial<Record<CaptionVariant, string>>>({})
@@ -115,21 +120,124 @@ export function PhaseVoice({
   // fire a Claude call on every keystroke. Seed with initialContext so the
   // first generation already reflects the pinned idea's angle.
   const [committedContext, setCommittedContext] = useState(initialContext ?? '')
+  // Intent chip is now BACKEND ONLY — it used to paste its full directive
+  // ("studio moment. name gear if it appears, do not embellish the process.")
+  // into the user-visible context field, which looked like prompt leakage to
+  // the artist. Now the chip stores just a key; the full prefill is merged
+  // into committedContext at call time and never shown in the textarea.
+  const [activeIntent, setActiveIntent] = useState<string | null>(null)
+  const intentPrefill = activeIntent ? (INTENT_CHIPS.find(c => c.key === activeIntent)?.prefill ?? '') : ''
+  const mergedContext = [intentPrefill, committedContext].filter(s => s && s.trim()).join('\n').trim()
+
+  // Cover picker (video only). IG-style every-frame scrubber — the artist
+  // drags through the full video timeline, the live preview seeks to that
+  // moment, `thumb_offset` (ms into clip) is sent to Meta's REELS container
+  // on publish. A filmstrip of 12 evenly-spaced frames sits under the
+  // scrubber for visual orientation (same pattern as IG's native cover
+  // tool). null coverTime = let Meta pick frame 0.
+  const [coverFrames, setCoverFrames] = useState<ScanFrame[]>([])
+  const [coverTime, setCoverTime] = useState<number>(0)
+  const [videoDuration, setVideoDuration] = useState<number>(0)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const coverVideoRef = useRef<HTMLVideoElement | null>(null)
+  const coverOffsetMs = useMemo(() => {
+    if (!isVideo || !videoDuration) return null
+    return Math.max(0, Math.round(coverTime * 1000))
+  }, [isVideo, coverTime, videoDuration])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!isVideo || !file) {
+      setCoverFrames([])
+      setCoverTime(0)
+      setVideoDuration(0)
+      if (videoUrl) { URL.revokeObjectURL(videoUrl); setVideoUrl(null) }
+      return
+    }
+    // Object URL for the scrubber preview — revoked on cleanup so the
+    // browser doesn't leak the blob.
+    const url = URL.createObjectURL(file)
+    setVideoUrl(url)
+    // Background filmstrip — 12 thumbs for visual orientation under the
+    // slider. Not canonical frames; just waypoints so the artist knows
+    // roughly where in the clip they're scrubbing to.
+    extractFrames(file, 12)
+      .then(frames => { if (!cancelled) setCoverFrames(frames) })
+      .catch(() => { if (!cancelled) setCoverFrames([]) })
+    return () => {
+      cancelled = true
+      URL.revokeObjectURL(url)
+    }
+  }, [isVideo, file])
+
+  // Active priority gig — fetched once on mount so every caption regen
+  // anchors to the current north star without the artist retyping it.
+  // Before this shipped, I had the Vespers priority baked into memory but
+  // wasn't applying it at caption-gen time, which is what caused the
+  // "falling flat / losing faith" incident on 2026-04-21. Decision tree
+  // now: next confirmed upcoming gig in DB → formatted priority string →
+  // injected into chainCaptionGen. Gigs DB is source of truth — if the
+  // artist moves the priority, the system follows automatically.
+  const [priorityContext, setPriorityContext] = useState<string | null>(null)
+  // Authed user id — passed to chainCaptionGen so the central brain can
+  // post-check output and log verdicts to invariant_log. Optional: caption
+  // gen still works for unauthed sessions (degrades to no telemetry).
+  const [userId, setUserId] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    supabase.auth.getUser().then(({ data }) => {
+      if (!cancelled) setUserId(data.user?.id || null)
+    })
+    return () => { cancelled = true }
+  }, [])
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10)
+        const { data } = await supabase
+          .from('gigs')
+          .select('title, venue, location, date, status, notes')
+          .gte('date', today)
+          .in('status', ['confirmed', 'pending'])
+          .order('date', { ascending: true })
+          .limit(1)
+        if (cancelled) return
+        const next = data?.[0]
+        if (!next) { setPriorityContext(null); return }
+        const d = new Date(next.date)
+        const when = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+        const parts = [
+          next.title,
+          next.venue,
+          next.location,
+          when,
+        ].filter(Boolean).join(' · ')
+        // Soft-append notes for extra flavour without over-stuffing the
+        // caption prompt. Cap to a single line so the anchor stays compact.
+        const notes = (next.notes || '').replace(/\s+/g, ' ').trim().slice(0, 140)
+        const full = notes ? `${parts} — ${notes}` : parts
+        setPriorityContext(full)
+      } catch {
+        if (!cancelled) setPriorityContext(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const gatedSend = useGatedSend()
 
   useEffect(() => {
     setLoading(true)
     setErr(null)
-    generateCaptionVariants({ scan, refs, platform, fileName, imageDataUrl: thumbnail, context: committedContext })
+    generateCaptionVariants({ scan, refs, platform, fileName, imageDataUrl: thumbnail, context: mergedContext, priorityContext: priorityContext ?? undefined, userId: userId ?? undefined })
       .then((c) => {
-        setCaptions({ safe: c.safe, loose: c.loose, raw: c.raw })
-        setRationale(c.rationale)
+        setCaptions({ long: c.long, safe: c.safe, loose: c.loose, raw: c.raw })
         setEdits({})
       })
       .catch((e: Error) => setErr(e.message || 'Caption generation failed'))
       .finally(() => setLoading(false))
-  }, [scan, refs, platform, fileName, thumbnail, committedContext])
+  }, [scan, refs, platform, fileName, thumbnail, mergedContext, priorityContext, userId])
 
   // Autocomplete: fetch artist suggestions when the last token in the
   // focused field is a partial @handle. Debounced at 220ms so we don't
@@ -290,7 +398,6 @@ export function PhaseVoice({
         { label: 'Voice aligned', value: `${alignmentScore}/100` },
         { label: 'Written through', value: voiceBlendLabel },
         { label: 'Variant', value: variant.toUpperCase() },
-        ...(rationale ? [{ label: 'Why this caption', value: rationale }] : []),
       ]
 
       await gatedSend({
@@ -358,21 +465,50 @@ export function PhaseVoice({
         { label: 'Voice aligned', value: `${alignmentScore}/100` },
         { label: 'Written through', value: voiceBlendLabel },
         { label: 'Variant', value: variant.toUpperCase() },
-        ...(rationale ? [{ label: 'Why this caption', value: rationale }] : []),
       ]
+
+      const isInstagram = platform === 'instagram' || platform === 'threads'
+
+      // MUST upload the blob to R2 before sending to Meta — Graph API only
+      // accepts public HTTPS URLs. Previously we passed `thumbnail` (a data
+      // URL from canvas extraction) which Meta rejected, and for video posts
+      // we never set `video_url` at all. Result: publish silently broke.
+      // Session-restored flow has no blob — gate on reattach.
+      if (isInstagram && !file) {
+        setErr('reattach media to publish — session was restored')
+        return
+      }
+
+      let mediaUrl: string | null = null
+      if (isInstagram && file) {
+        setErr(null)
+        const fd = new FormData()
+        fd.append('file', file)
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd })
+        if (!uploadRes.ok) {
+          const txt = await uploadRes.text().catch(() => '')
+          throw new Error(`upload failed (${uploadRes.status}): ${txt.slice(0, 120)}`)
+        }
+        const uploaded = await uploadRes.json() as { url?: string }
+        if (!uploaded.url) throw new Error('upload returned no url')
+        mediaUrl = uploaded.url
+      }
 
       // IG post endpoint takes image_url + user_tags + first_comment +
       // hashtags + location_id + collaborators + alt_text + share_to_feed.
       // Other platforms ignore the IG-only fields.
-      const isInstagram = platform === 'instagram' || platform === 'threads'
       const publishBody: Record<string, unknown> = { caption: current, platform }
-      if (isInstagram && thumbnail) publishBody.image_url = thumbnail
+      if (isInstagram && mediaUrl) {
+        if (isVideo) publishBody.video_url = mediaUrl
+        else publishBody.image_url = mediaUrl
+      }
       if (isInstagram && tagPayload.user_tags.length) publishBody.user_tags = tagPayload.user_tags
       if (isInstagram && tagPayload.first_comment) publishBody.first_comment = tagPayload.first_comment
       if (isInstagram && tagPayload.hashtags.length) publishBody.hashtags = tagPayload.hashtags
       if (isInstagram && tagPayload.collaborators.length) publishBody.collaborators = tagPayload.collaborators
       if (isInstagram && tagPayload.alt_text) publishBody.alt_text = tagPayload.alt_text
       if (isInstagram && isVideo) publishBody.share_to_feed = tagPayload.share_to_feed
+      if (isInstagram && isVideo && coverOffsetMs != null) publishBody.thumb_offset = coverOffsetMs
 
       await gatedSend({
         endpoint,
@@ -394,6 +530,8 @@ export function PhaseVoice({
           mediaAspect: isVideo ? 'story' : 'square',
         }),
       })
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'publish failed')
     } finally {
       setSending(false)
     }
@@ -410,6 +548,7 @@ export function PhaseVoice({
           display: 'flex',
           flexDirection: 'column',
           gap: 14,
+          minWidth: 0,
           minHeight: 0,
           overflow: 'auto',
         }}
@@ -449,51 +588,136 @@ export function PhaseVoice({
 
         {/* Voice blend banner — always visible, including during generation.
             The user sees WHO is shaping the caption before they see the
-            caption itself. Intelligence up front, not hidden in a sidebar. */}
+            caption itself. Intelligence up front, not hidden in a sidebar.
+            Full names (no shortening) so the artist reads the alignment
+            clearly, not a truncated label. Evidence strip below each ref
+            shows what deep-dive data actually reached the prompt — so the
+            artist can see that style_rules / chips / lowercase_pct are
+            loaded, not invented. */}
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: 10,
+            flexDirection: 'column',
+            gap: 8,
             padding: '10px 14px',
             background: BRT.ticketLo,
             border: `1px solid ${BRT.borderBright}`,
-            fontSize: 11,
-            letterSpacing: '0.18em',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            flexWrap: 'wrap',
           }}
         >
-          <span style={{ color: BRT.red }}>◉ Writing through</span>
-          {refs.slice(0, 5).map((r, i) => (
-            <span key={r.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              {i > 0 && <span style={{ color: BRT.dimmest }}>×</span>}
-              <span style={{ color: i === 0 ? BRT.ink : '#d0d0d0' }}>
-                {r.kind === 'self' ? 'You' : shortName(r.name)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, letterSpacing: '0.18em', fontWeight: 700, textTransform: 'uppercase', flexWrap: 'wrap' }}>
+            <span style={{ color: BRT.red }}>◉ Writing through</span>
+            {refs.slice(0, 5).map((r, i) => (
+              <span key={r.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {i > 0 && <span style={{ color: BRT.dimmest }}>×</span>}
+                <span style={{ color: i === 0 ? BRT.ink : '#d0d0d0' }}>
+                  {r.kind === 'self' ? 'You · NM' : r.name}
+                </span>
+                <span style={{ color: BRT.red, fontSize: 9 }}>{r.weight}</span>
               </span>
-              <span style={{ color: BRT.red, fontSize: 9 }}>{r.weight}</span>
-            </span>
-          ))}
-          <button
-            onClick={onOpenRefs}
+            ))}
+            <button
+              onClick={onOpenRefs}
+              style={{
+                marginLeft: 'auto',
+                background: 'transparent',
+                border: 'none',
+                color: BRT.red,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontSize: 10,
+                letterSpacing: '0.22em',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                padding: 0,
+              }}
+            >
+              manage →
+            </button>
+          </div>
+          {/* Evidence strip — what's actually loaded per ref. If a ref has
+              no deep-dive profile, say so (and tell the user how to fix it)
+              rather than letting them assume it's blending on real data. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {refs.slice(0, 5).map(r => {
+              const bits = evidenceBits(r)
+              return (
+                <span
+                  key={`ev-${r.id}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '3px 8px',
+                    background: bits.length ? 'transparent' : 'rgba(255,42,26,0.06)',
+                    border: `1px solid ${bits.length ? BRT.borderBright : BRT.red}`,
+                    color: bits.length ? '#c0c0c0' : BRT.red,
+                    fontSize: 9,
+                    letterSpacing: '0.18em',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  <span style={{ color: bits.length ? BRT.red : BRT.red }}>
+                    {r.kind === 'self' ? 'You' : shortName(r.name)}
+                  </span>
+                  <span style={{ color: BRT.dimmest }}>·</span>
+                  {bits.length ? (
+                    <span>{bits.join(' · ')}</span>
+                  ) : (
+                    <span>no deep-dive yet</span>
+                  )}
+                </span>
+              )
+            })}
+            {refs.length === 1 && refs[0].kind === 'self' && (
+              <button
+                onClick={onOpenRefs}
+                style={{
+                  padding: '3px 8px',
+                  background: 'transparent',
+                  border: `1px dashed ${BRT.red}`,
+                  color: BRT.red,
+                  fontSize: 9,
+                  letterSpacing: '0.22em',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                + add an influence
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Priority anchor banner — shows the upcoming gig/release the
+            caption gen is quietly threading into craft-flavoured posts. Makes
+            the north star visible so the artist can see it's being applied
+            (and swap it by editing the gig in Signal Lab — DB is source of
+            truth, no hardcodes). */}
+        {priorityContext && (
+          <div
             style={{
-              marginLeft: 'auto',
-              background: 'transparent',
-              border: 'none',
-              color: BRT.red,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              fontSize: 10,
-              letterSpacing: '0.22em',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 12px',
+              background: BRT.ticketLo,
+              border: `1px solid ${BRT.borderBright}`,
             }}
           >
-            manage →
-          </button>
-        </div>
+            <span style={{ color: BRT.red, fontSize: 10, letterSpacing: '0.26em', fontWeight: 700, textTransform: 'uppercase' }}>
+              ▲ Anchoring
+            </span>
+            <span style={{ color: BRT.ink, fontSize: 11, letterSpacing: '0.02em', lineHeight: 1.4, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {priorityContext}
+            </span>
+            <span style={{ color: BRT.dimmest, fontSize: 9, letterSpacing: '0.22em', fontWeight: 700, textTransform: 'uppercase' }}>
+              next show
+            </span>
+          </div>
+        )}
 
         {/* Context — the single highest-leverage input for caption quality.
             Without it, Claude has no angle and falls back to description.
@@ -530,29 +754,31 @@ export function PhaseVoice({
             }}
           />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
-            {INTENT_CHIPS.map(c => (
-              <button
-                key={c.key}
-                onClick={() => {
-                  setContext(c.prefill)
-                  setCommittedContext(c.prefill)
-                }}
-                style={{
-                  padding: '5px 9px',
-                  background: 'transparent',
-                  border: `1px solid ${BRT.borderBright}`,
-                  color: '#9a9a9a',
-                  fontSize: 9,
-                  letterSpacing: '0.24em',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                {c.label}
-              </button>
-            ))}
+            {INTENT_CHIPS.map(c => {
+              const active = activeIntent === c.key
+              return (
+                <button
+                  key={c.key}
+                  onClick={() => setActiveIntent(active ? null : c.key)}
+                  aria-pressed={active}
+                  title={active ? `Remove ${c.label} intent` : `Apply ${c.label} intent`}
+                  style={{
+                    padding: '5px 9px',
+                    background: active ? BRT.red : 'transparent',
+                    border: `1px solid ${active ? BRT.red : BRT.borderBright}`,
+                    color: active ? BRT.ink : '#9a9a9a',
+                    fontSize: 9,
+                    letterSpacing: '0.24em',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {c.label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -566,7 +792,7 @@ export function PhaseVoice({
               style={{
                 padding: 18,
                 background: BRT.ticketLo,
-                border: `1px solid ${BRT.borderBright}`,
+                border: `1px solid ${BRT.red}`,
                 fontSize: 18,
                 lineHeight: 1.5,
                 letterSpacing: '-0.008em',
@@ -574,18 +800,49 @@ export function PhaseVoice({
                 fontWeight: 500,
                 minHeight: 140,
                 flexShrink: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
               }}
             >
-              <span style={{ color: BRT.dimmest }}>
+              <div style={{
+                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
+                fontSize: 10,
+                letterSpacing: '0.22em',
+                color: BRT.red,
+                textTransform: 'uppercase',
+                fontWeight: 700,
+              }}>
+                ● composing <span className="brt-dots" />
+              </div>
+              <span style={{ color: '#9a9a9a', fontSize: 15 }}>
                 Writing through{' '}
                 {refs.slice(0, 4).map((r, i) => (
                   <span key={r.id}>
                     {i > 0 && <span style={{ color: BRT.dimmest }}> × </span>}
-                    <span style={{ color: '#9a9a9a' }}>{r.kind === 'self' ? 'You' : shortName(r.name)}</span>
+                    <span style={{ color: BRT.ink, fontWeight: 600 }}>{r.kind === 'self' ? 'You' : shortName(r.name)}</span>
                   </span>
                 ))}
-                …
               </span>
+              <span style={{ color: BRT.dimmest, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+                Sonnet drafts · Opus polishes · ~4s
+              </span>
+              <style jsx>{`
+                .brt-dots::after {
+                  content: '';
+                  display: inline-block;
+                  width: 1em;
+                  text-align: left;
+                  animation: brt-dots 1.2s steps(4, end) infinite;
+                }
+                @keyframes brt-dots {
+                  0%   { content: ''; }
+                  25%  { content: '.'; }
+                  50%  { content: '..'; }
+                  75%  { content: '...'; }
+                  100% { content: ''; }
+                }
+              `}</style>
             </div>
           ) : err ? (
             <div
@@ -648,36 +905,11 @@ export function PhaseVoice({
             {!check.overall && !loading && !err && (
               <>
                 <span>·</span>
-                <span style={{ color: BRT.red }}>● drifted · re-roll</span>
+                <span style={{ color: BRT.red }}>● drifted · regenerate</span>
               </>
             )}
           </div>
 
-          {/* Receipts — Claude's one-sentence rationale for why it wrote
-              this. Sits right under the caption so the artist sees the
-              WHY without opening the approval modal. Quiet-styled so it
-              reads as commentary, not chrome. */}
-          {rationale && !loading && !err && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 10,
-                padding: '8px 12px',
-                background: BRT.ticketLo,
-                border: `1px dashed ${BRT.borderBright}`,
-                fontSize: 11,
-                lineHeight: 1.45,
-                color: '#c0c0c0',
-                fontStyle: 'italic',
-                flexShrink: 0,
-              }}
-            >
-              <span style={{ color: BRT.red, fontStyle: 'normal', fontWeight: 700, letterSpacing: '0.22em', fontSize: 9, textTransform: 'uppercase', whiteSpace: 'nowrap', paddingTop: 1 }}>
-                ◉ Why
-              </span>
-              <span>{rationale}</span>
-            </div>
-          )}
         </div>
 
 
@@ -860,6 +1092,164 @@ export function PhaseVoice({
           )}
         </div>
 
+        {/* Cover picker — IG-style every-frame scrubber. Before this shipped,
+            Signal Lab couldn't override Meta's auto-chosen cover — cover
+            selector "went missing" on 2026-04-21 (it was never there).
+            Live video preview seeks as the artist drags; filmstrip under
+            the slider gives visual orientation; the selected moment's time
+            (ms) is sent as `thumb_offset` on the REELS container. */}
+        {isVideo && videoUrl && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              padding: '12px 14px',
+              background: BRT.ticketLo,
+              border: `1px solid ${BRT.borderBright}`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 10, letterSpacing: '0.26em', fontWeight: 700, textTransform: 'uppercase' }}>
+              <span style={{ color: BRT.red }}>◉ Cover</span>
+              <span style={{ color: '#9a9a9a', letterSpacing: '0.18em' }}>scrub to any frame</span>
+              <span style={{ marginLeft: 'auto', color: BRT.ink, letterSpacing: '0.18em' }}>
+                {coverTime.toFixed(2)}s{videoDuration ? ` / ${videoDuration.toFixed(2)}s` : ''}
+              </span>
+            </div>
+
+            {/* Live preview — the actual video element seeks as the slider
+                moves. Muted + playsInline so Safari/iOS don't trigger audio
+                or fullscreen on seek. Portrait-friendly max-height so the
+                preview doesn't dominate the column on wide videos. */}
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <video
+                ref={coverVideoRef}
+                src={videoUrl}
+                muted
+                playsInline
+                preload="metadata"
+                onLoadedMetadata={(e) => {
+                  const v = e.currentTarget
+                  setVideoDuration(Number.isFinite(v.duration) ? v.duration : 0)
+                  // Seed the scrubber at the scanner's best moment so the
+                  // default cover = the frame the AI already picked as peak.
+                  // Artist can drag anywhere; this is just a strong default.
+                  const seed = Math.max(0, Math.min(v.duration || 0, scan?.best_moment?.timestamp ?? 0))
+                  v.currentTime = seed
+                  setCoverTime(seed)
+                }}
+                style={{
+                  maxHeight: 320,
+                  maxWidth: '100%',
+                  background: '#000',
+                  display: 'block',
+                  border: `1px solid ${BRT.borderBright}`,
+                }}
+              />
+            </div>
+
+            {/* Scrubber — continuous timeline. Range input drives
+                video.currentTime which updates the preview above + coverTime
+                for the thumb_offset calc. Custom track styling via
+                ::-webkit-slider-*. */}
+            <div style={{ position: 'relative', padding: '2px 0' }}>
+              {/* Filmstrip background — 12 waypoints, behind the slider so
+                  the thumb sits on top of the strip. Purely visual. */}
+              {coverFrames.length > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: 2,
+                    bottom: 2,
+                    display: 'flex',
+                    gap: 1,
+                    pointerEvents: 'none',
+                    opacity: 0.72,
+                  }}
+                >
+                  {coverFrames.map((f, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={i}
+                      src={f.dataUrl}
+                      alt=""
+                      style={{ flex: 1, minWidth: 0, height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ))}
+                </div>
+              )}
+              <input
+                type="range"
+                min={0}
+                max={videoDuration || 0}
+                step={0.01}
+                value={coverTime}
+                onChange={(e) => {
+                  const t = Number(e.target.value)
+                  setCoverTime(t)
+                  const v = coverVideoRef.current
+                  if (v && Number.isFinite(t)) {
+                    try { v.currentTime = t } catch { /* browsers can throw on rapid seek */ }
+                  }
+                }}
+                aria-label="Select cover frame"
+                style={{
+                  position: 'relative',
+                  width: '100%',
+                  height: 48,
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  margin: 0,
+                  zIndex: 1,
+                }}
+              />
+              <style jsx>{`
+                input[type='range']::-webkit-slider-runnable-track {
+                  height: 48px;
+                  background: transparent;
+                  border: 1px solid ${BRT.borderBright};
+                }
+                input[type='range']::-webkit-slider-thumb {
+                  appearance: none;
+                  -webkit-appearance: none;
+                  width: 4px;
+                  height: 52px;
+                  margin-top: -2px;
+                  background: ${BRT.red};
+                  border: 1px solid ${BRT.ink};
+                  box-shadow: 0 0 0 1px ${BRT.red};
+                  cursor: ew-resize;
+                  border-radius: 0;
+                }
+                input[type='range']::-moz-range-track {
+                  height: 48px;
+                  background: transparent;
+                  border: 1px solid ${BRT.borderBright};
+                }
+                input[type='range']::-moz-range-thumb {
+                  width: 4px;
+                  height: 52px;
+                  background: ${BRT.red};
+                  border: 1px solid ${BRT.ink};
+                  box-shadow: 0 0 0 1px ${BRT.red};
+                  cursor: ew-resize;
+                  border-radius: 0;
+                }
+              `}</style>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 9, letterSpacing: '0.22em', color: BRT.dimmest, fontWeight: 700, textTransform: 'uppercase' }}>
+              <span>0:00</span>
+              <span style={{ flex: 1 }} />
+              <span>{videoDuration ? `${videoDuration.toFixed(2)}s` : '–'}</span>
+            </div>
+          </div>
+        )}
+
         <div
           style={{
             display: 'flex',
@@ -889,10 +1279,9 @@ export function PhaseVoice({
           <button
             onClick={() => {
               setLoading(true)
-              generateCaptionVariants({ scan, refs, platform, fileName, imageDataUrl: thumbnail, context: committedContext })
+              generateCaptionVariants({ scan, refs, platform, fileName, imageDataUrl: thumbnail, context: mergedContext, priorityContext: priorityContext ?? undefined, userId: userId ?? undefined })
                 .then((c) => {
-                  setCaptions({ safe: c.safe, loose: c.loose, raw: c.raw })
-                  setRationale(c.rationale)
+                  setCaptions({ long: c.long, safe: c.safe, loose: c.loose, raw: c.raw })
                   setEdits({})
                 })
                 .catch((e: Error) => setErr(e.message))
@@ -914,7 +1303,7 @@ export function PhaseVoice({
               opacity: loading ? 0.5 : 1,
             }}
           >
-            ↻ Re-roll
+            ↻ Regenerate
           </button>
           <button
             onClick={() => setScheduleOpen(v => !v)}
@@ -1046,7 +1435,7 @@ export function PhaseVoice({
       </div>
 
       {/* Sidebar: platform + refs */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, minHeight: 0 }}>
         <div
           style={{
             background: BRT.ticket,
@@ -1145,9 +1534,38 @@ export function PhaseVoice({
               <span style={{ fontWeight: 700, color: BRT.ink }}>
                 {r.kind === 'self' ? 'You · NM' : r.name}
               </span>
-              <span style={{ fontSize: 9, letterSpacing: '0.22em', color: BRT.red, fontWeight: 700 }}>
-                {r.weight}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {onRemoveRef && r.kind !== 'self' && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveRef(r.id)}
+                    aria-label={`Remove ${r.name}`}
+                    title="Remove reference"
+                    style={{
+                      background: 'transparent',
+                      border: `1px solid ${BRT.red}`,
+                      color: BRT.red,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      width: 20,
+                      height: 20,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 0,
+                      padding: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+                <span style={{ fontSize: 9, letterSpacing: '0.22em', color: BRT.red, fontWeight: 700, minWidth: 32, textAlign: 'right' }}>
+                  {r.weight}
+                </span>
+              </div>
             </div>
           ))}
         </div>
@@ -1367,6 +1785,28 @@ function TagField({
       )}
     </div>
   )
+}
+
+/**
+ * Summarise WHAT deep-dive data is loaded on a given ref. This is receipts
+ * shown next to the "Writing through" banner so the artist can SEE that
+ * chains / style rules / lowercase % / peak content are actually reaching
+ * the caption prompt, not invented. Returns an empty array when the ref
+ * has no profile (user has not run a deep-dive on them yet).
+ */
+function evidenceBits(r: VoiceRef): string[] {
+  const p = r.profile
+  if (!p) return []
+  const bits: string[] = []
+  if (p.chips && p.chips.length) bits.push(`${p.chips.length} chips`)
+  if (p.style_rules) bits.push('style rules')
+  if (typeof p.lowercase_pct === 'number') bits.push(`${p.lowercase_pct}% lower`)
+  if (typeof p.short_caption_pct === 'number') bits.push(`${p.short_caption_pct}% short`)
+  if (typeof p.no_hashtags_pct === 'number') bits.push(`${p.no_hashtags_pct}% no #`)
+  if (p.visual_aesthetic?.mood) bits.push('aesthetic')
+  if (p.content_performance?.peak_content) bits.push('peak post')
+  if (p.brand_positioning) bits.push('positioning')
+  return bits.slice(0, 4)
 }
 
 /** Trim long ref display names for the inline voice-blend strip. */

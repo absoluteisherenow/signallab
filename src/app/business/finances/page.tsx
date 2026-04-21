@@ -19,6 +19,8 @@ interface Invoice {
   created_at?: string
   paid_at?: string
   wht_rate?: number
+  sent_to_promoter_at?: string | null
+  sent_to_promoter_email?: string | null
 }
 
 interface Gig {
@@ -493,6 +495,9 @@ export default function Finances() {
         {/* ===== INVOICES TAB ===== */}
         {financeTab === 'invoices' && (<>
 
+          {/* INBOX SCAN */}
+          <InboxScan />
+
           {/* CURRENCY PICKER */}
           {availableCurrencies.length > 0 && (
             <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', alignItems: 'center' }}>
@@ -697,7 +702,7 @@ export default function Finances() {
                 const whtAmount = inv.wht_rate ? Math.round(inv.amount * (inv.wht_rate / 100)) : 0
                 const netAmount = inv.amount - whtAmount
                 return (
-                  <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px 60px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : 1 }}>
+                  <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px 60px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : inv.sent_to_promoter_at ? 1 : 0.65 }}>
                     <div>
                       <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.gig_title}</div>
                       {inv.artist_name && <div style={{ fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '3px' }}>{inv.artist_name}</div>}
@@ -720,26 +725,41 @@ export default function Finances() {
                       </a>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                        <input
-                          value={sendEmail[inv.id] || ''}
-                          onChange={e => setSendEmail(p => ({ ...p, [inv.id]: e.target.value }))}
-                          placeholder="email@co.com"
-                          style={{ width: '0', flex: 1, background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '10px', padding: '4px 6px', outline: 'none', minWidth: 0 }}
-                        />
-                        <button
-                          onClick={() => sendInvoice(inv)}
-                          disabled={sendingId === inv.id}
-                          style={{ background: 'transparent', border: '1px solid rgba(255,42,26,0.4)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 8px', cursor: sendingId === inv.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: sendingId === inv.id ? 0.5 : 1 }}>
-                          {sendingId === inv.id ? '...' : 'Send →'}
-                        </button>
-                      </div>
-                      <a href={`/api/invoices/${inv.id}/send`} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '9px', letterSpacing: '0.08em', color: 'var(--text-dimmer)', textDecoration: 'none' }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--gold)'}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'}>
-                        Preview email ↗
-                      </a>
+                      {inv.sent_to_promoter_at ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--green)', border: '1px solid rgba(61,107,74,0.35)', padding: '3px 7px', alignSelf: 'flex-start' }}>
+                            ● Sent {new Date(inv.sent_to_promoter_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          </div>
+                          {inv.sent_to_promoter_email && (
+                            <div style={{ fontSize: '9px', color: 'var(--text-dimmer)', wordBreak: 'break-all', lineHeight: 1.3 }} title={inv.sent_to_promoter_email}>
+                              {inv.sent_to_promoter_email}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            <input
+                              value={sendEmail[inv.id] || ''}
+                              onChange={e => setSendEmail(p => ({ ...p, [inv.id]: e.target.value }))}
+                              placeholder="email@co.com"
+                              style={{ width: '0', flex: 1, background: 'var(--bg)', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '10px', padding: '4px 6px', outline: 'none', minWidth: 0 }}
+                            />
+                            <button
+                              onClick={() => sendInvoice(inv)}
+                              disabled={sendingId === inv.id}
+                              style={{ background: 'transparent', border: '1px solid rgba(255,42,26,0.4)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 8px', cursor: sendingId === inv.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: sendingId === inv.id ? 0.5 : 1 }}>
+                              {sendingId === inv.id ? '...' : 'Send →'}
+                            </button>
+                          </div>
+                          <a href={`/api/invoices/${inv.id}/send`} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: '9px', letterSpacing: '0.08em', color: 'var(--text-dimmer)', textDecoration: 'none' }}
+                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--gold)'}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'}>
+                            Preview email ↗
+                          </a>
+                        </>
+                      )}
                     </div>
                     <div>
                       {(inv.status === 'pending' || inv.status === 'overdue') && (
@@ -1017,6 +1037,138 @@ export default function Finances() {
         )}
 
       </div>
+    </div>
+  )
+}
+
+interface ScanReport {
+  threadsExamined?: number
+  gapsExamined?: number
+  invoicesCreated?: number
+  gigsBackfilled?: number
+  byKind?: Record<string, number>
+  actions?: Array<{ kind: string; action: string; gigTitle?: string | null }>
+  skipped?: Array<{ threadId: string; subject?: string; reason: string; gigTitle?: string | null }>
+  errors?: Array<{ account: string; query?: string; error: string }>
+  needsReauth?: Array<{ id: string; email: string; label: string }>
+  tenants?: number
+  perUser?: Array<ScanReport & { userId: string }>
+  error?: string
+}
+
+function InboxScan() {
+  const [state, setState] = useState<'idle' | 'scanning' | 'done' | 'error'>('idle')
+  const [report, setReport] = useState<ScanReport | null>(null)
+  const [error, setError] = useState<string>('')
+
+  async function onScan() {
+    setState('scanning')
+    setError('')
+    try {
+      const res = await fetch('/api/gmail/invoice-requests', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const body = await res.json() as ScanReport
+      if (!res.ok) {
+        setError(body.error || `Scan failed (${res.status})`)
+        setState('error')
+        return
+      }
+      // Cron-auth path returns a `perUser` array; dashboard path returns a
+      // single-user report inline. Pick whichever branch populated.
+      const r: ScanReport = body.perUser && body.perUser.length
+        ? body.perUser[0]
+        : body
+      setReport(r)
+      setState('done')
+    } catch (err: any) {
+      setError(err?.message || 'Network error')
+      setState('error')
+    }
+  }
+
+  const skippedBuckets = (() => {
+    if (!report?.skipped) return []
+    const groups: Record<string, Array<{ subject: string; gigTitle: string | null }>> = {}
+    for (const s of report.skipped) {
+      const key = s.reason
+      if (!groups[key]) groups[key] = []
+      groups[key].push({ subject: s.subject || s.threadId, gigTitle: s.gigTitle || null })
+    }
+    return Object.entries(groups)
+  })()
+
+  const reasonLabel = (r: string) => ({
+    already_settled: 'already paid / sent',
+    duplicate_invoice: 'duplicate of existing draft',
+    low_confidence: 'low-confidence / not a fee ask',
+    extraction_error: 'extraction failed',
+  } as Record<string, string>)[r] || r
+
+  return (
+    <div style={{ marginBottom: 24, padding: 16, border: '1px solid #1a1a1a', background: '#0a0a0a', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#6a6a6a' }}>Inbox scan</div>
+          <div style={{ fontSize: 13, color: '#c0c0c0' }}>
+            {state === 'done' && report
+              ? `Scanned ${report.threadsExamined || 0} threads · ${report.invoicesCreated || 0} invoice${report.invoicesCreated === 1 ? '' : 's'} drafted · ${report.gigsBackfilled || 0} gig${report.gigsBackfilled === 1 ? '' : 's'} backfilled`
+              : state === 'error'
+                ? <span style={{ color: '#ff8a7a' }}>{error}</span>
+                : 'Pull booking emails, draft invoices, backfill promoter contacts & billing.'}
+          </div>
+        </div>
+        <button
+          onClick={onScan}
+          disabled={state === 'scanning'}
+          style={{
+            padding: '10px 18px',
+            background: state === 'scanning' ? '#333' : '#ff2a1a',
+            color: '#050505',
+            border: 'none',
+            fontFamily: 'inherit',
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            cursor: state === 'scanning' ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {state === 'scanning' ? 'Scanning…' : state === 'done' ? 'Scan again' : 'Scan inbox now'}
+        </button>
+      </div>
+
+      {state === 'done' && report && ((report.actions?.length || 0) > 0 || skippedBuckets.length > 0 || (report.needsReauth?.length || 0) > 0 || (report.errors?.length || 0) > 0) && (
+        <div style={{ fontSize: 11, color: '#8a8a8a', display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid #1a1a1a', paddingTop: 10 }}>
+          {(report.actions || []).map((a, i) => (
+            <div key={i} style={{ color: a.kind === 'set_time_change' || a.kind === 'cancellation' ? '#ff8a7a' : '#c0c0c0' }}>
+              → <span style={{ color: '#6a6a6a', textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.1em' }}>{a.kind.replace(/_/g, ' ')}</span>{' '}{a.action}
+            </div>
+          ))}
+          {skippedBuckets.map(([reason, items]) => (
+            <div key={reason}>
+              ↳ Skipped {items.length} ({reasonLabel(reason)}):{' '}
+              <span style={{ color: '#6a6a6a' }}>
+                {items.slice(0, 3).map(i => i.gigTitle || i.subject).join(' · ')}
+                {items.length > 3 ? ` +${items.length - 3} more` : ''}
+              </span>
+            </div>
+          ))}
+          {(report.needsReauth || []).map(a => (
+            <div key={a.id} style={{ color: '#ffb47a' }}>
+              ↳ <a href={`/api/gmail/auth?label=${encodeURIComponent(a.label || 'reconnect')}`} style={{ color: '#ffb47a', textDecoration: 'underline' }}>
+                Reconnect Gmail — {a.email}
+              </a>
+            </div>
+          ))}
+          {(report.errors || []).length > 0 && (
+            <div style={{ color: '#ff8a7a' }}>
+              ↳ {report.errors!.length} query error{report.errors!.length === 1 ? '' : 's'}: <span style={{ color: '#6a6a6a' }}>{report.errors!.slice(0, 2).map(e => `${e.account}: ${e.error.slice(0, 40)}`).join(' · ')}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

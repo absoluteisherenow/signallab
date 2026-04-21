@@ -22,6 +22,7 @@ export default function NewGig() {
     notes: '',
     artwork_url: '',
     ra_url: '',
+    ticket_url: '',
   })
   const [artworkTab, setArtworkTab] = useState<'ra' | 'upload'>('ra')
   const [uploadingArtwork, setUploadingArtwork] = useState(false)
@@ -186,6 +187,11 @@ export default function NewGig() {
                   <option value="cancelled">Cancelled</option>
                 </select>
               </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Ticket URL</label>
+              <input value={form.ticket_url} onChange={e => update('ticket_url', e.target.value)}
+                placeholder="https://..." style={inputStyle} />
             </div>
           </div>
         </div>

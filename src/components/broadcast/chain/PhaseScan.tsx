@@ -12,12 +12,16 @@ interface Props {
 
 type Step = { key: string; label: string; state: 'queued' | 'running' | 'done' }
 
+// Real pipeline stages. No audio transcription (scanner is vision-only) and
+// "vibe" / "hooks" were never independent steps — they're fields inside the
+// single Sonnet JSON response. What actually runs: sample frames → Sonnet
+// vision read → Opus editorial polish (wow_note, editorial_angle, caption
+// context, post rec) → client-side composite score.
 const INITIAL_STEPS: Step[] = [
-  { key: 'frames', label: 'Frames sampled', state: 'running' },
-  { key: 'audio', label: 'Audio transcribed', state: 'queued' },
-  { key: 'vibe', label: 'Vibe detected', state: 'queued' },
-  { key: 'hooks', label: 'Hooks extracted', state: 'queued' },
-  { key: 'score', label: 'Score', state: 'queued' },
+  { key: 'frames',    label: 'Frames sampled',  state: 'running' },
+  { key: 'vision',    label: 'Vision read',     state: 'queued' },
+  { key: 'editorial', label: 'Editorial pass',  state: 'queued' },
+  { key: 'score',     label: 'Scored',          state: 'queued' },
 ]
 
 /**
@@ -312,12 +316,38 @@ export function PhaseScan({ file, onComplete, onError }: Props) {
           <span>signal ▸ claude vision</span>
           <span style={{ color: BRT.red }}>{Math.round(progress)}%</span>
         </div>
+        {/* Reassurance copy fades in after 8s — VIDEO ONLY. Video scans run
+            20–30s because Sonnet reads 6 frames + Opus polish hits sequentially.
+            Image scans finish in 2–4s so this threshold rarely trips anyway,
+            but gating by mime type keeps the "every frame" copy honest. */}
+        {file.type.startsWith('video/') && elapsed > 8000 && (
+          <div
+            style={{
+              marginTop: 14,
+              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
+              fontSize: 10,
+              letterSpacing: '0.18em',
+              color: BRT.inkSoft,
+              textTransform: 'uppercase',
+              textAlign: 'center',
+              animation: 'brt-fade-in .45s ease-out',
+            }}
+          >
+            {elapsed > 22000
+              ? 'almost there — heavy frames take a beat'
+              : 'typically 20–30s · Claude reads every frame carefully'}
+          </div>
+        )}
       </div>
 
       <style jsx>{`
         @keyframes brt-pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.35; transform: scale(0.85); }
+        }
+        @keyframes brt-fade-in {
+          from { opacity: 0; transform: translateY(3px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

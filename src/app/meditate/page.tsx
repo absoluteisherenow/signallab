@@ -90,8 +90,7 @@ export default function MeditatePage() {
   const [breathPhase, setBreathPhase] = useState<BreathPhase>('in')
   const [introText, setIntroText] = useState('')
   const [introPlaying, setIntroPlaying] = useState(false)
-  const audioCtxRef = useRef<AudioContext | null>(null)
-  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const audioElRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const breathRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeRef = useRef(false)
@@ -105,10 +104,11 @@ export default function MeditatePage() {
       activeRef.current = false
       if (timerRef.current) clearInterval(timerRef.current)
       if (breathRef.current) clearTimeout(breathRef.current)
-      audioSourceRef.current?.stop()
-      audioCtxRef.current?.close()
-      audioCtxRef.current = null
-      audioSourceRef.current = null
+      if (audioElRef.current) {
+        audioElRef.current.pause()
+        audioElRef.current.src = ''
+        audioElRef.current = null
+      }
     }
   }, [])
 
@@ -148,80 +148,22 @@ export default function MeditatePage() {
       })
     }, 1000)
 
-    // Unlock AudioContext during user gesture so TTS can play later
-    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-      audioCtxRef.current = new AudioContext()
-    }
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume()
-    }
-
-    // Generate intro + speak it
-    generateIntro(m)
-  }
-
-  async function generateIntro(m: ModeConfig) {
+    // Pre-recorded guided audio per mode. Created inside the user gesture so
+    // iOS Safari allows playback.
     try {
-      const res = await fetch('/api/claude/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          system: `You are Signal, guiding a 5-minute meditation for an electronic music artist. Context: ${m.promptContext}. Write a full guided meditation script that takes about 5 minutes to read aloud (~700 words). Include breathing cues woven naturally into the narration (e.g. "breathe in slowly... hold... and release"). Build through phases: grounding, deepening, the core visualisation, then gently returning. Speak naturally, warmly, with pauses indicated by "..." — no bullet points, no headings, just flowing spoken guidance. Never mention AI.`,
-          max_tokens: 1200,
-          messages: [{ role: 'user', content: `Guide me through the full ${m.subtitle.toLowerCase()} meditation.` }],
-        }),
-      })
-
-      if (!res.ok || !res.body) return
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let fullText = ''
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6).trim()
-          if (data === '[DONE]') continue
-          try {
-            const event = JSON.parse(data)
-            if (event.type === 'content_block_delta' && event.delta?.text) {
-              fullText += event.delta.text
-              setIntroText(fullText)
-            }
-          } catch {}
-        }
+      if (audioElRef.current) {
+        audioElRef.current.pause()
+        audioElRef.current.src = ''
       }
-
-      // TTS
-      if (fullText && activeRef.current) {
-        try {
-          const ttsRes = await fetch('/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: fullText }),
-          })
-          if (ttsRes.ok) {
-            const arrayBuffer = await ttsRes.arrayBuffer()
-            const ctx = audioCtxRef.current
-            if (!ctx || !activeRef.current) return
-            const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
-            const source = ctx.createBufferSource()
-            source.buffer = audioBuffer
-            source.connect(ctx.destination)
-            audioSourceRef.current = source
-            setIntroPlaying(true)
-            source.onended = () => setIntroPlaying(false)
-            source.start(0)
-          }
-        } catch {}
+      const el = new Audio(`/meditations/${m.key}.mp3`)
+      el.preload = 'auto'
+      el.onplay = () => setIntroPlaying(true)
+      el.onended = () => setIntroPlaying(false)
+      el.onpause = () => setIntroPlaying(false)
+      audioElRef.current = el
+      const p = el.play()
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => { /* user can tap play again if autoplay was blocked */ })
       }
     } catch {}
   }
@@ -234,8 +176,7 @@ export default function MeditatePage() {
         // Pause
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
         if (breathRef.current) { clearTimeout(breathRef.current); breathRef.current = null }
-        audioSourceRef.current?.stop()
-        audioCtxRef.current?.suspend()
+        audioElRef.current?.pause()
       } else {
         // Resume
         timerRef.current = setInterval(() => {
@@ -251,7 +192,7 @@ export default function MeditatePage() {
           })
         }, 1000)
         runBreath(mode, breathPhase)
-        audioCtxRef.current?.resume()
+        audioElRef.current?.play().catch(() => {})
       }
       return !prev
     })
@@ -262,10 +203,11 @@ export default function MeditatePage() {
     activeRef.current = false
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     if (breathRef.current) { clearTimeout(breathRef.current); breathRef.current = null }
-    audioSourceRef.current?.stop()
-    audioSourceRef.current = null
-    audioCtxRef.current?.close()
-    audioCtxRef.current = null
+    if (audioElRef.current) {
+      audioElRef.current.pause()
+      audioElRef.current.src = ''
+      audioElRef.current = null
+    }
     setActiveMode(null)
     setScreen('choose')
     setPaused(false)

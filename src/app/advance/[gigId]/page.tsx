@@ -69,6 +69,11 @@ export default function AdvancePage() {
         if (data.gig) setGig(data.gig)
         if (data.techRider) setTechRider(data.techRider)
         if (data.hospitalityRider) setHospitalityRider(data.hospitalityRider)
+        if (data.prefill && Object.keys(data.prefill).length > 0) {
+          setForm(data.prefill)
+          if (data.prefill.hotel_name) setAccomProvided(true)
+          if (data.prefill.transfer_driver_name) setTransferProvided(true)
+        }
       })
       .catch(() => {})
   }, [gigId])

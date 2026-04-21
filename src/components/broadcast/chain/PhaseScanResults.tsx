@@ -56,6 +56,7 @@ export function PhaseScanResults({ result, composite, fileName, isVideo, thumbna
           display: 'flex',
           flexDirection: 'column',
           gap: 14,
+          minWidth: 0,
           minHeight: 0,
         }}
       >
@@ -77,18 +78,60 @@ export function PhaseScanResults({ result, composite, fileName, isVideo, thumbna
             </div>
           </div>
         </div>
-        <div
-          style={{
-            fontSize: 14,
-            lineHeight: 1.5,
-            color: BRT.ink,
-            padding: '12px 14px',
-            background: BRT.ticketLo,
-            borderLeft: `2px solid ${BRT.red}`,
-          }}
-        >
-          {cleanText(result.caption_context || result.post_recommendation)}
-        </div>
+        {/* WOW line + editorial angle from the Opus scanner. If present,
+            these are the headline read: the surprising thing + the posting
+            call. They outrank caption_context/post_recommendation for hero
+            placement because they are WRITTEN for the artist's eye, not
+            downstream consumers of the JSON. */}
+        {(result.wow_note || result.editorial_angle) ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              padding: '14px 16px',
+              background: 'rgba(255,42,26,0.05)',
+              border: `1px solid ${BRT.red}`,
+            }}
+          >
+            {result.wow_note && (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 9, letterSpacing: '0.28em', color: BRT.red, fontWeight: 800, textTransform: 'uppercase', marginTop: 3 }}>
+                  ◉ WOW
+                </span>
+                <span style={{ fontSize: 15, lineHeight: 1.45, color: BRT.ink, fontWeight: 600 }}>
+                  {cleanText(result.wow_note)}
+                </span>
+              </div>
+            )}
+            {result.editorial_angle && (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', paddingTop: 8, borderTop: `1px solid ${BRT.borderBright}` }}>
+                <span style={{ fontSize: 9, letterSpacing: '0.28em', color: BRT.red, fontWeight: 800, textTransform: 'uppercase', marginTop: 3 }}>
+                  ◉ POST IT
+                </span>
+                <span style={{ fontSize: 13, lineHeight: 1.45, color: '#d0d0d0' }}>
+                  {cleanText(result.editorial_angle)}
+                </span>
+              </div>
+            )}
+            <div style={{ fontSize: 11, lineHeight: 1.5, color: '#9a9a9a', paddingTop: 6, borderTop: `1px solid ${BRT.borderBright}` }}>
+              {cleanText(result.caption_context || result.post_recommendation)}
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: BRT.ink,
+              padding: '12px 14px',
+              background: BRT.ticketLo,
+              borderLeft: `2px solid ${BRT.red}`,
+            }}
+          >
+            {cleanText(result.caption_context || result.post_recommendation)}
+          </div>
+        )}
         <div
           style={{
             display: 'grid',
@@ -158,7 +201,7 @@ export function PhaseScanResults({ result, composite, fileName, isVideo, thumbna
       {/* Right column: image hero first (this is what's being scored —
           the user should SEE it at size, not hunt for a 40px thumbnail),
           then tags + top moments below. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, minHeight: 0 }}>
         {thumbnail && (
           <div
             style={{

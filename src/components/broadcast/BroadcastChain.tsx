@@ -58,6 +58,16 @@ function buildMediaMeta(file: File): string {
   return `${size} · ${kind}`
 }
 
+// Rebuild the meta string from a persisted fileMeta object (no File blob).
+// Used after a refresh rehydration — lets MediaStrip render the same
+// "150KB · IMAGE" chip without the real File in hand.
+function buildMediaMetaFromMeta(meta: { size: number; type: string }): string {
+  const size = fmtBytes(meta.size)
+  const isVid = meta.type.startsWith('video/')
+  const kind = isVid ? 'VIDEO' : 'IMAGE'
+  return `${size} · ${kind}`
+}
+
 /**
  * Alignment score = simple deterministic blend of weights.
  * Real scoring can swap in later without UI changes.
@@ -87,15 +97,68 @@ function ideaToContext(idea: Idea): string {
   return parts.join(' — ')
 }
 
+// Tab-scoped session for the broadcast chain. Lets a refresh mid-flow land
+// the user back in the voice phase with their scan + thumbnail intact, so
+// they don't lose 30s of work. The actual File blob can't round-trip through
+// storage, so we persist a lightweight fileMeta and gate the publish CTA on
+// re-attach if the blob is missing.
+const SESSION_KEY = 'broadcast.chain.v1'
+const SESSION_MAX_AGE_MS = 60 * 60 * 1000 // 1 hour
+
+type SessionSnapshot = {
+  phase: ChainPhase
+  scanResult: ChainScanResult | null
+  composite: number
+  thumbnail: string | null
+  fileMeta: { name: string; type: string; size: number } | null
+  savedAt: number
+}
+
+function loadSession(): SessionSnapshot | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const snap = JSON.parse(raw) as SessionSnapshot
+    if (!snap.savedAt || Date.now() - snap.savedAt > SESSION_MAX_AGE_MS) {
+      sessionStorage.removeItem(SESSION_KEY)
+      return null
+    }
+    return snap
+  } catch {
+    return null
+  }
+}
+
+function saveSession(snap: SessionSnapshot) {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(snap))
+  } catch {
+    // Quota or serialisation failure — non-fatal, refresh will just wipe.
+  }
+}
+
+function clearSession() {
+  if (typeof window === 'undefined') return
+  try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+}
+
 export function BroadcastChain() {
   const [phase, setPhase] = useState<ChainPhase>('drop')
   const [file, setFile] = useState<File | null>(null)
+  // When the tab reloads the real File blob is gone but we keep the meta
+  // so the UI still knows name/size/type for MediaStrip + publish gating.
+  const [fileMeta, setFileMeta] = useState<{ name: string; type: string; size: number } | null>(null)
   const [scanResult, setScanResult] = useState<ChainScanResult | null>(null)
   const [composite, setComposite] = useState(0)
   const [thumbnail, setThumbnail] = useState<string | null>(null)
   const [refs, setRefs] = useState<VoiceRef[]>([])
   const [refsOpen, setRefsOpen] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
+  // Gate the save effect until we've hydrated — otherwise the first render
+  // overwrites a valid snapshot with empty state.
+  const [hydrated, setHydrated] = useState(false)
   // Pinned idea from /broadcast?idea=<slug>. If set, caption-gen context is
   // seeded with the idea's angle so the user doesn't have to retype it.
   const [pinnedIdea, setPinnedIdea] = useState<Idea | null>(null)
@@ -187,10 +250,47 @@ export function BroadcastChain() {
     return () => { cancelled = true }
   }, [])
 
+  // Hydrate once on mount. If a snapshot exists and is fresh, jump straight
+  // to the voice phase with the scan result + thumbnail restored. The File
+  // blob is gone, so we stub fileMeta and rely on a re-attach banner in the
+  // voice phase to collect the bytes before publish.
+  useEffect(() => {
+    const snap = loadSession()
+    if (snap && snap.scanResult && (snap.phase === 'voice' || snap.phase === 'scanned')) {
+      setScanResult(snap.scanResult)
+      setComposite(snap.composite)
+      setThumbnail(snap.thumbnail)
+      setFileMeta(snap.fileMeta)
+      setPhase('voice')
+    }
+    setHydrated(true)
+  }, [])
+
+  // Persist relevant state whenever it changes post-hydration. We skip the
+  // scanning phase (blob in flight) and drop phase (nothing to save).
+  useEffect(() => {
+    if (!hydrated) return
+    if (phase === 'drop' || phase === 'scanning') {
+      clearSession()
+      return
+    }
+    if (!scanResult) return
+    const meta = fileMeta ?? (file ? { name: file.name, type: file.type, size: file.size } : null)
+    saveSession({
+      phase,
+      scanResult,
+      composite,
+      thumbnail,
+      fileMeta: meta,
+      savedAt: Date.now(),
+    })
+  }, [hydrated, phase, scanResult, composite, thumbnail, file, fileMeta])
+
   const handleMedia = useCallback((files: File[]) => {
     const first = files[0]
     if (!first) return
     setFile(first)
+    setFileMeta({ name: first.name, type: first.type, size: first.size })
     setScanError(null)
     setScanResult(null)
     setComposite(0)
@@ -226,14 +326,20 @@ export function BroadcastChain() {
 
   const handleReplace = useCallback(() => {
     setFile(null)
+    setFileMeta(null)
     setScanResult(null)
     setComposite(0)
     setThumbnail(null)
     setPhase('drop')
+    clearSession()
   }, [])
 
   const alignmentScore = useMemo(() => computeAlignment(refs), [refs])
-  const isVideo = !!file && file.type.startsWith('video/')
+  // Prefer the stored blob's type, fall back to restored fileMeta after
+  // a refresh (when `file` is null but scanResult was rehydrated).
+  const isVideo = (file?.type ?? fileMeta?.type ?? '').startsWith('video/')
+  const activeName = file?.name ?? fileMeta?.name ?? ''
+  const activeMeta = file ? buildMediaMeta(file) : fileMeta ? buildMediaMetaFromMeta(fileMeta) : ''
 
   return (
     <div
@@ -438,22 +544,40 @@ export function BroadcastChain() {
             </>
           )}
 
-          {file && scanResult && phase === 'voice' && (
+          {scanResult && phase === 'voice' && (
             <>
               <MediaStrip
-                name={file.name}
-                meta={buildMediaMeta(file)}
+                name={activeName}
+                meta={activeMeta}
                 thumbnail={thumbnail}
                 onReplace={handleReplace}
               />
+              {!file && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    background: 'rgba(255,42,26,0.06)',
+                    border: `1px solid ${BRT.red}`,
+                    color: BRT.ink,
+                    fontSize: 11,
+                    letterSpacing: '0.22em',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Session restored · reattach media to publish
+                </div>
+              )}
               <PhaseVoice
                 scan={scanResult}
-                fileName={file.name}
+                file={file}
+                fileName={activeName}
                 isVideo={isVideo}
                 thumbnail={thumbnail}
                 refs={refs}
                 alignmentScore={alignmentScore}
                 onOpenRefs={() => setRefsOpen(true)}
+                onRemoveRef={(id) => setRefs(prev => prev.filter(r => r.id !== id))}
                 initialContext={pinnedIdea ? ideaToContext(pinnedIdea) : undefined}
               />
             </>

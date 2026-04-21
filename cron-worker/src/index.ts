@@ -24,14 +24,26 @@ type CronJob = {
 // all benefit from running early so data is fresh before the workday starts.
 // Patterns MUST match wrangler.jsonc exactly.
 const JOBS: Record<string, CronJob[]> = {
-  '*/5 * * * *':   [{ path: '/api/crons/publish-scheduled', method: 'GET',  label: 'publish-scheduled' }],
-  '*/30 * * * *':  [{ path: '/api/crons/check-comments',    method: 'GET',  label: 'check-comments' }],
+  // Invoice scan fires every 5 min — each user is gated internally by
+  // SCANNER_CADENCE_MIN (Creator 120, Artist 60, Pro 30, Road/mgmt 5),
+  // so this trigger drives the Road tier and the internal gate throttles others.
+  '*/5 * * * *': [
+    { path: '/api/crons/publish-scheduled', method: 'GET',  label: 'publish-scheduled' },
+    { path: '/api/gmail/invoice-requests',  method: 'POST', label: 'invoice-scan' },
+  ],
+  '*/30 * * * *': [
+    { path: '/api/crons/check-comments',       method: 'GET',  label: 'check-comments' },
+  ],
   '0 5 * * *': [
     { path: '/api/crons/sync-performance', method: 'GET', label: 'sync-performance' },
     { path: '/api/crons/contact-gaps',     method: 'GET', label: 'contact-gaps' },
     { path: '/api/crons/ads-snapshot',     method: 'GET', label: 'ads-snapshot' },
   ],
-  '0 11 * * *':    [{ path: '/api/crons/invoice-backfill',  method: 'POST', label: 'invoice-backfill' }],
+  '0 11 * * *': [
+    { path: '/api/crons/invoice-backfill', method: 'POST', label: 'invoice-backfill' },
+    { path: '/api/crons/ads-evaluate',     method: 'GET',  label: 'ads-evaluate' },
+    { path: '/api/crons/ads-reminders',    method: 'GET',  label: 'ads-reminders' },
+  ],
   '0 18 * * *':    [{ path: '/api/crons/night-before',      method: 'GET',  label: 'night-before' }],
 }
 

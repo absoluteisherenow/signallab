@@ -967,18 +967,31 @@ Rules:
   const pathname = usePathname()
   if (deviceType === 'unknown') return null
   if (pathname.startsWith('/go/')) return null
-  // Hide on public marketing surfaces
+  // Hide on public marketing + promoter/fan surfaces
   if (
     pathname === '/' ||
     pathname === '/login' ||
     pathname === '/waitlist' ||
     pathname === '/brt' ||
     pathname === '/privacy' ||
-    pathname.startsWith('/upload')
+    pathname.startsWith('/upload') ||
+    pathname.startsWith('/gl/') ||
+    pathname.startsWith('/advance/') ||
+    pathname.startsWith('/gig-pass/')
   ) return null
 
-  // Mobile: floating mic centred above the toolbar
+  // Mobile: floating mic centred above the tab bar.
+  // Hidden on meditate (full-screen immersive surface).
   if (deviceType === 'mobile') {
+    // Hide on surfaces that already have a dominant listen/record action,
+    // or that are immersive — the floating mic competes with the primary CTA.
+    if (
+      pathname === '/meditate' ||
+      pathname === '/dashboard' ||
+      pathname === '/setlab' ||
+      pathname.startsWith('/setlab/') ||
+      pathname.startsWith('/mobile/')
+    ) return null
     return (
       <div className="signal-desktop-fab" style={{
         position: 'fixed', bottom: 72, left: 0, right: 0,

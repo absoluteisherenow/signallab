@@ -21,6 +21,7 @@ interface Gig {
   notes: string | null
   artwork_url: string | null
   ra_url: string | null
+  ticket_url: string | null
 }
 
 interface TravelBooking {
@@ -491,6 +492,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
                   <Field label="Set time" value={gig.time} edit={editing} name="time" type="time" />
                 </div>
                 <Field label="Status" value={gig.status} edit={editing} name="status" options={['confirmed', 'pending', 'cancelled']} />
+                <Field label="Ticket URL" value={gig.ticket_url || ''} edit={editing} name="ticket_url" />
               </div>
             </div>
 
