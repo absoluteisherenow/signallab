@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
 import { requireCronAuth } from '@/lib/cron-auth'
-import { env } from '@/lib/env'
+import { scrubBrandText } from '@/lib/scrubBrandText'
+import { callClaudeWithBrain } from '@/lib/callClaudeWithBrain'
 
 // Service role required: this is a cron that reads/writes across all tenants.
 // Anon key would break the moment RLS lands on `invoice_reminder_drafts`.
@@ -54,6 +55,7 @@ function getToneInstruction(milestone: Milestone): string {
 }
 
 async function generateChaseEmail({
+  userId,
   gigTitle,
   venue,
   gigDate,
@@ -63,6 +65,7 @@ async function generateChaseEmail({
   daysUntilDue,
   milestone,
 }: {
+  userId: string
   gigTitle: string
   venue: string
   gigDate: string
@@ -72,9 +75,6 @@ async function generateChaseEmail({
   daysUntilDue: number
   milestone: Milestone
 }): Promise<string> {
-  const apiKey = await env('ANTHROPIC_API_KEY')
-  if (!apiKey) throw new Error('No ANTHROPIC_API_KEY set')
-
   const daysLabel =
     daysUntilDue > 0
       ? `due in ${daysUntilDue} days`
@@ -84,7 +84,9 @@ async function generateChaseEmail({
 
   const toneInstruction = getToneInstruction(milestone)
 
-  const prompt = `Write a brief, professional but warm payment reminder email for a DJ/electronic music artist chasing a fee from a promoter.
+  // Brain injects artist identity / casing / voice / rules — we only supply the
+  // booking-specific facts and tone. Sign-off pulled from ctx.artist.name.
+  const userMessage = `Write a brief, professional but warm payment reminder email to a promoter.
 
 Details:
 - Promoter first name: ${promoterName}
@@ -96,24 +98,19 @@ Details:
 
 ${toneInstruction}
 
-Use the promoter's first name. Reference the specific show. Keep it under 100 words. No subject line — just the body. Sign off as Night Manoeuvres.`
+Use the promoter's first name. Reference the specific show. Keep it under 100 words. No subject line — just the body. Sign off with the artist's name exactly as written in the identity block above.`
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+  const result = await callClaudeWithBrain({
+    userId,
+    task: 'invoice.reminder',
+    model: 'claude-sonnet-4-6',
+    max_tokens: 300,
+    userMessage,
+    taskInstruction:
+      'You write payment-reminder emails on behalf of the artist above. Warm, specific, human — never template boilerplate. Output ONLY the email body (no subject, no preamble).',
   })
 
-  const data = await response.json()
-  const text = data.content?.[0]?.text?.trim()
+  const text = result.text?.trim()
   if (!text) throw new Error('Empty response from Claude')
   return text
 }
@@ -155,6 +152,13 @@ async function handler() {
 
     for (const invoice of invoices) {
       if (!invoice.due_date) continue
+      // Brain-wired chase emails require a user_id so identity/voice/rules
+      // load correctly. Legacy rows without user_id get skipped — surfaced in
+      // results so they can be manually owned before the next cron run.
+      if (!invoice.user_id) {
+        results.push(`Skipped ${invoice.gig_title}: no user_id on invoice (legacy row)`)
+        continue
+      }
 
       const dueDate = new Date(invoice.due_date)
       dueDate.setHours(0, 0, 0, 0)
@@ -209,6 +213,7 @@ async function handler() {
       let bodyText: string
       try {
         bodyText = await generateChaseEmail({
+          userId: invoice.user_id,
           gigTitle,
           venue,
           gigDate,
@@ -219,11 +224,16 @@ async function handler() {
           milestone,
         })
       } catch (claudeErr: any) {
-        bodyText = `Hi ${promoterFirstName},\n\nJust a reminder that the invoice for ${gigTitle} (${currency} ${amount.toLocaleString()}) is ${daysUntilDue === 0 ? 'due today' : daysUntilDue > 0 ? `due in ${daysUntilDue} days` : `${Math.abs(daysUntilDue)} days overdue`}.\n\nPlease arrange payment at your earliest convenience.\n\nNight Manoeuvres`
+        // Brain call failed — skeleton fallback so the draft still lands in
+        // the review queue. Sign-off left blank on purpose; the user adds it
+        // in review (multi-tenant safe — no hardcoded artist name here).
+        bodyText = `Hi ${promoterFirstName},\n\nJust a reminder that the invoice for ${gigTitle} (${currency} ${amount.toLocaleString()}) is ${daysUntilDue === 0 ? 'due today' : daysUntilDue > 0 ? `due in ${daysUntilDue} days` : `${Math.abs(daysUntilDue)} days overdue`}.\n\nPlease arrange payment at your earliest convenience.\n\n[sign-off]`
         results.push(`Claude fallback for ${invoice.gig_title}: ${claudeErr.message}`)
       }
 
-      const bodyHtml = bodyToHtml(bodyText, subject)
+      bodyText = scrubBrandText(bodyText)
+      const scrubbedSubject = scrubBrandText(subject)
+      const bodyHtml = bodyToHtml(bodyText, scrubbedSubject)
 
       // Create draft — NOT send. user_id tags the row for tenant isolation so
       // the review UI scopes properly and RLS (once enabled) doesn't need a
@@ -238,7 +248,7 @@ async function handler() {
           milestone,
           promoter_email: promoterEmail,
           promoter_name: promoterFullName,
-          subject,
+          subject: scrubbedSubject,
           body_text: bodyText,
           body_html: bodyHtml,
           status: 'draft',
