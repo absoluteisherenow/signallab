@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { staggerContainer, staggerItem } from '@/lib/motion'
+import { useMobile } from '@/hooks/useMobile'
+import MobileNotifications from '@/components/mobile/MobileNotifications'
 
 interface Notification {
   id: string
@@ -63,6 +65,7 @@ function timeAgo(iso: string) {
 const FILTERS = ['All', 'Unread', 'Logistics', 'Gig', 'Advance', 'Finance', 'Content']
 
 export default function NotificationsPage() {
+  const mobile = useMobile()
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
@@ -99,6 +102,8 @@ export default function NotificationsPage() {
   })
 
   const unreadCount = notifications.filter(n => !n.read).length
+
+  if (mobile) return <MobileNotifications />
 
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
