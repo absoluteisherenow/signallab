@@ -1,5 +1,5 @@
 /**
- * Publisher cron — auto-publishes scheduled IG posts whose scheduled_at <= now().
+ * Publisher cron — auto-publishes scheduled IG + TikTok posts whose scheduled_at <= now().
  *
  * Wire-up (Cloudflare Workers via OpenNext):
  *   Add a cron trigger in `wrangler.toml` (or CF dashboard → Workers → Triggers → Cron Triggers):
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
     .from('scheduled_posts')
     .select('*')
     .eq('status', 'scheduled')
-    .eq('platform', 'instagram')
+    .in('platform', ['instagram', 'tiktok'])
     .lte('scheduled_at', nowIso)
     .order('scheduled_at', { ascending: true })
     .limit(BATCH_LIMIT)
@@ -109,41 +109,69 @@ export async function GET(req: NextRequest) {
       continue
     }
 
-    // Build body for /api/social/instagram/post
+    // HARD RULE: feedback_approve_before_send — every scheduled row must
+    // carry preview_approved_at (stamped server-side at /api/schedule when
+    // the user confirmed). Rows without it should never be here, but we
+    // belt-and-brace check anyway to be absolutely certain nothing autoposts
+    // unapproved.
+    if (!row.preview_approved_at) {
+      await admin
+        .from('scheduled_posts')
+        .update({
+          status: 'failed',
+          publish_error: 'refused: preview_approved_at missing',
+        })
+        .eq('id', row.id)
+      failed.push({ id: row.id, error: 'preview_approved_at missing', attempts: nextAttempts, final: true })
+      continue
+    }
+
+    // Build body — shape differs per platform
     const mediaUrls = Array.isArray(row.media_urls) ? row.media_urls.filter(Boolean) : []
     const firstCollab = Array.isArray(row.collaborators) && row.collaborators.length
       ? (row.collaborators[0] || '').replace(/^@/, '').trim() || null
       : null
-    const baseBody: Record<string, unknown> = {
-      caption: row.caption || '',
-      user_tags: row.user_tags ?? null,
-      first_comment: row.first_comment ?? null,
-      hashtags: row.hashtags ?? null,
-      collab_with: firstCollab,
-      location_id: row.location_id ?? null,
-    }
 
+    let postUrl: string
     let postBody: Record<string, unknown>
-    if (mediaUrls.length >= 2) {
-      postBody = { ...baseBody, image_urls: mediaUrls, post_format: 'carousel' }
-    } else if ((row.format || '').toLowerCase() === 'reel' || isVideoUrl(row.media_url)) {
-      postBody = { ...baseBody, video_url: row.media_url, post_format: 'reel' }
+
+    if (row.platform === 'tiktok') {
+      // TikTok — video-only, URL pull
+      const video = row.media_url || (mediaUrls.length ? mediaUrls[0] : null)
+      postUrl = new URL('/api/social/tiktok/post', req.url).toString()
+      postBody = {
+        caption: row.caption || '',
+        video_url: video,
+        // OUTBOUND_AUTONOMOUS: approved at schedule time (preview_approved_at set).
+        confirmed: true,
+      }
     } else {
-      postBody = { ...baseBody, image_url: row.media_url, post_format: 'post' }
+      // Instagram (default)
+      const baseBody: Record<string, unknown> = {
+        caption: row.caption || '',
+        user_tags: row.user_tags ?? null,
+        first_comment: row.first_comment ?? null,
+        hashtags: row.hashtags ?? null,
+        collab_with: firstCollab,
+        location_id: row.location_id ?? null,
+      }
+      if (mediaUrls.length >= 2) {
+        postBody = { ...baseBody, image_urls: mediaUrls, post_format: 'carousel' }
+      } else if ((row.format || '').toLowerCase() === 'reel' || isVideoUrl(row.media_url)) {
+        postBody = { ...baseBody, video_url: row.media_url, post_format: 'reel' }
+      } else {
+        postBody = { ...baseBody, image_url: row.media_url, post_format: 'post' }
+      }
+      // OUTBOUND_AUTONOMOUS: approved at schedule time (preview_approved_at set).
+      postBody.confirmed = true
+      postUrl = new URL('/api/social/instagram/post', req.url).toString()
     }
-    // OUTBOUND_AUTONOMOUS: scheduled-post auto-publish. The approval gate on
-    // /api/social/instagram/post requires `confirmed: true`. Scheduled posts
-    // were explicitly approved at schedule time (preview_approved_at is set
-    // on the row), so this flag is the replay of that prior approval — not
-    // a bypass of the user-facing gate.
-    postBody.confirmed = true
 
     let succeeded = false
     let errMsg = ''
     let publishedId: string | null = null
 
     try {
-      const postUrl = new URL('/api/social/instagram/post', req.url).toString()
       const resp = await fetch(postUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -152,11 +180,13 @@ export async function GET(req: NextRequest) {
       const json = (await resp.json().catch(() => ({}))) as {
         success?: boolean
         post_id?: string
+        publish_id?: string
         error?: string
       }
-      if (resp.ok && json?.post_id) {
+      const returnedId = json?.post_id || json?.publish_id || null
+      if (resp.ok && returnedId) {
         succeeded = true
-        publishedId = json.post_id
+        publishedId = returnedId
       } else {
         errMsg = json?.error || `publish failed (${resp.status})`
       }
