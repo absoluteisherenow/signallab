@@ -272,22 +272,6 @@ Today is ${todayStr}.`
       overflow: 'hidden',
     }}>
 
-      {/* Debug: context state visible until Signal is answering real questions */}
-      <div style={{
-        position: 'fixed', top: 'calc(env(safe-area-inset-top) + 8px)',
-        left: 8, right: 8,
-        padding: '8px 12px',
-        background: '#ff2a1a', color: '#000',
-        fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
-        textAlign: 'center', zIndex: 9999,
-        fontFamily: 'var(--font-mono)',
-        borderRadius: 4,
-      }}>
-        {ctx
-          ? `CTX OK · gigs=${ctx.gigs.length} inv=${ctx.invoices.length} rel=${ctx.releases.length} name=${ctx.profile?.name || 'MISSING'}`
-          : 'CTX LOADING…'}
-      </div>
-
       {/* Response text */}
       <div style={{
         minHeight: '80px', maxHeight: '50vh', overflowY: 'auto',
