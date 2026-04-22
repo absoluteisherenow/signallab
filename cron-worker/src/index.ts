@@ -94,6 +94,7 @@ const JOBS: Record<string, CronJob[]> = {
     { path: '/api/crons/sync-performance', method: 'GET', label: 'sync-performance' },
     { path: '/api/crons/contact-gaps',     method: 'GET', label: 'contact-gaps' },
     { path: '/api/crons/ads-snapshot',     method: 'GET', label: 'ads-snapshot' },
+    { path: '/api/crons/morning-brief',    method: 'GET', label: 'morning-brief' },
   ],
   '0 11 * * *': [
     { path: '/api/crons/invoice-backfill', method: 'POST', label: 'invoice-backfill' },
