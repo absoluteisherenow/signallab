@@ -317,9 +317,10 @@ export function PhaseScan({ file, onComplete, onError }: Props) {
           <span style={{ color: BRT.red }}>{Math.round(progress)}%</span>
         </div>
         {/* Reassurance copy fades in after 8s — VIDEO ONLY. Video scans run
-            20–30s because Sonnet reads 6 frames + Opus polish hits sequentially.
-            Image scans finish in 2–4s so this threshold rarely trips anyway,
-            but gating by mime type keeps the "every frame" copy honest. */}
+            20–30s because Sonnet reads ~8 sampled frames + Opus polish hits
+            sequentially. Image scans finish in 2–4s so this threshold rarely
+            trips anyway. Copy says "each sampled frame" (not "every frame") —
+            truthful: extractFrames defaults to 8. */}
         {file.type.startsWith('video/') && elapsed > 8000 && (
           <div
             style={{
@@ -335,7 +336,7 @@ export function PhaseScan({ file, onComplete, onError }: Props) {
           >
             {elapsed > 22000
               ? 'almost there — heavy frames take a beat'
-              : 'typically 20–30s · Claude reads every frame carefully'}
+              : 'typically 20–30s · Claude reads each sampled frame carefully'}
           </div>
         )}
       </div>
