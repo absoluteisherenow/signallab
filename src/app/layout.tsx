@@ -10,6 +10,7 @@ import { ApprovalGateProvider } from '@/lib/approval-gate'
 import { ToastProvider } from '@/lib/toast'
 import { AutoFixPrompt } from '@/components/AutoFixPrompt'
 import { GlobalErrorCatcher } from '@/components/GlobalErrorCatcher'
+import { NativeBoot } from '@/components/NativeBoot'
 
 export const metadata: Metadata = {
   title: 'Signal Lab OS',
@@ -32,6 +33,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: '#050505',
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -70,6 +72,7 @@ export default function RootLayout({
         </DesktopShell>
         <AutoFixPrompt />
         <GlobalErrorCatcher />
+        <NativeBoot />
         </ToastProvider>
         </ApprovalGateProvider>
         <script dangerouslySetInnerHTML={{ __html: `

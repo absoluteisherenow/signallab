@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import MobileAdvanceSheet from './MobileAdvanceSheet'
 import MobileInvoiceSheet from './MobileInvoiceSheet'
+import { shareOrCopy, haptic } from '@/lib/native-bridge'
 
 interface Gig {
   id: string
@@ -171,18 +172,15 @@ export default function MobileGigs() {
       if (!slug) return
       const url = `${window.location.origin}/gl/${slug}`
       const title = `Guest list · ${gig.venue}`
-      if (typeof navigator !== 'undefined' && (navigator as any).share) {
-        try { await (navigator as any).share({ url, title }) } catch {}
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(url)
-      }
+      void haptic('light')
+      await shareOrCopy({ url, title })
     } finally {
       setSharing(null)
     }
   }
 
   return (
-    <div style={{ background: COLOR.bg, minHeight: '100vh', fontFamily: FONT, color: COLOR.text, paddingBottom: '96px' }}>
+    <div style={{ background: COLOR.bg, minHeight: '100vh', fontFamily: FONT, color: COLOR.text, paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
       <div style={{ padding: '20px 20px 0', minHeight: '44px', display: 'flex', alignItems: 'center' }}>
         <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.22em', color: COLOR.text, textTransform: 'uppercase' }}>
           TOUR

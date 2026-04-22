@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { MobileTonightF } from '@/components/mobile/MobileTonightF'
+import { shareOrCopy, haptic } from '@/lib/native-bridge'
 
 interface Gig {
   id: string
@@ -168,10 +169,9 @@ export default function MobileShell() {
       if (!slug) return
       const url = `${window.location.origin}/gl/${slug}`
       const title = `Guest list · ${nextGig.venue}`
-      if (typeof navigator !== 'undefined' && (navigator as any).share) {
-        try { await (navigator as any).share({ url, title }) } catch {}
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(url)
+      void haptic('light')
+      const surface = await shareOrCopy({ url, title })
+      if (surface === 'clipboard') {
         setCopied(true)
         setTimeout(() => setCopied(false), 1600)
       }
@@ -266,7 +266,7 @@ export default function MobileShell() {
 
   if (tonightGig) {
     return (
-      <div style={{ background: COLOR.bg, minHeight: '100vh', fontFamily: FONT, color: COLOR.text, paddingBottom: '72px' }}>
+      <div style={{ background: COLOR.bg, minHeight: '100vh', fontFamily: FONT, color: COLOR.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
         <TopBar />
         <MobileTonightF tonightGig={tonightGig} tonightTravel={tonightTravel} />
       </div>
@@ -276,22 +276,28 @@ export default function MobileShell() {
   const strip = nextGig ? formatGigStrip(nextGig) : null
 
   return (
-    <div style={{ background: COLOR.bg, minHeight: '100vh', fontFamily: FONT, color: COLOR.text, paddingBottom: '96px' }}>
+    <div style={{ background: COLOR.bg, minHeight: '100vh', fontFamily: FONT, color: COLOR.text, paddingBottom: 'calc(160px + env(safe-area-inset-bottom))' }}>
       <TopBar />
 
       {/* SHAZAM HERO */}
-      <div style={{ padding: '56px 20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' }}>
+      <div style={{ padding: '40px 20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+        <div style={{
+          fontSize: '10px', fontWeight: 700, letterSpacing: '0.28em',
+          color: COLOR.dimmer, textTransform: 'uppercase',
+        }}>
+          TRACK ID
+        </div>
         <ShazamButton onPress={startListening} />
         <Link
           href="/setlab/library"
           style={{
-            fontSize: '10px', fontWeight: 700, letterSpacing: '0.24em',
+            fontSize: '10px', fontWeight: 700, letterSpacing: '0.22em',
             color: COLOR.dimmer, textTransform: 'uppercase',
             textDecoration: 'none', WebkitTapHighlightColor: 'transparent',
             padding: '6px 14px',
           }}
         >
-          VIEW CRATE →
+          VIEW TRACK ID PLAYLIST →
         </Link>
       </div>
 
@@ -614,7 +620,7 @@ function StackedList({ label, href, items, emptyText }: {
 function TopBar() {
   return (
     <div style={{
-      padding: '20px 20px 0',
+      padding: 'calc(20px + env(safe-area-inset-top)) 20px 0',
       minHeight: '44px',
       display: 'flex', alignItems: 'center',
     }}>
