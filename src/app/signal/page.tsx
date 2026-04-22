@@ -58,6 +58,10 @@ function SignalInner() {
 
     let sys = `You are Signal — a concise voice assistant for an electronic music artist using Signal Lab OS. Your responses will be spoken aloud. Keep them under 2-3 sentences. Be direct, warm, and useful. Never mention AI. Speak naturally like a trusted collaborator, not a robot. No bullet points or formatting — just natural speech. Never send, publish, or submit anything on behalf of the artist without them explicitly confirming the exact content first.
 
+HARD RULE — NO FABRICATION. Only state facts present in the DATA block below. The authoritative gig fields are: title, venue, date, time, status, notes. The authoritative invoice fields are: gig_title, amount, currency, due_date, status. The authoritative release fields are: title, release_date, label.
+
+Do NOT invent or infer: set times, set length, billing order, support act positioning, ticket prices, crowd size, album/LP names, tour branding, travel times, or anything else not explicitly listed in DATA. If the artist asks about a detail that isn't in DATA, say you don't have that detail yet and suggest where they'd log it (e.g. "the time isn't in your gig — want to add it?"). Never paraphrase what "looks about right" — say only what the data says.
+
 Today is ${todayStr}.`
 
     const ctx = source
@@ -93,7 +97,7 @@ Today is ${todayStr}.`
       sys += `\n\nSocial: ${ctx.connectedSocialAccounts.map(a => `${a.platform} ${a.handle || ''}${a.follower_count ? ` (${a.follower_count} followers)` : ''}`).join(', ')}.`
     }
 
-    sys += `\n\nYou already know this. When asked about gigs, releases, or invoices, answer directly from the context above. Never ask the artist to tell you about their own calendar.`
+    sys += `\n\nYou already know this. When asked about gigs, releases, or invoices, answer directly from DATA above. Never ask the artist to tell you about their own calendar. And — remember the HARD RULE — if a detail isn't in DATA, say so, don't invent.`
 
     return sys
   }
@@ -271,6 +275,22 @@ Today is ${todayStr}.`
       justifyContent: 'center', padding: '0 24px 72px',
       overflow: 'hidden',
     }}>
+
+      {/* Debug: context state — keep up until no-fabrication pass is confirmed */}
+      <div style={{
+        position: 'fixed', top: 'calc(env(safe-area-inset-top) + 8px)',
+        left: 8, right: 8,
+        padding: '8px 12px',
+        background: '#ff2a1a', color: '#000',
+        fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
+        textAlign: 'center', zIndex: 9999,
+        fontFamily: 'var(--font-mono)',
+        borderRadius: 4,
+      }}>
+        {ctx
+          ? `CTX OK · gigs=${ctx.gigs.length} inv=${ctx.invoices.length} rel=${ctx.releases.length} name=${ctx.profile?.name || 'MISSING'}`
+          : 'CTX LOADING…'}
+      </div>
 
       {/* Response text */}
       <div style={{
