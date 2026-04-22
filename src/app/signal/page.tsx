@@ -16,34 +16,43 @@ function SignalInner() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [transcript, setTranscript] = useState('')
   const [response, setResponse] = useState('')
-  const [ctx, setCtx] = useState<{
+  type Ctx = {
     gigs: any[]; invoices: any[]; releases: any[]; profile: any
     connectedSocialAccounts: any[]
-  } | null>(null)
+  }
+  const [ctx, setCtx] = useState<Ctx | null>(null)
+  const ctxPromiseRef = useRef<Promise<Ctx> | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // Preload artist context so Signal knows about gigs/invoices/releases without
-  // being told. Voice mode has no chat history to draw from, so this matters more.
+  // being told. Voice mode has no chat history to draw from, so this matters
+  // more. We stash the promise so ask() can await it if the user taps before
+  // the first paint finishes fetching.
+  async function loadContext(): Promise<Ctx> {
+    const results = await Promise.allSettled([
+      fetch('/api/gigs', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/invoices', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/settings', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/releases', { credentials: 'include' }).then(r => r.json()).catch(() => ({ releases: [] })),
+      fetch('/api/social/connected', { credentials: 'include' }).then(r => r.json()).catch(() => ({ accounts: [] })),
+    ])
+    const next: Ctx = {
+      gigs: results[0].status === 'fulfilled' ? results[0].value.gigs || [] : [],
+      invoices: results[1].status === 'fulfilled' ? results[1].value.invoices || [] : [],
+      profile: results[2].status === 'fulfilled' ? results[2].value.settings?.profile || {} : {},
+      releases: results[3].status === 'fulfilled' ? results[3].value.releases || [] : [],
+      connectedSocialAccounts: results[4].status === 'fulfilled' ? results[4].value.accounts || [] : [],
+    }
+    setCtx(next)
+    return next
+  }
+
   useEffect(() => {
-    Promise.allSettled([
-      fetch('/api/gigs').then(r => r.json()),
-      fetch('/api/invoices').then(r => r.json()),
-      fetch('/api/settings').then(r => r.json()),
-      fetch('/api/releases').then(r => r.json()).catch(() => ({ releases: [] })),
-      fetch('/api/social/connected').then(r => r.json()).catch(() => ({ accounts: [] })),
-    ]).then(results => {
-      setCtx({
-        gigs: results[0].status === 'fulfilled' ? results[0].value.gigs || [] : [],
-        invoices: results[1].status === 'fulfilled' ? results[1].value.invoices || [] : [],
-        profile: results[2].status === 'fulfilled' ? results[2].value.settings?.profile || {} : {},
-        releases: results[3].status === 'fulfilled' ? results[3].value.releases || [] : [],
-        connectedSocialAccounts: results[4].status === 'fulfilled' ? results[4].value.accounts || [] : [],
-      })
-    }).catch(() => setCtx({ gigs: [], invoices: [], releases: [], profile: {}, connectedSocialAccounts: [] }))
+    ctxPromiseRef.current = loadContext()
   }, [])
 
-  function buildVoiceSystem(): string {
+  function buildVoiceSystem(source: Ctx | null): string {
     const today = new Date().toISOString().slice(0, 10)
     const todayStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -51,6 +60,7 @@ function SignalInner() {
 
 Today is ${todayStr}.`
 
+    const ctx = source
     if (!ctx) return sys
 
     if (ctx.profile?.name) {
@@ -129,13 +139,21 @@ Today is ${todayStr}.`
     setPhase('processing')
     setResponse('')
 
+    // Await the context fetch if it's still in flight — better to make the
+    // user wait half a second than to ship a bare prompt that Claude answers
+    // with "I don't have access to your calendar."
+    let resolvedCtx = ctx
+    if (!resolvedCtx && ctxPromiseRef.current) {
+      try { resolvedCtx = await ctxPromiseRef.current } catch {}
+    }
+
     try {
       const res = await fetch('/api/claude/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          system: buildVoiceSystem(),
+          system: buildVoiceSystem(resolvedCtx),
           max_tokens: 300,
           messages: [{ role: 'user', content: text }],
         }),
