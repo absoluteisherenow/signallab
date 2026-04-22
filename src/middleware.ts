@@ -48,7 +48,15 @@ export function middleware(req: NextRequest) {
   // force a login redirect here.
   const isApprovePage = /^\/invoices\/[^/]+\/approve$/.test(pathname)
 
+  // Apple Universal Links validation — iOS fetches without cookies. MUST be
+  // public or iOS discards the app association silently and falls back to
+  // opening the URL in Safari. Same story for webcredentials.
+  const isAppleWellKnown =
+    pathname === '/apple-app-site-association' ||
+    pathname === '/.well-known/apple-app-site-association'
+
   const isPublic = isApprovePage
+    || isAppleWellKnown
     || PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
     || pathname.startsWith('/api/auth')     // Supabase auth callbacks — public
     || pathname.startsWith('/auth')         // Supabase OAuth redirect — public

@@ -50,4 +50,19 @@ src-tauri/target/
 
 # Cloudflare / OpenNext build output
 /.open-next/
+
+# Capacitor iOS build artefacts — the Xcode project lives at ios/App but
+# its Pods, DerivedData, and xcuserdata never belong in git. Mini runs
+# `cap add ios` once; after that the ios/ folder itself IS committed.
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+ios/App/build/
+ios/DerivedData/
+ios/capacitor-cordova-ios-plugins/
+# Android (if we ever add it)
+android/.gradle/
+android/app/build/
+android/build/
 /.wrangler/

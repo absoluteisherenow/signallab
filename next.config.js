@@ -25,6 +25,17 @@ const nextConfig = {
       { source: '/grow', destination: '/grow/growth', permanent: false },
     ]
   },
+  // Universal Links — iOS fetches this file to verify the app owns the
+  // domain. Must be served at /.well-known/apple-app-site-association with
+  // Content-Type: application/json, no redirects. Next.js route folders
+  // can't be dot-prefixed, so we rewrite from the required URL to a normal
+  // app-router handler.
+  async rewrites() {
+    return [
+      { source: '/.well-known/apple-app-site-association', destination: '/apple-app-site-association' },
+      { source: '/apple-app-site-association', destination: '/apple-app-site-association' },
+    ]
+  },
 };
 
 module.exports = nextConfig;
