@@ -7,7 +7,9 @@
  */
 
 import { SKILLS_MEDIA_SCANNER } from './skillPromptsClient'
-import { extractScenes, isSceneDetectEnabled } from './sceneDetect'
+// NOTE: sceneDetect (ffmpeg.wasm) not wired in main yet. Packages aren't
+// installed so the import would break the build. Enable once @ffmpeg/ffmpeg
+// + @ffmpeg/util are in package.json — see docs/scene-detection-evaluation.md.
 
 export interface ChainScanMoment {
   timestamp: number
@@ -139,7 +141,9 @@ export async function getVideoDuration(file: File): Promise<number> {
  *  is a separate workstream — this is the flat-uniform upgrade. */
 export function computeFrameCount(durationSec: number): number {
   if (!Number.isFinite(durationSec) || durationSec <= 0) return 6
-  return Math.min(24, Math.max(6, Math.ceil(durationSec / 5)))
+  // 60s → 6, 90s → 9, 120s → 12, 5min → 12 (capped). Previous was /5
+  // (10 for 50s, 24 for 2min) which roughly doubled Sonnet wall-clock.
+  return Math.min(12, Math.max(6, Math.ceil(durationSec / 10)))
 }
 
 export async function extractImageFrame(file: File): Promise<ScanFrame[]> {
@@ -449,21 +453,7 @@ export async function scanSingleFile(
   } else {
     const duration = await getVideoDuration(file)
     const count = computeFrameCount(duration)
-    if (isSceneDetectEnabled()) {
-      try {
-        frames = await extractScenes(file, count)
-      } catch (err) {
-        // Flag ON but detection failed (wasm load error, timeout, too few
-        // scenes, codec unsupported). Fall back to flat-uniform so the scan
-        // completes. Prototype: console-only telemetry. See
-        // docs/scene-detection-evaluation.md for the ship plan.
-        // eslint-disable-next-line no-console
-        console.warn('[chainScan] scene detect failed, falling back to uniform:', err)
-        frames = await extractFrames(file, count)
-      }
-    } else {
-      frames = await extractFrames(file, count)
-    }
+    frames = await extractFrames(file, count)
   }
   emit({ stage: 'extract', phase: 'done', frames })
 

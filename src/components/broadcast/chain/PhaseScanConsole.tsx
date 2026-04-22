@@ -37,6 +37,37 @@ const STAGES: Omit<StageDef, 'state'>[] = [
   { key: 'score',   num: '04', label: 'Score',    blurb: 'Composite' },
 ]
 
+/** Rough expected wall-clock per stage. Used ONLY to ease the progress bar
+ *  within a running stage so the UI doesn't look frozen during the 5-15s
+ *  vision call. Capped at 0.82 so the bar always snaps forward on real
+ *  completion — we never fake-finish a stage. */
+const EXPECTED_STAGE_MS: Record<StageKey, number> = {
+  extract: 2000,
+  read:   10000,
+  polish:  6000,
+  score:    800,
+}
+
+/** Rotating sub-captions during long stages. Honest verbs about what the
+ *  pass is doing — never fake telemetry. Cycles every ~2.5s while running. */
+const ROTATING_BLURBS: Record<StageKey, string[]> = {
+  extract: ['Sampling frames'],
+  read: [
+    'Looking at the footage',
+    'Checking composition',
+    'Reading the light',
+    'Watching for movement',
+    'Finding the hero frame',
+  ],
+  polish: [
+    'Editorial pass',
+    'Sharpening the hook',
+    'Trimming the angle',
+    'Locking the wow note',
+  ],
+  score: ['Composite'],
+}
+
 /**
  * PhaseScanConsole — replacement for PhaseScan.
  *
@@ -62,7 +93,18 @@ export function PhaseScanConsole({ file, onComplete, onError }: Props) {
   const running = stages.find((s) => s.state === 'running')
   const currentIdx = stages.findIndex((s) => s.state === 'running')
   const doneCount = stages.filter((s) => s.state === 'done').length
-  const progress = Math.min(100, (doneCount / stages.length) * 100)
+  // Within-stage ease: progress creeps forward during a running stage based
+  // on expected wall-clock, capped at 0.82 so real completion still snaps
+  // the bar the last bit. Elapsed ticks every 80ms so this recomputes live.
+  const stageElapsed = running?.startedAt ? Date.now() - running.startedAt : 0
+  const expectedMs = running ? EXPECTED_STAGE_MS[running.key] : 0
+  const withinStage = expectedMs > 0 ? Math.min(0.82, stageElapsed / expectedMs) : 0
+  const progress = Math.min(100, ((doneCount + withinStage) / stages.length) * 100)
+  // Rotating blurb — cycles every 2.5s while the stage is running so the
+  // big display word's subtitle doesn't sit static for 10+ seconds.
+  const activeBlurbs = running ? ROTATING_BLURBS[running.key] : ['Ready']
+  const blurbIdx = Math.floor(stageElapsed / 2500) % activeBlurbs.length
+  const activeBlurb = activeBlurbs[blurbIdx] ?? running?.blurb ?? 'Ready'
 
   useEffect(() => {
     if (startedRef.current) return
@@ -144,6 +186,7 @@ export function PhaseScanConsole({ file, onComplete, onError }: Props) {
         elapsed={elapsed}
         currentIdx={currentIdx}
         progress={progress}
+        activeBlurb={activeBlurb}
         fileName={file.name}
         isVideo={isVideo}
       />
@@ -346,6 +389,7 @@ function ConsolePanel({
   elapsed,
   currentIdx,
   progress,
+  activeBlurb,
   fileName,
   isVideo,
 }: {
@@ -353,11 +397,12 @@ function ConsolePanel({
   elapsed: number
   currentIdx: number
   progress: number
+  activeBlurb: string
   fileName: string
   isVideo: boolean
 }) {
   const running = stages[currentIdx]
-  const activeLabel = running ? running.blurb : stages.every((s) => s.state === 'done') ? 'Complete' : 'Queued'
+  const activeLabel = running ? activeBlurb : stages.every((s) => s.state === 'done') ? 'Complete' : 'Queued'
 
   return (
     <div
@@ -509,8 +554,8 @@ function ConsolePanel({
               />
               <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span>{s.label}</span>
-                <span style={{ fontSize: 9, letterSpacing: '0.18em', color: done ? 'rgba(255,90,71,0.5)' : active ? 'rgba(255,255,255,0.7)' : 'rgba(255,90,71,0.25)', fontWeight: 500 }}>
-                  {s.blurb}
+                <span style={{ fontSize: 9, letterSpacing: '0.18em', color: done ? 'rgba(255,90,71,0.5)' : active ? 'rgba(255,255,255,0.7)' : 'rgba(255,90,71,0.25)', fontWeight: 500, transition: 'opacity .3s ease' }}>
+                  {active ? activeBlurb : s.blurb}
                 </span>
               </span>
               <span
@@ -528,7 +573,9 @@ function ConsolePanel({
         })}
       </div>
 
-      {/* Progress meter — fills based on completed stages, not elapsed time. */}
+      {/* Progress meter — fills based on completed stages + within-stage ease.
+          Transition is short + linear so the 80ms interpolation ticks blend
+          smoothly instead of each tick's .4s ease overshooting the next. */}
       <div style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 1 }}>
         <div style={{ width: '100%', height: 2, background: 'rgba(255,42,26,0.14)', position: 'relative', overflow: 'visible' }}>
           <div
@@ -537,7 +584,7 @@ function ConsolePanel({
               left: 0, top: 0, bottom: 0,
               width: `${progress}%`,
               background: `linear-gradient(90deg, rgba(255,42,26,0.4) 0%, ${BRT.red} 100%)`,
-              transition: 'width .4s ease',
+              transition: 'width .12s linear',
               boxShadow: '0 0 14px rgba(255,42,26,0.6)',
             }}
           />
@@ -549,7 +596,7 @@ function ConsolePanel({
               width: 8,
               background: BRT.ink,
               boxShadow: `0 0 10px ${BRT.red}`,
-              transition: 'left .4s ease',
+              transition: 'left .12s linear',
             }}
           />
         </div>
