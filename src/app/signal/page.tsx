@@ -274,11 +274,18 @@ Today is ${todayStr}.`
 
       {/* Debug: context state visible until Signal is answering real questions */}
       <div style={{
-        position: 'fixed', top: 50, left: 12, right: 12,
-        fontSize: 9, color: s.dimmer, letterSpacing: '0.1em',
-        textAlign: 'center', zIndex: 10,
+        position: 'fixed', top: 'calc(env(safe-area-inset-top) + 8px)',
+        left: 8, right: 8,
+        padding: '8px 12px',
+        background: '#ff2a1a', color: '#000',
+        fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
+        textAlign: 'center', zIndex: 9999,
+        fontFamily: 'var(--font-mono)',
+        borderRadius: 4,
       }}>
-        CTX {ctx ? `loaded · gigs:${ctx.gigs.length} inv:${ctx.invoices.length} rel:${ctx.releases.length} name:${ctx.profile?.name || 'none'}` : 'loading…'}
+        {ctx
+          ? `CTX OK · gigs=${ctx.gigs.length} inv=${ctx.invoices.length} rel=${ctx.releases.length} name=${ctx.profile?.name || 'MISSING'}`
+          : 'CTX LOADING…'}
       </div>
 
       {/* Response text */}
