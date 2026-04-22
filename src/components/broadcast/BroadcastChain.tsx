@@ -9,8 +9,8 @@ import { PhaseRail } from './chain/PhaseRail'
 import { SignalLabHeader } from './SignalLabHeader'
 import { MediaStrip } from './chain/MediaStrip'
 import { PhaseDrop } from './chain/PhaseDrop'
-import { PhaseScan } from './chain/PhaseScan'
-import { PhaseScanResults } from './chain/PhaseScanResults'
+import { PhaseScanConsole } from './chain/PhaseScanConsole'
+import { PhaseScanVerdict } from './chain/PhaseScanVerdict'
 import { PhaseVoice } from './chain/PhaseVoice'
 import { RefManagerDrawer } from './chain/RefManagerDrawer'
 import type { ChainPhase, VoiceRef, VoiceRefProfile } from './chain/types'
@@ -515,7 +515,7 @@ export function BroadcastChain() {
                   </button>
                 </div>
               ) : (
-                <PhaseScan
+                <PhaseScanConsole
                   file={file}
                   onComplete={handleScanComplete}
                   onError={(msg) => setScanError(msg)}
@@ -531,8 +531,9 @@ export function BroadcastChain() {
                 meta={buildMediaMeta(file)}
                 thumbnail={thumbnail}
                 onReplace={handleReplace}
+                onClear={handleReplace}
               />
-              <PhaseScanResults
+              <PhaseScanVerdict
                 result={scanResult}
                 composite={composite}
                 fileName={file.name}
@@ -551,6 +552,7 @@ export function BroadcastChain() {
                 meta={activeMeta}
                 thumbnail={thumbnail}
                 onReplace={handleReplace}
+                onClear={handleReplace}
               />
               {!file && (
                 <div

@@ -278,6 +278,147 @@ HARD ANTI-NARRATION RULE:
 
 If your draft reads like something a generic "moody artist AI" would write, it's wrong. NM writes plainly about real subjects, with one concrete detail per caption, signed off with 🌓 when natural.`
 
+// ── Post-polish validators ─────────────────────────────────────────────
+// Code-level guards that catch the failure modes the in-prompt rules keep
+// missing. The model gets two chances: draft + polish. If LONG is still
+// under floor or no variant surfaces the context subject, a single
+// targeted repair pass fires. This is the brain pattern in miniature —
+// deterministic validation of AI output, narrow retry when it fails.
+
+const CONTEXT_STOPWORDS = new Set([
+  'the','a','an','and','or','but','for','to','of','in','on','at','by','with','from',
+  'no','yet','not','is','are','was','were','be','been','being','have','has','had',
+  'do','does','did','will','would','it','this','that','these','those','i','we','us',
+  'our','you','your','some','any','all','more','most','much','very','just','here',
+  'there','soon','now','then','when','where','what','why','how','if','so','up','out',
+  'as','am','my','me','he','she','him','her','them','they','their','its','over','into',
+  'next','last','new','old','still','also','only','even','got','get','got','yet','still',
+])
+
+function wordCount(s: string): number {
+  return (s || '').trim().split(/\s+/).filter(Boolean).length
+}
+
+function sentenceCount(s: string): number {
+  return (s || '').split(/[.!?]+/).map((x) => x.trim()).filter(Boolean).length
+}
+
+/** Extract candidate concrete nouns from a user-written context line.
+ *  Heuristic, not grammar-aware: lowercase-tokenise, drop stopwords +
+ *  very short tokens, keep the rest. Good enough to flag "album/press/
+ *  dot/vespers" as substance vs. "for the / no date yet" as noise. */
+function extractContextNouns(context: string): string[] {
+  if (!context) return []
+  const raw = context
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s'+-]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((t) => t.length >= 2)
+    .filter((t) => !CONTEXT_STOPWORDS.has(t))
+  return [...new Set(raw)]
+}
+
+/** LONG fails the floor when the user's context names real substance
+ *  but the LONG variant collapses to a fragment. 20 words + 2 sentences
+ *  matches the in-prompt rule; enforced here so the model can't ignore
+ *  it. If no context nouns were detected, fragment LONG is permitted. */
+function longFloorFails(long: string, contextNouns: string[]): boolean {
+  if (contextNouns.length === 0) return false
+  if (!long || !long.trim()) return true
+  return wordCount(long) < 20 || sentenceCount(long) < 2
+}
+
+/** Context-coverage check: if the user wrote a context with concrete
+ *  nouns and NO variant surfaces any of them, the set as a whole has
+ *  drifted. One token-in-caption hit is enough to pass. Case-insensitive. */
+function noVariantMentionsContext(
+  variants: { long: string; safe: string; loose: string; raw: string },
+  contextNouns: string[],
+): boolean {
+  if (contextNouns.length === 0) return false
+  const haystack = [variants.long, variants.safe, variants.loose, variants.raw]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return !contextNouns.some((n) => haystack.includes(n))
+}
+
+/** Targeted repair pass — runs ONLY when a post-polish validator fails.
+ *  Cheap Sonnet call with a narrow rewrite brief that names the exact
+ *  failure + the exact nouns the output must surface. Falls back to the
+ *  current variants on any error, so the user is never blocked. */
+async function runCaptionRepair(args: {
+  variants: { long: string; safe: string; loose: string; raw: string }
+  context: string
+  contextNouns: string[]
+  needsLongFloor: boolean
+  needsContextCoverage: boolean
+  platform: Platform
+  priorityContext?: string
+}): Promise<{ long: string; safe: string; loose: string; raw: string } | null> {
+  const issues: string[] = []
+  if (args.needsLongFloor) {
+    issues.push(
+      `LONG variant is under floor (current: "${args.variants.long}"). CONTEXT has substance (nouns: ${args.contextNouns.join(', ')}). Rewrite LONG as 3-5 full sentences, ≥20 words, grounded in the context. Name at least one concrete noun from the list. Plain NM voice (first-person plural, lowercase default, no em-dashes, no AI tells). Never ship a one-word fragment as LONG when context is present.`,
+    )
+  }
+  if (args.needsContextCoverage) {
+    issues.push(
+      `No variant mentions any concrete noun from the CONTEXT (${args.contextNouns.join(', ')}). The caption must name the subject — rewrite LONG and LOOSE so each surfaces at least one of these nouns. SAFE and RAW can stay brief as long as LONG + LOOSE carry the subject.`,
+    )
+  }
+  if (issues.length === 0) return args.variants
+
+  const system = `You are fixing specific failures in caption drafts for NIGHT manoeuvres (electronic music duo). Apply ONLY the requested fixes. Keep untouched variants verbatim. NM voice is: lowercase default, first-person plural (we/us/our), concrete nouns over abstractions, 🌓 as the sign-off when natural, no em-dashes, no @mentions, no hashtags, no AI tells. Brand casing: NIGHT manoeuvres (NIGHT caps, manoeuvres lowercase). NEVER invent specifics that aren't in the context.`
+
+  const userText = `CONTEXT (from the artist): "${args.context}"
+${args.priorityContext ? `\nPRIORITY ANCHOR (active phase): "${args.priorityContext}"\n` : ''}
+CURRENT DRAFTS (repair these):
+LONG: ${args.variants.long || '(empty)'}
+SAFE: ${args.variants.safe || '(empty)'}
+LOOSE: ${args.variants.loose || '(empty)'}
+RAW: ${args.variants.raw || '(empty)'}
+
+FIXES REQUIRED:
+${issues.map((i, n) => `${n + 1}. ${i}`).join('\n\n')}
+
+Platform: ${PLATFORM_LABEL[args.platform]} (${PLATFORM_LIMITS[args.platform]} chars max).
+
+Return ONLY this JSON: {"long":"…","safe":"…","loose":"…","raw":"…"}. Apply the fixes above. Leave variants that already pass verbatim.`
+
+  try {
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        system,
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok || data.error) return null
+    const text = data.content?.[0]?.text
+    if (!text) return null
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim()) as {
+      long?: string
+      safe?: string
+      loose?: string
+      raw?: string
+    }
+    return {
+      long:  parsed.long  || args.variants.long,
+      safe:  parsed.safe  || args.variants.safe,
+      loose: parsed.loose || args.variants.loose,
+      raw:   parsed.raw   || args.variants.raw,
+    }
+  } catch {
+    return null
+  }
+}
+
 /**
  * Opus oversight pass. Runs AFTER Sonnet has drafted the 4 variants.
  * Reviews each draft against the full NM voice standard, rewrites any
@@ -609,14 +750,33 @@ Return the JSON object described in the system prompt.`
     priorityContext,
   })
 
-  if (!polished) {
-    return sonnetDrafts
+  // Post-polish validators. Catches the two failure modes the in-prompt
+  // rules keep missing: LONG collapsing to a fragment when context has
+  // substance, and the whole set drifting off the context subject.
+  // Runs the repair pass only when something fails — normal flow is a no-op.
+  const preRepair = polished || sonnetDrafts
+  const contextNouns = extractContextNouns(context || '')
+  const needsLongFloor = longFloorFails(preRepair.long, contextNouns)
+  const needsContextCoverage = noVariantMentionsContext(preRepair, contextNouns)
+
+  let final = preRepair
+  if (needsLongFloor || needsContextCoverage) {
+    const repaired = await runCaptionRepair({
+      variants: preRepair,
+      context: (context || '').trim(),
+      contextNouns,
+      needsLongFloor,
+      needsContextCoverage,
+      platform,
+      priorityContext,
+    })
+    if (repaired) final = repaired
   }
 
   return {
-    long:  scrubBrandText(scrubAiTells(polished.long)),
-    safe:  scrubBrandText(scrubAiTells(polished.safe)),
-    loose: scrubBrandText(scrubAiTells(polished.loose)),
-    raw:   scrubBrandText(scrubAiTells(polished.raw)),
+    long:  scrubBrandText(scrubAiTells(final.long)),
+    safe:  scrubBrandText(scrubAiTells(final.safe)),
+    loose: scrubBrandText(scrubAiTells(final.loose)),
+    raw:   scrubBrandText(scrubAiTells(final.raw)),
   }
 }

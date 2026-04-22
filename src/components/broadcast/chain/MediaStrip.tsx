@@ -7,15 +7,24 @@ interface Props {
   meta: string            // e.g. "1080×1920 · 24MB · REEL · 9:16"
   duration?: string        // e.g. "0:18"
   thumbnail?: string | null
-  /** when set, shows a status line instead of the Replace button */
+  /** when set, shows a status line instead of the Replace/Clear buttons */
   status?: string
   onReplace?: () => void
+  /** Full reset — wipes session + returns to drop phase. Distinct from
+   *  Replace (which keeps flow in scan) because after a rehydrate the user
+   *  may want to abandon the cached clip entirely. */
+  onClear?: () => void
 }
 
-export function MediaStrip({ name, meta, duration, thumbnail, status, onReplace }: Props) {
+export function MediaStrip({ name, meta, duration, thumbnail, status, onReplace, onClear }: Props) {
   const handleReplace = () => {
     if (!onReplace) return
     if (window.confirm('Replace media? This will restart the scan.')) onReplace()
+  }
+
+  const handleClear = () => {
+    if (!onClear) return
+    if (window.confirm('Clear this clip? Goes back to drop.')) onClear()
   }
 
   return (
@@ -108,25 +117,46 @@ export function MediaStrip({ name, meta, duration, thumbnail, status, onReplace 
           ● {status}
         </div>
       ) : (
-        onReplace && (
-          <button
-            onClick={handleReplace}
-            style={{
-              padding: '6px 10px',
-              background: 'transparent',
-              border: `1px solid ${BRT.borderBright}`,
-              color: '#9a9a9a',
-              fontSize: 9,
-              letterSpacing: '0.22em',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            Replace
-          </button>
-        )
+        <div style={{ display: 'flex', gap: 6 }}>
+          {onReplace && (
+            <button
+              onClick={handleReplace}
+              style={{
+                padding: '6px 10px',
+                background: 'transparent',
+                border: `1px solid ${BRT.borderBright}`,
+                color: '#9a9a9a',
+                fontSize: 9,
+                letterSpacing: '0.22em',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              Replace
+            </button>
+          )}
+          {onClear && (
+            <button
+              onClick={handleClear}
+              style={{
+                padding: '6px 10px',
+                background: 'transparent',
+                border: `1px solid ${BRT.red}`,
+                color: BRT.red,
+                fontSize: 9,
+                letterSpacing: '0.22em',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

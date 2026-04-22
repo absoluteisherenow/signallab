@@ -110,6 +110,37 @@ export async function extractFrames(file: File, count = 8): Promise<ScanFrame[]>
   })
 }
 
+/** Peek the video's metadata-reported duration (seconds) without extracting
+ *  frames. Used to decide how many samples to take — short clips stay at 6,
+ *  longer clips scale up so a drop/transition doesn't fall between samples. */
+export async function getVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.src = URL.createObjectURL(file)
+    video.onloadedmetadata = () => {
+      const d = Number.isFinite(video.duration) ? video.duration : 0
+      URL.revokeObjectURL(video.src)
+      resolve(d)
+    }
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src)
+      resolve(0)
+    }
+  })
+}
+
+/** Duration-scaled frame count. Keeps short clips cheap (6 frames for ≤30s)
+ *  and gives longer clips honest coverage — at ~1 frame per 5s up to 24.
+ *  At 6 frames a 60s clip samples every 10s and misses the drop; at 12 it
+ *  samples every ~5s, much likelier to land on a real peak. Ceiling of 24
+ *  caps Sonnet input tokens (~26k for a 3min clip). Scene-change detection
+ *  is a separate workstream — this is the flat-uniform upgrade. */
+export function computeFrameCount(durationSec: number): number {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return 6
+  return Math.min(24, Math.max(6, Math.ceil(durationSec / 5)))
+}
+
 export async function extractImageFrame(file: File): Promise<ScanFrame[]> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -367,26 +398,65 @@ export function compositeScore(r: ChainScanResult): number {
   return aes !== null ? Math.round(base * 0.90 + aes * 0.10) : base
 }
 
+/** Real pipeline stages — emitted by scanSingleFile so the console UI can
+ *  reflect actual progress, not a fake timer. */
+export type ScanStage = 'extract' | 'read' | 'polish' | 'score'
+export interface ScanProgress {
+  stage: ScanStage
+  phase: 'start' | 'done'
+  /** Frames emitted during extract so the console can stream them into the
+   *  film strip as they're sampled. Only present on stage=extract phase=done. */
+  frames?: ScanFrame[]
+}
+
 /**
  * Single-file scan. Extracts frames, calls Claude vision, parses JSON.
  * No DB persistence here — the caller decides whether to POST /api/media/scans.
+ *
+ * Optional `onProgress` callback fires at stage start + done so the console
+ * can drive a truthful stage machine. Never throws from the callback path.
  */
-export async function scanSingleFile(file: File): Promise<{
+export async function scanSingleFile(
+  file: File,
+  onProgress?: (p: ScanProgress) => void,
+): Promise<{
   result: ChainScanResult
   frames: ScanFrame[]
   composite: number
 }> {
+  const emit = (p: ScanProgress) => { try { onProgress?.(p) } catch { /* non-fatal */ } }
+
   const isImage = isImageFile(file)
-  // 6 frames instead of 8 — cuts ~25% of Sonnet wall time. 6 is still enough
-  // coverage on typical 15-60s clips to catch the hero moment and flag
-  // pacing issues; 8 was overkill and noticeably slowed perceived scan.
-  const frames = isImage ? await extractImageFrame(file) : await extractFrames(file, 6)
+
+  // STAGE 1 — Extract frames (image: 1; video: duration-scaled 6–24)
+  emit({ stage: 'extract', phase: 'start' })
+  let frames: ScanFrame[]
+  if (isImage) {
+    frames = await extractImageFrame(file)
+  } else {
+    const duration = await getVideoDuration(file)
+    const count = computeFrameCount(duration)
+    frames = await extractFrames(file, count)
+  }
+  emit({ stage: 'extract', phase: 'done', frames })
+
+  // STAGE 2 — Sonnet vision read
+  emit({ stage: 'read', phase: 'start' })
   const system = buildSystemPrompt(isImage)
   const textPrompt = buildTextPrompt(file, frames)
   const raw = await callClaudeVision(system, frames, textPrompt, 2000)
   const draft = JSON.parse(raw.replace(/```json|```/g, '').trim()) as ChainScanResult
-  // Opus polishes the four artist-facing strings. Non-blocking: errors
-  // fall back to Sonnet's originals so scanning never breaks on polish.
+  emit({ stage: 'read', phase: 'done' })
+
+  // STAGE 3 — Opus editorial polish (non-blocking: falls back to draft on error)
+  emit({ stage: 'polish', phase: 'start' })
   const polished = await runScanEditorialPolish(draft, isImage)
-  return { result: polished, frames, composite: compositeScore(polished) }
+  emit({ stage: 'polish', phase: 'done' })
+
+  // STAGE 4 — Composite score (client-side, instant)
+  emit({ stage: 'score', phase: 'start' })
+  const composite = compositeScore(polished)
+  emit({ stage: 'score', phase: 'done' })
+
+  return { result: polished, frames, composite }
 }
