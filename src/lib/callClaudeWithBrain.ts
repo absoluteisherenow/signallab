@@ -22,6 +22,13 @@ import {
 import type { TaskType, InvariantVerdict } from './rules/types'
 import { buildStrategyPrimer } from './brain/strategyPrimer'
 import { formatTrendsBlock } from './brain/trends'
+import { formatThreadsBlock } from './brain/narrativeThread'
+import {
+  CONFIDENCE_INSTRUCTION_SUFFIX,
+  parseConfidenceSignal,
+} from './brain/confidence'
+import { runRedTeam } from './brain/redTeamCheck'
+import { runCouncil, shouldAutoCouncil, type CouncilVerdict } from './brain/council'
 
 type ModelId =
   | 'claude-sonnet-4-6'
@@ -53,6 +60,17 @@ export interface CallClaudeWithBrainOptions {
   extraSystem?: string
   /** Controls whether recent-performance block is loaded (extra DB read). */
   includeRecentPerf?: boolean
+  /** Run the adversarial red-team pass after generation. Appends a soft_flag
+   *  verdict to invariant_report; never blocks. Defaults off — opt-in for
+   *  outbound-critical tasks. */
+  runRedTeam?: boolean
+  /** Run the 5-advisor LLM council for this decision and return the verdict
+   *  separately from the generation. When undefined, auto-triggers for tasks
+   *  in COUNCIL_AUTO_TASKS. Set to `false` to force-disable even for those. */
+  council?: boolean
+  /** Ask the brain to self-rate its output (confidence 0-1 + missing context).
+   *  Appended as a `<signal>` block, parsed + stripped before returning. */
+  includeConfidence?: boolean
 }
 
 export interface CallClaudeWithBrainResponse {
@@ -67,6 +85,14 @@ export interface CallClaudeWithBrainResponse {
     cost_usd: number
   }
   regenerated: boolean
+  /** Self-rated confidence (0-1) when `includeConfidence` was set. null when
+   *  the feature was off or the model's signal was malformed. */
+  confidence: number | null
+  /** Specific context the model wished it had — empty when nothing missing
+   *  or when the confidence feature was off. */
+  missing_context: string[]
+  /** 5-advisor + chairman verdict when the council ran for this call. */
+  council: CouncilVerdict | null
 }
 
 function assembleSystemPrompt(
@@ -174,7 +200,12 @@ function assembleSystemPrompt(
     sections.push(`# Priority context\n${ctx.priority.formatted}`)
   }
 
-  // 9. Task instruction (the what-to-do)
+  // 9. Active narrative threads — medium-horizon stories the artist is
+  // building across many posts. Do-not-contradict block. Empty when none.
+  const threadsBlock = formatThreadsBlock(ctx.narrative_threads || [])
+  if (threadsBlock) sections.push(threadsBlock)
+
+  // 10. Task instruction (the what-to-do)
   sections.push(`# Task\n${taskInstruction}`)
 
   if (extra) sections.push(extra)
@@ -214,7 +245,14 @@ export async function callClaudeWithBrain(
   })
   const ctx = mergeContext(baseCtx, opts.overrideContext)
 
-  const system = assembleSystemPrompt(ctx, opts.taskInstruction, opts.extraSystem)
+  // Amend the task instruction so the model emits a confidence signal block
+  // at the end of its response — parsed + stripped before return.
+  const wantConfidence = !!opts.includeConfidence
+  const instruction = wantConfidence
+    ? `${opts.taskInstruction}${CONFIDENCE_INSTRUCTION_SUFFIX}`
+    : opts.taskInstruction
+
+  const system = assembleSystemPrompt(ctx, instruction, opts.extraSystem)
   const runChecks = opts.runPostCheck !== false
 
   const messages: Array<{ role: 'user' | 'assistant'; content: any }> =
@@ -232,9 +270,15 @@ export async function callClaudeWithBrain(
     temperature: opts.temperature,
   })
 
-  let text = first.text
+  let rawText = first.text
   let usage = first.usage
   let regenerated = false
+  // Strip confidence signal BEFORE rule checks — otherwise checks flag the
+  // JSON block as not-on-voice. The structured values are returned separately.
+  let parsed = wantConfidence
+    ? parseConfidenceSignal(rawText)
+    : { text: rawText, confidence: null, missing_context: [] as string[] }
+  let text = parsed.text
   let verdicts: InvariantVerdict[] = runChecks ? runOutputChecks(text, ctx.rules, ctx) : []
 
   // One auto-regenerate if anything hard-blocked. Tells the model exactly what
@@ -253,13 +297,13 @@ export async function callClaudeWithBrain(
       system,
       messages: [
         ...messages,
-        { role: 'assistant', content: text },
+        { role: 'assistant', content: rawText },
         { role: 'user', content: correction },
       ],
       temperature: opts.temperature,
     })
 
-    text = regen.text
+    rawText = regen.text
     regenerated = true
     usage = {
       input_tokens: usage.input_tokens + regen.usage.input_tokens,
@@ -268,7 +312,27 @@ export async function callClaudeWithBrain(
       cache_write_tokens: usage.cache_write_tokens + regen.usage.cache_write_tokens,
       cost_usd: usage.cost_usd + regen.usage.cost_usd,
     }
+    parsed = wantConfidence
+      ? parseConfidenceSignal(rawText)
+      : { text: rawText, confidence: null, missing_context: [] }
+    text = parsed.text
     verdicts = runOutputChecks(text, ctx.rules, ctx)
+  }
+
+  // Red-team — advisory only. Appends a soft_flag verdict to the report.
+  // Never blocks. Silent when opts.runRedTeam is not set.
+  if (opts.runRedTeam) {
+    try {
+      const rt = await runRedTeam({
+        userId: opts.userId,
+        output: text,
+        ctx,
+        taskInstruction: opts.taskInstruction,
+      })
+      verdicts.push(rt)
+    } catch {
+      // Red-team is fire-and-hope — its failure never affects primary path.
+    }
   }
 
   // Log every verdict (pass + fail). Fire-and-forget.
@@ -286,11 +350,42 @@ export async function callClaudeWithBrain(
     throw new Error(`Hard-block rules still failing after regenerate: ${msg}`)
   }
 
+  // Council — runs AFTER primary generation so the chairman has the output to
+  // react to as an artefact, not just the brief. Auto-triggers for
+  // COUNCIL_AUTO_TASKS unless explicitly disabled.
+  let council: CouncilVerdict | null = null
+  const wantCouncil =
+    opts.council === true || (opts.council !== false && shouldAutoCouncil(opts.task))
+  if (wantCouncil) {
+    try {
+      const sharedContext = [
+        ctx.priority.formatted && `Priority: ${ctx.priority.formatted}`,
+        text && `Proposed output:\n${text}`,
+      ]
+        .filter(Boolean)
+        .join('\n\n')
+      const question =
+        opts.userMessage ||
+        `Review the proposed output for task ${opts.task}. Is this the call?`
+      council = await runCouncil({
+        userId: opts.userId,
+        question,
+        sharedContext,
+        task: opts.task,
+      })
+    } catch {
+      // Council is advisory — failure doesn't block the primary call.
+    }
+  }
+
   return {
     text,
     invariant_report: verdicts,
     operating_context: ctx,
     usage,
     regenerated,
+    confidence: parsed.confidence,
+    missing_context: parsed.missing_context,
+    council,
   }
 }

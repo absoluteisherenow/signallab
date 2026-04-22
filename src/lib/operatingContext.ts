@@ -15,6 +15,7 @@ import { fetchActiveRules } from './rules'
 import type { Rule, TaskType } from './rules/types'
 import { interpretPerformance } from './brain/analytics'
 import { loadTrendSnapshot, type TrendSnapshot } from './brain/trends'
+import { loadActiveThreads, type NarrativeThread } from './brain/narrativeThread'
 
 export type { TaskType } from './rules/types'
 
@@ -113,6 +114,9 @@ export interface OperatingContext {
    *  exists or the freshest is older than TTL. The brain decides whether to
    *  inject based on shape. */
   trends: TrendSnapshot
+  /** Active narrative threads filtered to this task. Used both for prompt
+   *  injection (`formatThreadsBlock`) and the `threadConsistency` check. */
+  narrative_threads: NarrativeThread[]
 }
 
 function admin() {
@@ -163,6 +167,7 @@ export async function getOperatingContext(params: {
     gmailRes,
     perfRes,
     trendsSnap,
+    narrativeThreads,
   ] = await Promise.all([
     sb
       .from('artist_profiles')
@@ -220,6 +225,8 @@ export async function getOperatingContext(params: {
     // Trends — loaded for every brain call (cheap, single row) so release/gig
     // and caption tasks alike see scene signal.
     loadTrendSnapshot(sb, userId),
+    // Narrative threads — active + filtered to this task. Small list (max 6).
+    loadActiveThreads(sb, userId, task),
   ])
 
   const artistRow: any = artistRes.data || {}
@@ -282,5 +289,6 @@ export async function getOperatingContext(params: {
       platforms_connected: platforms,
     },
     trends: trendsSnap,
+    narrative_threads: narrativeThreads,
   }
 }

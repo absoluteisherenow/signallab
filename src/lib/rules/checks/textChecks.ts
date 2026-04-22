@@ -6,6 +6,7 @@ import type { CheckResult, OutputCheckFn } from '../types'
 import { humanizer } from './humanizer'
 import { contentScore } from './contentScore'
 import { platformFormatRegistry } from './platformFormat'
+import { threadConsistency } from './threadConsistency'
 
 const EM_DASH_RE = /[—–]/
 const AI_MENTION_RE = /\b(AI|artificial intelligence|llm|chatgpt|claude)\b/i
@@ -138,5 +139,6 @@ export const textCheckRegistry: Record<string, OutputCheckFn> = {
   noFabricatedNumbers,
   humanizer,
   contentScore,
+  threadConsistency,
   ...platformFormatRegistry,
 }
