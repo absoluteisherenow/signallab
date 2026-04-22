@@ -138,6 +138,37 @@ export async function GET(req: NextRequest) {
         sendSms: true,
       })
 
+      // Self-capture prompt — soundcheck + pre-doors is the prime window for
+      // grid + reel fuel. Three specific, non-corny prompts tailored via the
+      // brain so voice + priority mission (Vespers anchor etc.) land. When the
+      // brain call fails, we drop the whole block rather than ship generic
+      // "capture the vibe" copy the artist would delete unread.
+      if (gigOwnerId) {
+        try {
+          const prompts = await callClaudeWithBrain({
+            userId: gigOwnerId,
+            task: 'gig.content',
+            model: 'claude-sonnet-4-6',
+            max_tokens: 220,
+            userMessage: `Venue: ${gig.venue}. Set time: ${gig.slot_time || gig.set_time || 'TBC'}. Date: tomorrow.`,
+            taskInstruction: `List exactly 3 specific shots the artist should capture at soundcheck + pre-doors tomorrow. Each under 12 words. Concrete subject + angle (not "capture the vibe"). No numbering. One per line. Output ONLY the 3 lines.`,
+            runPostCheck: false,
+          })
+          const lines = (prompts.text || '')
+            .split('\n').map(l => l.replace(/^[-\d.\s]+/, '').trim()).filter(Boolean).slice(0, 3)
+          if (lines.length) {
+            await createNotification({
+              user_id: gigOwnerId,
+              type: 'system',
+              title: `Capture prompts — ${gig.venue} soundcheck`,
+              message: lines.map((l, i) => `${i + 1}. ${l}`).join(' · '),
+              href: `/gigs/${gig.id}`,
+              gig_id: gig.id,
+            })
+          }
+        } catch { /* non-critical */ }
+      }
+
       // Content crew briefing — generate draft, text artist for approval
       if (contentCrew.length > 0) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'

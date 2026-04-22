@@ -1,0 +1,236 @@
+/**
+ * sceneDetect — scene-change frame extraction for chainScan.
+ *
+ * Replaces flat-uniform `extractFrames` from chainScan.ts with a two-step
+ * pipeline: ffmpeg.wasm finds interesting timestamps (drops, lighting flips,
+ * crowd-turns), then we use the same canvas-seek path as extractFrames to
+ * encode JPEGs. This means scene-detected frames are byte-identical in
+ * dimension and quality to uniform-sampled ones — the only difference is
+ * *which* timestamps get sampled.
+ *
+ * Enable at build:         NEXT_PUBLIC_SCENE_DETECT=1
+ * Enable per-session:      localStorage.setItem('scanSceneDetect', '1')
+ * Force off per-session:   localStorage.setItem('scanSceneDetect', '0')
+ *
+ * Evaluation + rollout plan: docs/scene-detection-evaluation.md
+ *
+ * Fallback contract: any failure here throws. The caller (scanSingleFile)
+ * catches and falls through to the flat-uniform extractFrames path.
+ */
+
+import type { ScanFrame } from './chainScan'
+
+const FFMPEG_CORE_VERSION = '0.12.10'
+const FFMPEG_CORE_BASE = `https://unpkg.com/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/umd`
+const DEFAULT_SCENE_THRESHOLD = 0.3
+const DEDUPE_WINDOW_SEC = 1.5
+const DETECT_TIMEOUT_MS = 45_000
+const MIN_SCENES_FOR_USE = 3
+
+export function isSceneDetectEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const override = window.localStorage?.getItem('scanSceneDetect')
+    if (override === '1') return true
+    if (override === '0') return false
+  } catch {
+    /* localStorage unavailable (private mode / SSR edge) — fall through */
+  }
+  return process.env.NEXT_PUBLIC_SCENE_DETECT === '1'
+}
+
+/**
+ * Extract frames at scene-change timestamps. Throws on any failure so the
+ * caller can fall back to flat-uniform.
+ *
+ * Contract:
+ *  - Returns between minFrames (3) and maxFrames JPEG frames.
+ *  - If ffmpeg detects fewer than MIN_SCENES_FOR_USE peaks, throws
+ *    (caller should fall back — the clip is too static for this path to help).
+ *  - If ffmpeg detects more than maxFrames peaks, subsamples by even-spacing
+ *    to preserve temporal distribution.
+ */
+export async function extractScenes(file: File, maxFrames: number): Promise<ScanFrame[]> {
+  const t0 = performance.now()
+
+  const timestamps = await withTimeout(
+    detectSceneTimestamps(file, DEFAULT_SCENE_THRESHOLD),
+    DETECT_TIMEOUT_MS,
+    'scene detection timed out',
+  )
+
+  const deduped = dedupeNearNeighbours(timestamps, DEDUPE_WINDOW_SEC)
+  if (deduped.length < MIN_SCENES_FOR_USE) {
+    throw new Error(
+      `sceneDetect: only ${deduped.length} scene(s) found, below min ${MIN_SCENES_FOR_USE} — fall back to uniform`,
+    )
+  }
+  const picked = deduped.length > maxFrames ? evenSubsample(deduped, maxFrames) : deduped
+
+  const frames = await captureFramesAtTimestamps(file, picked)
+
+  const elapsed = Math.round(performance.now() - t0)
+  // eslint-disable-next-line no-console
+  console.info(
+    `[sceneDetect] detected ${timestamps.length} raw, deduped ${deduped.length}, kept ${picked.length} in ${elapsed}ms`,
+  )
+  return frames
+}
+
+/**
+ * Run ffmpeg.wasm's scene filter over the file and return the pts_time of
+ * every frame whose scene-change score exceeds `threshold`. No output
+ * encoding — we use `-f null -` so ffmpeg just reports metadata and exits.
+ */
+async function detectSceneTimestamps(file: File, threshold: number): Promise<number[]> {
+  const { FFmpeg } = await import('@ffmpeg/ffmpeg')
+  const { fetchFile, toBlobURL } = await import('@ffmpeg/util')
+
+  const ffmpeg = new FFmpeg()
+
+  const timestamps: number[] = []
+  const ptsTimeRe = /pts_time:([\d.]+)/
+
+  ffmpeg.on('log', ({ message }: { message: string }) => {
+    // showinfo emits one line per selected frame; we only want lines that
+    // include pts_time, which is the frame's presentation timestamp in
+    // seconds. Everything else (version banner, stream map, etc.) is noise.
+    const m = message.match(ptsTimeRe)
+    if (m) {
+      const t = parseFloat(m[1])
+      if (Number.isFinite(t) && t >= 0) timestamps.push(t)
+    }
+  })
+
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm'),
+  })
+
+  const inputName = 'input' + guessExt(file)
+  await ffmpeg.writeFile(inputName, await fetchFile(file))
+
+  // select='gt(scene,T)' passes only frames where the scene-change metric
+  // from the previous frame exceeds T. showinfo writes each passing frame's
+  // pts_time to the log stream, which we parse in the `log` handler above.
+  await ffmpeg.exec([
+    '-i',
+    inputName,
+    '-vf',
+    `select='gt(scene,${threshold})',showinfo`,
+    '-an',
+    '-f',
+    'null',
+    '-',
+  ])
+
+  try {
+    await ffmpeg.deleteFile(inputName)
+  } catch {
+    /* non-fatal */
+  }
+  ffmpeg.terminate?.()
+
+  return timestamps
+}
+
+/**
+ * Re-uses the same `<video>` + `<canvas>` capture approach as the flat
+ * extractFrames path so dimension/quality/aspect are identical. We can't
+ * import extractFrames because it owns the *uniform sampling* loop; we
+ * want the *same capture mechanics* but seeking to arbitrary timestamps.
+ *
+ * If you touch extractFrames' aspect-ratio or MAX logic in chainScan.ts,
+ * mirror the change here.
+ */
+async function captureFramesAtTimestamps(file: File, timestamps: number[]): Promise<ScanFrame[]> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video')
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return reject(new Error('canvas 2d context unavailable'))
+    const frames: ScanFrame[] = []
+
+    video.preload = 'metadata'
+    video.src = URL.createObjectURL(file)
+
+    video.onloadedmetadata = () => {
+      const MAX = 720
+      const vw = video.videoWidth || 16
+      const vh = video.videoHeight || 9
+      const aspect = vw / vh
+      if (aspect >= 1) {
+        canvas.width = Math.min(MAX, vw)
+        canvas.height = Math.round(canvas.width / aspect)
+      } else {
+        canvas.height = Math.min(MAX, vh)
+        canvas.width = Math.round(canvas.height * aspect)
+      }
+
+      let idx = 0
+      const seekNext = () => {
+        if (idx >= timestamps.length) {
+          URL.revokeObjectURL(video.src)
+          resolve(frames)
+          return
+        }
+        video.currentTime = timestamps[idx]
+      }
+
+      video.onseeked = () => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        frames.push({
+          dataUrl: canvas.toDataURL('image/jpeg', 0.75),
+          timestamp: video.currentTime,
+        })
+        idx++
+        seekNext()
+      }
+
+      seekNext()
+    }
+    video.onerror = () => reject(new Error('video failed to load for scene capture'))
+  })
+}
+
+function dedupeNearNeighbours(sortedish: number[], windowSec: number): number[] {
+  const sorted = [...sortedish].sort((a, b) => a - b)
+  const kept: number[] = []
+  for (const t of sorted) {
+    if (kept.length === 0 || t - kept[kept.length - 1] >= windowSec) kept.push(t)
+  }
+  return kept
+}
+
+function evenSubsample<T>(arr: T[], target: number): T[] {
+  if (arr.length <= target) return arr
+  const step = (arr.length - 1) / (target - 1)
+  const out: T[] = []
+  for (let i = 0; i < target; i++) out.push(arr[Math.round(i * step)])
+  return out
+}
+
+function guessExt(file: File): string {
+  const fromName = /\.[a-z0-9]{2,4}$/i.exec(file.name)?.[0]
+  if (fromName) return fromName.toLowerCase()
+  if (file.type === 'video/mp4') return '.mp4'
+  if (file.type === 'video/quicktime') return '.mov'
+  if (file.type === 'video/webm') return '.webm'
+  return '.mp4'
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const to = setTimeout(() => reject(new Error(msg)), ms)
+    p.then(
+      (v) => {
+        clearTimeout(to)
+        resolve(v)
+      },
+      (e) => {
+        clearTimeout(to)
+        reject(e)
+      },
+    )
+  })
+}

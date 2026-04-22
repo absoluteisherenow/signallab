@@ -18,7 +18,11 @@
 
   // TARGET_URL can be overridden via env var; this is the default.
   "vars": {
-    "TARGET_URL": "https://signallabos.com"
+    "TARGET_URL": "https://signallabos.com",
+    // Supabase project URL — non-secret, safe in vars. Paired with the
+    // SUPABASE_SERVICE_ROLE_KEY secret (set via `wrangler secret put`) so
+    // runJob() can log every cron run to the `cron_runs` table.
+    "SUPABASE_URL": "https://zyxqdaeewyzwscsurxin.supabase.co"
   },
 
   "triggers": {

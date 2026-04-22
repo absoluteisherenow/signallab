@@ -161,10 +161,19 @@ function Skeleton() {
 
 /* ── Main component ── */
 
+interface AnticipationNotice {
+  lab: 'Set' | 'Broadcast' | 'Grow' | 'Operator'
+  title: string
+  detail: string
+  href: string
+  priority: number
+}
+
 export function Today() {
   const router = useRouter()
   const [data, setData] = useState<TodayBrief | null>(null)
   const [error, setError] = useState(false)
+  const [notices, setNotices] = useState<AnticipationNotice[]>([])
 
   useEffect(() => {
     fetch('/api/today/brief')
@@ -174,6 +183,13 @@ export function Today() {
       })
       .then(setData)
       .catch(() => setError(true))
+
+    // Anticipation: cross-lab "things I noticed" strip. Runs separately so a
+    // slow query here never blocks the main dashboard render.
+    fetch('/api/today/anticipation')
+      .then(r => r.ok ? r.json() : { notices: [] })
+      .then(j => setNotices(j.notices || []))
+      .catch(() => {})
   }, [])
 
   if (error) {
@@ -222,6 +238,33 @@ export function Today() {
             <p style={{ fontSize: 12, color: 'var(--text-dimmer)', margin: '4px 0 0', lineHeight: 1.4 }}>
               {contextLine}
             </p>
+
+            {/* Cross-lab anticipation — "things I noticed" strip. Only renders
+                when the backend surfaced at least one notice, so an empty state
+                doesn't push the ticker off-screen. */}
+            {notices.length > 0 && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--text-dimmer)' }}>Noticed</div>
+                {notices.map((n, i) => (
+                  <Link
+                    key={i}
+                    href={n.href}
+                    style={{
+                      display: 'flex', gap: 10, alignItems: 'baseline',
+                      padding: '6px 0', borderTop: i === 0 ? '1px solid var(--border-dim)' : 'none',
+                      borderBottom: '1px solid var(--border-dim)',
+                      textDecoration: 'none', color: 'inherit',
+                    }}
+                  >
+                    <span style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 700, color: 'var(--gold)', width: 72, flexShrink: 0 }}>
+                      {n.lab.toUpperCase()} LAB
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--text)' }}>{n.title}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-dimmest)', marginLeft: 'auto' }}>{n.detail}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
 
             {/* Activity ticker — single row, scrolling */}
             {data.recent_activity && data.recent_activity.length > 0 && (

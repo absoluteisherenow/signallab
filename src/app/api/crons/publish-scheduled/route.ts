@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
     .from('scheduled_posts')
     .select('*')
     .eq('status', 'scheduled')
-    .in('platform', ['instagram', 'tiktok'])
+    .in('platform', ['instagram', 'tiktok', 'youtube'])
     .lte('scheduled_at', nowIso)
     .order('scheduled_at', { ascending: true })
     .limit(BATCH_LIMIT)
@@ -143,6 +143,15 @@ export async function GET(req: NextRequest) {
         caption: row.caption || '',
         video_url: video,
         // OUTBOUND_AUTONOMOUS: approved at schedule time (preview_approved_at set).
+        confirmed: true,
+      }
+    } else if (row.platform === 'youtube') {
+      // YouTube — video-only, fetched + multipart-uploaded server-side
+      const video = row.media_url || (mediaUrls.length ? mediaUrls[0] : null)
+      postUrl = new URL('/api/social/youtube/post', req.url).toString()
+      postBody = {
+        caption: row.caption || '',
+        video_url: video,
         confirmed: true,
       }
     } else {

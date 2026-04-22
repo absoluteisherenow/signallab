@@ -10,6 +10,62 @@
 interface Env {
   TARGET_URL: string
   CRON_SECRET?: string
+  // Optional — when both are set, every cron run logs a row to `cron_runs`
+  // so silent misses become visible on the admin dashboard. If unset, the
+  // worker still fires triggers, just without observability.
+  SUPABASE_URL?: string
+  SUPABASE_SERVICE_ROLE_KEY?: string
+}
+
+async function logStart(env: Env, label: string): Promise<string | null> {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return null
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/cron_runs`, {
+      method: 'POST',
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({ name: label, status: 'running' }),
+    })
+    if (!res.ok) return null
+    const rows = await res.json() as Array<{ id: string }>
+    return rows[0]?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+async function logFinish(
+  env: Env,
+  runId: string | null,
+  startedMs: number,
+  status: 'success' | 'error',
+  meta: Record<string, unknown>,
+  errorMsg: string | null,
+): Promise<void> {
+  if (!runId || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return
+  try {
+    await fetch(`${env.SUPABASE_URL}/rest/v1/cron_runs?id=eq.${runId}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        finished_at: new Date().toISOString(),
+        duration_ms: Date.now() - startedMs,
+        status,
+        error: errorMsg,
+        meta,
+      }),
+    })
+  } catch {
+    // Never let logging failure affect cron outcome.
+  }
 }
 
 type CronJob = {
@@ -52,6 +108,9 @@ async function runJob(env: Env, job: CronJob): Promise<{ ok: boolean; status: nu
   const headers: Record<string, string> = {}
   if (env.CRON_SECRET) headers['Authorization'] = `Bearer ${env.CRON_SECRET}`
 
+  const started = Date.now()
+  const runId = await logStart(env, job.label)
+
   try {
     const res = await fetch(url, {
       method: job.method,
@@ -64,9 +123,19 @@ async function runJob(env: Env, job: CronJob): Promise<{ ok: boolean; status: nu
     } else {
       console.log(`[cron] ${job.label} → ${res.status}`)
     }
+    await logFinish(
+      env,
+      runId,
+      started,
+      res.ok ? 'success' : 'error',
+      { http_status: res.status, path: job.path, method: job.method },
+      res.ok ? null : res.statusText,
+    )
     return { ok: res.ok, status: res.status, label: job.label }
   } catch (err) {
-    console.error(`[cron] ${job.label} failed:`, err instanceof Error ? err.message : err)
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[cron] ${job.label} failed:`, message)
+    await logFinish(env, runId, started, 'error', { path: job.path, method: job.method }, message)
     return { ok: false, status: 0, label: job.label }
   }
 }
