@@ -7,6 +7,7 @@
  */
 
 import { SKILLS_MEDIA_SCANNER } from './skillPromptsClient'
+import { extractScenes, isSceneDetectEnabled } from './sceneDetect'
 
 export interface ChainScanMoment {
   timestamp: number
@@ -208,6 +209,13 @@ async function callClaudeVision(
 function buildSystemPrompt(isImage: boolean): string {
   const NO_DASHES = `HARD TEXT RULE: In every string field you output (reason, caption_context, post_recommendation, tone_match, shareable_core_note, reasoning, platform_cuts.*, platform_ranking[].reason, wow_note, editorial_angle), NEVER use em-dashes (\u2014) or en-dashes (\u2013). Use commas, full stops, or split into separate sentences. This is surfaced directly in the UI.`
 
+  const LITERAL_ACCURACY = `FACTUAL ACCURACY RULE: Describe only what is visibly happening in the frames. Do NOT infer activity from setup alone.
+- Multiple instruments / mics / cameras in frame ≠ they are ALL being used. If hands are on one keyboard, the other two are sitting there.
+- People standing near gear ≠ they are playing that gear.
+- A dark room + stage lights ≠ a live gig (could be soundcheck, studio, rehearsal).
+- A crowd silhouette ≠ a drop (could be mid-set, between tracks).
+If uncertain about the action, describe the SETUP (objects, arrangement, posture) rather than the ACTIVITY. Overclaiming loses the artist's trust on the first scan they disagree with.`
+
   const EDITORIAL = `EDITORIAL DIRECTOR ROLE: You are also the artist's editorial director for this upload. You produce TWO extra fields that make the scan feel alive to the artist, not just scored.
 
 - wow_note: ONE short sentence (under 25 words, no dashes, no cliché). Name the SINGLE most surprising / shareable / culturally-alive thing about this specific clip. Not a summary of the scores. Not a platform recommendation. The thing a smart friend would text the artist: "Dude, the moment at 1:22 when the crowd catches the drop, that's the post." If there's nothing genuinely wow-worthy, say so plainly ("thin for a solo post, might work as carousel slide 3"). Never fake enthusiasm.
@@ -222,6 +230,8 @@ ${SKILLS_MEDIA_SCANNER}
 
 ${EDITORIAL}
 
+${LITERAL_ACCURACY}
+
 ${NO_DASHES}
 
 Analyse what you genuinely see. Return ONLY valid JSON. No markdown, no explanation.`
@@ -233,6 +243,8 @@ CRITICAL SOCIAL MEDIA RULE: The clip MUST start on the strongest, most attention
 ${SKILLS_MEDIA_SCANNER}
 
 ${EDITORIAL}
+
+${LITERAL_ACCURACY}
 
 ${NO_DASHES}
 
@@ -321,8 +333,9 @@ Your ONE job: rewrite four artist-facing strings so they feel ALIVE. The scores 
 HARD RULES:
 - Never use em-dashes (—) or en-dashes (–). Commas, full stops, or split sentences only.
 - Never use words like "potentially", "might be suitable", "consider". Direct editorial calls.
-- Never fake enthusiasm. If Sonnet's draft says the clip is thin, you say it's thin — sharper.
+- Never fake enthusiasm. If Sonnet's draft says the clip is thin, you say it's thin, sharper.
 - Never invent facts. If Sonnet didn't see a crowd, don't add one.
+- FACTUAL ACCURACY: Describe only what Sonnet said was visibly happening. Multiple instruments in frame does NOT mean they are all being played. If Sonnet said hands on one keyboard, keep it that way. Do not upgrade "setup" into "action". Overclaiming loses the artist's trust.
 - Write like a smart friend texting the artist, not like a brand voice.
 - Under length caps: wow_note ≤ 25 words, editorial_angle ≤ 20 words, caption_context ≤ 22 words, post_recommendation ≤ 20 words.
 
@@ -436,7 +449,21 @@ export async function scanSingleFile(
   } else {
     const duration = await getVideoDuration(file)
     const count = computeFrameCount(duration)
-    frames = await extractFrames(file, count)
+    if (isSceneDetectEnabled()) {
+      try {
+        frames = await extractScenes(file, count)
+      } catch (err) {
+        // Flag ON but detection failed (wasm load error, timeout, too few
+        // scenes, codec unsupported). Fall back to flat-uniform so the scan
+        // completes. Prototype: console-only telemetry. See
+        // docs/scene-detection-evaluation.md for the ship plan.
+        // eslint-disable-next-line no-console
+        console.warn('[chainScan] scene detect failed, falling back to uniform:', err)
+        frames = await extractFrames(file, count)
+      }
+    } else {
+      frames = await extractFrames(file, count)
+    }
   }
   emit({ stage: 'extract', phase: 'done', frames })
 
