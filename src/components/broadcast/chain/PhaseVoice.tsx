@@ -80,6 +80,10 @@ export function PhaseVoice({
   const [edits, setEdits] = useState<Partial<Record<CaptionVariant, string>>>({})
   const [variant, setVariant] = useState<CaptionVariant>('loose')
   const [platform, setPlatform] = useState<Platform>('instagram')
+  // Extra platforms for simultaneous fanout. Caption is written for the
+  // primary platform then auto-trimmed to each extra platform's char limit;
+  // YT server-side appends #Shorts if missing.
+  const [extraPlatforms, setExtraPlatforms] = useState<Platform[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
@@ -123,7 +127,12 @@ export function PhaseVoice({
   // Live IG verification results per handle. Key = lowercased handle.
   // 'pending' | 'ok' | 'missing' | 'error'. Drives the green/red dot
   // next to each typed tag.
-  const [handleStatus, setHandleStatus] = useState<Record<string, 'pending' | 'ok' | 'missing' | 'error'>>({})
+  type HandleStatus = {
+    state: 'pending' | 'ok' | 'missing' | 'error'
+    name?: string | null
+    followers?: number | null
+  }
+  const [handleStatus, setHandleStatus] = useState<Record<string, HandleStatus>>({})
   // Supabase-side artist suggestions when the user starts typing a handle.
   // Populated by a cheap /api/tag-suggest fetch — surfaces the real
   // artist_profiles we've scanned so the user can't mistype "@dotmjr"
@@ -196,6 +205,13 @@ export function PhaseVoice({
   // now: next confirmed upcoming gig in DB → formatted priority string →
   // injected into chainCaptionGen. Gigs DB is source of truth — if the
   // artist moves the priority, the system follows automatically.
+  // Raw gig rows pulled once on mount. Location-aware filtering happens in
+  // a derived memo below that re-runs whenever fileName / context change, so
+  // a clip named "NM ATHENS 2.MOV" pushes Athens gigs to the top of the list
+  // Claude sees.
+  type GigRow = { title: string | null; venue: string | null; location: string | null; date: string | null; status: string | null; notes: string | null }
+  const [upcomingGigs, setUpcomingGigs] = useState<GigRow[]>([])
+  const [pastGigs, setPastGigs] = useState<GigRow[]>([])
   const [priorityContext, setPriorityContext] = useState<string | null>(null)
   // Authed user id — passed to chainCaptionGen so the central brain can
   // post-check output and log verdicts to invariant_log. Optional: caption
@@ -213,35 +229,88 @@ export function PhaseVoice({
     ;(async () => {
       try {
         const today = new Date().toISOString().slice(0, 10)
-        const { data } = await supabase
-          .from('gigs')
-          .select('title, venue, location, date, status, notes')
-          .gte('date', today)
-          .in('status', ['confirmed', 'pending'])
-          .order('date', { ascending: true })
-          .limit(1)
+        // Pull BOTH sides of the tour calendar. Claude needs to know:
+        //   (a) upcoming shows so it references the correct next one, not a
+        //       narrow "confirmed-only" slice that misses 'pending' or
+        //       'scheduled' status gigs.
+        //   (b) recent past shows so "we're back in Athens" / "after
+        //       [venue]" style framing lands instead of reading as first
+        //       visit. Without history the chain fabricates first-trip
+        //       captions for return dates.
+        const [upRes, pastRes] = await Promise.all([
+          supabase
+            .from('gigs')
+            .select('title, venue, location, date, status, notes')
+            .gte('date', today)
+            .not('status', 'in', '(cancelled,postponed,rejected)')
+            .order('date', { ascending: true })
+            .limit(12),
+          supabase
+            .from('gigs')
+            .select('title, venue, location, date, status, notes')
+            .lt('date', today)
+            .not('status', 'in', '(cancelled,postponed,rejected)')
+            .order('date', { ascending: false })
+            .limit(12),
+        ])
         if (cancelled) return
-        const next = data?.[0]
-        if (!next) { setPriorityContext(null); return }
-        const d = new Date(next.date)
-        const when = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-        const parts = [
-          next.title,
-          next.venue,
-          next.location,
-          when,
-        ].filter(Boolean).join(' · ')
-        // Soft-append notes for extra flavour without over-stuffing the
-        // caption prompt. Cap to a single line so the anchor stays compact.
-        const notes = (next.notes || '').replace(/\s+/g, ' ').trim().slice(0, 140)
-        const full = notes ? `${parts} — ${notes}` : parts
-        setPriorityContext(full)
+        setUpcomingGigs((upRes.data || []) as GigRow[])
+        setPastGigs((pastRes.data || []) as GigRow[])
       } catch {
-        if (!cancelled) setPriorityContext(null)
+        if (cancelled) return
+        setUpcomingGigs([])
+        setPastGigs([])
       }
     })()
     return () => { cancelled = true }
   }, [])
+
+  // Derive priorityContext from gig rows + the clip's filename + user
+  // context. Any token in fileName or context that matches a gig's
+  // title/venue/location (case-insensitive) bubbles matching gigs to the
+  // top and tags them as LOCATION MATCH so Claude references the right
+  // show first.
+  useEffect(() => {
+    const haystack = `${fileName || ''} ${mergedContext || ''}`.toLowerCase()
+    const fmt = (g: GigRow) => {
+      const when = g.date ? new Date(g.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+      const parts = [g.title, g.venue, g.location, when].filter(Boolean).join(' · ')
+      const notes = (g.notes || '').replace(/\s+/g, ' ').trim().slice(0, 120)
+      return notes ? `${parts} — ${notes}` : parts
+    }
+    const matches = (g: GigRow) => {
+      const needles = [g.location, g.venue, g.title]
+        .filter(Boolean)
+        .map(s => (s as string).toLowerCase().split(/[^a-z0-9]+/))
+        .flat()
+        .filter(tok => tok.length >= 4) // avoid 'the', 'uk', false matches
+      return needles.some(n => haystack.includes(n))
+    }
+
+    const upcomingMatched = upcomingGigs.filter(matches)
+    const upcomingRest = upcomingGigs.filter(g => !upcomingMatched.includes(g))
+    const pastMatched = pastGigs.filter(matches)
+    const pastRest = pastGigs.filter(g => !pastMatched.includes(g))
+
+    const lines: string[] = []
+    if (upcomingMatched.length) {
+      lines.push('LOCATION MATCH — UPCOMING (the clip looks tied to these shows; reference the relevant one):')
+      upcomingMatched.forEach(g => lines.push(`  • ${fmt(g)}`))
+    }
+    if (pastMatched.length) {
+      lines.push('LOCATION MATCH — PAST (use "we\'re back in…" / "after [venue]" framing if appropriate):')
+      pastMatched.forEach(g => lines.push(`  • ${fmt(g)}`))
+    }
+    if (upcomingRest.length) {
+      lines.push('NEXT SHOWS (ordered by date):')
+      upcomingRest.slice(0, 3).forEach(g => lines.push(`  • ${fmt(g)}`))
+    }
+    if (pastRest.length && !pastMatched.length) {
+      lines.push('RECENT SHOWS (background context):')
+      pastRest.slice(0, 3).forEach(g => lines.push(`  • ${fmt(g)}`))
+    }
+    setPriorityContext(lines.length ? lines.join('\n') : null)
+  }, [upcomingGigs, pastGigs, fileName, mergedContext])
 
   const gatedSend = useGatedSend()
 
@@ -350,19 +419,22 @@ export function PhaseVoice({
     if (!unchecked.length) return
     setHandleStatus(prev => {
       const next = { ...prev }
-      unchecked.forEach(h => { next[h.toLowerCase()] = 'pending' })
+      unchecked.forEach(h => { next[h.toLowerCase()] = { state: 'pending' } })
       return next
     })
     unchecked.forEach(async (h) => {
       try {
-        const res = await fetch(`/api/tag-suggest?verify=${encodeURIComponent(h)}`)
+        const verifyPlatform = platform === 'tiktok' ? 'tiktok' : 'instagram'
+        const res = await fetch(`/api/tag-suggest?verify=${encodeURIComponent(h)}&platform=${verifyPlatform}`)
         const json = await res.json()
         setHandleStatus(prev => ({
           ...prev,
-          [h.toLowerCase()]: json.ok === true ? 'ok' : json.ok === null ? 'pending' : 'missing',
+          [h.toLowerCase()]: json.ok === true
+            ? { state: 'ok', name: json.name || null, followers: typeof json.followers === 'number' ? json.followers : null }
+            : json.ok === null ? { state: 'pending' } : { state: 'missing' },
         }))
       } catch {
-        setHandleStatus(prev => ({ ...prev, [h.toLowerCase()]: 'error' }))
+        setHandleStatus(prev => ({ ...prev, [h.toLowerCase()]: { state: 'error' } }))
       }
     })
   }, [tagPayload.handles, tagPayload.collaborators, handleStatus])
@@ -411,37 +483,63 @@ export function PhaseVoice({
         weekday: 'short', day: 'numeric', month: 'short',
         hour: '2-digit', minute: '2-digit',
       })
+      const allPlatforms: Platform[] = [platform, ...extraPlatforms]
+      const targetLabel = allPlatforms.map(p => PLATFORM_LABEL[p]).join(' + ')
       const scheduleMeta = [
+        { label: 'Targets', value: targetLabel },
         { label: 'Format', value: isVideo ? 'Reel / Video' : 'Image' },
         { label: 'Voice aligned', value: `${alignmentScore}/100` },
         { label: 'Written through', value: voiceBlendLabel },
         { label: 'Variant', value: variant.toUpperCase() },
       ]
 
-      await gatedSend({
-        endpoint: '/api/schedule',
-        skipServerPreview: true,
-        previewBody: {
-          platform,
-          caption: current,
+      // Cron publisher fetches media_url via HTTPS when firing — a data URL
+      // here would fail on IG Graph + YT multipart. Upload once to R2 up front
+      // and share the public URL across every fanout row.
+      let mediaUrl: string | null = thumbnail || null
+      if (file) {
+        const fd = new FormData()
+        fd.append('file', file)
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd })
+        if (!uploadRes.ok) {
+          const txt = await uploadRes.text().catch(() => '')
+          throw new Error(`upload failed (${uploadRes.status}): ${txt.slice(0, 120)}`)
+        }
+        const uploaded = await uploadRes.json() as { url?: string }
+        if (uploaded.url) mediaUrl = uploaded.url
+      }
+
+      const posts = allPlatforms.map(p => {
+        const limit = PLATFORM_LIMITS[p]
+        const trimmed = current.length > limit ? current.slice(0, limit) : current
+        const isIG = p === 'instagram' || p === 'threads'
+        return {
+          platform: p,
+          caption: trimmed,
           format: isVideo ? 'reel' : 'post',
           scheduled_at: when.toISOString(),
           status: 'scheduled',
-          media_url: thumbnail || null,
-          user_tags: tagPayload.user_tags.length ? tagPayload.user_tags : null,
-          first_comment: tagPayload.first_comment || null,
-          hashtags: tagPayload.hashtags.length ? tagPayload.hashtags : null,
-          location_name: tagPayload.location_name || null,
-          collaborators: tagPayload.collaborators.length ? tagPayload.collaborators : null,
-          alt_text: tagPayload.alt_text || null,
-          share_to_feed: tagPayload.share_to_feed,
-        },
+          media_url: mediaUrl,
+          user_tags: isIG && tagPayload.user_tags.length ? tagPayload.user_tags : null,
+          first_comment: isIG && tagPayload.first_comment ? tagPayload.first_comment : null,
+          hashtags: isIG && tagPayload.hashtags.length ? tagPayload.hashtags : null,
+          location_name: isIG && tagPayload.location_name ? tagPayload.location_name : null,
+          collaborators: isIG && tagPayload.collaborators.length ? tagPayload.collaborators : null,
+          alt_text: isIG && tagPayload.alt_text ? tagPayload.alt_text : null,
+          share_to_feed: isIG ? tagPayload.share_to_feed : null,
+        }
+      })
+
+      await gatedSend({
+        endpoint: '/api/schedule',
+        skipServerPreview: true,
+        previewBody: posts.length === 1 ? posts[0] : { posts },
         buildConfig: () => ({
           // GateKind only knows 'post' — scheduled-vs-now is conveyed in
           // the summary line + the "Scheduled for" meta row.
           kind: 'post',
           platform,
-          summary: `Schedule for ${PLATFORM_LABEL[platform]} · ${prettyWhen}`,
+          summary: `Schedule ${targetLabel} · ${prettyWhen}`,
           text: current,
           media: thumbnail ? [thumbnail] : [],
           meta: scheduleMeta,
@@ -468,75 +566,84 @@ export function PhaseVoice({
   }
 
   async function handlePublish() {
-    if (!current || over || !check.overall) return
+    // Guard-rail trace: when a click returns here silently the user sees
+    // nothing happen ("back to previous screen"). Logging every early-return
+    // reason so future failures surface in one console line instead of
+    // a mystery.
+    if (!current || over || !check.overall) {
+      console.warn('[publish] blocked', {
+        hasCurrent: !!current, over, voicePassed: check.overall,
+      })
+      setErr(!current ? 'no caption to publish'
+        : over ? `caption is over the ${limit}-char limit for ${PLATFORM_LABEL[platform]}`
+        : 'voice check failed — regenerate or edit before publishing')
+      return
+    }
     setSending(true)
+    setErr(null)
     try {
-      // Threads shares IG Graph's cross-post flow; point it at IG post for now.
-      const endpoint =
-        platform === 'instagram' ? '/api/social/instagram/post'
-        : platform === 'tiktok' ? '/api/social/tiktok/post'
-        : platform === 'youtube' ? '/api/social/youtube/post'
-        : platform === 'threads' ? '/api/social/instagram/post'
-        : '/api/social/twitter/post'
+      const allPlatforms: Platform[] = [platform, ...extraPlatforms]
+      const needsMedia = allPlatforms.some(p => p === 'instagram' || p === 'threads' || p === 'tiktok' || p === 'youtube')
 
-      const publishMeta = [
-        { label: 'Format', value: isVideo ? 'Reel / Video' : 'Image' },
-        { label: 'Voice aligned', value: `${alignmentScore}/100` },
-        { label: 'Written through', value: voiceBlendLabel },
-        { label: 'Variant', value: variant.toUpperCase() },
-      ]
-
-      const isInstagram = platform === 'instagram' || platform === 'threads'
-
-      // MUST upload the blob to R2 before sending to Meta — Graph API only
-      // accepts public HTTPS URLs. Previously we passed `thumbnail` (a data
-      // URL from canvas extraction) which Meta rejected, and for video posts
-      // we never set `video_url` at all. Result: publish silently broke.
-      // Session-restored flow has no blob — gate on reattach.
-      if (isInstagram && !file) {
+      // Every fanout target needs a public HTTPS URL. Upload once, reuse N times.
+      if (needsMedia && !file) {
         setErr('reattach media to publish — session was restored')
         return
       }
 
       let mediaUrl: string | null = null
-      if (isInstagram && file) {
-        setErr(null)
+      if (needsMedia && file) {
         const fd = new FormData()
         fd.append('file', file)
-        const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd })
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd, redirect: 'error' })
+          .catch((e) => { throw new Error(`upload network error — probably a 302 to /login (${e instanceof Error ? e.message : 'unknown'})`) })
         if (!uploadRes.ok) {
           const txt = await uploadRes.text().catch(() => '')
-          throw new Error(`upload failed (${uploadRes.status}): ${txt.slice(0, 120)}`)
+          throw new Error(`upload failed (${uploadRes.status}): ${txt.slice(0, 160)}`)
+        }
+        // Explicit JSON check — if auth middleware returns HTML, .json() throws
+        // in a way that used to swallow silently.
+        const ct = uploadRes.headers.get('content-type') || ''
+        if (!ct.includes('application/json')) {
+          throw new Error(`upload returned non-JSON (${ct || 'no content-type'}) — likely a redirect to /login. Sign in again.`)
         }
         const uploaded = await uploadRes.json() as { url?: string }
         if (!uploaded.url) throw new Error('upload returned no url')
         mediaUrl = uploaded.url
       }
 
-      // IG post endpoint takes image_url + user_tags + first_comment +
-      // hashtags + location_id + collaborators + alt_text + share_to_feed.
-      // Other platforms ignore the IG-only fields.
-      const publishBody: Record<string, unknown> = { caption: current, platform }
-      if (isInstagram && mediaUrl) {
-        if (isVideo) publishBody.video_url = mediaUrl
-        else publishBody.image_url = mediaUrl
-      }
-      if (isInstagram && tagPayload.user_tags.length) publishBody.user_tags = tagPayload.user_tags
-      if (isInstagram && tagPayload.first_comment) publishBody.first_comment = tagPayload.first_comment
-      if (isInstagram && tagPayload.hashtags.length) publishBody.hashtags = tagPayload.hashtags
-      if (isInstagram && tagPayload.collaborators.length) publishBody.collaborators = tagPayload.collaborators
-      if (isInstagram && tagPayload.alt_text) publishBody.alt_text = tagPayload.alt_text
-      if (isInstagram && isVideo) publishBody.share_to_feed = tagPayload.share_to_feed
-      if (isInstagram && isVideo && coverOffsetMs != null) publishBody.thumb_offset = coverOffsetMs
+      const targetLabel = allPlatforms.map(p => PLATFORM_LABEL[p]).join(' + ')
+      const publishMeta = [
+        { label: 'Targets', value: targetLabel },
+        { label: 'Format', value: isVideo ? 'Reel / Video' : 'Image' },
+        { label: 'Voice aligned', value: `${alignmentScore}/100` },
+        { label: 'Written through', value: voiceBlendLabel },
+        { label: 'Variant', value: variant.toUpperCase() },
+      ]
 
-      await gatedSend({
-        endpoint,
+      const fanoutBody: Record<string, unknown> = {
+        platforms: allPlatforms,
+        caption: current,
+        media_url: mediaUrl,
+        is_video: isVideo,
+        user_tags: tagPayload.user_tags.length ? tagPayload.user_tags : null,
+        first_comment: tagPayload.first_comment || null,
+        hashtags: tagPayload.hashtags.length ? tagPayload.hashtags : null,
+        collaborators: tagPayload.collaborators.length ? tagPayload.collaborators : null,
+        location_id: null,
+        alt_text: tagPayload.alt_text || null,
+        share_to_feed: isVideo ? tagPayload.share_to_feed : null,
+        thumb_offset: isVideo && coverOffsetMs != null ? coverOffsetMs : null,
+      }
+
+      const result = await gatedSend<unknown, { success?: boolean; results?: Array<{ platform: string; ok: boolean; error?: string }> }>({
+        endpoint: '/api/social/fanout/post',
         skipServerPreview: true,
-        previewBody: publishBody,
+        previewBody: fanoutBody,
         buildConfig: () => ({
           kind: 'post',
           platform,
-          summary: `Publish to ${PLATFORM_LABEL[platform]}`,
+          summary: `Publish to ${targetLabel}`,
           text: current,
           media: thumbnail ? [thumbnail] : [],
           meta: publishMeta,
@@ -549,6 +656,12 @@ export function PhaseVoice({
           mediaAspect: isVideo ? 'story' : 'square',
         }),
       })
+
+      // Surface per-platform failures — one can fail while others succeed.
+      const fails = (result.data?.results || []).filter(r => !r.ok)
+      if (fails.length) {
+        setErr(fails.map(f => `${f.platform}: ${f.error || 'failed'}`).join(' · '))
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'publish failed')
     } finally {
@@ -984,7 +1097,9 @@ export function PhaseVoice({
             <div style={{ padding: '4px 14px 14px', display: 'flex', flexDirection: 'column', gap: 12, borderTop: `1px solid ${BRT.borderBright}` }}>
               {platform !== 'instagram' && platform !== 'threads' && (
                 <div style={{ fontSize: 10, letterSpacing: '0.2em', color: BRT.dimmest, textTransform: 'uppercase' }}>
-                  Tagging fields apply to Instagram / Threads. Ignored on {PLATFORM_LABEL[platform]}.
+                  {platform === 'tiktok'
+                    ? 'Tag people / collaborators / location apply to IG only. Hashtags DO apply to TikTok — they go in the caption on post.'
+                    : `Tagging fields apply to Instagram / Threads. Ignored on ${PLATFORM_LABEL[platform]}.`}
                 </div>
               )}
               <TagFieldWithSearch
@@ -1079,13 +1194,56 @@ export function PhaseVoice({
                   </span>
                 </div>
                 {hashtagsEnabled && (
-                  <TagField
-                    label="Hashtags"
-                    hint="comma-separated · # optional · added to first comment"
-                    value={hashtagsText}
-                    onChange={setHashtagsText}
-                    placeholder="livemusic, warehouse, london"
-                  />
+                  <>
+                    <TagField
+                      label="Hashtags"
+                      hint="comma-separated · # optional · added to first comment"
+                      value={hashtagsText}
+                      onChange={setHashtagsText}
+                      placeholder="livemusic, warehouse, london"
+                    />
+                    {/* Curated chip row — split by platform. TikTok hashtags
+                        are NM's only hashtag surface in practice (92% of IG
+                        posts carry none). Tiers drawn from 2026 research:
+                        #techno 2.6M posts / 28.9B views, #ravetok ~12M posts
+                        (underground community), #edm 25.7M, generic #fyp
+                        downweighted vs niche by TT algo. See:
+                        tiktokhashtags.com, edigitalagency.com.au, best-hashtags.com. */}
+                    {(() => {
+                      const activePlatforms = [platform, ...extraPlatforms]
+                      const showTT = activePlatforms.includes('tiktok')
+                      const showIG = activePlatforms.includes('instagram') || activePlatforms.includes('threads')
+                      const ttTags = [
+                        // niche > generic for TT discovery
+                        'ravetok','djtok','producertok','technotok','edmtok',
+                        'technohouse','technofamily','undergroundrave',
+                        'housemusic','techno','technomusic','electronicmusic',
+                        'djlife','djset','rave','festivalvibes','undergroundmusic',
+                        'fyp','foryou',
+                      ]
+                      const igTags = [
+                        'housemusic','technomusic','electronicmusic','djlife','underground',
+                        'vinylonly','djmix','afterhours','dancemusic','warehouse',
+                        'boilerroom','rave','clubculture','livemusic',
+                      ]
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: -4 }}>
+                          {showTT && (
+                            <div>
+                              <div style={{ fontSize: 9, letterSpacing: '0.22em', color: '#9a9a9a', marginBottom: 4 }}>TIKTOK — niche over generic</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{renderChips(ttTags, hashtagsText, setHashtagsText)}</div>
+                            </div>
+                          )}
+                          {showIG && (
+                            <div>
+                              <div style={{ fontSize: 9, letterSpacing: '0.22em', color: '#9a9a9a', marginBottom: 4 }}>INSTAGRAM / THREADS</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{renderChips(igTags, hashtagsText, setHashtagsText)}</div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </>
                 )}
               </div>
               {(tagPayload.handles.length > 0 || tagPayload.hashtags.length > 0 || firstCommentExtra.trim()) && (
@@ -1520,7 +1678,10 @@ export function PhaseVoice({
             {(Object.keys(PLATFORM_LABEL) as Platform[]).map(p => (
               <button
                 key={p}
-                onClick={() => setPlatform(p)}
+                onClick={() => {
+                  setPlatform(p)
+                  setExtraPlatforms(prev => prev.filter(ep => ep !== p))
+                }}
                 style={{
                   padding: 8,
                   background: platform === p ? BRT.red : 'transparent',
@@ -1537,6 +1698,36 @@ export function PhaseVoice({
                 {PLATFORM_LABEL[p]}
               </button>
             ))}
+          </div>
+          <div style={{ fontSize: 9, letterSpacing: '0.28em', color: '#9a9a9a', fontWeight: 700, textTransform: 'uppercase', marginTop: 6 }}>
+            ◉ Also post to
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+            {(Object.keys(PLATFORM_LABEL) as Platform[])
+              .filter(p => p !== platform)
+              .map(p => {
+                const on = extraPlatforms.includes(p)
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setExtraPlatforms(prev => on ? prev.filter(x => x !== p) : [...prev, p])}
+                    style={{
+                      padding: 8,
+                      background: on ? '#2a2a2a' : 'transparent',
+                      border: `1px solid ${on ? BRT.red : BRT.borderBright}`,
+                      color: on ? BRT.red : '#6a6a6a',
+                      fontSize: 10,
+                      letterSpacing: '0.22em',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {on ? '✓ ' : ''}{PLATFORM_LABEL[p]}
+                  </button>
+                )
+              })}
           </div>
         </div>
         <div
@@ -1664,7 +1855,7 @@ function TagFieldWithSearch({
   onChange: (v: string) => void
   onFocusSearch: () => void
   suggestions: { handle: string; name: string }[]
-  statusMap: Record<string, 'pending' | 'ok' | 'missing' | 'error'>
+  statusMap: Record<string, { state: 'pending' | 'ok' | 'missing' | 'error'; name?: string | null; followers?: number | null }>
   placeholder?: string
   warn?: string
 }) {
@@ -1710,22 +1901,28 @@ function TagFieldWithSearch({
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {handles.map(h => {
             const s = statusMap[h.toLowerCase()]
+            const state = s?.state
             const dot =
-              s === 'ok' ? { color: '#4eff9f', label: 'resolves on IG' }
-              : s === 'missing' ? { color: BRT.red, label: 'not found on IG' }
-              : s === 'error' ? { color: '#ffb020', label: 'verify failed' }
+              state === 'ok' ? { color: '#4eff9f', label: 'resolves on IG' }
+              : state === 'missing' ? { color: BRT.red, label: 'not found on IG' }
+              : state === 'error' ? { color: '#ffb020', label: 'verify failed' }
               : { color: '#6a6a6a', label: 'checking…' }
+            const followers = s?.followers
+            const fmtFollowers = (n: number) =>
+              n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
+              : n >= 1_000 ? `${Math.round(n / 1_000)}k`
+              : String(n)
             return (
               <span
                 key={h}
-                title={dot.label}
+                title={s?.name ? `${s.name}${typeof followers === 'number' ? ` · ${fmtFollowers(followers)} followers` : ''}` : dot.label}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
                   padding: '3px 8px',
                   background: 'transparent',
-                  border: `1px solid ${BRT.borderBright}`,
+                  border: `1px solid ${state === 'ok' ? '#4eff9f55' : BRT.borderBright}`,
                   color: BRT.ink,
                   fontSize: 10,
                   letterSpacing: '0.16em',
@@ -1734,6 +1931,8 @@ function TagFieldWithSearch({
               >
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: dot.color }} />
                 @{h}
+                {s?.name && <span style={{ color: '#9a9a9a', letterSpacing: 0 }}>· {s.name}</span>}
+                {typeof followers === 'number' && <span style={{ color: '#6a6a6a', letterSpacing: 0 }}>· {fmtFollowers(followers)}</span>}
               </span>
             )
           })}
@@ -1861,6 +2060,40 @@ function TagField({
  * the caption prompt, not invented. Returns an empty array when the ref
  * has no profile (user has not run a deep-dive on them yet).
  */
+/**
+ * Render a row of hashtag chips. `current` is the comma-separated string
+ * in the hashtags textarea; clicks append the tag if it's not already there.
+ * Dedupes by lowercased substring match so `#Techno` and `techno` collide.
+ */
+function renderChips(tags: string[], current: string, onAppend: (next: string) => void) {
+  return tags.map(tag => {
+    const already = new RegExp(`(^|[\\s,])#?${tag}(\\b|$)`, 'i').test(current)
+    return (
+      <button
+        key={tag}
+        onClick={() => {
+          if (already) return
+          const trimmed = current.trim().replace(/,$/, '').trim()
+          onAppend(trimmed ? `${trimmed}, ${tag}` : tag)
+        }}
+        disabled={already}
+        style={{
+          padding: '4px 8px',
+          background: already ? '#1a1a1a' : 'transparent',
+          border: `1px solid ${already ? '#2a2a2a' : BRT.borderBright}`,
+          color: already ? '#4a4a4a' : '#9a9a9a',
+          fontSize: 10,
+          letterSpacing: '0.12em',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          cursor: already ? 'default' : 'pointer',
+        }}
+      >
+        #{tag}
+      </button>
+    )
+  })
+}
+
 function evidenceBits(r: VoiceRef): string[] {
   const p = r.profile
   if (!p) return []

@@ -6,7 +6,7 @@ export type ChainPhase = 'drop' | 'scanning' | 'scanned' | 'voice'
 
 export type CaptionVariant = 'long' | 'safe' | 'loose' | 'raw'
 
-export type Platform = 'instagram' | 'tiktok' | 'threads' | 'x'
+export type Platform = 'instagram' | 'tiktok' | 'threads' | 'youtube'
 
 /**
  * The deep-dive payload written by /api/artist-scan into artist_profiles.
@@ -65,12 +65,12 @@ export const PLATFORM_LIMITS: Record<Platform, number> = {
   instagram: 2200,
   tiktok: 2200,
   threads: 500,
-  x: 280,
+  youtube: 5000,
 }
 
 export const PLATFORM_LABEL: Record<Platform, string> = {
   instagram: 'Instagram',
   tiktok: 'TikTok',
   threads: 'Threads',
-  x: 'X',
+  youtube: 'YouTube',
 }
