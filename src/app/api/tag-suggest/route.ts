@@ -32,7 +32,11 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const verify = searchParams.get('verify')
-    if (verify) return await verifyHandle(verify)
+    const platform = (searchParams.get('platform') || 'instagram').toLowerCase()
+    if (verify) {
+      if (platform === 'tiktok') return await verifyHandleTikTok(verify)
+      return await verifyHandle(verify)
+    }
 
     const q = (searchParams.get('q') || '').trim().replace(/^@+/, '')
     if (!q) return NextResponse.json({ suggestions: [] })
@@ -68,7 +72,7 @@ async function verifyHandle(raw: string) {
   }
 
   try {
-    const url = `${GRAPH}/${NM_IG_ID}?fields=business_discovery.username(${encodeURIComponent(handle)}){id,username,name}&access_token=${token}`
+    const url = `${GRAPH}/${NM_IG_ID}?fields=business_discovery.username(${encodeURIComponent(handle)}){id,username,name,followers_count,profile_picture_url}&access_token=${token}`
     const res = await fetch(url)
     const data = await res.json()
     if (data.error) {
@@ -79,9 +83,44 @@ async function verifyHandle(raw: string) {
     }
     const profile = data?.business_discovery
     if (!profile?.username) return NextResponse.json({ ok: false, handle, reason: 'not found' })
-    return NextResponse.json({ ok: true, handle: profile.username, name: profile.name || null })
+    return NextResponse.json({
+      ok: true,
+      handle: profile.username,
+      name: profile.name || null,
+      followers: profile.followers_count ?? null,
+      profile_pic_url: profile.profile_picture_url || null,
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'verify failed'
     return NextResponse.json({ ok: false, handle, reason: message }, { status: 500 })
+  }
+}
+
+/**
+ * TikTok handle verification via the public oEmbed endpoint. No auth token
+ * needed. Returns 200 + JSON when the user exists, 404 otherwise. We get
+ * author_name (display name) for free — follower count isn't exposed here,
+ * so the chip renders with name only.
+ */
+async function verifyHandleTikTok(raw: string) {
+  const handle = raw.trim().replace(/^@+/, '')
+  if (!handle) return NextResponse.json({ ok: false, error: 'empty handle' }, { status: 400 })
+  try {
+    const url = `https://www.tiktok.com/oembed?url=${encodeURIComponent(`https://www.tiktok.com/@${handle}`)}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    if (res.status === 404) return NextResponse.json({ ok: false, handle, reason: 'not found' })
+    if (!res.ok) return NextResponse.json({ ok: null, reason: `tt oembed ${res.status}` })
+    const data = await res.json()
+    // oEmbed returns { author_name, author_url, title, ... } for real users.
+    if (!data?.author_url) return NextResponse.json({ ok: false, handle, reason: 'not found' })
+    return NextResponse.json({
+      ok: true,
+      handle,
+      name: data.author_name || null,
+      followers: null,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'verify failed'
+    return NextResponse.json({ ok: null, handle, reason: message })
   }
 }

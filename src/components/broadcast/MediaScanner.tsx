@@ -62,6 +62,7 @@ interface FileScan {
   composite: number
   caption?: string
   captionLoading?: boolean
+  id?: string          // DB id — present when scan was persisted (hydrated from history or after /api/media/scans insert)
 }
 
 // Vision-capable Claude call — sends actual frame images alongside the prompt
@@ -2070,6 +2071,11 @@ Write ONE caption for the whole carousel. Lead image is your hook.`
                               location_name: scheduleLocationName || null,
                               status: 'scheduled',
                               preview_approved_at: new Date().toISOString(),
+                              // Close the loop: link this scheduled_post back to the
+                              // scan row that produced the recommendation so
+                              // sync-performance can attribute actual engagement to
+                              // the scan (future red/positive-signal learning).
+                              scan_id: activeScan?.id || null,
                             }),
                             errorContext: 'schedule-create',
                           })

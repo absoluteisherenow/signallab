@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { requireConfirmed } from '@/lib/require-confirmed'
+import { requireUser } from '@/lib/api-auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,9 +30,11 @@ interface SchedulePostInput {
   location_name?: string
   location_id?: string
   preview_approved_at?: string  // ISO timestamp set by frontend on approval
+  gig_id?: string               // link back to the gig this post is for
+  scan_id?: string              // link back to the media_scans row the caption came from
 }
 
-function rowFromInput(p: SchedulePostInput, post_group_id: string | null) {
+function rowFromInput(p: SchedulePostInput, post_group_id: string | null, userId: string | null) {
   return {
     platform: p.platform,
     caption: p.caption,
@@ -52,6 +55,9 @@ function rowFromInput(p: SchedulePostInput, post_group_id: string | null) {
     location_id: p.location_id || null,
     preview_approved_at: p.preview_approved_at || null,
     post_group_id,
+    gig_id: p.gig_id || null,
+    scan_id: p.scan_id || null,
+    user_id: userId,
   }
 }
 
@@ -66,6 +72,14 @@ export async function POST(req: NextRequest) {
     // and proceeds to insert.
     const gate = requireConfirmed(body)
     if (gate) return gate
+
+    // Multi-tenant: stamp user_id from the auth cookie so RLS enforces
+    // per-tenant isolation. Existing signed-in flows continue to work;
+    // unauthenticated callers (none in practice) now get 401 instead of
+    // inserting an orphan row the brain can never read back.
+    const authed = await requireUser(req)
+    if (authed instanceof NextResponse) return authed
+    const { user } = authed
 
     // Batch mode — { posts: [...] } inserts N rows sharing a post_group_id.
     // Single mode — body IS the post (existing callers keep working).
@@ -82,7 +96,7 @@ export async function POST(req: NextRequest) {
     const approvedAt = new Date().toISOString()
     const post_group_id = isBatch ? randomUUID() : null
     const rows = posts.map(p => ({
-      ...rowFromInput(p, post_group_id),
+      ...rowFromInput(p, post_group_id, user.id),
       preview_approved_at: approvedAt,
     }))
 

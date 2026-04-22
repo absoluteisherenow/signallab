@@ -393,7 +393,7 @@ export default function MobilePost() {
       minHeight: '100vh',
       color: C.ink,
       fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-      paddingBottom: 140,
+      paddingBottom: 'calc(140px + env(safe-area-inset-bottom))',
       overflowX: 'hidden',
     }}>
       {/* Header */}
@@ -810,7 +810,7 @@ export default function MobilePost() {
             position: 'fixed',
             left: 0,
             right: 0,
-            bottom: 64,
+            bottom: 'calc(64px + env(safe-area-inset-bottom))',
             padding: '12px 16px',
             background: C.bg,
             borderTop: `1px solid ${C.divide}`,

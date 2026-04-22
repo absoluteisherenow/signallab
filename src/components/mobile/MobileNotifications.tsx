@@ -88,7 +88,7 @@ export default function MobileNotifications() {
   const filtered = tab === 'UNREAD' ? notifications.filter(n => !n.read) : notifications
 
   return (
-    <div style={{ background: COLOR.bg, color: COLOR.text, fontFamily: FONT, minHeight: '100vh', paddingBottom: '72px' }}>
+    <div style={{ background: COLOR.bg, color: COLOR.text, fontFamily: FONT, minHeight: '100vh', paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
 
       {/* Top bar */}
       <div style={{

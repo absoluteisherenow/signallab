@@ -109,7 +109,7 @@ export default function MobileSettings() {
       minHeight: '100vh',
       color: C.ink,
       fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-      paddingBottom: 96,
+      paddingBottom: 'calc(96px + env(safe-area-inset-bottom))',
     }}>
       <div style={{ padding: '20px 16px 14px', borderBottom: `1px solid ${C.divide}` }}>
         <div style={{

@@ -43,7 +43,7 @@ export default function MobileUpload() {
   }
 
   return (
-    <div style={{ background: s.bg, minHeight: '100vh', fontFamily: s.font, color: s.text, paddingBottom: '80px' }}>
+    <div style={{ background: s.bg, minHeight: '100vh', fontFamily: s.font, color: s.text, paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
 
       <div style={{ padding: '20px 16px 16px' }}>
         <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '26px', fontWeight: 300, marginBottom: '6px' }}>

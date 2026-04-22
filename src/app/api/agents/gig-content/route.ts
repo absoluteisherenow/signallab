@@ -18,8 +18,22 @@ export async function POST(req: NextRequest) {
   const { user, serviceClient: supabase } = gate
 
   try {
-    const { gigId } = await req.json()
+    const { gigId, scanId } = await req.json()
     if (!gigId) return NextResponse.json({ error: 'gigId required' }, { status: 400 })
+
+    // Optional scan context — when a Media Scanner run produced the visuals
+    // the artist wants paired with this gig, pass scanId so the captions
+    // reference what's actually in the shot (not generic gig copy).
+    type ScanContext = { caption_context: string | null; composite_score: number | null; post_recommendation: string | null; category: string | null }
+    let scanContext: ScanContext | null = null
+    if (scanId) {
+      const { data: scan } = await supabase
+        .from('media_scans')
+        .select('caption_context, composite_score, post_recommendation, category')
+        .eq('id', scanId)
+        .maybeSingle()
+      if (scan) scanContext = scan as unknown as ScanContext
+    }
 
     // Fetch the gig — scoped to the caller. Prevents cross-tenant content gen.
     const { data: gig, error: gigError } = await supabase
@@ -49,9 +63,13 @@ export async function POST(req: NextRequest) {
 
     // Brain wraps: loads operating context (artist identity, casing, voice,
     // priority mission, active rules) so no hardcoded "Night Manoeuvres".
+    const scanBlock = scanContext
+      ? `\n- Visual pairing (from Media Scanner): ${scanContext.caption_context || scanContext.category || 'unscored image'}${scanContext.composite_score != null ? ` (score ${Math.round(scanContext.composite_score)})` : ''}${scanContext.post_recommendation ? ` — recommended as ${scanContext.post_recommendation}` : ''}`
+      : ''
+
     const userMessage = `Gig details:
 - Venue: ${venue}${location ? ` in ${location}` : ''}
-- Date: ${dayOfWeek} ${formattedDate}`
+- Date: ${dayOfWeek} ${formattedDate}${scanBlock}`
 
     const taskInstruction = `Generate exactly 3 Instagram captions for this gig: one pre-show (3 days before), one day-of (behind-the-scenes angle), one post-show (day-after recap).
 
@@ -102,6 +120,8 @@ Keep each under 30 words. Lowercase. No hashtags. No emojis unless they truly la
         notes: `Auto-generated for ${venue} — ${draft.type.replace('_', ' ')}`,
         gig_title: gig.title || venue,
         gig_id: gigId,
+        user_id: user.id,
+        scan_id: scanId || null,
       }])
 
       if (!insertError) saved++
