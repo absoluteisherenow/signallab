@@ -2,7 +2,7 @@
 // deploy that ships new /_next/static/chunks/* hashes — which is every deploy.
 // Auto-bumping via build would be nicer; until then, bump by hand if you hit
 // a stale-HTML blackout.
-const CACHE_NAME = 'signallab-v5'
+const CACHE_NAME = 'signallab-v6'
 const APP_SHELL = ['/']
 
 self.addEventListener('install', event => {
