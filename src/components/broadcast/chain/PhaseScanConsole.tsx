@@ -37,15 +37,16 @@ const STAGES: Omit<StageDef, 'state'>[] = [
   { key: 'score',   num: '04', label: 'Score',    blurb: 'Composite' },
 ]
 
-/** Rough expected wall-clock per stage. Used ONLY to ease the progress bar
- *  within a running stage so the UI doesn't look frozen during the 5-15s
- *  vision call. Capped at 0.82 so the bar always snaps forward on real
- *  completion — we never fake-finish a stage. */
-const EXPECTED_STAGE_MS: Record<StageKey, number> = {
-  extract: 2000,
-  read:   10000,
-  polish:  6000,
-  score:    800,
+/** Total expected scan wall-clock. Drives ONE smooth progress line (CSS
+ *  animation, not React ticks) so the bar never looks frozen or jumpy at
+ *  stage boundaries. Video runs longer because Sonnet reads 6-12 frames vs
+ *  a single image. If the real scan finishes before this budget, the phase
+ *  transitions out of this component and progress abandons wherever it was
+ *  — better than stuck at 92% for 3 seconds. Capped at 92% so we never
+ *  visually hit 100% before actual completion. */
+const TOTAL_EXPECTED_MS: Record<'image' | 'video', number> = {
+  image: 7000,
+  video: 19000,
 }
 
 /** Rotating sub-captions during long stages. Honest verbs about what the
@@ -92,16 +93,10 @@ export function PhaseScanConsole({ file, onComplete, onError }: Props) {
   const isVideo = file.type.startsWith('video/')
   const running = stages.find((s) => s.state === 'running')
   const currentIdx = stages.findIndex((s) => s.state === 'running')
-  const doneCount = stages.filter((s) => s.state === 'done').length
-  // Within-stage ease: progress creeps forward during a running stage based
-  // on expected wall-clock, capped at 0.82 so real completion still snaps
-  // the bar the last bit. Elapsed ticks every 80ms so this recomputes live.
-  const stageElapsed = running?.startedAt ? Date.now() - running.startedAt : 0
-  const expectedMs = running ? EXPECTED_STAGE_MS[running.key] : 0
-  const withinStage = expectedMs > 0 ? Math.min(0.82, stageElapsed / expectedMs) : 0
-  const progress = Math.min(100, ((doneCount + withinStage) / stages.length) * 100)
   // Rotating blurb — cycles every 2.5s while the stage is running so the
-  // big display word's subtitle doesn't sit static for 10+ seconds.
+  // big display word's subtitle doesn't sit static for 10+ seconds. No
+  // longer drives the progress bar; that's CSS-animated from total elapsed.
+  const stageElapsed = running?.startedAt ? Date.now() - running.startedAt : 0
   const activeBlurbs = running ? ROTATING_BLURBS[running.key] : ['Ready']
   const blurbIdx = Math.floor(stageElapsed / 2500) % activeBlurbs.length
   const activeBlurb = activeBlurbs[blurbIdx] ?? running?.blurb ?? 'Ready'
@@ -185,7 +180,6 @@ export function PhaseScanConsole({ file, onComplete, onError }: Props) {
         stages={stages}
         elapsed={elapsed}
         currentIdx={currentIdx}
-        progress={progress}
         activeBlurb={activeBlurb}
         fileName={file.name}
         isVideo={isVideo}
@@ -217,6 +211,10 @@ export function PhaseScanConsole({ file, onComplete, onError }: Props) {
         @keyframes brt-frame-in {
           from { opacity: 0; transform: scale(0.94); }
           to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes brt-progress-fill {
+          from { width: 0%; }
+          to   { width: 92%; }
         }
       `}</style>
     </div>
@@ -388,7 +386,6 @@ function ConsolePanel({
   stages,
   elapsed,
   currentIdx,
-  progress,
   activeBlurb,
   fileName,
   isVideo,
@@ -396,13 +393,18 @@ function ConsolePanel({
   stages: StageDef[]
   elapsed: number
   currentIdx: number
-  progress: number
   activeBlurb: string
   fileName: string
   isVideo: boolean
 }) {
   const running = stages[currentIdx]
   const activeLabel = running ? activeBlurb : stages.every((s) => s.state === 'done') ? 'Complete' : 'Queued'
+  // One smooth CSS-animated line. The readout pct comes from elapsed so it
+  // tracks the visual fill — both follow the same linear curve toward the
+  // 92% cap. Kept in React only because the fill is a CSS animation which
+  // can't hand us its current width as a number.
+  const totalExpected = isVideo ? TOTAL_EXPECTED_MS.video : TOTAL_EXPECTED_MS.image
+  const pct = Math.min(92, Math.round((elapsed / totalExpected) * 100))
 
   return (
     <div
@@ -573,32 +575,34 @@ function ConsolePanel({
         })}
       </div>
 
-      {/* Progress meter — fills based on completed stages + within-stage ease.
-          Transition is short + linear so the 80ms interpolation ticks blend
-          smoothly instead of each tick's .4s ease overshooting the next. */}
+      {/* Progress meter — ONE continuous CSS-animated line, no React-driven
+          increments. Runs the full expected scan time on a linear curve.
+          Decoupled from the stage machine so there are zero jumps at stage
+          boundaries. If the scan completes early, the phase transitions out
+          and this unmounts mid-animation (we abandon wherever we were — fine,
+          better than faking a snap to 100%). The marker dot sits at the
+          right edge of the fill so it tracks automatically. */}
       <div style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 1 }}>
         <div style={{ width: '100%', height: 2, background: 'rgba(255,42,26,0.14)', position: 'relative', overflow: 'visible' }}>
           <div
             style={{
               position: 'absolute',
               left: 0, top: 0, bottom: 0,
-              width: `${progress}%`,
+              animation: `brt-progress-fill ${totalExpected}ms linear forwards`,
               background: `linear-gradient(90deg, rgba(255,42,26,0.4) 0%, ${BRT.red} 100%)`,
-              transition: 'width .12s linear',
               boxShadow: '0 0 14px rgba(255,42,26,0.6)',
             }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              top: -3, bottom: -3,
-              left: `calc(${progress}% - 4px)`,
-              width: 8,
-              background: BRT.ink,
-              boxShadow: `0 0 10px ${BRT.red}`,
-              transition: 'left .12s linear',
-            }}
-          />
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: -3, bottom: -3, right: -4,
+                width: 8,
+                background: BRT.ink,
+                boxShadow: `0 0 10px ${BRT.red}`,
+              }}
+            />
+          </div>
         </div>
         <div
           style={{
@@ -613,7 +617,7 @@ function ConsolePanel({
           }}
         >
           <span>signal ▸ scanning</span>
-          <span style={{ color: BRT.red }}>{Math.round(progress)}%</span>
+          <span style={{ color: BRT.red }}>{pct}%</span>
         </div>
       </div>
 
