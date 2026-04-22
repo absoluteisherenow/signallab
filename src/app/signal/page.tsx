@@ -272,6 +272,15 @@ Today is ${todayStr}.`
       overflow: 'hidden',
     }}>
 
+      {/* Debug: context state visible until Signal is answering real questions */}
+      <div style={{
+        position: 'fixed', top: 50, left: 12, right: 12,
+        fontSize: 9, color: s.dimmer, letterSpacing: '0.1em',
+        textAlign: 'center', zIndex: 10,
+      }}>
+        CTX {ctx ? `loaded · gigs:${ctx.gigs.length} inv:${ctx.invoices.length} rel:${ctx.releases.length} name:${ctx.profile?.name || 'none'}` : 'loading…'}
+      </div>
+
       {/* Response text */}
       <div style={{
         minHeight: '80px', maxHeight: '50vh', overflowY: 'auto',
