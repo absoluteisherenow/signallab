@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, Suspense } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 const s = {
@@ -16,8 +16,77 @@ function SignalInner() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [transcript, setTranscript] = useState('')
   const [response, setResponse] = useState('')
+  const [ctx, setCtx] = useState<{
+    gigs: any[]; invoices: any[]; releases: any[]; profile: any
+    connectedSocialAccounts: any[]
+  } | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Preload artist context so Signal knows about gigs/invoices/releases without
+  // being told. Voice mode has no chat history to draw from, so this matters more.
+  useEffect(() => {
+    Promise.allSettled([
+      fetch('/api/gigs').then(r => r.json()),
+      fetch('/api/invoices').then(r => r.json()),
+      fetch('/api/settings').then(r => r.json()),
+      fetch('/api/releases').then(r => r.json()).catch(() => ({ releases: [] })),
+      fetch('/api/social/connected').then(r => r.json()).catch(() => ({ accounts: [] })),
+    ]).then(results => {
+      setCtx({
+        gigs: results[0].status === 'fulfilled' ? results[0].value.gigs || [] : [],
+        invoices: results[1].status === 'fulfilled' ? results[1].value.invoices || [] : [],
+        profile: results[2].status === 'fulfilled' ? results[2].value.settings?.profile || {} : {},
+        releases: results[3].status === 'fulfilled' ? results[3].value.releases || [] : [],
+        connectedSocialAccounts: results[4].status === 'fulfilled' ? results[4].value.accounts || [] : [],
+      })
+    }).catch(() => setCtx({ gigs: [], invoices: [], releases: [], profile: {}, connectedSocialAccounts: [] }))
+  }, [])
+
+  function buildVoiceSystem(): string {
+    const today = new Date().toISOString().slice(0, 10)
+    const todayStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+    let sys = `You are Signal — a concise voice assistant for an electronic music artist using Signal Lab OS. Your responses will be spoken aloud. Keep them under 2-3 sentences. Be direct, warm, and useful. Never mention AI. Speak naturally like a trusted collaborator, not a robot. No bullet points or formatting — just natural speech. Never send, publish, or submit anything on behalf of the artist without them explicitly confirming the exact content first.
+
+Today is ${todayStr}.`
+
+    if (!ctx) return sys
+
+    if (ctx.profile?.name) {
+      sys += `\n\nArtist: ${ctx.profile.name}${ctx.profile.genre ? ` · ${ctx.profile.genre}` : ''}${ctx.profile.country ? ` · ${ctx.profile.country}` : ''}.`
+    }
+
+    const upcoming = (ctx.gigs || []).filter(g => g.date >= today && g.status !== 'cancelled').slice(0, 5)
+    if (upcoming.length > 0) {
+      sys += `\n\nUpcoming gigs:\n${upcoming.map(g => {
+        let line = `- ${g.title} at ${g.venue || 'TBC'} on ${g.date}${g.time ? ` at ${g.time}` : ''}`
+        if (g.status && g.status !== 'confirmed') line += ` (${g.status})`
+        if (g.notes) line += ` — ${g.notes}`
+        return line
+      }).join('\n')}`
+    } else {
+      sys += `\n\nNo upcoming gigs on the calendar.`
+    }
+
+    const overdue = (ctx.invoices || []).filter(i => i.status !== 'paid' && i.due_date && i.due_date < today)
+    if (overdue.length > 0) {
+      sys += `\n\nOverdue invoices: ${overdue.length}. ${overdue.slice(0, 3).map(i => `${i.gig_title} (${i.currency || ''}${i.amount})`).join(', ')}.`
+    }
+
+    const upcomingReleases = (ctx.releases || []).filter(r => r.release_date >= today).slice(0, 3)
+    if (upcomingReleases.length > 0) {
+      sys += `\n\nUpcoming releases: ${upcomingReleases.map(r => `${r.title} on ${r.release_date}${r.label ? ` via ${r.label}` : ''}`).join(', ')}.`
+    }
+
+    if (ctx.connectedSocialAccounts?.length > 0) {
+      sys += `\n\nSocial: ${ctx.connectedSocialAccounts.map(a => `${a.platform} ${a.handle || ''}${a.follower_count ? ` (${a.follower_count} followers)` : ''}`).join(', ')}.`
+    }
+
+    sys += `\n\nYou already know this. When asked about gigs, releases, or invoices, answer directly from the context above. Never ask the artist to tell you about their own calendar.`
+
+    return sys
+  }
 
   const statusText: Record<Phase, string> = {
     idle: 'Tap to speak',
@@ -66,7 +135,7 @@ function SignalInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          system: `You are Signal — a concise voice assistant for an electronic music artist using Signal Lab OS. Your responses will be spoken aloud. Keep them under 2-3 sentences. Be direct, warm, and useful. Never mention AI. Speak naturally like a trusted collaborator, not a robot. No bullet points or formatting — just natural speech. Never send, publish, or submit anything on behalf of the artist without them explicitly confirming the exact content first.`,
+          system: buildVoiceSystem(),
           max_tokens: 300,
           messages: [{ role: 'user', content: text }],
         }),
