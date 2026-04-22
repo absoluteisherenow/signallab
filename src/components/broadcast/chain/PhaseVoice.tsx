@@ -10,6 +10,7 @@ import { extractFrames, type ScanFrame } from '@/lib/chainScan'
 import { supabase } from '@/lib/supabaseBrowser'
 import type { VoiceRef, Platform, CaptionVariant } from './types'
 import { PLATFORM_LABEL, PLATFORM_LIMITS } from './types'
+import { BrainVerdictCard } from './BrainVerdictCard'
 
 interface Props {
   scan: ChainScanResult
@@ -71,6 +72,12 @@ export function PhaseVoice({
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  // Brain verdict state — when present and gated, the publish button blocks
+  // until Anthony either re-checks with a passing verdict or explicitly
+  // overrides. Any hard_block failure or confidence below the abstain
+  // threshold flips `brainBlocked` on.
+  const [brainBlocked, setBrainBlocked] = useState(false)
+  const [brainOverride, setBrainOverride] = useState(false)
   // Schedule state — inline picker, no modal. `scheduleOpen` toggles the
   // datetime row under the CTA. Default to "tonight 19:00" because 18:00–19:00
   // is NM's validated peak (reference_ig_posting_times.md).
@@ -1250,6 +1257,54 @@ export function PhaseVoice({
           </div>
         )}
 
+        <BrainVerdictCard
+          output={current}
+          task={
+            platform === 'tiktok'
+              ? 'caption.tiktok'
+              : platform === 'threads'
+              ? 'caption.threads'
+              : 'caption.instagram'
+          }
+          visible={!!current && !loading}
+          onVerdict={(v) => {
+            if (!v) {
+              setBrainBlocked(false)
+              setBrainOverride(false)
+              return
+            }
+            const hardFails = (v.invariants || []).some(
+              (i: any) => !i.passed && i.severity === 'hard_block'
+            )
+            const shouldBlock = v.abstain || hardFails
+            setBrainBlocked(shouldBlock)
+            if (!shouldBlock) setBrainOverride(false)
+          }}
+        />
+
+        {brainBlocked ? (
+          <label
+            style={{
+              marginTop: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 11,
+              color: BRT.red,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={brainOverride}
+              onChange={(e) => setBrainOverride(e.target.checked)}
+              style={{ accentColor: BRT.red }}
+            />
+            Override brain verdict and publish anyway (I've reviewed the flags)
+          </label>
+        ) : null}
+
         <div
           style={{
             display: 'flex',
@@ -1307,17 +1362,17 @@ export function PhaseVoice({
           </button>
           <button
             onClick={() => setScheduleOpen(v => !v)}
-            disabled={loading || !!err || !current || over || !check.overall}
+            disabled={loading || !!err || !current || over || !check.overall || (brainBlocked && !brainOverride)}
             style={{
               padding: '14px 18px',
               background: scheduleOpen ? 'rgba(255,42,26,0.06)' : 'transparent',
               border: `1px solid ${scheduleOpen ? BRT.red : BRT.borderBright}`,
-              color: loading || !!err || !current || over || !check.overall ? BRT.dimmest : (scheduleOpen ? BRT.red : BRT.ink),
+              color: loading || !!err || !current || over || !check.overall || (brainBlocked && !brainOverride) ? BRT.dimmest : (scheduleOpen ? BRT.red : BRT.ink),
               fontSize: 11,
               letterSpacing: '0.22em',
               fontWeight: 700,
               textTransform: 'uppercase',
-              cursor: loading || !!err || !current || over || !check.overall ? 'default' : 'pointer',
+              cursor: loading || !!err || !current || over || !check.overall || (brainBlocked && !brainOverride) ? 'default' : 'pointer',
               fontFamily: 'inherit',
             }}
           >
@@ -1325,17 +1380,17 @@ export function PhaseVoice({
           </button>
           <button
             onClick={handlePublish}
-            disabled={sending || loading || !!err || !current || over || !check.overall}
+            disabled={sending || loading || !!err || !current || over || !check.overall || (brainBlocked && !brainOverride)}
             style={{
               padding: '14px 22px',
-              background: sending || loading || !!err || !current || over || !check.overall ? BRT.dimmest : BRT.red,
+              background: sending || loading || !!err || !current || over || !check.overall || (brainBlocked && !brainOverride) ? BRT.dimmest : BRT.red,
               border: 'none',
               color: BRT.bg,
               fontSize: 12,
               letterSpacing: '0.24em',
               fontWeight: 800,
               textTransform: 'uppercase',
-              cursor: sending || loading || !!err || !current || over || !check.overall ? 'default' : 'pointer',
+              cursor: sending || loading || !!err || !current || over || !check.overall || (brainBlocked && !brainOverride) ? 'default' : 'pointer',
               fontFamily: 'inherit',
             }}
           >
