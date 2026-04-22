@@ -153,6 +153,11 @@ export function BroadcastChain() {
   const [scanResult, setScanResult] = useState<ChainScanResult | null>(null)
   const [composite, setComposite] = useState(0)
   const [thumbnail, setThumbnail] = useState<string | null>(null)
+  // Carousel slides 2..N (images only). Stored as data URLs so caption gen
+  // can feed the whole set to Claude vision without re-reading blobs. Empty
+  // for single-file uploads or when the hero is a video. Cap at 19 extras
+  // (20 total slides) — matches IG carousel limit and Anthropic image cap.
+  const [additionalImageUrls, setAdditionalImageUrls] = useState<string[]>([])
   const [refs, setRefs] = useState<VoiceRef[]>([])
   const [refsOpen, setRefsOpen] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
@@ -295,7 +300,27 @@ export function BroadcastChain() {
     setScanResult(null)
     setComposite(0)
     setThumbnail(null)
+    setAdditionalImageUrls([])
     setPhase('scanning')
+    // Carousel: read slides 2..N as data URLs in parallel so caption gen
+    // can hand every image to Claude vision. Skipped entirely when the hero
+    // is a video (we don't build carousels around video) or when only one
+    // file was dropped. Cap at 19 extras → 20 slides total (IG limit).
+    const heroIsVideo = first.type.startsWith('video/')
+    if (!heroIsVideo && files.length > 1) {
+      const extras = files.slice(1, 20).filter((f) => f.type.startsWith('image/'))
+      Promise.all(
+        extras.map((f) => new Promise<string | null>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+          reader.onerror = () => resolve(null)
+          reader.readAsDataURL(f)
+        })),
+      ).then((urls) => {
+        const clean = urls.filter((u): u is string => typeof u === 'string' && u.startsWith('data:image/'))
+        setAdditionalImageUrls(clean)
+      })
+    }
   }, [])
 
   const handleScanComplete = useCallback(
@@ -330,6 +355,7 @@ export function BroadcastChain() {
     setScanResult(null)
     setComposite(0)
     setThumbnail(null)
+    setAdditionalImageUrls([])
     setPhase('drop')
     clearSession()
   }, [])
@@ -339,7 +365,11 @@ export function BroadcastChain() {
   // a refresh (when `file` is null but scanResult was rehydrated).
   const isVideo = (file?.type ?? fileMeta?.type ?? '').startsWith('video/')
   const activeName = file?.name ?? fileMeta?.name ?? ''
-  const activeMeta = file ? buildMediaMeta(file) : fileMeta ? buildMediaMetaFromMeta(fileMeta) : ''
+  // Append " · N SLIDES" when extras were uploaded so the strip telegraphs
+  // "this is a carousel, caption knows about all of them" without a bigger
+  // UI change. Hidden when hero is video (carousels are image-only).
+  const carouselSuffix = !isVideo && additionalImageUrls.length > 0 ? ` · ${additionalImageUrls.length + 1} SLIDES` : ''
+  const activeMeta = (file ? buildMediaMeta(file) : fileMeta ? buildMediaMetaFromMeta(fileMeta) : '') + carouselSuffix
 
   return (
     <div
@@ -528,7 +558,7 @@ export function BroadcastChain() {
             <>
               <MediaStrip
                 name={file.name}
-                meta={buildMediaMeta(file)}
+                meta={buildMediaMeta(file) + carouselSuffix}
                 thumbnail={thumbnail}
                 onReplace={handleReplace}
                 onClear={handleReplace}
@@ -576,6 +606,7 @@ export function BroadcastChain() {
                 fileName={activeName}
                 isVideo={isVideo}
                 thumbnail={thumbnail}
+                additionalImages={additionalImageUrls}
                 refs={refs}
                 alignmentScore={alignmentScore}
                 onOpenRefs={() => setRefsOpen(true)}

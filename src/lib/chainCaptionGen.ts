@@ -563,6 +563,12 @@ export async function generateCaptionVariants(args: {
   fileName: string
   /** Base-64 data URL of the image (or best video frame) for Claude vision. */
   imageDataUrl: string | null
+  /** Remaining carousel slides (data URLs, images only). When non-empty,
+   *  Claude is told this is a N+1 slide carousel and writes ONE caption for
+   *  the whole set. Slide 1 (imageDataUrl) remains the hero; these are
+   *  supporting slides Claude can also see but shouldn't narrate
+   *  slide-by-slide. Skipped entirely when the hero is a video. */
+  additionalImages?: string[]
   /** Freeform context from the user: "dot + nm press shots", "announce warehouse 9",
    *  "track id dropped in chat", etc. Single highest-leverage input for quality —
    *  without it Claude falls back to describing the image. */
@@ -579,9 +585,16 @@ export async function generateCaptionVariants(args: {
    *  telemetry is lost. Pass the current authed user.id whenever possible. */
   userId?: string
 }): Promise<{ long: string; safe: string; loose: string; raw: string }> {
-  const { scan, refs, platform, fileName, imageDataUrl, context, priorityContext, userId } = args
+  const { scan, refs, platform, fileName, imageDataUrl, additionalImages, context, priorityContext, userId } = args
   const hasContext = !!(context && context.trim())
   const hasPriority = !!(priorityContext && priorityContext.trim())
+  // Carousel detection — any extra image slides mean the caller dropped a
+  // multi-image carousel. Hero is slide 1 (imageDataUrl). Claude sees ALL
+  // slides but writes ONE caption covering the whole set. Cap at 19 extras
+  // (20 total) to stay under Anthropic's per-request image cap with margin.
+  const extras = (additionalImages ?? []).filter((u) => typeof u === 'string' && u.startsWith('data:image/')).slice(0, 19)
+  const isCarousel = extras.length > 0
+  const totalSlides = isCarousel ? extras.length + 1 : 1
 
   // Architecture: Sonnet drafts (fast + cheap + vision-capable), Opus
   // polishes (post-pass oversight). No pre-pass director — the brief is
@@ -687,16 +700,29 @@ Self-check each variant before returning:
 
 Return the JSON object described in the system prompt.`
 
-  // Build multimodal content. Image first (Claude sees before reading).
+  // Build multimodal content. Images first (Claude sees before reading).
+  // For a carousel, all slides go in — hero first, then the extras in order.
   const content: object[] = []
-  if (imageDataUrl) {
-    const match = imageDataUrl.match(/^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/)
-    if (match) {
-      content.push({
-        type: 'image',
-        source: { type: 'base64', media_type: match[1], data: match[2] },
-      })
-    }
+  const pushImage = (url: string) => {
+    const match = url.match(/^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/)
+    if (!match) return
+    content.push({
+      type: 'image',
+      source: { type: 'base64', media_type: match[1], data: match[2] },
+    })
+  }
+  if (imageDataUrl) pushImage(imageDataUrl)
+  if (isCarousel) extras.forEach(pushImage)
+  // Carousel-specific instruction. Goes in the user turn (not system) so it
+  // travels with the specific image batch — a second call with a single
+  // image doesn't carry stale carousel framing. The "one thought told across
+  // frames" wording matches NM's actual carousel behaviour; we do NOT want
+  // per-slide narration.
+  if (isCarousel) {
+    content.push({
+      type: 'text',
+      text: `CAROUSEL CONTEXT: The ${totalSlides} images above are one Instagram carousel. Slide 1 is the hero; the rest are supporting slides in order. Write ONE caption for the whole set — do NOT label slides, do NOT narrate per slide, do NOT list "slide 1... slide 2...". Treat it as one thought told across frames. The caption should work even if a reader only sees slide 1.`,
+    })
   }
   content.push({ type: 'text', text: userText })
 

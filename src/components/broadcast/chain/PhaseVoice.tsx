@@ -22,6 +22,10 @@ interface Props {
   fileName: string
   isVideo: boolean
   thumbnail: string | null
+  /** Extra carousel slides as data URLs (slides 2..N). When present, caption
+   *  gen treats this as a multi-image carousel and Claude sees every slide.
+   *  Empty for single-file uploads. Ignored when hero is a video. */
+  additionalImages?: string[]
   refs: VoiceRef[]
   alignmentScore: number
   onOpenRefs: () => void
@@ -57,12 +61,19 @@ export function PhaseVoice({
   fileName,
   isVideo,
   thumbnail,
+  additionalImages,
   refs,
   alignmentScore,
   onOpenRefs,
   onRemoveRef,
   initialContext,
 }: Props) {
+  // Carousel = hero image + one or more supporting slides. Gated on !isVideo
+  // because we never build a carousel around a video hero. Used to tell
+  // caption gen to write ONE caption for the whole set and to show a subtle
+  // "Carousel · N slides" pill in the UI.
+  const carouselExtras = !isVideo ? (additionalImages ?? []) : []
+  const isCarousel = carouselExtras.length > 0
   const [captions, setCaptions] = useState<Record<CaptionVariant, string> | null>(null)
   // Per-variant user edits. Overrides the AI output. Wiped when a fresh
   // regen lands so the user's local tweaks don't shadow better generations.
@@ -237,7 +248,7 @@ export function PhaseVoice({
   useEffect(() => {
     setLoading(true)
     setErr(null)
-    generateCaptionVariants({ scan, refs, platform, fileName, imageDataUrl: thumbnail, context: mergedContext, priorityContext: priorityContext ?? undefined, userId: userId ?? undefined })
+    generateCaptionVariants({ scan, refs, platform, fileName, imageDataUrl: thumbnail, additionalImages: carouselExtras, context: mergedContext, priorityContext: priorityContext ?? undefined, userId: userId ?? undefined })
       .then((c) => {
         setCaptions({ long: c.long, safe: c.safe, loose: c.loose, raw: c.raw })
         setEdits({})
@@ -464,6 +475,7 @@ export function PhaseVoice({
       const endpoint =
         platform === 'instagram' ? '/api/social/instagram/post'
         : platform === 'tiktok' ? '/api/social/tiktok/post'
+        : platform === 'youtube' ? '/api/social/youtube/post'
         : platform === 'threads' ? '/api/social/instagram/post'
         : '/api/social/twitter/post'
 
@@ -1334,7 +1346,7 @@ export function PhaseVoice({
           <button
             onClick={() => {
               setLoading(true)
-              generateCaptionVariants({ scan, refs, platform, fileName, imageDataUrl: thumbnail, context: mergedContext, priorityContext: priorityContext ?? undefined, userId: userId ?? undefined })
+              generateCaptionVariants({ scan, refs, platform, fileName, imageDataUrl: thumbnail, additionalImages: carouselExtras, context: mergedContext, priorityContext: priorityContext ?? undefined, userId: userId ?? undefined })
                 .then((c) => {
                   setCaptions({ long: c.long, safe: c.safe, loose: c.loose, raw: c.raw })
                   setEdits({})
