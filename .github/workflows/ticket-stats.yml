@@ -1,0 +1,26 @@
+name: ticket-stats
+
+# Hourly poll of RA + Dice ticket counts. Cloudflare Workers cron doesn't
+# play nicely with the OpenNext route handler, so we trigger via GitHub
+# Actions instead. The route itself lives at
+# signal-lab-os/src/app/api/crons/ticket-stats/route.ts and auths on a bearer
+# token stored as repo secret CRON_SECRET (same value as the wrangler secret).
+
+on:
+  schedule:
+    - cron: '7 * * * *'   # every hour at :07 to avoid the top-of-hour crowd
+  workflow_dispatch:
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Hit ticket-stats cron
+        run: |
+          code=$(curl -sS -o /tmp/body -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://signallabos.com/api/crons/ticket-stats)
+          echo "HTTP $code"
+          cat /tmp/body
+          test "$code" = "200"
