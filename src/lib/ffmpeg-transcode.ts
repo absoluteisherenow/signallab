@@ -6,10 +6,11 @@
 // the AC-3 audio into AAC. That's ~50× faster than re-encoding video — H.264
 // is already MP4-compatible, only the container needs swapping.
 //
-// ffmpeg.wasm core is lazy-loaded from /public/ffmpeg/ on first use so the
-// ~30 MB wasm doesn't land in every page's bundle. We self-host (was: unpkg
-// CDN) because unpkg has sporadic outages and a single blip at posting time
-// was killing the drop flow.
+// ffmpeg.wasm core is lazy-loaded from our own R2 bucket via
+// media.signallabos.com on first use. We self-host (was: unpkg CDN) because
+// unpkg has sporadic outages and a single blip at posting time was killing
+// the drop flow. Can't bundle under /public/ either — the wasm is ~30MB and
+// Cloudflare Workers caps bundled assets at 25MB per file.
 
 let ffmpegInstance: unknown = null
 let loadingPromise: Promise<unknown> | null = null
@@ -24,9 +25,9 @@ async function getFfmpeg() {
     // Single-thread build: works without COOP/COEP headers. Multi-thread
     // would need Cross-Origin-Opener-Policy + Cross-Origin-Embedder-Policy
     // set on every response, which is a much bigger platform change.
-    // Self-hosted under /public/ffmpeg/ so we don't depend on unpkg being up
-    // at posting time. Served as a static asset by Cloudflare Workers.
-    const baseURL = '/ffmpeg'
+    // Self-hosted on our R2 bucket (same domain that serves post media)
+    // so we don't depend on unpkg being up at posting time.
+    const baseURL = 'https://media.signallabos.com/ffmpeg'
     await ffmpeg.load({
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
