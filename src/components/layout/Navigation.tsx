@@ -415,7 +415,10 @@ export function Navigation() {
         </div>
       </nav>
 
-      {/* Mobile bottom tab bar */}
+      {/* Mobile bottom tab bar. `paddingBottom: env(safe-area-inset-bottom)`
+          keeps the tabs above the iPhone home-indicator when running as a
+          standalone PWA or inside the Capacitor webview. Height stays 64 for
+          the interactive region; safe-area padding is additive. */}
       <nav className="mobile-tab-bar" style={{
         display: 'none',
         position: 'fixed',
@@ -423,6 +426,7 @@ export function Navigation() {
         left: 0,
         right: 0,
         height: 64,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         background: 'var(--bg)',
         borderTop: '1px solid var(--border-dim)',
         zIndex: 1000,

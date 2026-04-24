@@ -23,11 +23,15 @@ export function HomeIcon({ size = 22 }: IconProps) {
 }
 
 export function ScanIcon({ size = 22 }: IconProps) {
+  // Viewfinder / scan corners — matches what SCAN actually does
+  // (crate capture, receipt snap), not the old mic glyph.
   return (
     <svg {...base(size)}>
-      <rect x="9" y="3" width="6" height="12" rx="3" ry="3" />
-      <path d="M5 11 v1 a7 7 0 0 0 14 0 v-1" />
-      <line x1="12" y1="19" x2="12" y2="22" />
+      <path d="M4 8 V5 h3" />
+      <path d="M20 8 V5 h-3" />
+      <path d="M4 16 v3 h3" />
+      <path d="M20 16 v3 h-3" />
+      <line x1="4" y1="12" x2="20" y2="12" />
     </svg>
   )
 }

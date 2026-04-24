@@ -398,7 +398,7 @@ export default function MobilePost() {
     }}>
       {/* Header */}
       <div style={{
-        padding: '18px 16px 14px',
+        padding: 'calc(18px + env(safe-area-inset-top)) 16px 14px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',

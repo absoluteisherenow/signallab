@@ -987,7 +987,6 @@ Rules:
     // or that are immersive — the floating mic competes with the primary CTA.
     if (
       pathname === '/meditate' ||
-      pathname === '/dashboard' ||
       pathname === '/setlab' ||
       pathname.startsWith('/setlab/') ||
       pathname.startsWith('/mobile/')

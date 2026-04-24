@@ -35,6 +35,26 @@ function isIgnored(message: string): boolean {
   return IGNORED_PATTERNS.some(p => p.test(message))
 }
 
+// Chunk-load failures = browser holding a stale HTML that points at JS
+// chunk hashes which no longer exist on the server after a deploy. Without
+// this handler the user sees "nothing happens" on every interaction because
+// every route-level import silently 404s. Strategy: reload the page ONCE to
+// fetch the fresh HTML + chunk map. Guard with sessionStorage so we never
+// reload twice in a row (infinite-loop protection).
+const RELOAD_FLAG = 'sl_chunk_reload_once'
+function isChunkError(message: string): boolean {
+  return /ChunkLoadError|Loading chunk .* failed|Loading CSS chunk .* failed|Failed to fetch dynamically imported module/i.test(message)
+}
+function maybeReloadForStaleBundle(message: string): boolean {
+  if (!isChunkError(message)) return false
+  try {
+    if (sessionStorage.getItem(RELOAD_FLAG)) return false
+    sessionStorage.setItem(RELOAD_FLAG, String(Date.now()))
+  } catch {}
+  window.location.reload()
+  return true
+}
+
 export function GlobalErrorCatcher() {
   useEffect(() => {
     const onRejection = (event: PromiseRejectionEvent) => {
@@ -42,6 +62,7 @@ export function GlobalErrorCatcher() {
       const message =
         reason instanceof Error ? reason.message : typeof reason === 'string' ? reason : ''
       if (isIgnored(message)) return
+      if (maybeReloadForStaleBundle(message)) return
 
       const cls = classifyError({ error: reason })
       if (cls.category === 'silent') return
@@ -60,6 +81,7 @@ export function GlobalErrorCatcher() {
 
     const onError = (event: ErrorEvent) => {
       if (isIgnored(event.message)) return
+      if (maybeReloadForStaleBundle(event.message)) return
       const cls = classifyError({ error: event.error ?? event.message })
       if (cls.category === 'silent') return
       // Only surface; don't preventDefault — React dev overlay + prod error

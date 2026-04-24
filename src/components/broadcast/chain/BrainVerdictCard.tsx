@@ -4,13 +4,12 @@
 // findings + (for high-stakes tasks) the chairman's council call. Surfaces
 // BEFORE the publish/approve button so Anthony sees risk flags before shipping.
 //
-// Fetch strategy: on-demand via a "Check" button (not auto-fired), because the
-// red-team pass + council advisor fan-out aren't free and we don't want to
-// re-run them on every keystroke. Re-runs automatically when `output` changes
-// IF the card was already open (user explicitly asked for a check and is
-// editing live).
+// Fetch strategy: auto-runs once as soon as a caption is ready so the publish
+// CTA isn't silently blocked behind an un-run check. A debounce keeps
+// re-typing from re-firing the red-team + council fan-out. `Re-check` button
+// is still there for explicit re-runs after edits.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type Severity = 'hard_block' | 'soft_flag' | 'advisory' | 'auto_fix'
 
@@ -43,6 +42,13 @@ interface Verdict {
   council: Council | null
 }
 
+interface Grounding {
+  collaborators?: string[] | null
+  userTagHandles?: string[] | null
+  firstComment?: string | null
+  hashtags?: string[] | null
+}
+
 interface Props {
   output: string
   task: string
@@ -50,6 +56,9 @@ interface Props {
   visible: boolean
   /** Called with the verdict once it arrives — parent can gate its publish CTA. */
   onVerdict?: (verdict: Verdict | null) => void
+  /** User-attached facts. The red-team treats anything here as confirmed so
+   *  collaborator names / venues / handles don't get flagged as fabricated. */
+  grounding?: Grounding
 }
 
 const BRT = {
@@ -77,7 +86,8 @@ function confColor(c: number): string {
 }
 
 export function BrainVerdictCard(props: Props) {
-  const { output, task, visible, onVerdict } = props
+  const { output, task, visible, onVerdict, grounding } = props
+  const groundingKey = JSON.stringify(grounding || {})
   const [loading, setLoading] = useState(false)
   const [verdict, setVerdict] = useState<Verdict | null>(null)
   const [error, setError] = useState<string>('')
@@ -93,7 +103,7 @@ export function BrainVerdictCard(props: Props) {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ output, task }),
+        body: JSON.stringify({ output, task, grounding }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -117,24 +127,65 @@ export function BrainVerdictCard(props: Props) {
     setVerdict(null)
     onVerdict?.(null)
     setCouncilOpen(false)
-  }, [output, task]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [output, task, groundingKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-run the check shortly after the caption settles so the publish CTA
+  // isn't silently blocked. Debounced so edits don't fan-out the council on
+  // every keystroke. Re-fires once per (output, task) pair.
+  const lastAutoKey = useRef<string>('')
+  useEffect(() => {
+    if (!visible || !output || !task || loading) return
+    const key = `${task}::${output}::${groundingKey}`
+    if (lastAutoKey.current === key) return
+    const t = setTimeout(() => {
+      if (lastAutoKey.current === key) return
+      lastAutoKey.current = key
+      run()
+    }, 900)
+    return () => clearTimeout(t)
+  }, [visible, output, task, loading, groundingKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!visible) return null
 
   const fails = (verdict?.invariants || []).filter((i) => !i.passed)
   const hardFails = fails.filter((i) => i.severity === 'hard_block')
   const softFails = fails.filter((i) => i.severity === 'soft_flag')
+  const conf = verdict ? Math.round(verdict.confidence * 100) : 0
+  const clean = !!verdict && !hardFails.length && !softFails.length && !verdict.abstain
+  const holding = !!verdict && (hardFails.length > 0 || verdict.abstain)
+  const ringColor = verdict ? confColor(verdict.confidence) : BRT.dim
+
+  // Circular confidence ring geometry
+  const RING_R = 36
+  const RING_CIRC = 2 * Math.PI * RING_R
+  const ringOffset = RING_CIRC * (1 - (verdict ? verdict.confidence : 0))
 
   return (
     <div
       style={{
-        border: `1px solid ${BRT.border}`,
-        background: 'rgba(10,10,10,0.5)',
+        border: `1px solid ${clean ? BRT.ok : holding ? BRT.red : BRT.border}`,
+        background: clean
+          ? 'linear-gradient(180deg, rgba(122,255,158,0.05) 0%, rgba(10,10,10,0.5) 60%)'
+          : holding
+          ? 'linear-gradient(180deg, rgba(255,42,26,0.06) 0%, rgba(10,10,10,0.5) 60%)'
+          : 'rgba(10,10,10,0.5)',
         padding: 16,
         marginTop: 16,
         fontFamily: 'monospace',
+        position: 'relative',
+        overflow: 'hidden',
+        transition: 'border-color 240ms ease, background 240ms ease',
       }}
     >
+      <style>{`
+        @keyframes bv_ring_in { from { stroke-dashoffset: ${RING_CIRC}; } to { stroke-dashoffset: ${ringOffset}; } }
+        @keyframes bv_stamp_in { 0% { opacity: 0; transform: translateY(4px) scale(0.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes bv_scan { 0% { transform: translateY(-10%); opacity: 0; } 40% { opacity: 1; } 100% { transform: translateY(110%); opacity: 0; } }
+        .bv-ring-path { animation: bv_ring_in 900ms cubic-bezier(.2,.8,.2,1) both; }
+        .bv-stamp { animation: bv_stamp_in 420ms cubic-bezier(.2,.8,.2,1) both; }
+        .bv-scan { position: absolute; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, ${ringColor}66, transparent); animation: bv_scan 1400ms ease-in-out; pointer-events: none; }
+      `}</style>
+      {verdict ? <div className="bv-scan" /> : null}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div
           style={{
@@ -191,24 +242,81 @@ export function BrainVerdictCard(props: Props) {
 
       {verdict ? (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 14 }}>
-            <div>
-              <div style={{ fontSize: 10, color: BRT.dim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-                Confidence
-              </div>
-              <div style={{ fontSize: 24, color: confColor(verdict.confidence), fontWeight: 600 }}>
-                {Math.round(verdict.confidence * 100)}
-                <span style={{ fontSize: 12, color: BRT.dim, marginLeft: 3 }}>/100</span>
-              </div>
-            </div>
-            <div style={{ flex: 1, height: 6, background: '#1a1a1a', borderRadius: 3, overflow: 'hidden' }}>
+          <div className="bv-stamp" style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 16 }}>
+            <svg width={88} height={88} viewBox="0 0 88 88" style={{ flexShrink: 0 }}>
+              <circle cx={44} cy={44} r={RING_R} fill="none" stroke="#1a1a1a" strokeWidth={6} />
+              <circle
+                cx={44}
+                cy={44}
+                r={RING_R}
+                fill="none"
+                stroke={ringColor}
+                strokeWidth={6}
+                strokeLinecap="round"
+                strokeDasharray={RING_CIRC}
+                strokeDashoffset={ringOffset}
+                className="bv-ring-path"
+                transform="rotate(-90 44 44)"
+              />
+              <text
+                x={44}
+                y={46}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontFamily="inherit"
+                fontSize={22}
+                fontWeight={700}
+                fill={ringColor}
+              >
+                {conf}
+              </text>
+              <text
+                x={44}
+                y={62}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontFamily="inherit"
+                fontSize={8}
+                letterSpacing={1.4}
+                fill={BRT.dim}
+              >
+                /100
+              </text>
+            </svg>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
-                  width: `${Math.round(verdict.confidence * 100)}%`,
-                  height: '100%',
-                  background: confColor(verdict.confidence),
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 12px',
+                  background: clean ? 'rgba(122,255,158,0.1)' : holding ? 'rgba(255,42,26,0.1)' : 'rgba(255,181,70,0.1)',
+                  border: `1px solid ${clean ? BRT.ok : holding ? BRT.red : BRT.warn}`,
+                  color: clean ? BRT.ok : holding ? BRT.red : BRT.warn,
+                  fontSize: 11,
+                  letterSpacing: '0.26em',
+                  textTransform: 'uppercase',
+                  fontWeight: 800,
                 }}
-              />
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: clean ? BRT.ok : holding ? BRT.red : BRT.warn,
+                    boxShadow: `0 0 8px ${clean ? BRT.ok : holding ? BRT.red : BRT.warn}`,
+                  }}
+                />
+                {clean ? 'Clear to ship' : holding ? 'Hold — needs review' : 'Soft flags'}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 11, color: BRT.dim, letterSpacing: '0.04em', lineHeight: 1.4 }}>
+                {clean
+                  ? 'All invariants passed. Red-team clean. You can publish with confidence.'
+                  : holding
+                  ? `${hardFails.length} hard block${hardFails.length === 1 ? '' : 's'} — fix before publishing, or override if you've reviewed.`
+                  : `${softFails.length} soft flag${softFails.length === 1 ? '' : 's'} — review but not blocking.`}
+              </div>
             </div>
           </div>
 
@@ -257,11 +365,7 @@ export function BrainVerdictCard(props: Props) {
             </div>
           ) : null}
 
-          {!hardFails.length && !softFails.length ? (
-            <div style={{ marginTop: 12, fontSize: 11, color: BRT.ok, letterSpacing: '0.08em' }}>
-              All checks clean.
-            </div>
-          ) : null}
+          {/* Clean state is already communicated by the hero stamp; no duplicate footer. */}
 
           {verdict.redTeam && !verdict.redTeam.passed ? (
             <div style={{ marginTop: 12 }}>

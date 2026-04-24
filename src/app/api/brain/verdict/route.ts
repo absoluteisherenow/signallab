@@ -66,6 +66,17 @@ export async function POST(req: NextRequest) {
   if (!output) return NextResponse.json({ error: 'output required' }, { status: 400 })
   if (!task) return NextResponse.json({ error: 'valid task required' }, { status: 400 })
 
+  // Verified grounding the user attached on the composer side — collaborators,
+  // tagged handles, first comment, hashtags. Red-team treats everything here
+  // as fact so it doesn't flag user-confirmed names as fabricated.
+  const rawG = (body.grounding && typeof body.grounding === 'object') ? body.grounding : {}
+  const grounding = {
+    collaborators: Array.isArray(rawG.collaborators) ? rawG.collaborators.filter((v: unknown) => typeof v === 'string') : [],
+    userTagHandles: Array.isArray(rawG.userTagHandles) ? rawG.userTagHandles.filter((v: unknown) => typeof v === 'string') : [],
+    firstComment: typeof rawG.firstComment === 'string' ? rawG.firstComment : '',
+    hashtags: Array.isArray(rawG.hashtags) ? rawG.hashtags.filter((v: unknown) => typeof v === 'string') : [],
+  }
+
   const wantCouncil =
     body.council === true || (body.council !== false && shouldAutoCouncil(task))
   const wantRedTeam = body.runRedTeam !== false
@@ -81,6 +92,7 @@ export async function POST(req: NextRequest) {
           output,
           ctx,
           taskInstruction: `Review finalised ${task} output before approve-and-send.`,
+          grounding,
         }).catch(() => null)
       : Promise.resolve(null)
   )

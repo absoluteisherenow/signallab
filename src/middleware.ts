@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   '/advance',   // external advance request forms (promoters/venues fill these in)
   '/upload',    // public media upload links (pre-show briefs)
   '/privacy',   // public privacy policy (required for Meta App Review)
+  '/terms',     // public terms of service (required for TikTok App Review)
   '/go',        // promo landing pages for DJs (reaction-gated download)
   '/brt',       // brutalist marketing landing (preview)
   '/nm-pitch',  // NM visual identity pitch doc (shareable, no login required)

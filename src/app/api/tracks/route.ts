@@ -90,6 +90,9 @@ export async function POST(req: NextRequest) {
       discovered_via: t.discovered_via || null,
       spotify_url: t.spotify_url || null,
       album_art: t.album_art || null,
+      // Rekordbox hot cues — imported free for all tiers (user's own work).
+      // Essentia-derived cues are merged in separately via the Audio DNA path.
+      ...(Array.isArray(t.hot_cues) && t.hot_cues.length ? { hot_cues: t.hot_cues } : {}),
     }))
 
     const { data, error } = await supabase

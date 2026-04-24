@@ -10,6 +10,39 @@
   padding: 0;
 }
 
+/* iOS touch polish — kills 300ms tap delay, disables text callouts (menus
+   on long-press), stops the double-tap-to-zoom lurch, and disables
+   overscroll bounce on the document root so the app feels native. Buttons
+   and links inherit these via `*`. Override on individual elements that
+   legitimately need text selection (e.g. caption textareas). */
+html, body {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+}
+
+/* Safe-area CSS variables — derived from the notch/Dynamic Island insets
+   when the app runs fullscreen (Add-to-Home-Screen or Capacitor webview).
+   Components read these instead of hard-coding padding, so one change here
+   fixes every screen. `env(...)` falls back to 0 in browsers without the
+   inset. */
+:root {
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+}
+
+/* Inputs / textareas need real text-selection — restore it explicitly so the
+   global `-webkit-touch-callout: none` above doesn't break long-press copy. */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 :root {
   color-scheme: dark;
 
@@ -701,4 +734,31 @@ body.advance-active {
   .app-shell { flex-direction: column; }
   .app-main { padding-bottom: 56px; }
   .signal-desktop-fab { display: flex !important; }
+}
+
+/* Detail pages opened from notifications (gigs, invoices, releases, etc.).
+   These were authored with desktop inline styles — 56px page padding,
+   4-column grids, 32px card padding. On mobile that overflows hard:
+   titles wrap mid-word, stats cards scroll sideways, fee column cuts off.
+   This strips the inline styles back to something phone-shaped. Inline
+   styles beat CSS unless we mark these !important. */
+@media (max-width: 640px) {
+  .detail-page { min-width: 0 !important; overflow-x: hidden !important; }
+  .detail-page > div { padding-left: 16px !important; padding-right: 16px !important; }
+  .detail-page [style*="padding: '52px 56px"],
+  .detail-page [style*="padding:52px 56px"],
+  .detail-page [style*="padding: 52px 56px"] { padding: 24px 16px 20px !important; }
+  .detail-page [style*="padding: '44px 56px"],
+  .detail-page [style*="padding:44px 56px"],
+  .detail-page [style*="padding: 44px 56px"] { padding: 20px 16px !important; }
+  .detail-page [style*="padding: '80px 56px"],
+  .detail-page [style*="padding: '120px 56px"] { padding: 40px 16px !important; }
+  .detail-page [style*="grid-template-columns"] { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .detail-page .card { padding: 18px !important; }
+  .detail-page [style*="padding: '32px"] { padding: 18px !important; }
+  .detail-page [style*="padding: '24px 28px"] { padding: 14px 16px !important; }
+  .detail-page .display { font-size: clamp(22px, 7vw, 30px) !important; }
+  .detail-page [style*="fontSize: '26px'"] { font-size: 20px !important; }
+  .detail-page button { font-size: 10px !important; padding: 10px 14px !important; }
+  .detail-page h1, .detail-page h2 { word-break: break-word; }
 }

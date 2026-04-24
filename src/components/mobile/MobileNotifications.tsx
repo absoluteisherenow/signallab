@@ -92,7 +92,7 @@ export default function MobileNotifications() {
 
       {/* Top bar */}
       <div style={{
-        padding: '20px 20px 24px',
+        padding: 'calc(20px + env(safe-area-inset-top)) 20px 24px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{

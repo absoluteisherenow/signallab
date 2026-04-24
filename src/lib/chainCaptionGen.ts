@@ -584,10 +584,26 @@ export async function generateCaptionVariants(args: {
    *  on the /api/claude side. Captions still generate without this, but drift
    *  telemetry is lost. Pass the current authed user.id whenever possible. */
   userId?: string
+  /** Verified grounding the user has already attached (tags, first comment,
+   *  collaborators). These are TREATED AS FACTS by the model — if a handle is
+   *  in user_tags, the caption can reference it by name without it counting as
+   *  fabrication. Kills the whole "AI invented Eden / Daphni" false-positive
+   *  class: if it's in here, it's real. */
+  grounding?: {
+    collaborators?: string[] | null
+    userTagHandles?: string[] | null
+    firstComment?: string | null
+    hashtags?: string[] | null
+  }
 }): Promise<{ long: string; safe: string; loose: string; raw: string }> {
-  const { scan, refs, platform, fileName, imageDataUrl, additionalImages, context, priorityContext, userId } = args
+  const { scan, refs, platform, fileName, imageDataUrl, additionalImages, context, priorityContext, userId, grounding } = args
   const hasContext = !!(context && context.trim())
   const hasPriority = !!(priorityContext && priorityContext.trim())
+  const groundCollabs = (grounding?.collaborators || []).map(s => (s || '').trim()).filter(Boolean)
+  const groundTags = (grounding?.userTagHandles || []).map(s => (s || '').replace(/^@/, '').trim()).filter(Boolean)
+  const groundFirstComment = (grounding?.firstComment || '').trim()
+  const groundHashtags = (grounding?.hashtags || []).map(s => (s || '').replace(/^#/, '').trim()).filter(Boolean)
+  const hasGrounding = !!(groundCollabs.length || groundTags.length || groundFirstComment || groundHashtags.length)
   // Carousel detection — any extra image slides mean the caller dropped a
   // multi-image carousel. Hero is slide 1 (imageDataUrl). Claude sees ALL
   // slides but writes ONE caption covering the whole set. Cap at 19 extras
@@ -672,10 +688,29 @@ ${hasPriority
   : `Default to extreme brevity — a fragment, a single word, a timestamp, a lowercase observation. Examples: "press.", "dot + nm.", "new.", "saturday.", "today's work."`}
 DO NOT invent an event, release, or collaboration outside what the anchor states. DO NOT describe the image.`
 
+  const groundingBlock = hasGrounding
+    ? `VERIFIED GROUNDING (user-attached — TREAT AS FACTS, NOT FABRICATIONS):
+The user has already attached the following to this post. Everything here is confirmed by the artist — the red-team pass will see the same list, so if you reference any of these by name, it will NOT count as a fabrication.
+${groundCollabs.length ? `- Collaborators tagged: ${groundCollabs.map(c => '@' + c.replace(/^@/, '')).join(', ')}` : ''}
+${groundTags.length ? `- People / accounts tagged in the image: ${groundTags.map(h => '@' + h).join(', ')}` : ''}
+${groundFirstComment ? `- First comment (will post as the first reply): "${groundFirstComment.slice(0, 240)}"` : ''}
+${groundHashtags.length ? `- Hashtags queued for first comment: ${groundHashtags.map(h => '#' + h).join(' ')}` : ''}
+
+HOW TO USE THIS GROUNDING:
+- Collaborator names (e.g. "Dot", "Eden") mentioned here CAN be surfaced in the LOOSE or LONG variant. They are real people attached to the post — not invented.
+- DO NOT inline @handles in the caption (tags go in the first comment / user_tags). Use the human name only.
+- If a collaborator or venue is already named in the first comment, the caption can reference them by name; it won't read as redundant.
+- Never invent additional collaborators, venues, or labels that aren't in this grounding block, the priority anchor, or the context line.
+`
+    : ''
+
   const userText = `${buildVoiceBlock(refs)}
 
 ${hasPriority ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${priorityBlock}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+` : ''}${hasGrounding ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${groundingBlock}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ` : ''}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${contextBlock}

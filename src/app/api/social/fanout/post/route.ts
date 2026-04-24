@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireConfirmed } from '@/lib/require-confirmed'
 import { PLATFORM_LIMITS } from '@/components/broadcast/chain/types'
+import { publishTikTok } from '@/lib/social-publish/tiktok'
 
 export const runtime = 'nodejs'
 
@@ -68,17 +69,26 @@ export async function POST(req: NextRequest) {
     const limit = PLATFORM_LIMITS[platform] ?? 2200
     const trimmedCaption = caption.length > limit ? caption.slice(0, limit) : caption
 
+    // TikTok: call the publish function directly. Cloudflare Workers blocks
+    // same-zone HTTP loopback (returns 522) so we can NOT fetch our own
+    // /api/social/tiktok/post endpoint here — has to be in-process.
+    if (platform === 'tiktok') {
+      const r = await publishTikTok({
+        caption: trimmedCaption,
+        video_url: media_url || '',
+      })
+      if (r.ok && r.publish_id) {
+        results.push({ platform, ok: true, post_id: r.publish_id })
+      } else {
+        results.push({ platform, ok: false, error: r.error || 'publish failed' })
+      }
+      continue
+    }
+
     let endpoint: string
     let postBody: Record<string, unknown>
 
-    if (platform === 'tiktok') {
-      endpoint = '/api/social/tiktok/post'
-      postBody = {
-        caption: trimmedCaption,
-        video_url: media_url,
-        confirmed: true,
-      }
-    } else if (platform === 'youtube') {
+    if (platform === 'youtube') {
       endpoint = '/api/social/youtube/post'
       postBody = {
         caption: trimmedCaption,

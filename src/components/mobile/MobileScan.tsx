@@ -292,7 +292,7 @@ export default function MobileScan() {
   return (
     <div style={{ background: COLOR.bg, minHeight: '100vh', fontFamily: FONT, color: COLOR.text, paddingBottom: 'calc(96px + env(safe-area-inset-bottom))', overflowX: 'hidden' }}>
       {/* Header */}
-      <div style={{ padding: '20px 20px 0', minHeight: '44px', display: 'flex', alignItems: 'center' }}>
+      <div style={{ padding: 'calc(20px + env(safe-area-inset-top)) 20px 0', minHeight: '44px', display: 'flex', alignItems: 'center' }}>
         <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.22em', color: COLOR.text, textTransform: 'uppercase' }}>
           SCAN
         </div>

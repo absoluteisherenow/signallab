@@ -417,7 +417,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const daysTo = Math.ceil((gigDate.getTime() - Date.now()) / 86400000)
 
   return (
-    <div style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
+    <div className="detail-page" style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-mono)', minHeight: '100vh' }}>
 
       {/* Toast */}
       {toast && (
@@ -475,6 +475,47 @@ export function GigDetail({ gigId }: GigDetailProps) {
             </div>
           ))}
         </div>
+
+        {/* Ticket stats — only render when the hourly cron has actually
+            written data. Never show fake sold counts. */}
+        {((gig as any).ra_attending != null || ((gig as any).dice_tiers as any[] | null)?.length) && (
+          <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Ticket stats</div>
+              {(gig as any).ticket_stats_checked_at && (
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)' }}>
+                  Updated {new Date((gig as any).ticket_stats_checked_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              {(gig as any).ra_attending != null && (
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>RA · Going</div>
+                  <div className="display" style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.035em', lineHeight: 0.9 }}>
+                    {(gig as any).ra_attending}
+                    {(gig as any).ra_capacity ? <span style={{ fontSize: '14px', color: 'var(--text-dimmer)', fontWeight: 500 }}> / {(gig as any).ra_capacity}</span> : null}
+                  </div>
+                </div>
+              )}
+              {(((gig as any).dice_tiers as Array<{ name: string; status: string; price?: number; currency?: string }> | null) || []).length > 0 && (
+                <div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: '8px' }}>Dice · Tiers</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {((gig as any).dice_tiers as Array<{ name: string; status: string; price?: number; currency?: string }>).map((t, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: t.status === 'sold-out' ? 'var(--text-dimmer)' : 'var(--text)' }}>
+                        <span>{t.name}{typeof t.price === 'number' ? ` · £${t.price.toFixed(2)}` : ''}</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: t.status === 'sold-out' ? '#8a4a3a' : t.status === 'on-sale' ? 'var(--green)' : 'var(--text-dimmer)' }}>
+                          {t.status.replace('-', ' ')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Main edit/view form */}
         <form onSubmit={handleSave}>

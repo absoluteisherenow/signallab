@@ -111,7 +111,7 @@ export default function MobileSettings() {
       fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
       paddingBottom: 'calc(96px + env(safe-area-inset-bottom))',
     }}>
-      <div style={{ padding: '20px 16px 14px', borderBottom: `1px solid ${C.divide}` }}>
+      <div style={{ padding: 'calc(20px + env(safe-area-inset-top)) 16px 14px', borderBottom: `1px solid ${C.divide}` }}>
         <div style={{
           fontSize: 11,
           letterSpacing: '0.22em',

@@ -38,6 +38,13 @@ If the content is genuinely clean, output the single line: CLEAN
 
 Do not rewrite. Do not praise. Find flaws only. Max 6 concerns.`
 
+export interface RedTeamGrounding {
+  collaborators?: string[]
+  userTagHandles?: string[]
+  firstComment?: string
+  hashtags?: string[]
+}
+
 /**
  * Run an adversarial pass. Returns a single soft-flag verdict whose `detail`
  * contains the red-team concerns (or "clean" when none found).
@@ -47,11 +54,29 @@ export async function runRedTeam(params: {
   output: string
   ctx: OperatingContext
   taskInstruction: string
+  /** User-attached facts — collaborators, tagged handles, first-comment text,
+   *  hashtags. Red-team MUST NOT flag anything in here as a fabrication. */
+  grounding?: RedTeamGrounding
 }): Promise<RedTeamVerdict> {
-  const { userId, output, ctx, taskInstruction } = params
+  const { userId, output, ctx, taskInstruction, grounding } = params
 
   const priorityLine = ctx.priority.formatted ? `\n\nPriority context the artist is working toward:\n${ctx.priority.formatted}` : ''
-  const userPrompt = `Original task instruction given to the generator:\n${taskInstruction}${priorityLine}\n\nGenerated output to red-team:\n"""\n${output}\n"""`
+
+  const gCollabs = (grounding?.collaborators || []).filter(Boolean)
+  const gTags = (grounding?.userTagHandles || []).filter(Boolean)
+  const gFirstComment = (grounding?.firstComment || '').trim()
+  const gHashtags = (grounding?.hashtags || []).filter(Boolean)
+  const hasGrounding = !!(gCollabs.length || gTags.length || gFirstComment || gHashtags.length)
+  const groundingBlock = hasGrounding
+    ? `\n\nVerified grounding the artist has already attached to this post (TREAT AS FACTS — do NOT flag as fabrication):\n${[
+        gCollabs.length ? `- Collaborators tagged: ${gCollabs.map(c => '@' + c.replace(/^@/, '')).join(', ')}` : '',
+        gTags.length ? `- People tagged in the image: ${gTags.map(h => '@' + h.replace(/^@/, '')).join(', ')}` : '',
+        gFirstComment ? `- First comment on the post: "${gFirstComment.slice(0, 400)}"` : '',
+        gHashtags.length ? `- Hashtags queued: ${gHashtags.map(h => '#' + h.replace(/^#/, '')).join(' ')}` : '',
+      ].filter(Boolean).join('\n')}\nNames, venues, handles, or hashtags that appear in this grounding block are REAL — the artist attached them. The caption may reference them by first name without it counting as invention.`
+    : ''
+
+  const userPrompt = `Original task instruction given to the generator:\n${taskInstruction}${priorityLine}${groundingBlock}\n\nGenerated output to red-team:\n"""\n${output}\n"""`
 
   try {
     const res = await callClaude({

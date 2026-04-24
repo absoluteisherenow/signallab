@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
+import type { HotCue } from '@/lib/audioDna/types'
 
 interface WaveformProps {
   peaks: number[] | null       // normalized 0-1 peak values
@@ -13,6 +14,17 @@ interface WaveformProps {
   progressColor?: string
   backgroundColor?: string
   mini?: boolean               // compact mode for track list
+  cues?: HotCue[] | null       // hot cues to render as markers
+  durationMs?: number | null   // needed to position cues on the waveform
+}
+
+// Colour scheme for inferred cue types — matches the Set Lab palette.
+const CUE_COLORS: Record<string, string> = {
+  intro: '#3B82F6',      // blue
+  drop: '#FF2A1A',       // NM red — peak / main payoff
+  breakdown: '#A855F7',  // violet
+  outro: '#64748B',      // slate
+  custom: '#F59E0B',     // amber — user-authored / unclassified
 }
 
 // Extract waveform peaks from audio URL using Web Audio API
@@ -84,11 +96,14 @@ export function WaveformDisplay({
   progressColor = 'rgba(255, 42, 26, 0.9)',
   backgroundColor = 'transparent',
   mini = false,
+  cues = null,
+  durationMs = null,
 }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [hovering, setHovering] = useState(false)
   const [hoverX, setHoverX] = useState(0)
+  const [hoveredCueIdx, setHoveredCueIdx] = useState<number | null>(null)
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -129,12 +144,30 @@ export function WaveformDisplay({
       ctx.fillRect(x, y, barWidth, barH)
     }
 
+    // Cue markers — drawn above the bars so they're always visible.
+    if (cues && cues.length && durationMs && durationMs > 0) {
+      for (const c of cues) {
+        const x = (c.position_ms / durationMs) * w
+        if (x < 0 || x > w) continue
+        const col = CUE_COLORS[c.type] ?? CUE_COLORS.custom
+        ctx.fillStyle = col
+        ctx.fillRect(Math.floor(x), 0, 2, h)
+        // Small flag at the top so users know a cue sits there even in mini.
+        ctx.beginPath()
+        ctx.moveTo(Math.floor(x), 0)
+        ctx.lineTo(Math.floor(x) + 6, 0)
+        ctx.lineTo(Math.floor(x) + 2, 4)
+        ctx.closePath()
+        ctx.fill()
+      }
+    }
+
     // Hover indicator
     if (hovering && onSeek) {
       ctx.fillStyle = 'rgba(255,255,255,0.3)'
       ctx.fillRect(hoverX, 0, 1, h)
     }
-  }, [peaks, progress, hovering, hoverX, barWidth, barGap, color, progressColor, backgroundColor])
+  }, [peaks, progress, hovering, hoverX, barWidth, barGap, color, progressColor, backgroundColor, cues, durationMs])
 
   useEffect(() => {
     draw()
@@ -163,15 +196,26 @@ export function WaveformDisplay({
     )
   }
 
+  const hoveredCue = hoveredCueIdx !== null && cues ? cues[hoveredCueIdx] : null
+
   return (
     <div
       ref={containerRef}
       style={{ width: '100%', height: mini ? 24 : height, cursor: onSeek ? 'pointer' : 'default', position: 'relative' }}
       onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
+      onMouseLeave={() => { setHovering(false); setHoveredCueIdx(null) }}
       onMouseMove={e => {
         const rect = e.currentTarget.getBoundingClientRect()
-        setHoverX(e.clientX - rect.left)
+        const x = e.clientX - rect.left
+        setHoverX(x)
+        if (cues && cues.length && durationMs && durationMs > 0) {
+          const tolerance = 6
+          const idx = cues.findIndex((c) => {
+            const cx = (c.position_ms / durationMs) * rect.width
+            return Math.abs(cx - x) <= tolerance
+          })
+          setHoveredCueIdx(idx >= 0 ? idx : null)
+        }
       }}
       onClick={e => {
         if (!onSeek) return
@@ -183,6 +227,29 @@ export function WaveformDisplay({
         ref={canvasRef}
         style={{ width: '100%', height: '100%', display: 'block' }}
       />
+      {hoveredCue && !mini && (
+        <div
+          style={{
+            position: 'absolute',
+            top: -28,
+            left: Math.max(0, hoverX - 40),
+            background: 'rgba(8,8,8,0.95)',
+            border: `1px solid ${CUE_COLORS[hoveredCue.type] ?? CUE_COLORS.custom}`,
+            color: '#fff',
+            padding: '2px 6px',
+            fontSize: 10,
+            fontFamily: 'ui-monospace, monospace',
+            whiteSpace: 'nowrap',
+            borderRadius: 2,
+            pointerEvents: 'none',
+          }}
+        >
+          {hoveredCue.label}
+          <span style={{ opacity: 0.5, marginLeft: 6 }}>
+            {Math.floor(hoveredCue.position_ms / 60000)}:{String(Math.floor((hoveredCue.position_ms % 60000) / 1000)).padStart(2, '0')}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

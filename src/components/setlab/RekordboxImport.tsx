@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { extractCuesFromTrack, MinimalElement } from '@/lib/audioDna/rekordboxCues'
+import type { HotCue } from '@/lib/audioDna/types'
 
 interface RekordboxTrack {
   id: string
@@ -16,6 +18,7 @@ interface RekordboxTrack {
   filePath: string
   spotifyVerified?: boolean
   spotify_url?: string
+  hot_cues?: HotCue[]
 }
 
 const KEY_TO_CAMELOT: Record<string, string> = {
@@ -46,11 +49,13 @@ function parseRekordboxXML(xmlString: string): RekordboxTrack[] {
     const playCount = parseInt(track.getAttribute('PlayCount') || '0')
     const genre = track.getAttribute('Genre') || ''
     const filePath = track.getAttribute('Location') || ''
+    const hot_cues = extractCuesFromTrack(track as unknown as MinimalElement, totalTime)
 
     if (name) {
       result.push({
         id: track.getAttribute('TrackID') || Date.now().toString() + Math.random(),
         name, artist, bpm, key: keyRaw, camelot, duration, rating, playCount, genre, filePath,
+        hot_cues: hot_cues.length ? hot_cues : undefined,
       })
     }
   })
@@ -254,6 +259,7 @@ Four Tet | Teenage Birdsong | 130 | - | 5:12`,
         rating: t.rating,
         source: 'rekordbox',
         enriched: false,
+        hot_cues: t.hot_cues,
       }))
 
       const saveRes = await fetch('/api/tracks', {

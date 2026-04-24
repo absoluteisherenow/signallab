@@ -1,6 +1,7 @@
 mod commands;
 
 use commands::db;
+use commands::essentia;
 use commands::fs;
 use commands::import;
 use commands::tags;
@@ -48,6 +49,8 @@ pub fn run() {
             tags::read_audio_tags,
             tags::scan_folder_tags,
             tags::rescan_tags_for_tracks,
+            // Essentia Audio DNA sidecar
+            essentia::analyze_tracks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Set Lab");

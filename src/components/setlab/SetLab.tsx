@@ -8,6 +8,8 @@ import { isTauri, apiBase, getTracks as tauriGetTracks, getSets as tauriGetSets,
 import { CollectionSidebar } from '@/components/setlab/CollectionSidebar'
 import { WaveformDisplay, extractPeaks, extractPeaksFromFile } from '@/components/setlab/WaveformDisplay'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { DeepAnalyzeModal } from '@/components/setlab/DeepAnalyzeModal'
+import type { TrackToAnalyze } from '@/lib/audioDna/sidecar'
 
 async function callClaude(system: string, userPrompt: string, maxTokens = 800, model = 'claude-haiku-4-5-20251001'): Promise<string> {
   const res = await fetch('/api/claude', {
@@ -270,6 +272,12 @@ export function SetLab() {
   const [describeLoading, setDescribeLoading] = useState(false)
   const [describeResults, setDescribeResults] = useState<{ library: Track[]; beatport: any[]; bandcamp: any[] }>({ library: [], beatport: [], bandcamp: [] })
   const [describeError, setDescribeError] = useState('')
+  const [libraryEmptyReason, setLibraryEmptyReason] = useState<string | null>(null)
+  const [indexHealth, setIndexHealth] = useState<{ total: number; indexed: number; unindexed: number } | null>(null)
+  const [indexRunning, setIndexRunning] = useState(false)
+  const [indexProgress, setIndexProgress] = useState<{ processed: number; embedded: number; total: number; lastTitle?: string } | null>(null)
+  const [deepAnalyzeOpen, setDeepAnalyzeOpen] = useState(false)
+  const [deepAnalyzeTargets, setDeepAnalyzeTargets] = useState<TrackToAnalyze[]>([])
   const [discoverSource, setDiscoverSource] = useState<string>('current-set') // 'current-set', 'library', 'playlist:Name', 'set:id'
   const [crateDigTrack, setCrateDigTrack] = useState<Track | null>(null)
   const [crateDigAxis, setCrateDigAxis] = useState<'label' | 'artist' | 'style' | 'credit'>('label')
@@ -2286,15 +2294,86 @@ Return ONLY valid JSON, no markdown.`
     }
   }
 
+  // ── Index library — run the enrichment + embedding cascade ──────────
+  // Processes tracks in chunks of 25 so long runs stay inside the 300s
+  // route timeout and the progress bar updates frequently. Zero fabrication
+  // still applies — tracks that can't reach the embeddability threshold
+  // (title + artist + genre + bpm) stay unembedded and invisible to search.
+  async function indexLibrary(ids?: string[]) {
+    if (indexRunning) return
+    setIndexRunning(true)
+    try {
+      const health = await fetch('/api/tracks/enrich').then(r => r.json()).catch(() => null)
+      const target = ids?.length ?? health?.unindexed ?? 0
+      setIndexProgress({ processed: 0, embedded: 0, total: target })
+
+      const CHUNK = 25
+      let processed = 0
+      let embedded = 0
+      let lastTitle: string | undefined
+
+      if (ids?.length) {
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const slice = ids.slice(i, i + CHUNK)
+          const res = await fetch('/api/tracks/enrich', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: slice }),
+          }).then(r => r.json()).catch(() => null)
+          if (res?.results) {
+            processed += res.processed ?? 0
+            embedded += res.embedded ?? 0
+            lastTitle = res.results[res.results.length - 1]?.title
+          }
+          setIndexProgress({ processed, embedded, total: target, lastTitle })
+        }
+      } else {
+        // Drain all unindexed rows in CHUNK-sized passes.
+        while (true) {
+          const res = await fetch('/api/tracks/enrich', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ all_unindexed: true, limit: CHUNK }),
+          }).then(r => r.json()).catch(() => null)
+          if (!res?.results?.length) break
+          processed += res.processed ?? 0
+          embedded += res.embedded ?? 0
+          lastTitle = res.results[res.results.length - 1]?.title
+          setIndexProgress({ processed, embedded, total: target || processed, lastTitle })
+          if (res.results.length < CHUNK) break
+        }
+      }
+
+      const fresh = await fetch('/api/tracks/enrich').then(r => r.json()).catch(() => null)
+      if (fresh) setIndexHealth({ total: fresh.total, indexed: fresh.indexed, unindexed: fresh.unindexed })
+      await loadLibrary()
+      showToast(`${embedded} tracks now searchable`, 'Indexed')
+    } finally {
+      setIndexRunning(false)
+      setTimeout(() => setIndexProgress(null), 4000)
+    }
+  }
+
   // ── Describe Search — natural language track discovery ───────────────
+  // Library matching is semantic-embedding only (Workers AI bge-base-en-v1.5
+  // + pgvector cosine). Substring scoring is banned — it produced fabricated
+  // "matches" (e.g. returning Todd Terry acid house for "uplifting melodic
+  // house for sunset" because the word "house" appeared in the genre). See
+  // memory/project_describe_search_architecture.md.
+  //
+  // Rows without an embedding are INVISIBLE to this search — no embedding
+  // means no eligibility, which is the zero-fabrication guarantee.
   async function describeSearch(query: string) {
     if (!query.trim()) return
     setDescribeLoading(true)
     setDescribeError('')
+    setLibraryEmptyReason(null)
     setDescribeResults({ library: [], beatport: [], bandcamp: [] })
 
     try {
       // Step 1: Claude interprets the description → structured search criteria
+      // for EXTERNAL sources only (Beatport genre/BPM/key filtering). Library
+      // match uses semantic embedding; this JSON doesn't touch it.
       const interpretation = await callClaude(
         `You are a DJ music search assistant. Given a natural language description of the type of track someone wants, extract structured search criteria.
 Return ONLY valid JSON, no explanation:
@@ -2320,53 +2399,27 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
         if (jsonMatch) criteria = JSON.parse(jsonMatch[0])
       } catch { criteria = { search_terms: query } }
 
-      // Step 2: Search library first
-      const libraryMatches = library.filter(t => {
-        let score = 0
-        const q = query.toLowerCase()
-
-        // Direct text match (high weight)
-        if (t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)) score += 10
-        if (t.genre.toLowerCase().includes(q)) score += 5
-
-        // Criteria-based matching
-        if (criteria.genres?.length) {
-          const genre = t.genre.toLowerCase()
-          if (criteria.genres.some((g: string) => genre.includes(g.toLowerCase()))) score += 3
+      // Step 2: Library semantic search via Workers AI embedding.
+      let libraryMatches: any[] = []
+      let libraryEmptyReason: string | null = null
+      try {
+        const searchRes = await fetch('/api/describe-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, limit: 20 }),
+        })
+        const searchBody = await searchRes.json()
+        if (!searchRes.ok) {
+          libraryEmptyReason = searchBody.error || `Search failed (${searchRes.status})`
+        } else {
+          libraryMatches = searchBody.tracks || []
+          if (libraryMatches.length === 0) {
+            libraryEmptyReason = searchBody.empty_reason || 'no-tracks-above-threshold'
+          }
         }
-        if (criteria.bpm_low && criteria.bpm_high) {
-          if (t.bpm >= criteria.bpm_low && t.bpm <= criteria.bpm_high) score += 2
-        }
-        if (criteria.energy_low && criteria.energy_high) {
-          if (t.energy >= criteria.energy_low && t.energy <= criteria.energy_high) score += 2
-        }
-        if (criteria.camelot_keys?.length) {
-          if (criteria.camelot_keys.includes(t.camelot)) score += 2
-        }
-        if (criteria.moment_types?.length) {
-          if (criteria.moment_types.includes(t.moment_type)) score += 2
-        }
-        if (criteria.mood_keywords?.length) {
-          const text = `${t.notes} ${t.producer_style} ${t.genre} ${t.crowd_reaction}`.toLowerCase()
-          const matchCount = criteria.mood_keywords.filter((k: string) => text.includes(k.toLowerCase())).length
-          score += matchCount
-        }
-
-        return score >= 2
-      }).sort((a, b) => {
-        let scoreA = 0, scoreB = 0
-        if (criteria.bpm_low && criteria.bpm_high) {
-          const midBpm = (criteria.bpm_low + criteria.bpm_high) / 2
-          scoreA -= Math.abs(a.bpm - midBpm)
-          scoreB -= Math.abs(b.bpm - midBpm)
-        }
-        if (criteria.energy_low && criteria.energy_high) {
-          const midE = (criteria.energy_low + criteria.energy_high) / 2
-          scoreA -= Math.abs(a.energy - midE)
-          scoreB -= Math.abs(b.energy - midE)
-        }
-        return scoreB - scoreA
-      }).slice(0, 20)
+      } catch (e: any) {
+        libraryEmptyReason = e?.message || 'Search request failed'
+      }
 
       // Step 3: Search external sources in parallel
       const searchTerms = criteria.search_terms || query
@@ -2402,6 +2455,7 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
         beatport: beatportTracks,
         bandcamp: bandcampTracks,
       })
+      setLibraryEmptyReason(libraryEmptyReason)
     } catch (err: any) {
       setDescribeError(err.message)
     } finally {
@@ -2451,6 +2505,17 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
   }
 
   useEffect(() => { loadLibrary().then((tracks) => { reconnectMusicFolder(); batchSpotifyEnrich(tracks) }); loadPastSets(); fetchUpcomingGig(); loadWantlist() }, [])
+
+  // Describe-search index health — so the user can see when tracks aren't
+  // indexed yet (and therefore invisible to describe-search).
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/tracks/enrich')
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && d && typeof d.total === 'number') setIndexHealth({ total: d.total, indexed: d.indexed, unindexed: d.unindexed }) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   // ── Playlist persistence (localStorage) ────────────────────────────────
   useEffect(() => {
@@ -3247,6 +3312,62 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
             {!isDesktop && <div style={{ fontSize: '10px', letterSpacing: '0.25em', color: s.setlab, textTransform: 'uppercase', borderBottom: `1px solid ${s.border}`, paddingBottom: '8px', marginTop: '8px' }}>
               Library ({curatedLibrary.length})
             </div>}
+
+            {/* Describe-search index health + one-click index-all. Shows only
+                when there are unindexed tracks (i.e. tracks that describe-
+                search can't see). Hides itself once the library is fully
+                indexed to keep the Library view clean. */}
+            {indexHealth && (indexHealth.unindexed > 0 || indexRunning) && (
+              <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '4px' }}>Describe-search index</div>
+                  <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.6' }}>
+                    {indexRunning && indexProgress
+                      ? <>Indexing <span style={{ color: s.text }}>{indexProgress.processed}</span>{indexProgress.total ? <> / {indexProgress.total}</> : null} · <span style={{ color: s.gold }}>{indexProgress.embedded}</span> searchable{indexProgress.lastTitle ? <> · <span style={{ color: s.textDimmer }}>{indexProgress.lastTitle}</span></> : null}</>
+                      : <><span style={{ color: s.text }}>{indexHealth.indexed}</span> of {indexHealth.total} tracks searchable · <span style={{ color: s.gold }}>{indexHealth.unindexed}</span> need enrichment</>
+                    }
+                  </div>
+                </div>
+                <button
+                  onClick={() => indexLibrary()}
+                  disabled={indexRunning || indexHealth.unindexed === 0}
+                  style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '8px 14px', letterSpacing: '0.18em', whiteSpace: 'nowrap', opacity: indexRunning ? 0.6 : 1, cursor: indexRunning ? 'wait' : 'pointer' }}
+                >
+                  {indexRunning ? 'Indexing…' : 'Index library'}
+                </button>
+              </div>
+            )}
+
+            {/* Deep analyze (Audio DNA) — desktop-only. Runs Essentia on local
+                audio files for inferred hot cues, verified BPM, loudness. */}
+            {isDesktop && (
+              <div style={{ background: s.panel, border: `1px solid ${s.border}`, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginTop: indexHealth && indexHealth.unindexed > 0 ? '8px' : '0' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: s.setlab, textTransform: 'uppercase', marginBottom: '4px' }}>Audio DNA</div>
+                  <div style={{ fontSize: '11px', color: s.textDim, lineHeight: '1.6' }}>
+                    Detect drops, breakdowns, verified BPM and loudness from local audio. <span style={{ color: s.textDimmer }}>Requires analyzable tracks with a file path.</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const targets: TrackToAnalyze[] = curatedLibrary
+                      .filter((t) => t.file_path && !t.analysed)
+                      .map((t) => ({
+                        track_id: t.id,
+                        title: t.title,
+                        artist: t.artist,
+                        file_path: t.file_path as string,
+                      }))
+                    if (targets.length === 0) return
+                    setDeepAnalyzeTargets(targets)
+                    setDeepAnalyzeOpen(true)
+                  }}
+                  style={{ ...btn(s.setlab, 'transparent'), fontSize: '10px', padding: '8px 14px', letterSpacing: '0.18em', whiteSpace: 'nowrap' }}
+                >
+                  Deep analyze library
+                </button>
+              </div>
+            )}
 
             {/* Import zones — hidden on desktop (imports via sidebar / Rekordbox) */}
             {!isDesktop && <>
@@ -4531,8 +4652,8 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                   </div>
                 )}
 
-                {/* Empty state */}
-                {!describeLoading && describeResults.library.length === 0 && describeResults.bandcamp.length === 0 && !describeError && (
+                {/* Empty state — no search run yet */}
+                {!describeLoading && describeResults.library.length === 0 && describeResults.bandcamp.length === 0 && !describeError && !libraryEmptyReason && (
                   <div style={{ textAlign: 'center', padding: '60px 32px', color: s.textDimmer }}>
                     <div style={{ fontSize: '32px', marginBottom: '16px', opacity: 0.3 }}>&#9906;</div>
                     <div style={{ fontSize: '13px', letterSpacing: '0.12em', marginBottom: '8px' }}>Describe the track you need</div>
@@ -4540,6 +4661,32 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
                       Searches your library first, then Discogs &amp; Bandcamp<br/>
                       Try: "dark minimal techno for a 3am warehouse set"
                     </div>
+                    {indexHealth && indexHealth.unindexed > 0 && (
+                      <div style={{ marginTop: '24px', fontSize: '10px', color: s.textDimmer, letterSpacing: '0.08em' }}>
+                        {indexHealth.indexed}/{indexHealth.total} tracks indexed · {indexHealth.unindexed} need enrichment to be searchable
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Empty state — search ran, library returned nothing above threshold */}
+                {!describeLoading && describeResults.library.length === 0 && libraryEmptyReason && (
+                  <div style={{ padding: '24px 28px', background: s.panel, border: `1px solid ${s.border}`, marginBottom: '16px' }}>
+                    <div style={{ fontSize: '11px', letterSpacing: '0.25em', color: s.gold, textTransform: 'uppercase', marginBottom: '10px' }}>
+                      No library matches
+                    </div>
+                    <div style={{ fontSize: '12px', color: s.textDim, lineHeight: '1.7' }}>
+                      {libraryEmptyReason === 'no-tracks-above-threshold' ? (
+                        <>Nothing in your library is a strong enough match for that description. We only return high-confidence matches — no approximations.</>
+                      ) : (
+                        <>Search couldn&apos;t run: {libraryEmptyReason}</>
+                      )}
+                    </div>
+                    {indexHealth && indexHealth.unindexed > 0 && (
+                      <div style={{ marginTop: '12px', fontSize: '10px', color: s.textDimmer, letterSpacing: '0.08em' }}>
+                        {indexHealth.indexed}/{indexHealth.total} tracks indexed. Unindexed tracks are invisible to this search — run &ldquo;Index library&rdquo; from the Library tab.
+                      </div>
+                    )}
                   </div>
                 )}
               </>
@@ -6498,6 +6645,13 @@ All fields optional. Infer what you can. For keys, suggest Camelot keys that mat
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--panel); border: 2px solid var(--gold); cursor: grab; margin-top: -4px; }
         input[type=range]::-webkit-slider-runnable-track { height: 4px; background: transparent; }
       `}</style>
+
+      <DeepAnalyzeModal
+        open={deepAnalyzeOpen}
+        onClose={() => setDeepAnalyzeOpen(false)}
+        tracks={deepAnalyzeTargets}
+        onComplete={() => { loadLibrary() }}
+      />
     </div>
     </div>
   )

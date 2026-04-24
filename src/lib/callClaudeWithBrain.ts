@@ -102,6 +102,20 @@ function assembleSystemPrompt(
 ): string {
   const sections: string[] = []
 
+  // 0. Today's date — models don't know their wall-clock. Inject so every reply
+  // can reason about "days until gig", "X weeks out", overdue invoice windows,
+  // etc. without fabricating. Use London time (artist's working tz) to match
+  // how the artist actually experiences "today".
+  const todayLondon = new Date().toLocaleDateString('en-GB', {
+    timeZone: 'Europe/London',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+  const todayISO = new Date().toISOString().slice(0, 10)
+  sections.push(`# Today\n${todayLondon} (${todayISO}). Use this to compute days/weeks to any dated item in the context. Never claim you don't know the date.`)
+
   // 1. Artist identity
   if (ctx.artist.name || ctx.artist.handle) {
     sections.push(

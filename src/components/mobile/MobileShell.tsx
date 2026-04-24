@@ -36,6 +36,7 @@ const COLOR = {
   dim: '#d8d8d8',
   dimmer: '#b0b0b0',
   dimmest: '#909090',
+  amber: '#f5a623',
 }
 
 const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif"
@@ -281,12 +282,6 @@ export default function MobileShell() {
 
       {/* SHAZAM HERO */}
       <div style={{ padding: '40px 20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-        <div style={{
-          fontSize: '10px', fontWeight: 700, letterSpacing: '0.28em',
-          color: COLOR.dimmer, textTransform: 'uppercase',
-        }}>
-          TRACK ID
-        </div>
         <ShazamButton onPress={startListening} />
         <Link
           href="/setlab/library"
@@ -301,87 +296,100 @@ export default function MobileShell() {
         </Link>
       </div>
 
-      {/* GIG STRIP */}
+      {/* GIG HERO CARD — distinct from feed: solid panel, left red bar, larger poster */}
       {strip && nextGig && (
-        <div style={{
-          borderTop: `1px solid ${COLOR.border}`,
-          borderBottom: `1px solid ${COLOR.border}`,
-          display: 'flex', alignItems: 'stretch',
-        }}>
-          <button
-            onClick={() => router.push(`/gigs`)}
-            style={{
-              flex: 1, background: 'transparent', border: 'none',
-              padding: '16px 20px', textAlign: 'left', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '12px',
-              color: COLOR.text, WebkitTapHighlightColor: 'transparent',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '-0.01em', color: COLOR.red, flexShrink: 0 }}>
-              {strip.days}
-            </div>
-            {(nextGig as any).artwork_url && (
-              <img
-                src={(nextGig as any).artwork_url}
-                alt=""
-                style={{ height: 36, width: 'auto', maxWidth: 72, objectFit: 'contain', flexShrink: 0, display: 'block' }}
-              />
-            )}
-            <div style={{
-              fontSize: '13px', fontWeight: 700, letterSpacing: '0.08em',
-              color: COLOR.text, textTransform: 'uppercase',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              flex: 1, minWidth: 0,
-            }}>
-              {strip.venue}
-            </div>
-            <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', color: COLOR.dimmer, flexShrink: 0 }}>
-              {strip.date}
-            </div>
-          </button>
-          <button
-            onClick={handleShareGL}
-            disabled={sharing}
-            style={{
-              background: 'transparent', border: 'none',
-              borderLeft: `1px solid ${COLOR.border}`,
-              padding: '0 18px', cursor: 'pointer',
-              fontSize: '10px', fontWeight: 800, letterSpacing: '0.22em',
-              color: copied ? COLOR.red : COLOR.text, textTransform: 'uppercase',
-              WebkitTapHighlightColor: 'transparent',
-              minWidth: '88px',
-            }}
-          >
-            {copied ? 'COPIED' : 'SHARE GL'}
-          </button>
+        <div style={{ padding: '20px 20px 0' }}>
+          <div style={{
+            display: 'flex', alignItems: 'stretch',
+            background: COLOR.panel,
+            borderLeft: `3px solid ${COLOR.red}`,
+          }}>
+            <button
+              onClick={() => router.push(`/gigs`)}
+              style={{
+                flex: 1, background: 'transparent', border: 'none',
+                padding: '14px 16px', textAlign: 'left', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '14px',
+                color: COLOR.text, WebkitTapHighlightColor: 'transparent',
+                overflow: 'hidden',
+              }}
+            >
+              {(nextGig as any).artwork_url ? (
+                <img
+                  src={(nextGig as any).artwork_url}
+                  alt=""
+                  style={{ height: 54, width: 54, objectFit: 'cover', flexShrink: 0, display: 'block' }}
+                />
+              ) : (
+                <div style={{
+                  height: 54, width: 54, flexShrink: 0,
+                  background: 'rgba(255,42,26,0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '10px', fontWeight: 800, letterSpacing: '0.2em', color: COLOR.red,
+                }}>
+                  GIG
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{
+                  fontSize: '9px', fontWeight: 700, letterSpacing: '0.24em',
+                  color: COLOR.red, textTransform: 'uppercase',
+                }}>
+                  NEXT · {strip.days}
+                </div>
+                <div style={{
+                  fontSize: '14px', fontWeight: 700, letterSpacing: '0.04em',
+                  color: COLOR.text, textTransform: 'uppercase',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {strip.venue}
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: 500, color: COLOR.dimmer }}>
+                  {strip.date}
+                </div>
+                {(() => {
+                  const g = nextGig as any
+                  const parts: string[] = []
+                  if (typeof g.ra_attending === 'number') parts.push(`${g.ra_attending} GOING`)
+                  const tiers = (g.dice_tiers as Array<{ name: string; status: string }> | null) || []
+                  if (tiers.length) {
+                    const onIdx = tiers.findIndex((t) => t.status === 'on-sale')
+                    if (onIdx === -1) {
+                      parts.push(tiers.every((t) => t.status === 'sold-out') ? 'DICE SOLD OUT' : 'DICE OFF-SALE')
+                    } else {
+                      parts.push(`T${onIdx + 1}/${tiers.length} ON SALE`)
+                    }
+                  }
+                  return parts.length ? (
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.16em', color: COLOR.red, textTransform: 'uppercase', marginTop: '2px' }}>
+                      {parts.join(' · ')}
+                    </div>
+                  ) : null
+                })()}
+              </div>
+            </button>
+            <button
+              onClick={handleShareGL}
+              disabled={sharing}
+              style={{
+                background: 'transparent', border: 'none',
+                borderLeft: `1px solid ${COLOR.border}`,
+                padding: '0 16px', cursor: 'pointer',
+                fontSize: '10px', fontWeight: 800, letterSpacing: '0.22em',
+                color: copied ? COLOR.red : COLOR.text, textTransform: 'uppercase',
+                WebkitTapHighlightColor: 'transparent',
+                minWidth: '80px',
+              }}
+            >
+              {copied ? 'COPIED' : 'SHARE GL'}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* LATEST + TO DO — two rows each, nothing rotating, nothing busy */}
-      <div style={{ padding: '32px 20px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        <StackedList
-          label="LATEST"
-          href="/notifications"
-          items={notifications.slice(0, 2).map(n => ({
-            key: n.id,
-            dot: !n.read,
-            title: n.title,
-            meta: notifTimeAgo(n.created_at),
-          }))}
-          emptyText="All clear."
-        />
-        <StackedList
-          label="TO DO"
-          href={tasks.length > 0 ? '/tasks' : null}
-          items={tasks.slice(0, 2).map(t => ({
-            key: t.id,
-            dot: false,
-            title: t.title,
-            meta: '',
-          }))}
-          emptyText="Nothing pending."
-        />
+      {/* Unified feed — notifications + tasks, one line each, tag pill for type */}
+      <div style={{ padding: '28px 20px 40px' }}>
+        <SignalFeed notifications={notifications} tasks={tasks} />
       </div>
 
       {/* Listen modal */}
@@ -542,79 +550,177 @@ function ShazamButton({ onPress }: { onPress: () => void }) {
         padding: 0,
       }}
     >
-      <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.14em', color: '#000', textTransform: 'uppercase' }}>
-        TAP TO LISTEN
+      <div style={{
+        fontSize: size >= 220 ? '32px' : '26px', fontWeight: 900,
+        letterSpacing: '0.14em', color: '#000', textTransform: 'uppercase',
+        lineHeight: 1,
+      }}>
+        TRACK ID
       </div>
       <div style={{
-        marginTop: '8px',
-        fontSize: '10px', fontWeight: 600, letterSpacing: '0.2em',
-        color: '#000', opacity: 0.65, textTransform: 'uppercase',
+        marginTop: '12px',
+        fontSize: '11px', fontWeight: 700, letterSpacing: '0.22em',
+        color: '#000', opacity: 0.7, textTransform: 'uppercase',
       }}>
-        SHAZAM · 10s
+        TAP · SHAZAM · 10s
       </div>
     </button>
   )
 }
 
-type StackedItem = { key: string; dot: boolean; title: string; meta: string }
+// Map a notification.type string to a short pill tag. Keep mapping tight —
+// anything we don't recognise falls through to ALERT so nothing ever renders
+// without a tag.
+function pillForNotification(type: string): { tag: string; tone: 'red' | 'amber' | 'dim' } {
+  const t = (type || '').toLowerCase()
+  if (t.includes('invoice') || t.includes('payment')) return { tag: 'INVOICE', tone: 'amber' }
+  if (t.includes('gig') || t.includes('booking') || t.includes('show')) return { tag: 'GIG', tone: 'amber' }
+  if (t.includes('release') || t.includes('track') || t.includes('song')) return { tag: 'RELEASE', tone: 'dim' }
+  if (t.includes('agent') || t.includes('fail') || t.includes('error')) return { tag: 'ALERT', tone: 'red' }
+  if (t.includes('post') || t.includes('content') || t.includes('caption')) return { tag: 'POST', tone: 'dim' }
+  return { tag: 'ALERT', tone: 'red' }
+}
 
-function StackedList({ label, href, items, emptyText }: {
-  label: string
+type FeedRow = {
+  key: string
+  tag: string
+  tone: 'red' | 'amber' | 'dim'
+  title: string
+  meta: string
   href: string | null
-  items: StackedItem[]
-  emptyText: string
+  unread: boolean
+  urgency: number // higher = more urgent, used for sort
+}
+
+function SignalFeed({
+  notifications, tasks,
+}: {
+  notifications: SystemNotification[]
+  tasks: Array<{ id: string; title: string; status: string }>
 }) {
-  const empty = items.length === 0
+  const rows: FeedRow[] = [
+    ...notifications.map((n): FeedRow => {
+      const pill = pillForNotification(n.type)
+      return {
+        key: `n-${n.id}`,
+        tag: pill.tag,
+        tone: pill.tone,
+        title: n.title,
+        meta: notifTimeAgo(n.created_at),
+        href: n.href || '/notifications',
+        unread: !n.read,
+        urgency: (n.read ? 0 : 40) + (pill.tone === 'red' ? 20 : pill.tone === 'amber' ? 10 : 0),
+      }
+    }),
+    ...tasks.map((t): FeedRow => ({
+      key: `t-${t.id}`,
+      tag: 'TASK',
+      tone: 'dim',
+      title: t.title,
+      meta: '',
+      href: '/tasks',
+      unread: false,
+      urgency: 5,
+    })),
+  ]
+  rows.sort((a, b) => b.urgency - a.urgency)
+  const items = rows.slice(0, 6)
+  const [idx, setIdx] = useState(0)
 
-  const body = (
-    <div>
-      <div style={{
-        fontSize: '9px', fontWeight: 700, letterSpacing: '0.24em',
-        color: COLOR.dimmer, textTransform: 'uppercase',
-        marginBottom: '12px',
-      }}>
-        {label}
-      </div>
+  // Auto-rotate every 4s. Pause when there's only one item.
+  useEffect(() => {
+    if (items.length <= 1) return
+    const t = setInterval(() => setIdx(i => (i + 1) % items.length), 4000)
+    return () => clearInterval(t)
+  }, [items.length])
 
-      {empty && (
-        <div style={{ fontSize: '13px', color: COLOR.dimmest }}>{emptyText}</div>
-      )}
-
-      {!empty && items.map(item => (
-        <div key={item.key} style={{
-          display: 'flex', alignItems: 'center', gap: '10px',
-          padding: '10px 0',
-          borderTop: `1px solid ${COLOR.border}`,
-        }}>
-          {item.dot && (
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: COLOR.red, flexShrink: 0 }} />
-          )}
-          <div style={{
-            flex: 1, minWidth: 0,
-            fontSize: '14px', fontWeight: 500, color: COLOR.text,
-            lineHeight: 1.4,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {item.title}
-          </div>
-          {item.meta && (
-            <div style={{ fontSize: '10px', fontWeight: 500, color: COLOR.dimmer, flexShrink: 0 }}>
-              {item.meta}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-
-  if (href && !empty) {
+  if (items.length === 0) {
     return (
-      <Link href={href} style={{ textDecoration: 'none', WebkitTapHighlightColor: 'transparent', color: 'inherit', display: 'block' }}>
-        {body}
-      </Link>
+      <div style={{
+        border: `1px solid ${COLOR.border}`,
+        padding: '22px 18px',
+        fontSize: '13px', color: COLOR.dimmest, textAlign: 'center',
+      }}>
+        All clear.
+      </div>
     )
   }
-  return body
+
+  const r = items[Math.min(idx, items.length - 1)]
+
+  return (
+    <Link
+      href={r.href || '#'}
+      style={{
+        display: 'block',
+        border: `1px solid ${COLOR.border}`,
+        background: COLOR.panel,
+        padding: '16px 18px 14px',
+        textDecoration: 'none', color: 'inherit',
+        WebkitTapHighlightColor: 'transparent',
+        position: 'relative',
+        minHeight: '96px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <FeedPill tag={r.tag} tone={r.tone} />
+        {r.meta && (
+          <div style={{
+            fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em',
+            color: COLOR.dimmer,
+          }}>
+            {r.meta}
+          </div>
+        )}
+      </div>
+      <div style={{
+        fontSize: '15px', fontWeight: r.unread ? 600 : 500,
+        color: r.unread ? COLOR.text : COLOR.dim,
+        lineHeight: 1.4,
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
+      }}>
+        {r.title}
+      </div>
+
+      {items.length > 1 && (
+        <div style={{
+          display: 'flex', gap: '4px', marginTop: '14px',
+          justifyContent: 'center',
+        }}>
+          {items.map((_, i) => (
+            <div key={i} style={{
+              width: i === idx ? '14px' : '4px',
+              height: '2px',
+              background: i === idx ? COLOR.red : COLOR.border,
+              transition: 'width 200ms ease, background 200ms ease',
+            }} />
+          ))}
+        </div>
+      )}
+    </Link>
+  )
+}
+
+function FeedPill({ tag, tone }: { tag: string; tone: 'red' | 'amber' | 'dim' }) {
+  const palette = tone === 'red'
+    ? { bg: 'rgba(255,42,26,0.12)', fg: COLOR.red, border: 'rgba(255,42,26,0.25)' }
+    : tone === 'amber'
+    ? { bg: 'rgba(245,166,35,0.1)', fg: COLOR.amber, border: 'rgba(245,166,35,0.22)' }
+    : { bg: 'transparent', fg: COLOR.dimmer, border: COLOR.border }
+  return (
+    <div style={{
+      flexShrink: 0,
+      fontSize: '9px', fontWeight: 800, letterSpacing: '0.18em',
+      color: palette.fg, background: palette.bg,
+      border: `1px solid ${palette.border}`,
+      padding: '4px 7px',
+      textTransform: 'uppercase',
+      minWidth: '58px', textAlign: 'center',
+    }}>
+      {tag}
+    </div>
+  )
 }
 
 function TopBar() {

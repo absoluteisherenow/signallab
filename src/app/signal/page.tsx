@@ -11,96 +11,41 @@ const s = {
 
 type Phase = 'idle' | 'listening' | 'processing' | 'speaking'
 
+type Turn = { role: 'user' | 'assistant'; content: string }
+
 function SignalInner() {
   const searchParams = useSearchParams()
   const [phase, setPhase] = useState<Phase>('idle')
   const [transcript, setTranscript] = useState('')
   const [response, setResponse] = useState('')
-  type Ctx = {
-    gigs: any[]; invoices: any[]; releases: any[]; profile: any
-    connectedSocialAccounts: any[]
-  }
-  const [ctx, setCtx] = useState<Ctx | null>(null)
-  const ctxPromiseRef = useRef<Promise<Ctx> | null>(null)
+  // Multi-turn history so Signal has conversational memory within a session.
+  // The brain already injects artist/gig/invoice/narrative context on every
+  // call — we only need to carry back and forth user↔assistant turns here.
+  const [history, setHistory] = useState<Turn[]>([])
+  const [openerLoaded, setOpenerLoaded] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Preload artist context so Signal knows about gigs/invoices/releases without
-  // being told. Voice mode has no chat history to draw from, so this matters
-  // more. We stash the promise so ask() can await it if the user taps before
-  // the first paint finishes fetching.
-  async function loadContext(): Promise<Ctx> {
-    const results = await Promise.allSettled([
-      fetch('/api/gigs', { credentials: 'include' }).then(r => r.json()),
-      fetch('/api/invoices', { credentials: 'include' }).then(r => r.json()),
-      fetch('/api/settings', { credentials: 'include' }).then(r => r.json()),
-      fetch('/api/releases', { credentials: 'include' }).then(r => r.json()).catch(() => ({ releases: [] })),
-      fetch('/api/social/connected', { credentials: 'include' }).then(r => r.json()).catch(() => ({ accounts: [] })),
-    ])
-    const next: Ctx = {
-      gigs: results[0].status === 'fulfilled' ? results[0].value.gigs || [] : [],
-      invoices: results[1].status === 'fulfilled' ? results[1].value.invoices || [] : [],
-      profile: results[2].status === 'fulfilled' ? results[2].value.settings?.profile || {} : {},
-      releases: results[3].status === 'fulfilled' ? results[3].value.releases || [] : [],
-      connectedSocialAccounts: results[4].status === 'fulfilled' ? results[4].value.accounts || [] : [],
-    }
-    setCtx(next)
-    return next
-  }
-
+  // Proactive opener — fetched once on mount. Brain decides the single most
+  // useful thing to say given today's priority, gigs, invoices, narrative
+  // threads, performance signal. Auto-speaks via TTS when it lands.
   useEffect(() => {
-    ctxPromiseRef.current = loadContext()
+    let cancelled = false
+    fetch('/api/signal/opener', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled || !data?.opener) { setOpenerLoaded(true); return }
+        const text: string = data.opener
+        setResponse(text)
+        setOpenerLoaded(true)
+        // Auto-speak only if the browser allows it. iOS Safari requires a
+        // user gesture for audio.play() — the .catch below handles that
+        // silently, the text is still visible.
+        void speakText(text)
+      })
+      .catch(() => setOpenerLoaded(true))
+    return () => { cancelled = true }
   }, [])
-
-  function buildVoiceSystem(source: Ctx | null): string {
-    const today = new Date().toISOString().slice(0, 10)
-    const todayStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-
-    let sys = `You are Signal — a concise voice assistant for an electronic music artist using Signal Lab OS. Your responses will be spoken aloud. Keep them under 2-3 sentences. Be direct, warm, and useful. Never mention AI. Speak naturally like a trusted collaborator, not a robot. No bullet points or formatting — just natural speech. Never send, publish, or submit anything on behalf of the artist without them explicitly confirming the exact content first.
-
-HARD RULE — NO FABRICATION. Only state facts present in the DATA block below. The authoritative gig fields are: title, venue, date, time, status, notes. The authoritative invoice fields are: gig_title, amount, currency, due_date, status. The authoritative release fields are: title, release_date, label.
-
-Do NOT invent or infer: set times, set length, billing order, support act positioning, ticket prices, crowd size, album/LP names, tour branding, travel times, or anything else not explicitly listed in DATA. If the artist asks about a detail that isn't in DATA, say you don't have that detail yet and suggest where they'd log it (e.g. "the time isn't in your gig — want to add it?"). Never paraphrase what "looks about right" — say only what the data says.
-
-Today is ${todayStr}.`
-
-    const ctx = source
-    if (!ctx) return sys
-
-    if (ctx.profile?.name) {
-      sys += `\n\nArtist: ${ctx.profile.name}${ctx.profile.genre ? ` · ${ctx.profile.genre}` : ''}${ctx.profile.country ? ` · ${ctx.profile.country}` : ''}.`
-    }
-
-    const upcoming = (ctx.gigs || []).filter(g => g.date >= today && g.status !== 'cancelled').slice(0, 5)
-    if (upcoming.length > 0) {
-      sys += `\n\nUpcoming gigs:\n${upcoming.map(g => {
-        let line = `- ${g.title} at ${g.venue || 'TBC'} on ${g.date}${g.time ? ` at ${g.time}` : ''}`
-        if (g.status && g.status !== 'confirmed') line += ` (${g.status})`
-        if (g.notes) line += ` — ${g.notes}`
-        return line
-      }).join('\n')}`
-    } else {
-      sys += `\n\nNo upcoming gigs on the calendar.`
-    }
-
-    const overdue = (ctx.invoices || []).filter(i => i.status !== 'paid' && i.due_date && i.due_date < today)
-    if (overdue.length > 0) {
-      sys += `\n\nOverdue invoices: ${overdue.length}. ${overdue.slice(0, 3).map(i => `${i.gig_title} (${i.currency || ''}${i.amount})`).join(', ')}.`
-    }
-
-    const upcomingReleases = (ctx.releases || []).filter(r => r.release_date >= today).slice(0, 3)
-    if (upcomingReleases.length > 0) {
-      sys += `\n\nUpcoming releases: ${upcomingReleases.map(r => `${r.title} on ${r.release_date}${r.label ? ` via ${r.label}` : ''}`).join(', ')}.`
-    }
-
-    if (ctx.connectedSocialAccounts?.length > 0) {
-      sys += `\n\nSocial: ${ctx.connectedSocialAccounts.map(a => `${a.platform} ${a.handle || ''}${a.follower_count ? ` (${a.follower_count} followers)` : ''}`).join(', ')}.`
-    }
-
-    sys += `\n\nYou already know this. When asked about gigs, releases, or invoices, answer directly from DATA above. Never ask the artist to tell you about their own calendar. And — remember the HARD RULE — if a detail isn't in DATA, say so, don't invent.`
-
-    return sys
-  }
 
   const statusText: Record<Phase, string> = {
     idle: 'Tap to speak',
@@ -143,56 +88,36 @@ Today is ${todayStr}.`
     setPhase('processing')
     setResponse('')
 
-    // Await the context fetch if it's still in flight — better to make the
-    // user wait half a second than to ship a bare prompt that Claude answers
-    // with "I don't have access to your calendar."
-    let resolvedCtx = ctx
-    if (!resolvedCtx && ctxPromiseRef.current) {
-      try { resolvedCtx = await ctxPromiseRef.current } catch {}
-    }
-
     try {
-      const res = await fetch('/api/claude/stream', {
+      // /api/signal/ask routes through callClaudeWithBrain — every reply
+      // gets artist identity, Voice DNA, casing rules, banned patterns,
+      // active rules, strategy primer, trends, narrative threads, priority,
+      // recent performance. No more bolted-on DB preloads; no more
+      // fabrication. Non-streaming: max_tokens is 400, TTS can't start
+      // until we have the full text anyway.
+      const res = await fetch('/api/signal/ask', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          system: buildVoiceSystem(resolvedCtx),
-          max_tokens: 300,
-          messages: [{ role: 'user', content: text }],
-        }),
+        body: JSON.stringify({ message: text, history }),
       })
 
-      if (!res.ok || !res.body) throw new Error('Failed')
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let fullText = ''
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6).trim()
-          if (data === '[DONE]') continue
-          try {
-            const event = JSON.parse(data)
-            if (event.type === 'content_block_delta' && event.delta?.text) {
-              fullText += event.delta.text
-              setResponse(fullText)
-            }
-          } catch {}
-        }
+      if (!res.ok) throw new Error(`ask failed: ${res.status}`)
+      const data = await res.json()
+      const reply: string = data.text || ''
+      if (!reply) {
+        setResponse('Nothing came back — try again.')
+        setPhase('idle')
+        return
       }
 
-      if (fullText) speakText(fullText)
-      else setPhase('idle')
+      setResponse(reply)
+      setHistory(prev => [
+        ...prev,
+        { role: 'user', content: text },
+        { role: 'assistant', content: reply },
+      ])
+      void speakText(reply)
     } catch {
       setResponse('Something went wrong — try again.')
       setPhase('idle')
@@ -287,9 +212,7 @@ Today is ${todayStr}.`
         fontFamily: 'var(--font-mono)',
         borderRadius: 4,
       }}>
-        {ctx
-          ? `CTX OK · gigs=${ctx.gigs.length} inv=${ctx.invoices.length} rel=${ctx.releases.length} name=${ctx.profile?.name || 'MISSING'}`
-          : 'CTX LOADING…'}
+        {openerLoaded ? 'SIGNAL · BRAIN WIRED' : 'SIGNAL · LOADING…'}
       </div>
 
       {/* Response text */}
@@ -363,33 +286,7 @@ Today is ${todayStr}.`
         {statusText[phase]}
       </div>
 
-      {/* Quick prompts */}
-      {phase === 'idle' && !response && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', maxWidth: '320px' }}>
-          {[
-            'Prep me for my next gig',
-            'What should I post?',
-            'Any overdue invoices?',
-          ].map(prompt => (
-            <div key={prompt}
-              role="button"
-              tabIndex={0}
-              onClick={() => ask(prompt)}
-              onKeyDown={e => { if (e.key === 'Enter') ask(prompt) }}
-              style={{
-                background: 'rgba(255,42,26,0.06)', border: '1px solid rgba(255,42,26,0.12)',
-                padding: '10px 16px', fontSize: '12px', color: s.dim,
-                fontFamily: s.font, cursor: 'pointer',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              {prompt}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <style>{`
+<style>{`
         @keyframes signalPulse {
           0%, 100% { transform: scale(1); opacity: 0.6; }
           50% { transform: scale(1.15); opacity: 0.2; }

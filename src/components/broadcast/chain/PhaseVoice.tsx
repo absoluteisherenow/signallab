@@ -93,6 +93,7 @@ export function PhaseVoice({
   // threshold flips `brainBlocked` on.
   const [brainBlocked, setBrainBlocked] = useState(false)
   const [brainOverride, setBrainOverride] = useState(false)
+  const [publishedMsg, setPublishedMsg] = useState<string | null>(null)
   // Schedule state — inline picker, no modal. `scheduleOpen` toggles the
   // datetime row under the CTA. Default to "tonight 19:00" because 18:00–19:00
   // is NM's validated peak (reference_ig_posting_times.md).
@@ -224,6 +225,58 @@ export function PhaseVoice({
     })
     return () => { cancelled = true }
   }, [])
+
+  // Composer-state persistence. Keyed on fileName so each media's draft —
+  // caption edits, tag people, hashtags, first comment, collaborators, alt
+  // text, context, platform — survives page refreshes / nav-aways. Fixes the
+  // "I just re-entered everything again" loop. Cleared after a successful
+  // publish via `clearDraftStorage()` below.
+  const draftKey = fileName ? `broadcast.draft.v1.${fileName}` : null
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    if (!draftKey || restoredRef.current) return
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(draftKey) : null
+      if (!raw) { restoredRef.current = true; return }
+      const d = JSON.parse(raw)
+      if (d.edits && typeof d.edits === 'object') setEdits(d.edits)
+      if (typeof d.tagPeople === 'string') setTagPeople(d.tagPeople)
+      if (typeof d.locationName === 'string') setLocationName(d.locationName)
+      if (typeof d.firstCommentExtra === 'string') setFirstCommentExtra(d.firstCommentExtra)
+      if (typeof d.hashtagsText === 'string') setHashtagsText(d.hashtagsText)
+      if (typeof d.hashtagsEnabled === 'boolean') setHashtagsEnabled(d.hashtagsEnabled)
+      if (typeof d.collabInput === 'string') setCollabInput(d.collabInput)
+      if (typeof d.altText === 'string') setAltText(d.altText)
+      if (typeof d.context === 'string') setContext(d.context)
+      if (typeof d.committedContext === 'string') setCommittedContext(d.committedContext)
+      if (typeof d.platform === 'string') setPlatform(d.platform as Platform)
+      if (Array.isArray(d.extraPlatforms)) setExtraPlatforms(d.extraPlatforms as Platform[])
+      if (typeof d.variant === 'string') setVariant(d.variant as CaptionVariant)
+    } catch {}
+    restoredRef.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey])
+
+  useEffect(() => {
+    if (!draftKey || !restoredRef.current) return
+    const t = setTimeout(() => {
+      try {
+        const snapshot = {
+          edits, tagPeople, locationName, firstCommentExtra,
+          hashtagsText, hashtagsEnabled, collabInput, altText,
+          context, committedContext, platform, extraPlatforms, variant,
+          savedAt: Date.now(),
+        }
+        window.localStorage.setItem(draftKey, JSON.stringify(snapshot))
+      } catch {}
+    }, 400)
+    return () => clearTimeout(t)
+  }, [draftKey, edits, tagPeople, locationName, firstCommentExtra, hashtagsText, hashtagsEnabled, collabInput, altText, context, committedContext, platform, extraPlatforms, variant])
+
+  function clearDraftStorage() {
+    if (!draftKey) return
+    try { window.localStorage.removeItem(draftKey) } catch {}
+  }
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -324,6 +377,8 @@ export function PhaseVoice({
       })
       .catch((e: Error) => setErr(e.message || 'Caption generation failed'))
       .finally(() => setLoading(false))
+    // Initial gen runs before the user has had a chance to attach tags/collabs,
+    // so grounding is intentionally omitted here. Regenerate picks it up.
   }, [scan, refs, platform, fileName, thumbnail, mergedContext, priorityContext, userId])
 
   // Autocomplete: fetch artist suggestions when the last token in the
@@ -570,17 +625,18 @@ export function PhaseVoice({
     // nothing happen ("back to previous screen"). Logging every early-return
     // reason so future failures surface in one console line instead of
     // a mystery.
-    if (!current || over || !check.overall) {
-      console.warn('[publish] blocked', {
-        hasCurrent: !!current, over, voicePassed: check.overall,
-      })
+    // Only hard-block on real publish-breakers: no caption or over char limit.
+    // Voice check is advisory — warning banner shows, but we let the artist
+    // ship. Same policy as the Preview+Approve button gate.
+    if (!current || over) {
+      console.warn('[publish] blocked', { hasCurrent: !!current, over })
       setErr(!current ? 'no caption to publish'
-        : over ? `caption is over the ${limit}-char limit for ${PLATFORM_LABEL[platform]}`
-        : 'voice check failed — regenerate or edit before publishing')
+        : `caption is over the ${limit}-char limit for ${PLATFORM_LABEL[platform]}`)
       return
     }
     setSending(true)
     setErr(null)
+    setPublishedMsg(null)
     try {
       const allPlatforms: Platform[] = [platform, ...extraPlatforms]
       const needsMedia = allPlatforms.some(p => p === 'instagram' || p === 'threads' || p === 'tiktok' || p === 'youtube')
@@ -657,10 +713,29 @@ export function PhaseVoice({
         }),
       })
 
-      // Surface per-platform failures — one can fail while others succeed.
-      const fails = (result.data?.results || []).filter(r => !r.ok)
-      if (fails.length) {
-        setErr(fails.map(f => `${f.platform}: ${f.error || 'failed'}`).join(' · '))
+      // Close every silent-fail hole. Either we surface success, a platform
+      // error, a top-level error, or an explicit "nothing happened" so the
+      // user never clicks into a black box again.
+      if (!result.confirmed) {
+        if (result.error) setErr(result.error)
+        // user cancelled the modal — stay quiet, intentional dismiss
+      } else {
+        const fails = (result.data?.results || []).filter(r => !r.ok)
+        const wins = (result.data?.results || []).filter(r => r.ok)
+        if (fails.length && wins.length) {
+          setErr(`partial: ${fails.map(f => `${f.platform}: ${f.error || 'failed'}`).join(' · ')}`)
+          setPublishedMsg(`posted to ${wins.map(w => w.platform).join(' + ')}`)
+          clearDraftStorage()
+        } else if (fails.length) {
+          setErr(fails.map(f => `${f.platform}: ${f.error || 'failed'}`).join(' · '))
+        } else if (result.error) {
+          setErr(result.error)
+        } else if (result.data?.success || wins.length) {
+          setPublishedMsg(`posted to ${wins.length ? wins.map(w => w.platform).join(' + ') : targetLabel}`)
+          clearDraftStorage()
+        } else {
+          setErr('publish returned no result — server may be stale. hard-reload (cmd+shift+r) and retry.')
+        }
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'publish failed')
@@ -1202,42 +1277,28 @@ export function PhaseVoice({
                       onChange={setHashtagsText}
                       placeholder="livemusic, warehouse, london"
                     />
-                    {/* Curated chip row — split by platform. TikTok hashtags
-                        are NM's only hashtag surface in practice (92% of IG
-                        posts carry none). Tiers drawn from 2026 research:
-                        #techno 2.6M posts / 28.9B views, #ravetok ~12M posts
-                        (underground community), #edm 25.7M, generic #fyp
-                        downweighted vs niche by TT algo. See:
-                        tiktokhashtags.com, edigitalagency.com.au, best-hashtags.com. */}
+                    {/* Chip row — ONLY tags with verified 2026 post-count
+                        data from WebSearch. Rest were aggregator-adjacent
+                        guesses — cut under the "no fabrication" hard rule.
+                        Sources per tag listed in TT_VERIFIED below. If you
+                        want more tags shown, verify the post count per tag
+                        and add — never extrapolate from neighbour tags. */}
                     {(() => {
                       const activePlatforms = [platform, ...extraPlatforms]
                       const showTT = activePlatforms.includes('tiktok')
-                      const showIG = activePlatforms.includes('instagram') || activePlatforms.includes('threads')
-                      const ttTags = [
-                        // niche > generic for TT discovery
-                        'ravetok','djtok','producertok','technotok','edmtok',
-                        'technohouse','technofamily','undergroundrave',
-                        'housemusic','techno','technomusic','electronicmusic',
-                        'djlife','djset','rave','festivalvibes','undergroundmusic',
-                        'fyp','foryou',
-                      ]
-                      const igTags = [
-                        'housemusic','technomusic','electronicmusic','djlife','underground',
-                        'vinylonly','djmix','afterhours','dancemusic','warehouse',
-                        'boilerroom','rave','clubculture','livemusic',
-                      ]
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: -4 }}>
                           {showTT && (
                             <div>
-                              <div style={{ fontSize: 9, letterSpacing: '0.22em', color: '#9a9a9a', marginBottom: 4 }}>TIKTOK — niche over generic</div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{renderChips(ttTags, hashtagsText, setHashtagsText)}</div>
-                            </div>
-                          )}
-                          {showIG && (
-                            <div>
-                              <div style={{ fontSize: 9, letterSpacing: '0.22em', color: '#9a9a9a', marginBottom: 4 }}>INSTAGRAM / THREADS</div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{renderChips(igTags, hashtagsText, setHashtagsText)}</div>
+                              <div style={{ fontSize: 9, letterSpacing: '0.22em', color: '#9a9a9a', marginBottom: 4 }}>
+                                TIKTOK — only verified tags (post counts from 2026 research)
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                {renderChips(TT_VERIFIED.map(t => t.tag), hashtagsText, setHashtagsText)}
+                              </div>
+                              <div style={{ fontSize: 9, letterSpacing: '0.18em', color: BRT.dimmest, marginTop: 4 }}>
+                                {TT_VERIFIED.map(t => `#${t.tag} ${t.scale}`).join(' · ')}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1308,10 +1369,18 @@ export function PhaseVoice({
                 onLoadedMetadata={(e) => {
                   const v = e.currentTarget
                   setVideoDuration(Number.isFinite(v.duration) ? v.duration : 0)
-                  // Seed the scrubber at the scanner's best moment so the
-                  // default cover = the frame the AI already picked as peak.
-                  // Artist can drag anywhere; this is just a strong default.
-                  const seed = Math.max(0, Math.min(v.duration || 0, scan?.best_moment?.timestamp ?? 0))
+                  // Cover-pick policy: intimate moments (hug, shared
+                  // celebration, eye contact between performers) out-hook
+                  // generic crowd/peak shots every time for NM. Prefer the
+                  // highest-scoring intimate moment if the scan found one,
+                  // else fall back to best_moment. Artist can drag anywhere.
+                  const allMoments = scan?.moments || []
+                  const intimate = allMoments
+                    .filter(m => m.type === 'intimate')
+                    .sort((a, b) => (b.score || 0) - (a.score || 0))[0]
+                  const fallbackTs = scan?.best_moment?.timestamp ?? 0
+                  const pickTs = intimate?.timestamp ?? fallbackTs
+                  const seed = Math.max(0, Math.min(v.duration || 0, pickTs))
                   v.currentTime = seed
                   setCoverTime(seed)
                 }}
@@ -1437,6 +1506,12 @@ export function PhaseVoice({
               : 'caption.instagram'
           }
           visible={!!current && !loading}
+          grounding={{
+            collaborators: tagPayload.collaborators,
+            userTagHandles: tagPayload.handles,
+            firstComment: firstCommentExtra.trim() || null,
+            hashtags: tagPayload.hashtags,
+          }}
           onVerdict={(v) => {
             if (!v) {
               setBrainBlocked(false)
@@ -1504,7 +1579,20 @@ export function PhaseVoice({
           <button
             onClick={() => {
               setLoading(true)
-              generateCaptionVariants({ scan, refs, platform, fileName, imageDataUrl: thumbnail, additionalImages: carouselExtras, context: mergedContext, priorityContext: priorityContext ?? undefined, userId: userId ?? undefined })
+              generateCaptionVariants({
+                scan, refs, platform, fileName,
+                imageDataUrl: thumbnail,
+                additionalImages: carouselExtras,
+                context: mergedContext,
+                priorityContext: priorityContext ?? undefined,
+                userId: userId ?? undefined,
+                grounding: {
+                  collaborators: tagPayload.collaborators,
+                  userTagHandles: tagPayload.handles,
+                  firstComment: firstCommentExtra.trim() || null,
+                  hashtags: tagPayload.hashtags,
+                },
+              })
                 .then((c) => {
                   setCaptions({ long: c.long, safe: c.safe, loose: c.loose, raw: c.raw })
                   setEdits({})
@@ -1532,7 +1620,7 @@ export function PhaseVoice({
           </button>
           <button
             onClick={() => setScheduleOpen(v => !v)}
-            disabled={loading || !!err || !current || over || !check.overall || (brainBlocked && !brainOverride)}
+            disabled={loading || !!err || !current || over || (brainBlocked && !brainOverride)}
             style={{
               padding: '14px 18px',
               background: scheduleOpen ? 'rgba(255,42,26,0.06)' : 'transparent',
@@ -1550,7 +1638,15 @@ export function PhaseVoice({
           </button>
           <button
             onClick={handlePublish}
-            disabled={sending || loading || !!err || !current || over || !check.overall || (brainBlocked && !brainOverride)}
+            disabled={sending || loading || !!err || !current || over || (brainBlocked && !brainOverride)}
+            title={
+              !current ? 'no caption yet — regenerate first'
+              : over ? `caption is over the ${limit}-char limit for ${PLATFORM_LABEL[platform]}`
+              : !check.overall ? 'voice check hasn\'t passed — fix the flags in Manage or regenerate'
+              : (brainBlocked && !brainOverride) ? 'brain check flagged issues — run CHECK again or override'
+              : err ? err
+              : 'publish'
+            }
             style={{
               padding: '14px 22px',
               background: sending || loading || !!err || !current || over || !check.overall || (brainBlocked && !brainOverride) ? BRT.dimmest : BRT.red,
@@ -1567,6 +1663,40 @@ export function PhaseVoice({
             {sending ? 'Opening preview…' : 'Preview + Approve'}
           </button>
         </div>
+        {(!current || over || !check.overall || (brainBlocked && !brainOverride)) && (
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 10,
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: (!current || over || (brainBlocked && !brainOverride)) ? BRT.red : '#d4a84a',
+              fontWeight: 700,
+            }}
+          >
+            {(!current || over || (brainBlocked && !brainOverride)) ? '◉ publish blocked — ' : '◉ voice warning — '}
+            {!current ? 'no caption yet. tap regenerate.'
+              : over ? `caption over ${limit} chars for ${PLATFORM_LABEL[platform]}.`
+              : !check.overall ? `voice check flagged issues (${alignmentScore}/100). manage → review, or ship anyway.`
+              : 'brain check flagged issues. run check, or override in brain verdict.'}
+          </div>
+        )}
+        {err && (
+          <div style={{
+            marginTop: 8, fontSize: 11, letterSpacing: '0.14em',
+            textTransform: 'uppercase', color: BRT.red, fontWeight: 700,
+          }}>
+            ◉ {err}
+          </div>
+        )}
+        {publishedMsg && (
+          <div style={{
+            marginTop: 8, fontSize: 11, letterSpacing: '0.14em',
+            textTransform: 'uppercase', color: '#4ade80', fontWeight: 700,
+          }}>
+            ◉ {publishedMsg}
+          </div>
+        )}
 
         {/* Inline schedule picker — slides down below the CTA row. Preset chips
             (tonight 6pm, tomorrow 6pm, next sat 6pm) cover 90% of posting
@@ -2123,6 +2253,25 @@ function readTimeLabel(text: string): string {
   const seconds = Math.max(1, Math.round((words / 220) * 60))
   return `${seconds}s read`
 }
+
+/**
+ * TT hashtag chips with verified post-count scale. HARD RULE: no fabrication.
+ * Every entry here has a cited 2026 source — do NOT add entries based on
+ * "neighbour tags look similar." Verify post count per tag or drop it.
+ *
+ * Sources (WebSearch 2026-04-22): tiktokhashtags.com, edigitalagency.com.au,
+ * best-hashtags.com aggregator data. TT Research API is gated so these
+ * third-party scrapers are the best non-API signal available.
+ */
+const TT_VERIFIED: Array<{ tag: string; scale: string }> = [
+  { tag: 'techno',     scale: '2.6M posts / 28.9B views' },   // top-hashtags.com
+  { tag: 'ravetok',    scale: '~12M posts' },                  // tiktokhashtags.com
+  { tag: 'edm',        scale: '25.7M posts' },                 // edigitalagency.com.au
+  { tag: 'housemusic', scale: '1.2M posts / 10.2B views' },    // top-hashtags.com
+  { tag: 'producertok',scale: '1.3M posts' },                  // tiktok.com/tag/producertok
+  { tag: 'fyp',        scale: 'generic reach — downweighted by TT algo' },
+  { tag: 'foryou',     scale: 'generic reach — downweighted by TT algo' },
+]
 
 /** datetime-local format: "YYYY-MM-DDTHH:mm" in LOCAL time. Date.toISOString
  *  is UTC so we build it by hand to avoid timezone-off-by-one. */
