@@ -140,7 +140,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const { data: invoice } = await supabase.from('invoices').select('*').eq('id', params.id).maybeSingle()
     if (!invoice) return NextResponse.json({ error: 'not_found' }, { status: 404 })
-    if (invoice.sent_to_promoter_at) {
+    // status=draft after a previous send means the invoice was amended and needs re-approval.
+    if (invoice.sent_to_promoter_at && invoice.status !== 'draft') {
       return NextResponse.json({ error: 'already_sent', message: `Already sent ${new Date(invoice.sent_to_promoter_at).toLocaleString('en-GB')}` }, { status: 409 })
     }
 

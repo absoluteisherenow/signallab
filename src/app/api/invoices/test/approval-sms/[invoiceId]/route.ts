@@ -17,11 +17,12 @@ export async function GET(req: NextRequest, { params }: { params: { invoiceId: s
 
   const { data: invoice } = await supabase
     .from('invoices')
-    .select('id, gig_title, amount, currency, sent_to_promoter_at, sent_to_promoter_email')
+    .select('id, gig_title, amount, currency, status, sent_to_promoter_at, sent_to_promoter_email')
     .eq('id', params.invoiceId)
     .maybeSingle()
   if (!invoice) return NextResponse.json({ error: 'invoice_not_found' }, { status: 404 })
-  if (invoice.sent_to_promoter_at) {
+  // status=draft after a previous send = amended, resend allowed.
+  if (invoice.sent_to_promoter_at && invoice.status !== 'draft') {
     return NextResponse.json({ error: 'already_sent', sentAt: invoice.sent_to_promoter_at }, { status: 409 })
   }
 

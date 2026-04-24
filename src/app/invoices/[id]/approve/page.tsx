@@ -30,7 +30,8 @@ export default async function InvoiceApprovePage({ params, searchParams }: Props
   const { data: invoice } = await supabase.from('invoices').select('*').eq('id', params.id).maybeSingle()
   if (!invoice) notFound()
 
-  if (invoice.sent_to_promoter_at) {
+  // status=draft after a previous send means the invoice was amended and needs re-approval.
+  if (invoice.sent_to_promoter_at && invoice.status !== 'draft') {
     return <ErrorBlock title="Already sent" body={`This invoice was sent on ${new Date(invoice.sent_to_promoter_at).toLocaleString('en-GB')}.`} />
   }
 
