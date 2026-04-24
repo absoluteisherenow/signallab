@@ -727,6 +727,33 @@ body.advance-active {
   height: auto !important;
 }
 
+/* ── INVOICE APPROVE — public link, hide app shell ── */
+body.approve-active .app-shell {
+  display: block !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+body.approve-active .app-shell > nav,
+body.approve-active .sidebar-nav,
+body.approve-active .signal-desktop-fab,
+body.approve-active .signal-genius-fab,
+body.approve-active .mobile-tab-bar,
+body.approve-active [class*="command-palette"] {
+  display: none !important;
+}
+body.approve-active .app-main {
+  padding-bottom: 0 !important;
+  overflow-y: visible !important;
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 100vh !important;
+}
+body.approve-active {
+  overflow-y: auto !important;
+  overflow: auto !important;
+  height: auto !important;
+}
+
 /* ── MOBILE RESPONSIVE ── */
 @media (max-width: 768px) {
   .sidebar-nav { display: none !important; }
