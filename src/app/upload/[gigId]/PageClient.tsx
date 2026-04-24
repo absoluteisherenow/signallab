@@ -86,25 +86,49 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
   }, [addFiles])
 
   const uploadFile = async (uf: UploadFile): Promise<{ url: string; key: string } | null> => {
-    setFiles(prev => prev.map(f => f.id === uf.id ? { ...f, status: 'uploading' as const, progress: 10 } : f))
+    setFiles(prev => prev.map(f => f.id === uf.id ? { ...f, status: 'uploading' as const, progress: 5 } : f))
 
     try {
-      const formData = new FormData()
-      formData.append('file', uf.file)
+      // MTS files report empty mime in most browsers — pick a sane default so
+      // the presigned-URL Content-Type matches what the browser will send.
+      const ext = uf.file.name.split('.').pop()?.toLowerCase() || ''
+      const fallbackType =
+        ext === 'mts' || ext === 'm2ts' || ext === 'ts' ? 'video/mp2t'
+        : ext === 'mov' ? 'video/quicktime'
+        : 'application/octet-stream'
+      const contentType = uf.file.type || fallbackType
 
-      const res = await fetch(`/api/upload?gigId=${gigId}`, {
+      const presignRes = await fetch('/api/upload/presign', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: uf.file.name, contentType, size: uf.file.size, gigId }),
+      })
+      if (!presignRes.ok) {
+        const err = await presignRes.json().catch(() => ({}))
+        throw new Error(err.error || 'Could not get upload URL')
+      }
+      const { uploadUrl, key, publicUrl } = await presignRes.json()
+
+      // XHR gives us upload progress; fetch() does not for request bodies.
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', uploadUrl)
+        xhr.setRequestHeader('Content-Type', contentType)
+        xhr.upload.onprogress = e => {
+          if (!e.lengthComputable) return
+          const progress = Math.max(5, Math.round((e.loaded / e.total) * 95))
+          setFiles(prev => prev.map(f => f.id === uf.id ? { ...f, progress } : f))
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve()
+          else reject(new Error(`R2 upload failed (${xhr.status})`))
+        }
+        xhr.onerror = () => reject(new Error('Network error during upload'))
+        xhr.send(uf.file)
       })
 
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Upload failed')
-      }
-
-      const data = await res.json()
-      setFiles(prev => prev.map(f => f.id === uf.id ? { ...f, status: 'done' as const, progress: 100, url: data.url } : f))
-      return { url: data.url, key: data.key }
+      setFiles(prev => prev.map(f => f.id === uf.id ? { ...f, status: 'done' as const, progress: 100, url: publicUrl } : f))
+      return { url: publicUrl, key }
     } catch (err: any) {
       setFiles(prev => prev.map(f => f.id === uf.id ? { ...f, status: 'error' as const, error: err.message } : f))
       return null
@@ -301,7 +325,7 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
                 id="file-input"
                 type="file"
                 multiple
-                accept="image/*,video/*"
+                accept="image/*,video/*,.mts,.m2ts,.ts,.mov,.mxf,.avchd"
                 style={{ display: 'none' }}
                 onChange={handleFileSelect}
               />

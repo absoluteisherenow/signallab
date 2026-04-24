@@ -74,27 +74,21 @@ export default function ApproveClient(props: Props) {
       <Row label="Ref" value={props.invoiceNumber} />
       <Row label="Attach" value={`${props.invoiceNumber}.pdf`} />
 
-      <div style={{ marginTop: 28, border: '1px solid #222', background: '#0a0a0a' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #1a1a1a', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#6a6a6a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Invoice PDF (attachment)</span>
-          <a href={`/api/invoices/${props.invoiceId}/pdf`} target="_blank" rel="noopener" style={{ color: '#ff2a1a', textDecoration: 'none', letterSpacing: '0.2em' }}>Open ↗</a>
+      <a
+        href={`/api/invoices/${props.invoiceId}/pdf`}
+        target="_blank"
+        rel="noopener"
+        style={{ display: 'block', marginTop: 28, padding: '24px 20px', border: '1px solid #222', background: '#0a0a0a', textDecoration: 'none', color: 'inherit' }}
+      >
+        <div style={{ fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#6a6a6a', marginBottom: 10 }}>Attached PDF</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 16, color: '#f2f2f2', fontWeight: 500, marginBottom: 4 }}>{props.invoiceNumber}.pdf</div>
+            <div style={{ fontSize: 12, color: '#909090' }}>Tap to preview the invoice before sending</div>
+          </div>
+          <div style={{ color: '#ff2a1a', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Open ↗</div>
         </div>
-        <div style={{ position: 'relative' }}>
-          <iframe
-            src={`/api/invoices/${props.invoiceId}/pdf#toolbar=0&navpanes=0&view=FitH`}
-            style={{ width: '100%', height: 560, border: 'none', background: '#050505', display: 'block', pointerEvents: 'none' }}
-            title="Invoice PDF preview"
-            scrolling="no"
-          />
-          <a
-            href={`/api/invoices/${props.invoiceId}/pdf`}
-            target="_blank"
-            rel="noopener"
-            aria-label="Open invoice PDF in a new tab"
-            style={{ position: 'absolute', inset: 0, display: 'block' }}
-          />
-        </div>
-      </div>
+      </a>
 
       <div style={{ marginTop: 24, padding: 20, background: '#0a0a0a', border: '1px solid #222', fontSize: 13, color: '#c0c0c0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
         <div style={{ fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#6a6a6a', marginBottom: 12 }}>Email copy (exact)</div>
