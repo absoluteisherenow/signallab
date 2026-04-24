@@ -44,7 +44,12 @@ const NAV_GROUPS: NavGroup[] = [
 
 const HIDDEN_ROUTES = ['/', '/waitlist', '/brt', '/login', '/onboarding', '/mobile', '/privacy', '/upload', '/nm-pitch']
 
-export function Navigation() {
+// `mobileOnly` is set by the root layout when the request UA is a phone. We
+// skip the desktop sidebar markup entirely in that case — the CSS media query
+// still hides it on narrow viewports, but relying on CSS alone leaves a flash
+// window between initial paint and style application. Server-side UA gating
+// closes that gap.
+export function Navigation({ mobileOnly = false }: { mobileOnly?: boolean } = {}) {
   const pathname = usePathname()
   const router = useRouter()
   const [apiUsage, setApiUsage] = useState<{ percentUsed: number; totalCostUsd: number; warning: boolean; critical: boolean } | null>(null)
@@ -110,7 +115,18 @@ export function Navigation() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith('/go/') || pathname.startsWith('/gl/') || pathname.startsWith('/advance/') || pathname.startsWith('/gig-pass/')) {
+  // `/mobile` and all its children get their own in-app shell — don't render
+  // the desktop sidebar at all, not even hidden-by-CSS. Previously we only
+  // matched `/mobile` exactly, so `/mobile/post`, `/mobile/scan` etc. flashed
+  // the sidebar on load before the `@media (max-width: 768px)` rule kicked in.
+  if (
+    HIDDEN_ROUTES.includes(pathname) ||
+    pathname.startsWith('/mobile/') ||
+    pathname.startsWith('/go/') ||
+    pathname.startsWith('/gl/') ||
+    pathname.startsWith('/advance/') ||
+    pathname.startsWith('/gig-pass/')
+  ) {
     return null
   }
 
@@ -128,7 +144,9 @@ export function Navigation() {
 
   return (
     <>
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — omitted entirely on mobile UA so it never flashes in
+          the DOM. Mobile-tab-bar below still renders. */}
+      {!mobileOnly && (
       <nav className="sidebar-nav" style={{
         width: 200,
         minWidth: 200,
@@ -414,6 +432,7 @@ export function Navigation() {
           </div>
         </div>
       </nav>
+      )}
 
       {/* Mobile bottom tab bar. `paddingBottom: env(safe-area-inset-bottom)`
           keeps the tabs above the iPhone home-indicator when running as a

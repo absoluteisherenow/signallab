@@ -95,7 +95,7 @@ ${bodyPreview(props)}
 ${props.amount} · due ${props.dueDate}
 Ref: ${props.invoiceNumber}
 
-Let me know if you need anything else for your side.
+Let me know if you have any questions.
 
 ${props.signoff}`}
       </div>

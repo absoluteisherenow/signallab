@@ -71,7 +71,7 @@ export async function buildInvoicePdf(id: string): Promise<Uint8Array | null> {
   const venueLoc = [gigVenue?.trim(), gigLocation?.trim()].filter(Boolean).join(', ')
   const hasGigContext = Boolean(venueLoc || formattedPerfDate)
   const lineItemDesc = hasGigContext
-    ? `DJ performance at ${venueLoc}${formattedPerfDate ? ' - ' + formattedPerfDate : ''}`
+    ? `DJ performance at ${venueLoc}${formattedPerfDate ? ', ' + formattedPerfDate : ''}`
     : invoice.gig_title
 
   const currency = invoice.currency

@@ -195,7 +195,7 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
 </div>
 <p style="margin:24px 0 8px;font-size:13px;color:#909090;font-weight:300">View full invoice with payment details:</p>
 <a href="${invoiceUrl}" class="btn">View Invoice →</a>
-<p style="margin:28px 0 4px;font-size:14px;color:#050505;font-weight:400">Let me know if you need anything else for your side.</p>
+<p style="margin:28px 0 4px;font-size:14px;color:#050505;font-weight:400">Let me know if you have any questions.</p>
 <p style="margin:16px 0 0;font-size:14px;color:#050505;font-weight:500">${artistFirstName}</p>
 <div class="footer">
   Reference: ${invoiceNumber}<br>
@@ -327,7 +327,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       ? `Great to have the${data.venue ? ` ${data.venue}` : ''} booking locked in. Deposit invoice below.`
       : `Thanks again for having us${data.venue ? ` at ${data.venue}` : ''}. Invoice for the night is attached below.`
     const mailtoBody = encodeURIComponent(
-      `${greeting}\n\n${bodyLine}\n\n${invoice.currency} ${Number(invoice.amount).toLocaleString()} · due ${dueDate}\nRef: ${invoiceNumber}\n\nView invoice: ${invoiceUrl}\n\nLet me know if you need anything else for your side.\n\n${data.artistFirstName}`
+      `${greeting}\n\n${bodyLine}\n\n${invoice.currency} ${Number(invoice.amount).toLocaleString()} · due ${dueDate}\nRef: ${invoiceNumber}\n\nView invoice: ${invoiceUrl}\n\nLet me know if you have any questions.\n\n${data.artistFirstName}`
     )
     const mailto = `mailto:${finalTo}${ccAddr ? `?cc=${encodeURIComponent(ccAddr)}&` : '?'}subject=${encodeURIComponent(subject)}&body=${mailtoBody}`
     return NextResponse.json({ success: true, sent: false, mailto, subject })

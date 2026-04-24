@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
 import './globals.css'
 import { Navigation } from '@/components/layout/Navigation'
 import { CommandPalette } from '@/components/ui/CommandPalette'
@@ -51,11 +52,25 @@ const APPLE_SPLASHES: Array<{ w: number; h: number; ratio: number }> = [
   { w: 640, h: 1136, ratio: 2 },  // iPhone SE (1st)
 ]
 
+// Mobile user-agent detection (server-side). We read the UA header at request
+// time so phones get the bare layout — no desktop sidebar in the DOM at all,
+// even for a single frame. Without this, the sidebar SSRs into the markup,
+// flashes on first paint, and only hides once the `@media (max-width: 768px)`
+// rule in globals.css applies. Detection is the same heuristic Next's own
+// user-agent helper uses internally.
+function isMobileUserAgent(ua: string): boolean {
+  if (!ua) return false
+  return /Mobile|iP(hone|od)|Android(?!.*\bTablet\b)|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)
+}
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const ua = headers().get('user-agent') || ''
+  const isMobile = isMobileUserAgent(ua)
+
   return (
     <html lang="en">
       <head>
@@ -87,12 +102,28 @@ export default function RootLayout({
             </div>
           }
         >
-          <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
-            <Navigation />
-            <main className="app-main" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: '100vh' }}>
-              <div className="page-enter">
-                {children}
-              </div>
+          <div
+            className="app-shell"
+            style={{
+              // Desktop = flex-row (sidebar + main). Mobile = block (main only,
+              // mobile-tab-bar fixed bottom). We set the style by UA so there's
+              // no flex-to-column reflow on hydration.
+              display: isMobile ? 'block' : 'flex',
+              minHeight: '100vh',
+              width: '100%',
+            }}
+          >
+            <Navigation mobileOnly={isMobile} />
+            <main
+              className="app-main"
+              style={{
+                flex: isMobile ? undefined : 1,
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                minHeight: '100vh',
+              }}
+            >
+              <div className="page-enter">{children}</div>
             </main>
             <SignalGenius />
             <CommandPalette />
