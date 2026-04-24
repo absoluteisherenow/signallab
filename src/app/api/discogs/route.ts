@@ -180,11 +180,16 @@ async function artistDig(artistName: string) {
   })
 
   const artists = searchData.results || []
-  if (artists.length === 0) {
+  // Some names come in "Last, First" order (from Rekordbox metadata) — Discogs
+  // artist search sometimes returns results without an `id` field, or the top
+  // hit is a band/label rather than a person. Skip unusable hits and fall back
+  // to "no results" rather than throwing on /artists/undefined/releases.
+  const artistHit = artists.find((a: any) => a && typeof a.id === 'number')
+  if (!artistHit) {
     return { releases: [], artist_name: artistName, aliases: [] }
   }
 
-  const artistId = artists[0].id
+  const artistId = artistHit.id
 
   // Fetch artist details for aliases
   let aliases: string[] = []
@@ -193,12 +198,18 @@ async function artistDig(artistName: string) {
     aliases = (artistDetail.aliases || []).map((a: any) => a.name)
   } catch { /* non-critical */ }
 
-  // Fetch releases
-  const releasesData = await discogsFetch(`/artists/${artistId}/releases`, {
-    sort: 'year',
-    sort_order: 'desc',
-    per_page: '50',
-  })
+  // Fetch releases — Discogs artist-releases 500s intermittently on busy
+  // artists. Catch + return what we have (aliases still useful in UI).
+  let releasesData: any = { releases: [] }
+  try {
+    releasesData = await discogsFetch(`/artists/${artistId}/releases`, {
+      sort: 'year',
+      sort_order: 'desc',
+      per_page: '50',
+    })
+  } catch (e) {
+    console.error('[discogs] artist-releases fetch failed:', e instanceof Error ? e.message : e)
+  }
 
   const releases = (releasesData.releases || []).map((r: any) => ({
     id: r.id,

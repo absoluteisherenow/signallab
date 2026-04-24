@@ -2216,10 +2216,10 @@ Return ONLY valid JSON, no markdown.`
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'resolve', artist: track.artist, title: track.title }),
         })
-        if (!resolveRes.ok) throw new Error(`Discogs lookup failed (${resolveRes.status})`)
         const contentType = resolveRes.headers.get('content-type') || ''
         if (!contentType.includes('json')) throw new Error('Discogs API returned an unexpected response — try again')
-        resolved = await resolveRes.json()
+        resolved = await resolveRes.json().catch(() => ({}))
+        if (!resolveRes.ok) throw new Error(resolved?.error || `Discogs lookup failed (${resolveRes.status})`)
         if (resolved.error) throw new Error(resolved.error)
         crateDigResolveCache.current.set(resolveKey, resolved)
       }
@@ -2233,10 +2233,10 @@ Return ONLY valid JSON, no markdown.`
       // Helper to safely fetch from Discogs API
       async function digFetch(body: Record<string, unknown>) {
         const res = await fetch('/api/discogs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-        if (!res.ok) throw new Error(`Discogs lookup failed (${res.status})`)
         const ct = res.headers.get('content-type') || ''
         if (!ct.includes('json')) throw new Error('Discogs returned an unexpected response — try again')
-        const data = await res.json()
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.error || `Discogs lookup failed (${res.status})`)
         if (data.error) throw new Error(data.error)
         return data
       }
