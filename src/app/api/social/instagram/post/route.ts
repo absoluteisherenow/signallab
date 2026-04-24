@@ -214,21 +214,36 @@ export async function POST(req: NextRequest) {
       }
 
       // 1b. Poll each child container until status_code = FINISHED. IG won't
-      //     let us create the parent CAROUSEL while any child is still IN_PROGRESS
-      //     (video transcoding server-side can take 10–60s).
+      //     let us create the parent CAROUSEL while any child is still
+      //     IN_PROGRESS (video transcoding server-side can take 30–240s per
+      //     clip). We poll ALL children in parallel (so the slowest video
+      //     bounds total wait, not the sum) and HARD FAIL on deadline — the
+      //     old code silently fell through on timeout and then created a
+      //     parent container that Meta rejected with a cryptic error. That
+      //     was the #1 cause of "publish spinner forever, abandon, post
+      //     manually".
       if (hasMixedCarousel) {
-        for (const childId of childIds) {
-          const deadline = Date.now() + 120_000 // 2min cap
-          while (Date.now() < deadline) {
-            const statusRes = await fetch(`${GRAPH}/${childId}?fields=status_code&access_token=${encodeURIComponent(token)}`)
-            const statusJson = await statusRes.json() as { status_code?: string; error?: { message?: string } }
-            if (statusJson.status_code === 'FINISHED') break
-            if (statusJson.status_code === 'ERROR' || statusJson.status_code === 'EXPIRED') {
-              return NextResponse.json({ error: `Carousel child ${childId} failed: ${statusJson.status_code}` }, { status: 502 })
+        const perChildDeadlineMs = 300_000 // 5 min per video child
+        await Promise.all(
+          childIds.map(async (childId, idx) => {
+            const deadline = Date.now() + perChildDeadlineMs
+            let lastStatus = 'IN_PROGRESS'
+            while (Date.now() < deadline) {
+              const statusRes = await fetch(`${GRAPH}/${childId}?fields=status_code&access_token=${encodeURIComponent(token)}`)
+              const statusJson = (await statusRes.json()) as { status_code?: string; error?: { message?: string } }
+              lastStatus = statusJson.status_code || lastStatus
+              if (lastStatus === 'FINISHED') return
+              if (lastStatus === 'ERROR' || lastStatus === 'EXPIRED') {
+                throw new Error(`child ${idx + 1}/${childIds.length} status=${lastStatus}${statusJson.error?.message ? ` (${statusJson.error.message})` : ''}`)
+              }
+              await new Promise(r => setTimeout(r, 3000))
             }
-            await new Promise(r => setTimeout(r, 2000))
-          }
-        }
+            throw new Error(`child ${idx + 1}/${childIds.length} still ${lastStatus} after ${Math.round(perChildDeadlineMs / 1000)}s — IG servers are slow right now, try again in a minute`)
+          }),
+        ).catch((e) => {
+          const msg = e instanceof Error ? e.message : String(e)
+          throw new Error(`carousel child processing failed: ${msg}`)
+        })
       }
 
       // 2. Create the parent CAROUSEL container

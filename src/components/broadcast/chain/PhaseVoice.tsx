@@ -149,6 +149,10 @@ export function PhaseVoice({
   const [brainBlocked, setBrainBlocked] = useState(false)
   const [brainOverride, setBrainOverride] = useState(false)
   const [publishedMsg, setPublishedMsg] = useState<string | null>(null)
+  // Surfaced progress during publish. Without this the user stares at a
+  // spinner for 2–5 minutes (IG processes carousel videos server-side) and
+  // assumes it's dead — the #1 reason they abandon and post natively.
+  const [publishPhase, setPublishPhase] = useState<string | null>(null)
   // Schedule state — inline picker, no modal. `scheduleOpen` toggles the
   // datetime row under the CTA. Default to "tonight 19:00" because 18:00–19:00
   // is NM's validated peak (reference_ig_posting_times.md).
@@ -733,6 +737,33 @@ export function PhaseVoice({
     }
   }
 
+  // Pre-flight check for video files before we commit to a multi-minute
+  // upload + IG processing cycle. IG carousel video children must be ≤100MB
+  // and 3–60s. Catching these client-side saves the user from a 3-min wait
+  // that ends in a cryptic Graph API rejection.
+  async function probeVideo(f: File): Promise<{ ok: true } | { ok: false; reason: string }> {
+    if (!f.type.startsWith('video/')) return { ok: true }
+    const MAX_BYTES = 100 * 1024 * 1024
+    if (f.size > MAX_BYTES) {
+      return { ok: false, reason: `${f.name} is ${Math.round(f.size / 1024 / 1024)}MB — IG carousel video max is 100MB. Trim or re-export smaller.` }
+    }
+    const duration = await new Promise<number>((resolve) => {
+      const url = URL.createObjectURL(f)
+      const v = document.createElement('video')
+      v.preload = 'metadata'
+      v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(v.duration || 0) }
+      v.onerror = () => { URL.revokeObjectURL(url); resolve(0) }
+      v.src = url
+    })
+    if (duration > 0 && duration < 3) {
+      return { ok: false, reason: `${f.name} is ${duration.toFixed(1)}s — IG carousel video min is 3s.` }
+    }
+    if (duration > 60) {
+      return { ok: false, reason: `${f.name} is ${Math.round(duration)}s — IG carousel video max is 60s. Trim it or post as a single Reel instead.` }
+    }
+    return { ok: true }
+  }
+
   async function handlePublish() {
     // Guard-rail trace: when a click returns here silently the user sees
     // nothing happen ("back to previous screen"). Logging every early-return
@@ -750,6 +781,7 @@ export function PhaseVoice({
     setSending(true)
     setErr(null)
     setPublishedMsg(null)
+    setPublishPhase('preparing…')
     try {
       const allPlatforms: Platform[] = [platform, ...extraPlatforms]
       const needsMedia = allPlatforms.some(p => p === 'instagram' || p === 'threads' || p === 'tiktok' || p === 'youtube')
@@ -758,6 +790,23 @@ export function PhaseVoice({
       if (needsMedia && !file) {
         setErr('reattach media to publish — session was restored')
         return
+      }
+
+      // Pre-flight: validate every video file against IG carousel limits
+      // BEFORE uploading. Catches "3min wait → cryptic Graph error" cases.
+      if (needsMedia && allPlatforms.includes('instagram' as Platform)) {
+        setPublishPhase('checking video specs…')
+        const videoFiles = [
+          ...(file && file.type.startsWith('video/') ? [file] : []),
+          ...carouselExtraFiles.filter((f) => f.type.startsWith('video/')),
+        ]
+        for (const vf of videoFiles) {
+          const probe = await probeVideo(vf)
+          if (!probe.ok) {
+            setErr(probe.reason)
+            return
+          }
+        }
       }
 
       let mediaUrl: string | null = null
@@ -781,20 +830,27 @@ export function PhaseVoice({
       }
       let mediaItems: Array<{ url: string; is_video: boolean }> | null = null
       if (needsMedia && file) {
+        const totalFiles = 1 + carouselExtraFiles.length
+        setPublishPhase(`uploading 1/${totalFiles}…`)
         mediaUrl = await uploadOne(file)
-        // Mixed carousel: hero + extras (any combo of images/videos).
+        // Mixed carousel: hero + extras (any combo of images/videos). Upload
+        // sequentially so the phase label can count correctly — parallelism
+        // saves time but users abandoning mid-upload is worse than 5s slower.
         if (carouselExtraFiles.length > 0) {
-          const extraUploads = await Promise.all(
-            carouselExtraFiles.map(async (f) => {
-              const url = await uploadOne(f, f.name)
-              return { url, is_video: f.type.startsWith('video/') }
-            }),
-          )
+          const extraUploads: Array<{ url: string; is_video: boolean }> = []
+          for (let i = 0; i < carouselExtraFiles.length; i++) {
+            const f = carouselExtraFiles[i]
+            setPublishPhase(`uploading ${i + 2}/${totalFiles}…`)
+            const url = await uploadOne(f, f.name)
+            extraUploads.push({ url, is_video: f.type.startsWith('video/') })
+          }
           mediaItems = [{ url: mediaUrl, is_video: isVideo }, ...extraUploads]
           carouselUrls = mediaItems.every(e => !e.is_video)
             ? mediaItems.map(m => m.url)
             : null
         }
+        const hasVideos = (mediaItems && mediaItems.some(m => m.is_video)) || isVideo
+        setPublishPhase(hasVideos ? 'Meta is processing video (up to 5 min)…' : 'publishing to Instagram…')
       }
 
       const targetLabel = allPlatforms.map(p => PLATFORM_LABEL[p]).join(' + ')
@@ -874,6 +930,7 @@ export function PhaseVoice({
       setErr(e instanceof Error ? e.message : 'publish failed')
     } finally {
       setSending(false)
+      setPublishPhase(null)
     }
   }
 
@@ -1907,9 +1964,23 @@ export function PhaseVoice({
               fontFamily: 'inherit',
             }}
           >
-            {sending ? 'Opening preview…' : 'Preview + Approve'}
+            {sending ? (publishPhase || 'publishing…') : 'Preview + Approve'}
           </button>
         </div>
+        {sending && publishPhase && (
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 10,
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: BRT.red,
+              fontWeight: 700,
+            }}
+          >
+            ◉ {publishPhase}
+          </div>
+        )}
         {(!current || over || !check.overall || (brainBlocked && !brainOverride)) && (
           <div
             style={{

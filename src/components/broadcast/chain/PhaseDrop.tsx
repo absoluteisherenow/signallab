@@ -41,12 +41,17 @@ export function PhaseDrop({ onMedia, voiceTrained = false, onReject }: Props) {
     const mts = all.filter(isMtsFile)
     const nonMts = all.filter((f) => !isMtsFile(f))
 
-    let converted: File[] = []
+    // Transcode MTS files one at a time. A single failure must NOT abort the
+    // whole drop — we keep the successes + any non-MTS files so the user can
+    // still post. Old behaviour discarded everything on the first failure,
+    // forcing a full redrop right before the posting deadline.
+    const converted: File[] = []
+    const failures: string[] = []
     if (mts.length > 0) {
-      try {
-        for (let i = 0; i < mts.length; i++) {
-          const f = mts[i]
-          setTranscode({ kind: 'loading', fileName: f.name })
+      for (let i = 0; i < mts.length; i++) {
+        const f = mts[i]
+        setTranscode({ kind: 'loading', fileName: f.name })
+        try {
           const mp4 = await transcodeMtsToMp4(f, (p) => {
             if (p.stage === 'transcoding') {
               setTranscode({
@@ -59,21 +64,19 @@ export function PhaseDrop({ onMedia, voiceTrained = false, onReject }: Props) {
             }
           })
           converted.push(mp4)
+        } catch (e) {
+          failures.push(`${f.name} (${e instanceof Error ? e.message : 'transcode failed'})`)
         }
-      } catch (e) {
-        setTranscode({ kind: 'idle' })
-        onReject?.(
-          'MTS transcode failed: ' +
-            (e instanceof Error ? e.message : String(e)) +
-            '. Fallback: convert with ffmpeg CLI instead.',
-        )
-        return
-      } finally {
-        setTranscode({ kind: 'idle' })
       }
+      setTranscode({ kind: 'idle' })
     }
 
     const merged = [...nonMts, ...converted]
+    if (failures.length) {
+      onReject?.(
+        `${failures.length} of ${mts.length} MTS file${mts.length === 1 ? '' : 's'} failed to transcode — proceeding with the ${merged.length} that worked. Failed: ${failures.join(', ')}`,
+      )
+    }
     const arr = merged.filter((f) => /^image\/|^video\//.test(f.type))
     if (arr.length === 0) {
       onReject?.('No supported media in that drop. Use images or video (MP4 / MOV / WebM).')
