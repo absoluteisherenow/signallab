@@ -178,7 +178,7 @@ export async function buildInvoicePdf(id: string): Promise<Uint8Array | null> {
   page.drawText(whtRate ? 'GROSS FEE' : 'AMOUNT DUE', { x: margin + 20, y: y - 22, size: 8, font: bold, color: rgb(0.6, 0.6, 0.6) })
   page.drawText(`${currency} ${amount.toLocaleString()}`, { x: margin + 20, y: y - 50, size: 24, font: bold, color: rgb(0.95, 0.95, 0.95) })
   if (whtRate) {
-    page.drawText(`WHT ${whtRate}% — ${currency} ${whtAmount.toLocaleString()}`, { x: margin + 20, y: y - 68, size: 9, font, color: rgb(0.6, 0.6, 0.6) })
+    page.drawText(`WHT ${whtRate}%: ${currency} ${whtAmount.toLocaleString()}`, { x: margin + 20, y: y - 68, size: 9, font, color: rgb(0.6, 0.6, 0.6) })
     page.drawText(`Net: ${currency} ${netAmount.toLocaleString()}`, { x: margin + 20, y: y - 84, size: 12, font: bold, color: rgb(0.95, 0.95, 0.95) })
   }
   const statusLabel = invoice.status === 'paid' ? 'PAID' : invoice.status === 'overdue' ? 'OVERDUE' : 'PENDING'
@@ -197,7 +197,7 @@ export async function buildInvoicePdf(id: string): Promise<Uint8Array | null> {
   page.drawLine({ start: { x: margin, y }, end: { x: margin + contentW, y }, thickness: 1.2, color: red })
   y -= 14
 
-  const lineSuffix = invoice.type && invoice.type !== 'full' ? ` — ${invoice.type === 'deposit' ? 'Deposit · 50%' : 'Balance · 50%'}` : ''
+  const lineSuffix = invoice.type && invoice.type !== 'full' ? ` (${invoice.type === 'deposit' ? 'Deposit · 50%' : 'Balance · 50%'})` : ''
   const descText = truncate((lineItemDesc || 'Booking fee') + lineSuffix, 70)
   const amountText = `${currency} ${amount.toLocaleString()}`
   page.drawText(descText, { x: margin, y: y - 10, size: 10, font, color: ink })

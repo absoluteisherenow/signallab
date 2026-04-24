@@ -38,5 +38,14 @@
     "shell": {
       "open": true
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app"],
+    "macOS": {
+      "signingIdentity": "Developer ID Application: Anthony McGinley (LR465D22Z7)",
+      "hardenedRuntime": true,
+      "minimumSystemVersion": "11.0"
+    }
   }
 }

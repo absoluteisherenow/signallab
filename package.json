@@ -16,7 +16,7 @@
     "lint": "next lint",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "TAURI_BUILD=1 tauri build"
+    "tauri:build": "TAURI_BUILD=1 APPLE_KEYCHAIN_PROFILE=signallab-notary tauri build"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

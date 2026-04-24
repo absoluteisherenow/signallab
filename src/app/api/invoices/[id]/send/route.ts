@@ -121,7 +121,7 @@ async function buildEmailData(id: string, userId: string, toOverride?: string) {
     || 'Anthony'
   const artistFirstName = signoffSource.split(' ')[0]
 
-  const subject = `Invoice: ${invoice.gig_title} — ${invoiceNumber}`
+  const subject = `Invoice ${invoiceNumber}: ${invoice.gig_title}`
   // notes may be a multi-line billing block — use only the first line for display
   const promoterFirstLine = promoterName ? promoterName.split('\n')[0].trim() : ''
   // If it looks like a company (all caps, or contains Ltd/Pty/Trust/Group/Festival etc), greet as "Hi Team"
@@ -178,8 +178,8 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
   <p>${greeting}</p>
   <p>${
     invoice.type === 'deposit'
-      ? `Great to have the${venue ? ` <strong>${venue}</strong>` : ''} booking locked in — deposit invoice below.`
-      : `Thanks again for having us${venue ? ` at <strong>${venue}</strong>` : ''} — invoice for the night is attached below.`
+      ? `Great to have the${venue ? ` <strong>${venue}</strong>` : ''} booking locked in. Deposit invoice below.`
+      : `Thanks again for having us${venue ? ` at <strong>${venue}</strong>` : ''}. Invoice for the night is attached below.`
   }</p>
 </div>
 <div class="box">
@@ -324,8 +324,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     // Mailto fallback
     const bodyLine = invoice.type === 'deposit'
-      ? `Great to have the${data.venue ? ` ${data.venue}` : ''} booking locked in — deposit invoice below.`
-      : `Thanks again for having us${data.venue ? ` at ${data.venue}` : ''} — invoice for the night is attached below.`
+      ? `Great to have the${data.venue ? ` ${data.venue}` : ''} booking locked in. Deposit invoice below.`
+      : `Thanks again for having us${data.venue ? ` at ${data.venue}` : ''}. Invoice for the night is attached below.`
     const mailtoBody = encodeURIComponent(
       `${greeting}\n\n${bodyLine}\n\n${invoice.currency} ${Number(invoice.amount).toLocaleString()} · due ${dueDate}\nRef: ${invoiceNumber}\n\nView invoice: ${invoiceUrl}\n\nLet me know if you need anything else for your side.\n\n${data.artistFirstName}`
     )

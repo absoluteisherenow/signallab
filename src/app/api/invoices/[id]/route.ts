@@ -70,7 +70,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const venueLoc = [gigVenue?.trim(), gigLocation?.trim()].filter(Boolean).join(', ')
     const hasGigContext = Boolean(venueLoc || formattedPerfDate)
     const lineItemDesc = hasGigContext
-      ? `DJ performance at ${venueLoc}${formattedPerfDate ? ' — ' + formattedPerfDate : ''}`
+      ? `DJ performance at ${venueLoc}${formattedPerfDate ? ', ' + formattedPerfDate : ''}`
       : invoice.gig_title
 
     // Country-specific: AUD requires ABN + "Tax Invoice" heading
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${invoiceNumber} — ${invoice.gig_title}</title>
+<title>${invoiceNumber}: ${invoice.gig_title}</title>
 <style>
   @import  * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #050505; color: #f2f2f2; padding: 32px; font-size: 13px; font-weight: 300; }
@@ -198,13 +198,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       <div class="amount-value">${invoice.currency} ${Number(invoice.amount).toLocaleString()}</div>
       ${invoice.wht_rate ? `
       <div class="amount-meta" style="margin-top:14px;border-top:1px solid rgba(255,255,255,0.12);padding-top:14px">
-        WHT ${invoice.wht_rate}% — ${invoice.currency} ${Math.round(Number(invoice.amount) * (invoice.wht_rate / 100)).toLocaleString()}
+        WHT ${invoice.wht_rate}%: ${invoice.currency} ${Math.round(Number(invoice.amount) * (invoice.wht_rate / 100)).toLocaleString()}
       </div>
       <div style="font-size:28px;font-weight:600;color:#fff;margin-top:8px;letter-spacing:-0.01em">
         Net: ${invoice.currency} ${Math.round(Number(invoice.amount) * (1 - invoice.wht_rate / 100)).toLocaleString()}
       </div>` : `
       <div class="status-stamp${invoice.status === 'paid' ? ' paid' : ''}">${invoice.status === 'paid' ? 'Paid' : invoice.status === 'overdue' ? 'Overdue' : 'Pending payment'}</div>`}
-      ${isAUD && !invoice.wht_rate ? `<div class="amount-meta" style="margin-top:10px;letter-spacing:0.22em">WHT: 0% — Determined</div>` : ''}
+      ${isAUD && !invoice.wht_rate ? `<div class="amount-meta" style="margin-top:10px;letter-spacing:0.22em">WHT: 0% (Determined)</div>` : ''}
     </div>
     <div style="text-align:right;white-space:nowrap">
       <div class="amount-label">Due</div>
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       <span>Amount</span>
     </div>
     <div class="row">
-      <span>${lineItemDesc}${invoice.type && invoice.type !== 'full' ? ` — ${invoice.type === 'deposit' ? 'Deposit · 50%' : 'Balance · 50%'}` : ''}</span>
+      <span>${lineItemDesc}${invoice.type && invoice.type !== 'full' ? ` (${invoice.type === 'deposit' ? 'Deposit · 50%' : 'Balance · 50%'})` : ''}</span>
       <span>${invoice.currency} ${Number(invoice.amount).toLocaleString()}</span>
     </div>
     ${invoice.wht_rate ? `

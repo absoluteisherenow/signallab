@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: { invoiceId: s
   const phone = process.env.ARTIST_PHONE
   if (!phone) return NextResponse.json({ href, sms: { sent: false, reason: 'ARTIST_PHONE not set' } })
 
-  const body = `Invoice ready: ${invoice.currency} ${Number(invoice.amount).toLocaleString()} — ${invoice.gig_title}\nReview & send: ${href}`
+  const body = `Invoice ready: ${invoice.currency} ${Number(invoice.amount).toLocaleString()} for ${invoice.gig_title}\nReview & send: ${href}`
   const result = await sendSms({ to: phone, body: body.slice(0, 320) })
 
   return NextResponse.json({

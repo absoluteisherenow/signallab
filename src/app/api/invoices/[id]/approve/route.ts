@@ -102,8 +102,8 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
   <p>${greeting}</p>
   <p>${
     invoice.type === 'deposit'
-      ? `Great to have the${venue ? ` <strong>${venue}</strong>` : ''} booking locked in — deposit invoice below.`
-      : `Thanks again for having us${venue ? ` at <strong>${venue}</strong>` : ''} — invoice for the night is attached below.`
+      ? `Great to have the${venue ? ` <strong>${venue}</strong>` : ''} booking locked in. Deposit invoice below.`
+      : `Thanks again for having us${venue ? ` at <strong>${venue}</strong>` : ''}. Invoice for the night is attached below.`
   }</p>
 </div>
 <div class="box">
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       : 'Team'
     const greeting = `Hi ${greetingName},`
 
-    const subject = `Invoice: ${invoice.gig_title} — ${invoiceNumber}`
+    const subject = `Invoice ${invoiceNumber}: ${invoice.gig_title}`
     const html = buildHtml({ artistName, artistFirstName, invoiceNumber, invoiceUrl, dueDate, venue, greeting, invoice, payment })
 
     // Attach PDF

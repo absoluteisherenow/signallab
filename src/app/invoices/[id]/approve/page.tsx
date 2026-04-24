@@ -75,7 +75,7 @@ export default async function InvoiceApprovePage({ params, searchParams }: Props
       invoiceNumber={invoiceNumber}
       to={toAddr}
       cc={cc}
-      subject={`Invoice: ${invoice.gig_title} — ${invoiceNumber}`}
+      subject={`Invoice ${invoiceNumber}: ${invoice.gig_title}`}
       amount={`${invoice.currency} ${Number(invoice.amount).toLocaleString()}`}
       dueDate={dueDate}
       type={(invoice.type as string) || 'full'}

@@ -73,6 +73,19 @@ export default function ApproveClient(props: Props) {
       {props.venue && <Row label="Venue" value={props.venue} />}
       <Row label="Ref" value={props.invoiceNumber} />
       <Row label="Attach" value={`${props.invoiceNumber}.pdf`} />
+
+      <div style={{ marginTop: 28, border: '1px solid #222', background: '#0a0a0a' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #1a1a1a', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#6a6a6a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Invoice PDF (attachment)</span>
+          <a href={`/api/invoices/${props.invoiceId}/pdf`} target="_blank" rel="noopener" style={{ color: '#ff2a1a', textDecoration: 'none', letterSpacing: '0.2em' }}>Open ↗</a>
+        </div>
+        <iframe
+          src={`/api/invoices/${props.invoiceId}/pdf#toolbar=0&navpanes=0`}
+          style={{ width: '100%', height: 560, border: 'none', background: '#050505', display: 'block' }}
+          title="Invoice PDF preview"
+        />
+      </div>
+
       <div style={{ marginTop: 24, padding: 20, background: '#0a0a0a', border: '1px solid #222', fontSize: 13, color: '#c0c0c0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
         <div style={{ fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#6a6a6a', marginBottom: 12 }}>Email copy (exact)</div>
         {`${props.greeting}
@@ -116,8 +129,8 @@ function labelForType(t: string): string {
 }
 
 function bodyPreview(props: Props): string {
-  if (props.type === 'deposit') return `Great to have the${props.venue ? ` ${props.venue}` : ''} booking locked in — deposit invoice below.`
-  return `Thanks again for having us${props.venue ? ` at ${props.venue}` : ''} — invoice for the night is attached below.`
+  if (props.type === 'deposit') return `Great to have the${props.venue ? ` ${props.venue}` : ''} booking locked in. Deposit invoice below.`
+  return `Thanks again for having us${props.venue ? ` at ${props.venue}` : ''}. Invoice for the night is attached below.`
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
