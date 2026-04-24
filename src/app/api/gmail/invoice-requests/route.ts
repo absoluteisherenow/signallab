@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getGmailClients, listAccountsNeedingReauth } from '@/lib/gmail-accounts'
-import { extractEmailBody } from '@/lib/gmail-utils'
+import {
+  extractEmailBody,
+  collectPdfAttachments,
+  fetchPdfsForClaude,
+  collectImageAttachments,
+  fetchImagesForClaude,
+  type ImageAttachmentRef,
+} from '@/lib/gmail-utils'
 import { createNotification } from '@/lib/notifications'
 import { requireCronAuth } from '@/lib/cron-auth'
 import { requireUser } from '@/lib/api-auth'
@@ -104,7 +111,13 @@ interface Extraction {
   } | null
 }
 
-async function extractFromThread(subject: string, combinedBody: string, userId?: string): Promise<Extraction> {
+async function extractFromThread(
+  subject: string,
+  combinedBody: string,
+  pdfs: Array<{ filename: string; base64: string }>,
+  images: Array<{ filename: string; base64: string; mediaType: ImageAttachmentRef['mediaType'] }>,
+  userId?: string
+): Promise<Extraction> {
   const res = await callClaude({
     userId,
     feature: 'gmail_scanner',
@@ -154,7 +167,30 @@ Return ONLY valid JSON, no prose, no markdown. Only include per-kind fields for 
 }`,
     messages: [{
       role: 'user',
-      content: `Thread subject: ${subject}\n\nFull thread (chronological):\n${combinedBody.slice(0, 12000)}`,
+      content: (pdfs.length + images.length) > 0
+        ? [
+            {
+              type: 'text' as const,
+              text: `Thread subject: ${subject}\n\nFull thread (chronological):\n${combinedBody.slice(0, 12000)}\n\n(${pdfs.length} PDF + ${images.length} image attachment${pdfs.length + images.length > 1 ? 's' : ''} included — extract billing address / VAT / amounts from them. Amendments often live only inside the attachment, especially screenshots of updated invoices or billing details.)`,
+            },
+            ...pdfs.map(pdf => ({
+              type: 'document' as const,
+              source: {
+                type: 'base64' as const,
+                media_type: 'application/pdf' as const,
+                data: pdf.base64,
+              },
+            })),
+            ...images.map(img => ({
+              type: 'image' as const,
+              source: {
+                type: 'base64' as const,
+                media_type: img.mediaType,
+                data: img.base64,
+              },
+            })),
+          ]
+        : `Thread subject: ${subject}\n\nFull thread (chronological):\n${combinedBody.slice(0, 12000)}`,
     }],
   })
 
@@ -266,7 +302,12 @@ async function processThread(
     msgs[0].payload?.headers?.find((h: any) => h.name === 'Subject')?.value || '(no subject)'
 
   // Build a chronological, labelled dump so the model can correlate replies.
+  // Collect PDF attachments across the whole thread — billing-address and VAT
+  // amendments often live only inside the attached PDF, not the body. Cap at
+  // 3 PDFs per thread total so a long reply chain doesn't blow the token budget.
   const parts: string[] = []
+  const pdfRefsByMessage: Array<{ messageId: string; refs: ReturnType<typeof collectPdfAttachments> }> = []
+  const imgRefsByMessage: Array<{ messageId: string; refs: ReturnType<typeof collectImageAttachments> }> = []
   for (const m of msgs) {
     const hs = m.payload?.headers || []
     const from = hs.find((h: any) => h.name === 'From')?.value || ''
@@ -277,12 +318,31 @@ async function processThread(
     parts.push(
       `── MESSAGE (${date}) ──\nFrom: ${from}\nTo: ${to}${cc ? `\nCc: ${cc}` : ''}\n\n${body.slice(0, 3500)}`
     )
+    const pdfRefs = collectPdfAttachments(m.payload)
+    if (pdfRefs.length) pdfRefsByMessage.push({ messageId: m.id, refs: pdfRefs })
+    const imgRefs = collectImageAttachments(m.payload)
+    if (imgRefs.length) imgRefsByMessage.push({ messageId: m.id, refs: imgRefs })
   }
   const combined = parts.join('\n\n')
 
+  // Fetch attachment bytes — walk newest → oldest so an amendment in the
+  // latest reply wins if we hit the 3-each cap.
+  const pdfs: Array<{ filename: string; base64: string }> = []
+  for (const { messageId, refs } of [...pdfRefsByMessage].reverse()) {
+    if (pdfs.length >= 3) break
+    const fetched = await fetchPdfsForClaude(gmail, messageId, refs, { maxPdfs: 3 - pdfs.length })
+    pdfs.push(...fetched)
+  }
+  const images: Array<{ filename: string; base64: string; mediaType: ImageAttachmentRef['mediaType'] }> = []
+  for (const { messageId, refs } of [...imgRefsByMessage].reverse()) {
+    if (images.length >= 3) break
+    const fetched = await fetchImagesForClaude(gmail, messageId, refs, { maxImages: 3 - images.length })
+    images.push(...fetched)
+  }
+
   let ex: Extraction
   try {
-    ex = await extractFromThread(subject, combined, userId)
+    ex = await extractFromThread(subject, combined, pdfs, images, userId)
   } catch (err) {
     console.error(`[invoice-requests] extraction failed for thread ${threadId}:`, err)
     return { threadId, subject, extraction: null as any, matchedGigId: null, invoiceId: null, gigBackfilled: false, skipped: 'extraction_error' }

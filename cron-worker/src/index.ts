@@ -141,6 +141,67 @@ async function runJob(env: Env, job: CronJob): Promise<{ ok: boolean; status: nu
   }
 }
 
+/**
+ * Health monitor — detects cron-wide outages (e.g. secret mismatch between
+ * this worker and the main app) and fires a `cron_error` notification so
+ * silent failures surface within ~30 min instead of whenever Anthony notices.
+ *
+ * Lives inside the cron-worker itself (not as an authed API route) so it keeps
+ * working even when the app-side auth is exactly what's broken. Reads and
+ * writes Supabase directly with the service role key.
+ *
+ * Fires when: ≥5 runs in the last 30 min AND 100% are errors.
+ * Dedupes by inserting at most one `cron_error / Crons failing` row per 2h.
+ */
+async function checkCronHealth(env: Env): Promise<void> {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return
+  const supaHeaders = {
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    'Content-Type': 'application/json',
+  }
+
+  try {
+    const since30 = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+    const runsRes = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/cron_runs?started_at=gte.${since30}&select=status,name,error`,
+      { headers: supaHeaders },
+    )
+    if (!runsRes.ok) return
+    const runs = await runsRes.json() as Array<{ status: string; name: string; error: string | null }>
+    if (runs.length < 5) return
+    const errors = runs.filter(r => r.status === 'error')
+    if (errors.length !== runs.length) return
+
+    // Dedup — only one alert per 2h.
+    const since2h = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+    const dupRes = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/notifications?type=eq.cron_error&title=eq.Crons%20failing&created_at=gte.${since2h}&select=id&limit=1`,
+      { headers: supaHeaders },
+    )
+    if (dupRes.ok) {
+      const dup = await dupRes.json() as Array<unknown>
+      if (dup.length > 0) return
+    }
+
+    const sample = errors[0]?.error ?? 'unknown'
+    const names = [...new Set(errors.map(e => e.name))].join(', ')
+    await fetch(`${env.SUPABASE_URL}/rest/v1/notifications`, {
+      method: 'POST',
+      headers: supaHeaders,
+      body: JSON.stringify({
+        type: 'cron_error',
+        title: 'Crons failing',
+        message: `${errors.length}/${runs.length} cron runs in last 30m errored (${sample}). Jobs: ${names}`,
+        read: false,
+      }),
+    })
+    console.error(`[cron-health] alerted — ${errors.length}/${runs.length} failing (${sample})`)
+  } catch (err) {
+    console.error('[cron-health] check failed:', err instanceof Error ? err.message : String(err))
+  }
+}
+
 export default {
   /**
    * scheduled() fires once per cron trigger. event.cron is the exact pattern
@@ -154,7 +215,11 @@ export default {
     }
     // Fan out — each job runs independently so one failure doesn't cancel the others.
     // waitUntil keeps CF's full CPU budget available without blocking trigger return.
-    ctx.waitUntil(Promise.all(jobs.map(j => runJob(env, j))).then(() => undefined))
+    // Health check piggy-backs on the */30 pattern so it runs twice per hour.
+    const work = Promise.all(jobs.map(j => runJob(env, j))).then(async () => {
+      if (event.cron === '*/30 * * * *') await checkCronHealth(env)
+    })
+    ctx.waitUntil(work)
   },
 
   /**
