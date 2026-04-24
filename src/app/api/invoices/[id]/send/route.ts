@@ -256,6 +256,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { artistName, invoiceUrl, invoice, dueDate, promoterEmail, subject, greeting, invoiceNumber } = data
     const finalTo = toAddr || promoterEmail
 
+    // Gmail API returns cryptic 400 on empty To — surface a human message
+    // instead. Loose validation (no full RFC 5322) because we already
+    // normalised whitespace; just need to catch the empty / "not an email" case.
+    const emailRe = /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/
+    if (confirmed) {
+      if (!finalTo) {
+        return NextResponse.json({
+          error: 'No recipient email on file. Add the promoter email on the gig or pass one in the `to` field.',
+        }, { status: 400 })
+      }
+      const invalid = finalTo.split(',').map(s => s.trim()).filter(s => !emailRe.test(s))
+      if (invalid.length) {
+        return NextResponse.json({
+          error: `Recipient email${invalid.length > 1 ? 's look' : ' looks'} invalid: ${invalid.join(', ')}`,
+        }, { status: 400 })
+      }
+    }
+
     // Hide the View Invoice button when sending attach-only. Simple string
     // swap on the rendered HTML rather than threading mode through buildEmailData.
     const html = mode === 'attach'

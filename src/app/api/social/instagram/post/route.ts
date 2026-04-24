@@ -77,17 +77,24 @@ async function graphPost(path: string, body: Record<string, string>) {
 }
 
 // Wait for a video/reels container to finish processing on Meta's side.
+// 5-min deadline matches carousel child poll — IG is slow on video transcode,
+// 60s was too tight and the old version silently exited with status still
+// IN_PROGRESS, then media_publish rejected with a cryptic error. Throw on
+// timeout + ERROR + EXPIRED so the caller surfaces something actionable.
 async function waitForContainer(id: string, token: string) {
+  const deadline = Date.now() + 300_000
   let status = 'IN_PROGRESS'
-  let attempts = 0
-  while (status === 'IN_PROGRESS' && attempts < 30) {
-    await new Promise(r => setTimeout(r, 2000))
-    const res = await fetch(`${GRAPH}/${id}?fields=status_code&access_token=${token}`)
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 3000))
+    const res = await fetch(`${GRAPH}/${id}?fields=status_code&access_token=${encodeURIComponent(token)}`)
     const check = await res.json()
-    status = check.status_code || 'FINISHED'
-    attempts++
+    status = check.status_code || status
+    if (status === 'FINISHED') return
+    if (status === 'ERROR' || status === 'EXPIRED') {
+      throw new Error(`Instagram rejected the video (${status}) — re-encode to MP4 H.264 + AAC and try again`)
+    }
   }
-  if (status === 'ERROR') throw new Error('Video processing failed on Instagram')
+  throw new Error(`Instagram is still processing this video after 5 minutes — Meta servers are slow, try again in a minute`)
 }
 
 // Compose the first-comment body: user's first_comment text + hashtags appended.

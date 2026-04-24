@@ -69,18 +69,28 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
 
-    // Generate tracked links per contact
+    // Generate tracked links per contact. Bulk insert (one round-trip, transactional)
+    // — was per-contact await which threw on first failure (unique-code collision,
+    // constraint violation, network blip) and aborted the whole blast before any
+    // email sent. Contacts we fail to generate links for fall through to the raw
+    // track_url in the send loop below.
     const trackedLinks: Record<string, string> = {}
     if (track_url && blast) {
-      for (const contact of emailContacts) {
-        const code = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4)
-        await supabase.from('promo_tracked_links').insert({
-          blast_id: blast.id,
-          contact_id: contact.id,
-          code,
-          destination_url: track_url,
-        })
-        trackedLinks[contact.id] = `${APP_URL}/go/${code}`
+      const rows = emailContacts.map((contact: any) => ({
+        blast_id: blast.id,
+        contact_id: contact.id,
+        code: Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4),
+        destination_url: track_url,
+      }))
+      const { data: inserted, error: linkErr } = await supabase
+        .from('promo_tracked_links')
+        .insert(rows)
+        .select('contact_id, code')
+      if (linkErr) {
+        console.error('[promo/send] tracked link insert failed — falling back to raw URL:', linkErr.message)
+      }
+      for (const row of inserted || []) {
+        trackedLinks[row.contact_id as string] = `${APP_URL}/go/${row.code}`
       }
     }
 

@@ -74,13 +74,30 @@ export async function POST(req: NextRequest) {
     if (key) {
       const file = await getFile(key)
       if (!file) return NextResponse.json({ error: 'File not found in storage' }, { status: 404 })
+      // Cap the stream read at 25s — a slow R2 reader or network hiccup can
+      // hold the Worker thread past its CPU budget, and the user sees a
+      // dead scan with no log. Bail with a clean error instead.
       const reader = file.body.getReader()
       const chunks: Uint8Array[] = []
-      let done = false
-      while (!done) {
-        const result = await reader.read()
+      const deadline = Date.now() + 25_000
+      while (true) {
+        const remaining = deadline - Date.now()
+        if (remaining <= 0) {
+          try { await reader.cancel() } catch {}
+          return NextResponse.json({ error: 'R2 read timed out — retry scan or check bucket health' }, { status: 504 })
+        }
+        const result = await Promise.race([
+          reader.read(),
+          new Promise<{ value: undefined; done: true; timedOut: true }>(r =>
+            setTimeout(() => r({ value: undefined, done: true, timedOut: true }), remaining)
+          ),
+        ])
+        if ('timedOut' in result && result.timedOut) {
+          try { await reader.cancel() } catch {}
+          return NextResponse.json({ error: 'R2 read timed out — retry scan or check bucket health' }, { status: 504 })
+        }
         if (result.value) chunks.push(result.value)
-        done = result.done
+        if (result.done) break
       }
       imgBuffer = Buffer.concat(chunks).buffer
     } else {

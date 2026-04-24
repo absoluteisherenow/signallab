@@ -23,6 +23,17 @@ import { createClient } from '@supabase/supabase-js'
 import { requireCronAuth } from '@/lib/cron-auth'
 
 export const runtime = 'nodejs'
+
+// Word-boundary truncate so the error column doesn't cut mid-word — the
+// `publish_error` column is what surfaces to the user in the UI, and a
+// "…Meta platform issue wi" cut message is useless for diagnosing a retry.
+function truncateOnWord(s: string, max: number): string {
+  if (s.length <= max) return s
+  const head = s.slice(0, max - 1)
+  const lastSpace = head.lastIndexOf(' ')
+  const cut = lastSpace > max * 0.7 ? head.slice(0, lastSpace) : head
+  return cut.replace(/[\s,;:.!?-]+$/, '') + '…'
+}
 export const dynamic = 'force-dynamic'
 
 type ScheduledPost = {
@@ -220,7 +231,7 @@ export async function GET(req: NextRequest) {
         .from('scheduled_posts')
         .update({
           status: isFinal ? 'failed' : 'scheduled',
-          publish_error: errMsg.slice(0, 2000),
+          publish_error: truncateOnWord(errMsg, 2000),
         })
         .eq('id', row.id)
       failed.push({ id: row.id, error: errMsg, attempts: nextAttempts, final: isFinal })

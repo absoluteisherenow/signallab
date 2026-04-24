@@ -961,12 +961,12 @@ async function processAccount(userId: string, gmail: any, accountEmail: string, 
 // ── Per-user scan orchestrator ────────────────────────────────────────────
 // Scans one tenant's connected Gmail accounts. Called either once (user
 // session) or once per connected user (cron path).
-async function processForUser(userId: string): Promise<{ userId: string; accounts: number; processed: number; results: any[] }> {
+async function processForUser(userId: string): Promise<{ userId: string; accounts: number; processed: number; account_errors: Array<{ account: string; error: string; needs_reauth: boolean }>; results: any[] }> {
   let clients: Awaited<ReturnType<typeof getGmailClients>>
   try {
     clients = await getGmailClients(userId)
   } catch {
-    return { userId, accounts: 0, processed: 0, results: [] }
+    return { userId, accounts: 0, processed: 0, account_errors: [], results: [] }
   }
 
   // TODO(multi-tenant): processed_gmail_ids has no user_id column yet. Dedup
@@ -995,12 +995,20 @@ async function processForUser(userId: string): Promise<{ userId: string; account
   )
 
   const allResults: any[] = []
+  const accountErrors: Array<{ account: string; error: string; needs_reauth: boolean }> = []
   for (const { gmail, email } of clients) {
     try {
       const results = await processAccount(userId, gmail, email, processedIds, gigs || [], afterQuery, ownEmails)
       allResults.push(...results)
     } catch (err) {
-      allResults.push({ account: email, error: err instanceof Error ? err.message : 'Failed' })
+      const msg = err instanceof Error ? err.message : 'Failed'
+      // invalid_grant / 401 means the refresh token is dead — the token
+      // refresher in gmail-accounts.ts has already flagged needs_reauth on
+      // the account row. Surface it in the response so the UI can prompt
+      // reconnect instead of the user staring at "0 processed" forever.
+      const needsReauth = /invalid_grant|refresh.*token|401|unauthori[sz]ed/i.test(msg)
+      accountErrors.push({ account: email, error: msg, needs_reauth: needsReauth })
+      allResults.push({ account: email, error: msg, needs_reauth: needsReauth })
     }
   }
 
@@ -1008,6 +1016,7 @@ async function processForUser(userId: string): Promise<{ userId: string; account
     userId,
     accounts: clients.length,
     processed: allResults.filter(r => !r.error).length,
+    account_errors: accountErrors,
     results: allResults,
   }
 }
