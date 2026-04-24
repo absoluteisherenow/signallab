@@ -79,11 +79,21 @@ export default function ApproveClient(props: Props) {
           <span>Invoice PDF (attachment)</span>
           <a href={`/api/invoices/${props.invoiceId}/pdf`} target="_blank" rel="noopener" style={{ color: '#ff2a1a', textDecoration: 'none', letterSpacing: '0.2em' }}>Open ↗</a>
         </div>
-        <iframe
-          src={`/api/invoices/${props.invoiceId}/pdf#toolbar=0&navpanes=0`}
-          style={{ width: '100%', height: 560, border: 'none', background: '#050505', display: 'block' }}
-          title="Invoice PDF preview"
-        />
+        <div style={{ position: 'relative' }}>
+          <iframe
+            src={`/api/invoices/${props.invoiceId}/pdf#toolbar=0&navpanes=0&view=FitH`}
+            style={{ width: '100%', height: 560, border: 'none', background: '#050505', display: 'block', pointerEvents: 'none' }}
+            title="Invoice PDF preview"
+            scrolling="no"
+          />
+          <a
+            href={`/api/invoices/${props.invoiceId}/pdf`}
+            target="_blank"
+            rel="noopener"
+            aria-label="Open invoice PDF in a new tab"
+            style={{ position: 'absolute', inset: 0, display: 'block' }}
+          />
+        </div>
       </div>
 
       <div style={{ marginTop: 24, padding: 20, background: '#0a0a0a', border: '1px solid #222', fontSize: 13, color: '#c0c0c0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
