@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { sendSms } from '@/lib/sms'
 import { sendToUser } from '@/lib/apns-push'
+import { sendWebPushToUser } from '@/lib/web-push-send'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -116,19 +117,27 @@ export async function createNotification(opts: CreateNotificationOptions) {
     }
   }
 
-  // 3. Fire APNs push to the user's registered iOS devices (if any).
-  // Silent no-op when APNS_* secrets aren't set, so this is safe to call
-  // pre-native-launch. Non-critical — don't throw, don't block.
+  // 3. Fire APNs (iOS) + Web Push to the user's registered devices. Both
+  // silent no-ops when their respective secrets aren't set, so safe to call
+  // pre-native-launch. Non-critical — don't throw, don't block the cron.
   if (user_id) {
     try {
-      await sendToUser(user_id, {
-        title,
-        body: message || undefined,
-        threadId: type,
-        data: href ? { href, type, gig_id: gig_id || null } : { type, gig_id: gig_id || null },
-      })
+      await Promise.all([
+        sendToUser(user_id, {
+          title,
+          body: message || undefined,
+          threadId: type,
+          data: href ? { href, type, gig_id: gig_id || null } : { type, gig_id: gig_id || null },
+        }),
+        sendWebPushToUser(user_id, {
+          title,
+          body: message || undefined,
+          href: href || undefined,
+          tag: type,
+        }),
+      ])
     } catch (err) {
-      console.error('[notifications] APNs push failed:', err)
+      console.error('[notifications] push fan-out failed:', err)
     }
   }
 

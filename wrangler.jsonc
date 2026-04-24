@@ -1,6 +1,6 @@
 {
   "name": "signal-lab-os",
-  "main": ".open-next/worker.js",
+  "main": "./worker-entry.mjs",
   "compatibility_date": "2024-09-23",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -13,6 +13,9 @@
       "bucket_name": "signal-lab-media"
     }
   ],
+  "ai": {
+    "binding": "AI"
+  },
   "vars": {
     // R2 public URL for the signal-lab-media bucket. Without this, every
     // image in the Media grid loads through /api/media/file/[key], which
@@ -20,7 +23,7 @@
     // mounts — the page stalls at ~100 items. Routing directly at the R2
     // public origin shifts those fetches to CF's edge and out of the
     // Worker hot path.
-    "R2_CUSTOM_DOMAIN": "pub-c827f99100ed4ec8b9665c234d14888b.r2.dev"
+    "R2_CUSTOM_DOMAIN": "media.signallabos.com"
   },
   "routes": [
     { "pattern": "signallabos.com", "custom_domain": true },

@@ -1093,7 +1093,7 @@ You MUST respond with ONLY a single raw JSON object. No preamble, no explanation
         .join('\n\n')
 
       // Pull in gigs + releases happening this week or next 30 days for context
-      const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: getUserTimezone() }))
+      const nowLondon = new Date(new Date().toLocaleString('en-US', { timeZone: getUserTimezone() }))
       const in30 = new Date(nowLondon); in30.setDate(nowLondon.getDate() + 30)
 
       const [gigsRes, releasesRes] = await Promise.allSettled([
@@ -1172,7 +1172,7 @@ Rules: all lowercase, no hashtags, no exclamation marks, no emojis, never explai
     if (!weekPreview) return
     setSavingWeek(true)
     try {
-      const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: getUserTimezone() }))
+      const nowLondon = new Date(new Date().toLocaleString('en-US', { timeZone: getUserTimezone() }))
       const dayOfWeek = nowLondon.getDay()
       const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7 || 7
       const monday = new Date(nowLondon)

@@ -21,6 +21,11 @@ export async function GET(req: NextRequest) {
           get(name: string) {
             return req.cookies.get(name)?.value
           },
+          // No-ops: route handler can't mutate request cookies. If the access
+          // token is expired, getSession() returns an error → we return 401
+          // and the caller (VST) refreshes via /api/vst/refresh.
+          set() {},
+          remove() {},
         },
       }
     )

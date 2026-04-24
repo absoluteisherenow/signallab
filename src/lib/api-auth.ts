@@ -37,6 +37,13 @@ export async function requireUser(
         get(name: string) {
           return req.cookies.get(name)?.value
         },
+        // Route handlers can't mutate request cookies, and we're not passing
+        // a NextResponse through to set them on. Provide no-ops to silence the
+        // "configured without set and remove cookie methods" warning. If a
+        // token is expired, getUser() returns an error → caller returns 401
+        // → the browser's supabase-js client refreshes and retries.
+        set() {},
+        remove() {},
       },
     }
   )

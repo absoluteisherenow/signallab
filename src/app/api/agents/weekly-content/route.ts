@@ -146,23 +146,34 @@ For each post:
 
 export async function GET() {
   try {
-    const nowLondon = new Date(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }))
+    // en-GB's toLocaleString returns "24/04/2026, 10:15:30" — DD/MM/YYYY,
+    // which the Date constructor can't reliably parse and produces
+    // "Invalid Date" in the Workers runtime (= "Invalid time value" thrown
+    // later). en-US returns "4/24/2026, 10:15:30 AM" which Date handles
+    // fine. We only use this for today + day-of-week arithmetic, so
+    // locale-of-string doesn't leak anywhere user-facing.
+    const nowLondon = new Date(
+      new Date().toLocaleString('en-US', { timeZone: 'Europe/London' })
+    )
     const today = nowLondon
     const in30Days = new Date(today.getTime() + 30 * 86400000)
 
     // Shared lane-wide engagement data — same for every user
     const topPosts = await getTopPerformingFormats()
 
-    // Enumerate all users with an artist profile
-    const { data: artists, error: artistsErr } = await supabase
-      .from('artist_profiles')
+    // `artist_profiles` is the REFERENCE-artist library (Floating Points, etc.)
+    // — not the user's own profile, and has no user_id. Real per-user rows live
+    // in `artist_settings`. Pulling from the wrong table is what made this cron
+    // fail silently with "column artist_profiles.user_id does not exist".
+    const { data: settings, error: settingsErr } = await supabase
+      .from('artist_settings')
       .select('user_id')
       .not('user_id', 'is', null)
 
-    if (artistsErr) throw artistsErr
-    if (!artists?.length) return NextResponse.json({ ran: true, users: 0, saved: 0 })
+    if (settingsErr) throw settingsErr
+    if (!settings?.length) return NextResponse.json({ ran: true, users: 0, saved: 0 })
 
-    const userIds = [...new Set(artists.map((a: any) => a.user_id).filter(Boolean))]
+    const userIds = [...new Set(settings.map((a: any) => a.user_id).filter(Boolean))]
 
     const dayOffset: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }
     const monday = new Date(today)
@@ -170,7 +181,7 @@ export async function GET() {
     const weekStart = new Date(monday).toISOString()
 
     let totalSaved = 0
-    const perUser: Array<{ user_id: string; saved: number; posts: number }> = []
+    const perUser: Array<{ user_id: string; saved: number; posts: number; error?: string }> = []
 
     for (const userId of userIds) {
       try {
@@ -218,7 +229,7 @@ export async function GET() {
 
         perUser.push({ user_id: userId, saved, posts: posts.length })
       } catch (userErr: any) {
-        perUser.push({ user_id: userId, saved: 0, posts: 0 })
+        perUser.push({ user_id: userId, saved: 0, posts: 0, error: describeError(userErr) })
         console.error(`weekly-content: user ${userId} failed`, userErr)
       }
     }
@@ -230,7 +241,23 @@ export async function GET() {
       perUser,
     })
   } catch (err: any) {
-    await createNotification({ type: 'cron_error', title: 'Weekly content agent failed', message: err instanceof Error ? err.message : 'Unknown error' })
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    const msg = describeError(err)
+    console.error('weekly-content: top-level failure', err)
+    await createNotification({ type: 'cron_error', title: 'Weekly content agent failed', message: msg })
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
+}
+
+// Supabase returns plain objects (PostgrestError) on .error, not Error instances —
+// `err.message` can exist but be empty, or the whole thing is a string, or a
+// fetch response. This normalises every shape so we never write "Unknown error"
+// when the real cause is one JSON.stringify away.
+function describeError(err: unknown): string {
+  if (!err) return 'Unknown error'
+  if (typeof err === 'string') return err
+  if (err instanceof Error && err.message) return err.message
+  const anyErr = err as any
+  if (anyErr.message) return String(anyErr.message)
+  if (anyErr.code) return `[${anyErr.code}] ${anyErr.details || anyErr.hint || ''}`.trim()
+  try { return JSON.stringify(err).slice(0, 300) } catch { return 'Unserializable error' }
 }

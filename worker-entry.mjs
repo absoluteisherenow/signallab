@@ -32,6 +32,7 @@ const DAILY_ROUTES = [
   { path: "/api/crons/night-before",      hour: 18 },  // 19:00 BST — pre-gig briefing
   { path: "/api/crons/sync-performance",  hour: 9  },  // 10:00 BST — sync IG performance
   { path: "/api/crons/check-comments",    hour: 12 },  // 13:00 BST — check IG comments
+  { path: "/api/crons/push-cleanup",      hour: 3  },  // 04:00 BST — TTL purge pending_push_messages
 ];
 
 function isTopOfHour() {
@@ -57,11 +58,27 @@ export default {
   // runtime crashes are reported to Sentry (when SENTRY_DSN is set) before
   // the response is returned. We still rethrow so CF serves its default 500.
   async fetch(req, env, ctx) {
+    const url = new URL(req.url);
     try {
-      return await openNextWorker.fetch(req, env, ctx);
+      const res = await openNextWorker.fetch(req, env, ctx);
+      // OpenNext swallows route-handler throws and turns them into 500s —
+      // so we have to inspect the response to catch real server errors.
+      // Only report 5xx (4xx is usually auth/validation, not a bug).
+      if (res.status >= 500 && env.SENTRY_DSN) {
+        ctx.waitUntil(
+          captureError(env.SENTRY_DSN, {
+            error: new Error(`${req.method} ${url.pathname} responded ${res.status}`),
+            level: "error",
+            environment: env.NEXT_PUBLIC_APP_URL?.includes("localhost") ? "development" : "production",
+            release: RELEASE,
+            tags: { handler: "fetch", method: req.method, path: url.pathname, status: String(res.status) },
+            extra: { url: req.url },
+          })
+        );
+      }
+      return res;
     } catch (err) {
       if (env.SENTRY_DSN) {
-        const url = new URL(req.url);
         ctx.waitUntil(
           captureError(env.SENTRY_DSN, {
             error: err,

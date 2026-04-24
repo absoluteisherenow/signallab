@@ -10,6 +10,8 @@
     "prebuild": "npm run check:outbound && npm run check:brain && node scripts/generate-sw.mjs",
     "build": "next build",
     "postbuild": "rm -f .next/server/pages/*.html",
+    "build:worker": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
+    "deploy": "npm run build && npm run build:worker && wrangler deploy",
     "start": "next start",
     "lint": "next lint",
     "tauri": "tauri",

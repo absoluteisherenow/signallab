@@ -3,6 +3,7 @@
 import { Save, User, Building, Lock, Bell, Palette, Mail } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Header } from '@/components/dashboard/Header'
+import { PushOptIn } from '@/components/business/PushOptIn'
 
 export function SettingsPage() {
   const [connectedAccounts, setConnectedAccounts] = useState<Array<{id: string, email: string, label: string}>>([])
@@ -145,6 +146,10 @@ export function SettingsPage() {
                 />
                 <span className="text-night-light">SMS reminders for upcoming events</span>
               </label>
+
+              {/* Browser push — enable/disable + quick test. Hidden on
+                  unsupported browsers (Safari pre-PWA, incognito). */}
+              <PushOptIn />
             </div>
           </div>
 
