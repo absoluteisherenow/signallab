@@ -158,6 +158,11 @@ export function BroadcastChain() {
   // for single-file uploads or when the hero is a video. Cap at 19 extras
   // (20 total slides) — matches IG carousel limit and Anthropic image cap.
   const [additionalImageUrls, setAdditionalImageUrls] = useState<string[]>([])
+  // Raw File objects for every carousel slide (slides 2..N). Images live in
+  // both additionalImageUrls (data URL, for caption vision) AND here (for
+  // upload). Video extras live ONLY here — no data URL because vision skips
+  // them. Order matches the carousel publish order 1:1 (hero is `file`).
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
   const [refs, setRefs] = useState<VoiceRef[]>([])
   const [refsOpen, setRefsOpen] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
@@ -301,16 +306,17 @@ export function BroadcastChain() {
     setComposite(0)
     setThumbnail(null)
     setAdditionalImageUrls([])
+    setAdditionalFiles([])
     setPhase('scanning')
-    // Carousel: read slides 2..N as data URLs in parallel so caption gen
-    // can hand every image to Claude vision. Skipped entirely when the hero
-    // is a video (we don't build carousels around video) or when only one
-    // file was dropped. Cap at 19 extras → 20 slides total (IG limit).
-    const heroIsVideo = first.type.startsWith('video/')
-    if (!heroIsVideo && files.length > 1) {
-      const extras = files.slice(1, 20).filter((f) => f.type.startsWith('image/'))
+    // Carousel: images + videos both accepted as extras regardless of hero
+    // type. IG supports video-first carousels up to 10 slides. Images get a
+    // data URL read-off for caption vision; videos skip it.
+    if (files.length > 1) {
+      const extras = files.slice(1, 10)
+      setAdditionalFiles(extras)
+      const imageExtras = extras.filter((f) => f.type.startsWith('image/'))
       Promise.all(
-        extras.map((f) => new Promise<string | null>((resolve) => {
+        imageExtras.map((f) => new Promise<string | null>((resolve) => {
           const reader = new FileReader()
           reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
           reader.onerror = () => resolve(null)
@@ -368,7 +374,8 @@ export function BroadcastChain() {
   // Append " · N SLIDES" when extras were uploaded so the strip telegraphs
   // "this is a carousel, caption knows about all of them" without a bigger
   // UI change. Hidden when hero is video (carousels are image-only).
-  const carouselSuffix = !isVideo && additionalImageUrls.length > 0 ? ` · ${additionalImageUrls.length + 1} SLIDES` : ''
+  const totalExtras = additionalFiles.length
+  const carouselSuffix = !isVideo && totalExtras > 0 ? ` · ${totalExtras + 1} SLIDES` : ''
   const activeMeta = (file ? buildMediaMeta(file) : fileMeta ? buildMediaMetaFromMeta(fileMeta) : '') + carouselSuffix
 
   return (
@@ -499,7 +506,29 @@ export function BroadcastChain() {
               </button>
             </div>
           )}
-          {phase === 'drop' && <PhaseDrop onMedia={handleMedia} voiceTrained={refs.length > 1} />}
+          {phase === 'drop' && (
+            <PhaseDrop
+              onMedia={handleMedia}
+              voiceTrained={refs.length > 1}
+              onReject={(msg) => setScanError(msg)}
+            />
+          )}
+          {phase === 'drop' && scanError && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: '12px 16px',
+                border: '1px solid rgba(255,42,26,0.4)',
+                background: 'rgba(255,42,26,0.06)',
+                color: 'var(--gold-bright, #ff5440)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}
+            >
+              {scanError}
+            </div>
+          )}
 
           {file && phase === 'scanning' && (
             <>
@@ -509,6 +538,46 @@ export function BroadcastChain() {
                 status="Scanning…"
                 thumbnail={thumbnail}
               />
+              {additionalFiles.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                    padding: '10px 14px',
+                    border: `1px solid ${BRT.borderBright}`,
+                    background: BRT.ticket,
+                    margin: '8px 0',
+                  }}
+                >
+                  <div style={{ fontSize: 10, letterSpacing: '0.28em', color: BRT.red, fontWeight: 700, textTransform: 'uppercase' }}>
+                    ◉ Carousel queued · {additionalFiles.length + 1} slides (hero + {additionalFiles.length} extras)
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
+                    {additionalFiles.map((f, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          flex: '0 0 auto',
+                          padding: '6px 10px',
+                          border: `1px solid ${BRT.borderBright}`,
+                          fontSize: 10,
+                          letterSpacing: '0.12em',
+                          color: f.type.startsWith('video/') ? BRT.red : '#9a9a9a',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          whiteSpace: 'nowrap',
+                          maxWidth: 180,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {f.type.startsWith('video/') ? '▶ ' : '▦ '}{f.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {scanError ? (
                 <div
                   style={{
@@ -607,6 +676,45 @@ export function BroadcastChain() {
                 isVideo={isVideo}
                 thumbnail={thumbnail}
                 additionalImages={additionalImageUrls}
+                additionalFiles={additionalFiles}
+                onReorderCarousel={(from, to) => {
+                  // Full reorder incl. hero swap. Build a flat [hero, ...extras]
+                  // slide list with each file + its image dataURL (null for
+                  // videos), move the requested index, then split back into
+                  // file/thumbnail/additionalFiles/additionalImageUrls.
+                  if (!file) return
+                  if (from === to) return
+                  const heroIsImage = file.type.startsWith('image/')
+                  const fileToUrl = new Map<File, string | null>()
+                  fileToUrl.set(file, heroIsImage ? thumbnail : null)
+                  let imgIdx = 0
+                  for (const f of additionalFiles) {
+                    if (f.type.startsWith('image/')) {
+                      fileToUrl.set(f, additionalImageUrls[imgIdx] ?? null)
+                      imgIdx++
+                    } else {
+                      fileToUrl.set(f, null)
+                    }
+                  }
+                  const slides: { file: File; url: string | null }[] = [
+                    { file, url: fileToUrl.get(file) ?? null },
+                    ...additionalFiles.map(f => ({ file: f, url: fileToUrl.get(f) ?? null })),
+                  ]
+                  if (from < 0 || from >= slides.length || to < 0 || to >= slides.length) return
+                  const [moved] = slides.splice(from, 1)
+                  slides.splice(to, 0, moved)
+                  const newHero = slides[0]
+                  const newExtras = slides.slice(1)
+                  setFile(newHero.file)
+                  setFileMeta({ name: newHero.file.name, type: newHero.file.type, size: newHero.file.size })
+                  setThumbnail(newHero.file.type.startsWith('image/') ? newHero.url : null)
+                  setAdditionalFiles(newExtras.map(s => s.file))
+                  setAdditionalImageUrls(
+                    newExtras
+                      .filter(s => s.file.type.startsWith('image/') && s.url)
+                      .map(s => s.url as string),
+                  )
+                }}
                 refs={refs}
                 alignmentScore={alignmentScore}
                 onOpenRefs={() => setRefsOpen(true)}

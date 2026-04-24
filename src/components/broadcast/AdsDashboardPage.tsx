@@ -377,11 +377,12 @@ function CampaignCard({ campaign, toggling, onToggle }: { campaign: Campaign; to
 
       {/* ── Metrics row ── */}
       {ins && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1, marginBottom: targeting ? 16 : 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: targeting ? 16 : 0 }}>
           <MetricCell label="Spend" value={`\u00A3${parseFloat(ins.spend).toFixed(2)}`} blur />
           <MetricCell label="Reach" value={parseInt(ins.reach).toLocaleString()} />
           <MetricCell label="Impressions" value={parseInt(ins.impressions).toLocaleString()} />
           <MetricCell label="Link clicks" value={getActionValue(ins.actions, 'link_click')} />
+          <MetricCell label="New followers" value={getFollowActionValue(ins.actions)} />
           <MetricCell label="CPC" value={parseFloat(ins.cpc) > 0 ? `\u00A3${parseFloat(ins.cpc).toFixed(2)}` : '-'} blur />
           <MetricCell label="CPM" value={parseFloat(ins.cpm) > 0 ? `\u00A3${parseFloat(ins.cpm).toFixed(2)}` : '-'} blur />
         </div>
@@ -452,6 +453,18 @@ function getActionValue(actions: { action_type: string; value: string }[] | unde
   if (!actions) return '-'
   const action = actions.find(a => a.action_type === type)
   return action ? action.value : '-'
+}
+
+// New-follower attributions. Meta exposes this under a few action_type names
+// depending on objective + placement — sum them all so we don't undercount
+// when IG and FB buckets arrive split. Only populated for campaigns with a
+// follow-type outcome (Engagement / Profile Visits / Awareness w/ IG follow).
+function getFollowActionValue(actions: { action_type: string; value: string }[] | undefined): string {
+  if (!actions) return '-'
+  const total = actions
+    .filter(a => a.action_type === 'onsite_conversion.follow' || a.action_type === 'follow' || a.action_type === 'onsite_conversion.ig_follow')
+    .reduce((sum, a) => sum + (parseInt(a.value) || 0), 0)
+  return total > 0 ? total.toLocaleString() : '-'
 }
 
 // ── Drill-down panel ────────────────────────────────────────────────────────

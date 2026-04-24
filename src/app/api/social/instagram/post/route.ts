@@ -26,6 +26,9 @@ interface PostBody {
   post_format?: string
   // new optional fields (additive)
   image_urls?: string[]
+  /** Mixed carousel slides (images + videos). If present and length >= 2,
+   *  replaces image_urls and child containers are created per-type. */
+  media_items?: Array<{ url: string; is_video: boolean }>
   user_tags?: UserTag[]
   first_comment?: string
   hashtags?: string[]
@@ -132,6 +135,7 @@ export async function POST(req: NextRequest) {
     handle,
     post_format,
     image_urls,
+    media_items,
     user_tags,
     first_comment,
     hashtags,
@@ -153,7 +157,8 @@ export async function POST(req: NextRequest) {
   const uniqCollabs = Array.from(new Set(collabList))
 
   // ── Validate presence of media ─────────────────────────────────────────────
-  const isCarousel = Array.isArray(image_urls) && image_urls.length >= 2
+  const hasMixedCarousel = Array.isArray(media_items) && media_items.length >= 2
+  const isCarousel = hasMixedCarousel || (Array.isArray(image_urls) && image_urls.length >= 2)
   if (!isCarousel && !image_url && !video_url) {
     return NextResponse.json({ error: 'Instagram requires an image or video.' }, { status: 400 })
   }
@@ -177,20 +182,53 @@ export async function POST(req: NextRequest) {
 
     // ── Carousel path ────────────────────────────────────────────────────────
     if (isCarousel) {
-      // 1. Create child containers, one per slide
+      // Build a unified slide list. If media_items was sent, use that (mixed
+      // images + videos). Otherwise fall back to image_urls.
+      const slides: Array<{ url: string; is_video: boolean }> = hasMixedCarousel
+        ? media_items!
+        : image_urls!.map(url => ({ url, is_video: false }))
+
+      // 1. Create child containers, one per slide. Videos need media_type=VIDEO
+      //    and video_url; images use image_url (no media_type for default IMAGE).
+      //    FINISHED-check loop below polls each child to status_code=FINISHED
+      //    because VIDEO children aren't immediately publishable.
       const childIds: string[] = []
-      for (let i = 0; i < image_urls!.length; i++) {
+      for (let i = 0; i < slides.length; i++) {
+        const slide = slides[i]
         const slideTags = (user_tags || []).filter(t => (t.slide_index ?? 0) === i)
         const childBody: Record<string, string> = {
-          image_url: image_urls![i],
           is_carousel_item: 'true',
           access_token: token,
         }
-        if (slideTags.length) {
+        if (slide.is_video) {
+          childBody.media_type = 'VIDEO'
+          childBody.video_url = slide.url
+        } else {
+          childBody.image_url = slide.url
+        }
+        if (slideTags.length && !slide.is_video) {
           childBody.user_tags = JSON.stringify(slideTags.map(({ username, x, y }) => ({ username, x, y })))
         }
         const child = await graphPost(`/${platform_user_id}/media`, childBody)
         childIds.push(child.id)
+      }
+
+      // 1b. Poll each child container until status_code = FINISHED. IG won't
+      //     let us create the parent CAROUSEL while any child is still IN_PROGRESS
+      //     (video transcoding server-side can take 10–60s).
+      if (hasMixedCarousel) {
+        for (const childId of childIds) {
+          const deadline = Date.now() + 120_000 // 2min cap
+          while (Date.now() < deadline) {
+            const statusRes = await fetch(`${GRAPH}/${childId}?fields=status_code&access_token=${encodeURIComponent(token)}`)
+            const statusJson = await statusRes.json() as { status_code?: string; error?: { message?: string } }
+            if (statusJson.status_code === 'FINISHED') break
+            if (statusJson.status_code === 'ERROR' || statusJson.status_code === 'EXPIRED') {
+              return NextResponse.json({ error: `Carousel child ${childId} failed: ${statusJson.status_code}` }, { status: 502 })
+            }
+            await new Promise(r => setTimeout(r, 2000))
+          }
+        }
       }
 
       // 2. Create the parent CAROUSEL container
@@ -210,7 +248,7 @@ export async function POST(req: NextRequest) {
         access_token: token,
       })
       publishedId = published.id
-      loggedMediaUrls = image_urls!
+      loggedMediaUrls = hasMixedCarousel ? media_items!.map(m => m.url) : image_urls!
     } else {
       // ── Single-media path (existing behaviour, plus user_tags/location) ────
       const containerBody: Record<string, string> = { access_token: token }

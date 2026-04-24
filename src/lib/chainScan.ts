@@ -165,13 +165,57 @@ export async function extractImageFrame(file: File): Promise<ScanFrame[]> {
   })
 }
 
+// Anthropic rejects any single image whose decoded base64 exceeds 5 MB.
+// High-detail photos (night / noisy phone shots) can still breach this even
+// after extractImageFrame's 720px downscale. Re-encode at lower quality then
+// halve dimensions until the payload fits, so the scan pass never hits the
+// API limit.
+async function shrinkFrameIfOversize(dataUrl: string, maxBytes = 4_500_000): Promise<string> {
+  const commaIdx = dataUrl.indexOf(',')
+  if (commaIdx < 0) return dataUrl
+  let approxBytes = Math.floor((dataUrl.length - commaIdx - 1) * 0.75)
+  if (approxBytes <= maxBytes) return dataUrl
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image()
+    el.onload = () => resolve(el)
+    el.onerror = () => reject(new Error('shrink: failed to decode image'))
+    el.src = dataUrl
+  })
+
+  let width = img.width
+  let height = img.height
+  let quality = 0.8
+  let current = dataUrl
+
+  for (let i = 0; i < 6 && approxBytes > maxBytes; i++) {
+    if (quality > 0.55) {
+      quality -= 0.15
+    } else {
+      width = Math.max(320, Math.round(width / 2))
+      height = Math.max(180, Math.round(height / 2))
+      quality = 0.75
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+    current = canvas.toDataURL('image/jpeg', quality)
+    approxBytes = Math.floor((current.length - (current.indexOf(',') + 1)) * 0.75)
+  }
+  return current
+}
+
 async function callClaudeVision(
   system: string,
   frames: ScanFrame[],
   textPrompt: string,
   maxTokens = 2000,
 ): Promise<string> {
-  const content: object[] = frames.map((f, idx) => {
+  const sized = await Promise.all(
+    frames.map(async f => ({ ...f, dataUrl: await shrinkFrameIfOversize(f.dataUrl) })),
+  )
+  const content: object[] = sized.map((f, idx) => {
     const match = f.dataUrl.match(/^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/)
     if (!match) throw new Error(`frame ${idx + 1} produced an invalid data URL`)
     return {

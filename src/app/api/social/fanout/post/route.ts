@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireConfirmed } from '@/lib/require-confirmed'
 import { PLATFORM_LIMITS } from '@/components/broadcast/chain/types'
 import { publishTikTok } from '@/lib/social-publish/tiktok'
+import { POST as instagramPost } from '@/app/api/social/instagram/post/route'
+import { POST as youtubePost } from '@/app/api/social/youtube/post/route'
 
 export const runtime = 'nodejs'
 
@@ -32,6 +34,8 @@ export async function POST(req: NextRequest) {
     platforms,
     caption,
     media_url,
+    image_urls,
+    media_items,
     is_video,
     user_tags,
     first_comment,
@@ -45,6 +49,8 @@ export async function POST(req: NextRequest) {
     platforms?: Array<'instagram' | 'tiktok' | 'threads' | 'youtube'>
     caption?: string
     media_url?: string | null
+    image_urls?: string[] | null
+    media_items?: Array<{ url: string; is_video: boolean }> | null
     is_video?: boolean
     user_tags?: unknown
     first_comment?: string | null
@@ -101,6 +107,8 @@ export async function POST(req: NextRequest) {
       const firstCollab = Array.isArray(collaborators) && collaborators.length
         ? (collaborators[0] || '').replace(/^@/, '').trim() || null
         : null
+      const hasMixedCarousel = Array.isArray(media_items) && media_items.length >= 2
+      const isCarousel = Array.isArray(image_urls) && image_urls.length >= 2 && !is_video
       postBody = {
         caption: trimmedCaption,
         user_tags: user_tags ?? null,
@@ -113,22 +121,39 @@ export async function POST(req: NextRequest) {
         thumb_offset: thumb_offset ?? null,
         confirmed: true,
       }
-      if (is_video) {
+      if (hasMixedCarousel) {
+        // Mixed carousel wins over reel path — if the user queued multiple
+        // slides (video or not), we publish as CAROUSEL not as single reel.
+        postBody.media_items = media_items
+        postBody.post_format = 'post'
+      } else if (is_video) {
         postBody.video_url = media_url
         postBody.post_format = 'reel'
+      } else if (isCarousel) {
+        postBody.image_urls = image_urls
+        postBody.post_format = 'post'
       } else {
         postBody.image_url = media_url
         postBody.post_format = 'post'
       }
     }
 
-    const url = new URL(endpoint, req.url).toString()
+    // Call the platform's POST handler in-process. Same-zone loopback
+    // `fetch('/api/social/instagram/post')` returns 522 on Cloudflare Workers,
+    // which is why the old behaviour silently failed for IG/Threads/YouTube —
+    // only TikTok (already inlined) worked. Direct function invocation skips
+    // the network hop and preserves cookies via the constructed Request.
+    const handler = endpoint === '/api/social/instagram/post' ? instagramPost : youtubePost
     try {
-      const resp = await fetch(url, {
+      const subReq = new Request(new URL(endpoint, req.url).toString(), {
         method: 'POST',
-        headers: { 'content-type': 'application/json', cookie: req.headers.get('cookie') || '' },
+        headers: {
+          'content-type': 'application/json',
+          cookie: req.headers.get('cookie') || '',
+        },
         body: JSON.stringify(postBody),
-      })
+      }) as NextRequest
+      const resp = await handler(subReq)
       const json = (await resp.json().catch(() => ({}))) as {
         success?: boolean
         post_id?: string

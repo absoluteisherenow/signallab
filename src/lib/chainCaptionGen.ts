@@ -11,6 +11,61 @@ import { SKILLS_CAPTION_GEN } from './skillPromptsClient'
 import { scrubAiTells } from './voiceCheck'
 import { scrubBrandText } from './scrubBrandText'
 import type { ChainScanResult } from './chainScan'
+
+// Anthropic rejects any single image over 5 MB decoded. The scan path
+// (chainScan.extractImageFrame) already caps at 720px wide, but the hero
+// dataUrl we pass into caption gen comes from outside that pipeline too
+// (e.g. raw uploads), so we guard here as well.
+async function shrinkDataUrlIfOversize(dataUrl: string, maxBytes = 3_500_000): Promise<string> {
+  if (typeof document === 'undefined') return dataUrl // SSR safety
+  const commaIdx = dataUrl.indexOf(',')
+  if (commaIdx < 0) return dataUrl
+  let approxBytes = Math.floor((dataUrl.length - commaIdx - 1) * 0.75)
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image()
+    el.onload = () => resolve(el)
+    el.onerror = () => reject(new Error('shrink: failed to decode image'))
+    el.src = dataUrl
+  })
+
+  // Aggressive downscale up-front: cap longest edge at 1400px. Camera photos
+  // out of phones routinely land 12MP+ (~5-8MB base64) — unconditional resize
+  // is much cheaper than iterating quality reductions.
+  const maxEdge = 1400
+  let width = img.width
+  let height = img.height
+  if (Math.max(width, height) > maxEdge) {
+    const scale = maxEdge / Math.max(width, height)
+    width = Math.round(width * scale)
+    height = Math.round(height * scale)
+  }
+  let canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+  let quality = 0.82
+  let current = canvas.toDataURL('image/jpeg', quality)
+  approxBytes = Math.floor((current.length - (current.indexOf(',') + 1)) * 0.75)
+
+  // Still too big? Iterate: drop quality, then halve dimensions.
+  for (let i = 0; i < 8 && approxBytes > maxBytes; i++) {
+    if (quality > 0.45) {
+      quality -= 0.15
+    } else {
+      width = Math.max(320, Math.round(width * 0.75))
+      height = Math.max(180, Math.round(height * 0.75))
+      quality = 0.75
+      canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+    }
+    current = canvas.toDataURL('image/jpeg', quality)
+    approxBytes = Math.floor((current.length - (current.indexOf(',') + 1)) * 0.75)
+  }
+  return current
+}
 import type { VoiceRef, Platform, CaptionVariant } from '@/components/broadcast/chain/types'
 import { PLATFORM_LABEL, PLATFORM_LIMITS } from '@/components/broadcast/chain/types'
 
@@ -647,10 +702,12 @@ ${BANNED_PATTERNS}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DECISION TREE — how to write when context is thin
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Is there a CONTEXT line in the user message? → Use it as the subject. That's the angle. Don't drift.
-2. No context, but the image clearly shows a concrete subject (press shot, studio session, gig, gear, record)? → Name it in one word plus 🌓. "press. 🌓" / "studio. 🌓" / "live. 🌓"
-3. No context, ambiguous image? → Go even shorter. A single word or fragment. "new." / "back. 🌓" / "we're cooking."
+0. Is there a PRIORITY ANCHOR (active release or show)? → THAT IS THE SUBJECT. At least LONG + LOOSE must name the anchor's concrete noun (release title, venue, date). Fragment captions like "studio. 🌓" are FORBIDDEN when an anchor exists for a craft-flavoured clip — always tie to the push. Example: if anchor = "Vespers · 12 June" and clip = studio → "writing for Vespers. 12 June. 🌓", not "studio. 🌓".
+1. Is there a CONTEXT line in the user message? → Use it as the subject (context + anchor can BOTH appear — context wins on subject, anchor adds the push).
+2. No context + no anchor + image shows a concrete subject (press shot, studio session, gig, gear, record)? → Name it in one word plus 🌓. "press. 🌓" / "studio. 🌓" / "live. 🌓"
+3. No context, no anchor, ambiguous image? → Go even shorter. A single word or fragment. "new." / "back. 🌓" / "we're cooking."
 4. NEVER fill the void with poetry. Silence > metaphor.
+5. Specific banned output when a PRIORITY ANCHOR exists: "synth session. 🌓", "studio. 🌓", "working. 🌓", any bare one-noun + 🌓 fragment with no anchor tie-in. These exist for the no-anchor case only.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 OUTPUT
@@ -663,12 +720,13 @@ Return ONLY this JSON object. No markdown, no commentary, no outer quotes.
     ? `PRIORITY ANCHOR (active phase — what NM is currently pushing):
 "${priorityContext!.trim()}"
 
-HOW TO USE THIS ANCHOR:
-- If the user's CONTEXT line directly names a different subject (a press shoot, a remix drop, a thank-you), CONTEXT WINS. Do not force the anchor.
-- If the user's CONTEXT line is absent, OR names a craft-flavoured subject (studio, process, rehearsal, new music, live rig, writing, recording, tour prep, teaser), at least one of the LOOSE or LONG variants SHOULD tie back to this anchor. Example: "new music for Hybrid Live. Vespers, 12 June. 🌓" or "writing for the Hybrid Live set. Vespers, London. 🌓"
-- Never shoehorn the anchor into thank-you or release posts where it doesn't fit. Silence > forced tie-in.
+HOW TO USE THIS ANCHOR (STRONG — this is the current push, not background):
+- If the user's CONTEXT line directly names a different subject (a press shoot for a DIFFERENT release, an unrelated thank-you), CONTEXT WINS. Do not force the anchor.
+- If the user's CONTEXT line is absent, OR names a craft-flavoured subject (studio, process, rehearsal, new music, live rig, writing, recording, tour prep, teaser, synth session), the LONG and LOOSE variants MUST tie back to this anchor — name the release title, venue, or date concretely. Example: "writing for Vespers. 12 June. 🌓" (not "synth session. 🌓"); "new music for the Hybrid Live set. Vespers, London. 🌓".
+- Bare one-noun fragments ("studio. 🌓", "synth session. 🌓", "working. 🌓") are BANNED when an anchor exists and the clip is craft-flavoured — they waste the push.
+- SAFE and RAW may stay anchor-less if their brevity demands it, BUT at minimum one of SAFE/RAW should also name the anchor if the subject is craft-flavoured.
+- Never shoehorn the anchor into thank-you or unrelated release posts. Silence > forced tie-in (but this applies only when the clip is CLEARLY about something else).
 - Capitalise proper nouns in the anchor exactly as shown ("Hybrid Live", "Vespers", "London", "12 June").
-- Treat the anchor as a soft north star, not a hard constraint. SAFE / RAW can stay anchor-less if their brevity demands it.
 `
     : ''
 
@@ -738,16 +796,19 @@ Return the JSON object described in the system prompt.`
   // Build multimodal content. Images first (Claude sees before reading).
   // For a carousel, all slides go in — hero first, then the extras in order.
   const content: object[] = []
-  const pushImage = (url: string) => {
-    const match = url.match(/^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/)
+  const pushImage = async (url: string) => {
+    const sized = await shrinkDataUrlIfOversize(url)
+    const match = sized.match(/^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/)
     if (!match) return
     content.push({
       type: 'image',
       source: { type: 'base64', media_type: match[1], data: match[2] },
     })
   }
-  if (imageDataUrl) pushImage(imageDataUrl)
-  if (isCarousel) extras.forEach(pushImage)
+  if (imageDataUrl) await pushImage(imageDataUrl)
+  if (isCarousel) {
+    for (const u of extras) await pushImage(u)
+  }
   // Carousel-specific instruction. Goes in the user turn (not system) so it
   // travels with the specific image batch — a second call with a single
   // image doesn't carry stale carousel framing. The "one thought told across

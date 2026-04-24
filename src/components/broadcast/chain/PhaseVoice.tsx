@@ -26,6 +26,14 @@ interface Props {
    *  gen treats this as a multi-image carousel and Claude sees every slide.
    *  Empty for single-file uploads. Ignored when hero is a video. */
   additionalImages?: string[]
+  /** Raw File objects for every extra slide (images AND videos). Used at
+   *  publish time to upload each slide to R2. Parallel order to the
+   *  carousel array [hero, ...additionalFiles]. */
+  additionalFiles?: File[]
+  /** Swap the hero with an extra slide. index is 0-based into the full
+   *  carousel array [hero, ...additionalImages]. Implemented in parent so
+   *  the scan thumbnail + additionalImages stay in sync with the publish. */
+  onReorderCarousel?: (fromIndex: number, toIndex: number) => void
   refs: VoiceRef[]
   alignmentScore: number
   onOpenRefs: () => void
@@ -62,6 +70,8 @@ export function PhaseVoice({
   isVideo,
   thumbnail,
   additionalImages,
+  additionalFiles,
+  onReorderCarousel,
   refs,
   alignmentScore,
   onOpenRefs,
@@ -72,8 +82,53 @@ export function PhaseVoice({
   // because we never build a carousel around a video hero. Used to tell
   // caption gen to write ONE caption for the whole set and to show a subtle
   // "Carousel · N slides" pill in the UI.
-  const carouselExtras = !isVideo ? (additionalImages ?? []) : []
-  const isCarousel = carouselExtras.length > 0
+  // Extras allowed whether hero is image OR video — IG supports mixed-media
+  // carousels. Images have data URLs for caption vision; videos don't.
+  const carouselExtras = additionalImages ?? []
+  const carouselExtraFiles = additionalFiles ?? []
+  const isCarousel = carouselExtraFiles.length > 0 || carouselExtras.length > 0
+
+  // Video extra thumbnails — generate a still frame at 0.1s for each video
+  // File. Keyed by a stable (name|size|lastModified) fingerprint so reorders
+  // don't trigger regeneration.
+  const [videoThumbs, setVideoThumbs] = useState<Record<string, string>>({})
+  // Include hero in the video-thumb generation so hero-video slides render
+  // a real still frame too (not just extras). Hero can be video since we
+  // allow IG mixed carousels with a video hero.
+  const allCarouselFiles = useMemo(
+    () => (file ? [file, ...carouselExtraFiles] : carouselExtraFiles),
+    [file, carouselExtraFiles],
+  )
+  useEffect(() => {
+    let cancelled = false
+    allCarouselFiles.forEach((f) => {
+      if (!f.type.startsWith('video/')) return
+      const key = `${f.name}|${f.size}|${f.lastModified}`
+      if (videoThumbs[key]) return
+      const url = URL.createObjectURL(f)
+      const video = document.createElement('video')
+      video.src = url
+      video.muted = true
+      video.playsInline = true
+      video.onloadedmetadata = () => { video.currentTime = Math.min(0.1, (video.duration || 1) / 2) }
+      video.onseeked = () => {
+        if (cancelled) { URL.revokeObjectURL(url); return }
+        const w = video.videoWidth
+        const h = video.videoHeight
+        if (!w || !h) { URL.revokeObjectURL(url); return }
+        const canvas = document.createElement('canvas')
+        const scale = Math.min(1, 320 / Math.max(w, h))
+        canvas.width = Math.round(w * scale)
+        canvas.height = Math.round(h * scale)
+        canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const thumb = canvas.toDataURL('image/jpeg', 0.8)
+        URL.revokeObjectURL(url)
+        setVideoThumbs((prev) => ({ ...prev, [key]: thumb }))
+      }
+      video.onerror = () => { URL.revokeObjectURL(url) }
+    })
+    return () => { cancelled = true }
+  }, [allCarouselFiles, videoThumbs])
   const [captions, setCaptions] = useState<Record<CaptionVariant, string> | null>(null)
   // Per-variant user edits. Overrides the AI output. Wiped when a fresh
   // regen lands so the user's local tweaks don't shadow better generations.
@@ -211,8 +266,11 @@ export function PhaseVoice({
   // a clip named "NM ATHENS 2.MOV" pushes Athens gigs to the top of the list
   // Claude sees.
   type GigRow = { title: string | null; venue: string | null; location: string | null; date: string | null; status: string | null; notes: string | null }
+  type ReleaseRow = { title: string | null; type: string | null; release_date: string | null; label: string | null; notes: string | null }
   const [upcomingGigs, setUpcomingGigs] = useState<GigRow[]>([])
   const [pastGigs, setPastGigs] = useState<GigRow[]>([])
+  const [upcomingReleases, setUpcomingReleases] = useState<ReleaseRow[]>([])
+  const [pastReleases, setPastReleases] = useState<ReleaseRow[]>([])
   const [priorityContext, setPriorityContext] = useState<string | null>(null)
   // Authed user id — passed to chainCaptionGen so the central brain can
   // post-check output and log verdicts to invariant_log. Optional: caption
@@ -290,7 +348,7 @@ export function PhaseVoice({
         //       [venue]" style framing lands instead of reading as first
         //       visit. Without history the chain fabricates first-trip
         //       captions for return dates.
-        const [upRes, pastRes] = await Promise.all([
+        const [upRes, pastRes, upRelRes, pastRelRes] = await Promise.all([
           supabase
             .from('gigs')
             .select('title, venue, location, date, status, notes')
@@ -305,14 +363,30 @@ export function PhaseVoice({
             .not('status', 'in', '(cancelled,postponed,rejected)')
             .order('date', { ascending: false })
             .limit(12),
+          supabase
+            .from('releases')
+            .select('title, type, release_date, label, notes')
+            .gte('release_date', today)
+            .order('release_date', { ascending: true })
+            .limit(6),
+          supabase
+            .from('releases')
+            .select('title, type, release_date, label, notes')
+            .lt('release_date', today)
+            .order('release_date', { ascending: false })
+            .limit(6),
         ])
         if (cancelled) return
         setUpcomingGigs((upRes.data || []) as GigRow[])
         setPastGigs((pastRes.data || []) as GigRow[])
+        setUpcomingReleases((upRelRes.data || []) as ReleaseRow[])
+        setPastReleases((pastRelRes.data || []) as ReleaseRow[])
       } catch {
         if (cancelled) return
         setUpcomingGigs([])
         setPastGigs([])
+        setUpcomingReleases([])
+        setPastReleases([])
       }
     })()
     return () => { cancelled = true }
@@ -345,7 +419,36 @@ export function PhaseVoice({
     const pastMatched = pastGigs.filter(matches)
     const pastRest = pastGigs.filter(g => !pastMatched.includes(g))
 
+    const fmtRel = (r: ReleaseRow) => {
+      const when = r.release_date ? new Date(r.release_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+      const parts = [r.title, r.type, r.label, when].filter(Boolean).join(' · ')
+      const notes = (r.notes || '').replace(/\s+/g, ' ').trim().slice(0, 120)
+      return notes ? `${parts} — ${notes}` : parts
+    }
+    const matchesRel = (r: ReleaseRow) => {
+      const needles = [r.title, r.label]
+        .filter(Boolean)
+        .map(s => (s as string).toLowerCase().split(/[^a-z0-9]+/))
+        .flat()
+        .filter(tok => tok.length >= 4)
+      return needles.some(n => haystack.includes(n))
+    }
+    const upRelMatched = upcomingReleases.filter(matchesRel)
+    const upRelRest = upcomingReleases.filter(r => !upRelMatched.includes(r))
+    const pastRelMatched = pastReleases.filter(matchesRel)
+    const pastRelRest = pastReleases.filter(r => !pastRelMatched.includes(r))
+
     const lines: string[] = []
+    // Releases are the strongest priority anchors when they match — a
+    // release window trumps a tour date for caption framing.
+    if (upRelMatched.length) {
+      lines.push('RELEASE MATCH — UPCOMING (the clip ties directly to this release; anchor here first):')
+      upRelMatched.forEach(r => lines.push(`  • ${fmtRel(r)}`))
+    }
+    if (pastRelMatched.length) {
+      lines.push('RELEASE MATCH — RECENT (reference as the just-released record if relevant):')
+      pastRelMatched.forEach(r => lines.push(`  • ${fmtRel(r)}`))
+    }
     if (upcomingMatched.length) {
       lines.push('LOCATION MATCH — UPCOMING (the clip looks tied to these shows; reference the relevant one):')
       upcomingMatched.forEach(g => lines.push(`  • ${fmt(g)}`))
@@ -354,16 +457,24 @@ export function PhaseVoice({
       lines.push('LOCATION MATCH — PAST (use "we\'re back in…" / "after [venue]" framing if appropriate):')
       pastMatched.forEach(g => lines.push(`  • ${fmt(g)}`))
     }
+    if (upRelRest.length) {
+      lines.push('UPCOMING RELEASES (pipeline — reference only if clip relates):')
+      upRelRest.slice(0, 3).forEach(r => lines.push(`  • ${fmtRel(r)}`))
+    }
     if (upcomingRest.length) {
       lines.push('NEXT SHOWS (ordered by date):')
       upcomingRest.slice(0, 3).forEach(g => lines.push(`  • ${fmt(g)}`))
+    }
+    if (pastRelRest.length && !pastRelMatched.length) {
+      lines.push('RECENT RELEASES (background context):')
+      pastRelRest.slice(0, 2).forEach(r => lines.push(`  • ${fmtRel(r)}`))
     }
     if (pastRest.length && !pastMatched.length) {
       lines.push('RECENT SHOWS (background context):')
       pastRest.slice(0, 3).forEach(g => lines.push(`  • ${fmt(g)}`))
     }
     setPriorityContext(lines.length ? lines.join('\n') : null)
-  }, [upcomingGigs, pastGigs, fileName, mergedContext])
+  }, [upcomingGigs, pastGigs, upcomingReleases, pastReleases, fileName, mergedContext])
 
   const gatedSend = useGatedSend()
 
@@ -596,7 +707,9 @@ export function PhaseVoice({
           platform,
           summary: `Schedule ${targetLabel} · ${prettyWhen}`,
           text: current,
-          media: thumbnail ? [thumbnail] : [],
+          media: isCarousel
+            ? [thumbnail, ...carouselExtras].filter((u): u is string => !!u)
+            : thumbnail ? [thumbnail] : [],
           meta: scheduleMeta,
           scheduledFor: prettyWhen,
           firstComment: tagPayload.first_comment,
@@ -605,7 +718,7 @@ export function PhaseVoice({
           collaborators: tagPayload.collaborators,
           altText: tagPayload.alt_text,
           shareToFeed: tagPayload.share_to_feed,
-          mediaAspect: isVideo ? 'story' : 'square',
+          mediaAspect: isVideo ? 'story' : (isCarousel ? 'portrait' : 'square'),
         }),
         onSent: () => {
           setScheduledMsg(`scheduled for ${prettyWhen}`)
@@ -648,24 +761,40 @@ export function PhaseVoice({
       }
 
       let mediaUrl: string | null = null
-      if (needsMedia && file) {
+      let carouselUrls: string[] | null = null
+      const uploadOne = async (f: File | Blob, filename?: string): Promise<string> => {
         const fd = new FormData()
-        fd.append('file', file)
-        const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd, redirect: 'error' })
-          .catch((e) => { throw new Error(`upload network error — probably a 302 to /login (${e instanceof Error ? e.message : 'unknown'})`) })
-        if (!uploadRes.ok) {
-          const txt = await uploadRes.text().catch(() => '')
-          throw new Error(`upload failed (${uploadRes.status}): ${txt.slice(0, 160)}`)
+        fd.append('file', f, filename)
+        const r = await fetch('/api/upload', { method: 'POST', body: fd, redirect: 'error' })
+          .catch((e) => { throw new Error(`upload network error (${e instanceof Error ? e.message : 'unknown'})`) })
+        if (!r.ok) {
+          const txt = await r.text().catch(() => '')
+          throw new Error(`upload failed (${r.status}): ${txt.slice(0, 160)}`)
         }
-        // Explicit JSON check — if auth middleware returns HTML, .json() throws
-        // in a way that used to swallow silently.
-        const ct = uploadRes.headers.get('content-type') || ''
+        const ct = r.headers.get('content-type') || ''
         if (!ct.includes('application/json')) {
-          throw new Error(`upload returned non-JSON (${ct || 'no content-type'}) — likely a redirect to /login. Sign in again.`)
+          throw new Error(`upload returned non-JSON (${ct || 'no content-type'}) — likely a /login redirect. Sign in again.`)
         }
-        const uploaded = await uploadRes.json() as { url?: string }
-        if (!uploaded.url) throw new Error('upload returned no url')
-        mediaUrl = uploaded.url
+        const j = await r.json() as { url?: string }
+        if (!j.url) throw new Error('upload returned no url')
+        return j.url
+      }
+      let mediaItems: Array<{ url: string; is_video: boolean }> | null = null
+      if (needsMedia && file) {
+        mediaUrl = await uploadOne(file)
+        // Mixed carousel: hero + extras (any combo of images/videos).
+        if (carouselExtraFiles.length > 0) {
+          const extraUploads = await Promise.all(
+            carouselExtraFiles.map(async (f) => {
+              const url = await uploadOne(f, f.name)
+              return { url, is_video: f.type.startsWith('video/') }
+            }),
+          )
+          mediaItems = [{ url: mediaUrl, is_video: isVideo }, ...extraUploads]
+          carouselUrls = mediaItems.every(e => !e.is_video)
+            ? mediaItems.map(m => m.url)
+            : null
+        }
       }
 
       const targetLabel = allPlatforms.map(p => PLATFORM_LABEL[p]).join(' + ')
@@ -681,6 +810,8 @@ export function PhaseVoice({
         platforms: allPlatforms,
         caption: current,
         media_url: mediaUrl,
+        image_urls: carouselUrls,
+        media_items: mediaItems,
         is_video: isVideo,
         user_tags: tagPayload.user_tags.length ? tagPayload.user_tags : null,
         first_comment: tagPayload.first_comment || null,
@@ -701,7 +832,9 @@ export function PhaseVoice({
           platform,
           summary: `Publish to ${targetLabel}`,
           text: current,
-          media: thumbnail ? [thumbnail] : [],
+          media: isCarousel
+            ? [thumbnail, ...carouselExtras].filter((u): u is string => !!u)
+            : thumbnail ? [thumbnail] : [],
           meta: publishMeta,
           firstComment: tagPayload.first_comment,
           locationName: tagPayload.location_name,
@@ -709,7 +842,7 @@ export function PhaseVoice({
           collaborators: tagPayload.collaborators,
           altText: tagPayload.alt_text,
           shareToFeed: tagPayload.share_to_feed,
-          mediaAspect: isVideo ? 'story' : 'square',
+          mediaAspect: isVideo ? 'story' : (isCarousel ? 'portrait' : 'square'),
         }),
       })
 
@@ -792,6 +925,118 @@ export function PhaseVoice({
             ))}
           </div>
         </div>
+
+        {/* Carousel reorder strip — top of column so the hero swap + ordering
+            is visible before the user starts working the caption. Every slot
+            including slot 1 is swappable (users wanted to change the hero
+            without redoing the scan). Video slots use a real extracted frame;
+            if the frame hasn't arrived yet we show a ▶ placeholder. */}
+        {isCarousel && file && onReorderCarousel && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              padding: 10,
+              border: `1px solid ${BRT.borderBright}`,
+              background: BRT.ticketLo,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 10, letterSpacing: '0.26em', fontWeight: 700, textTransform: 'uppercase', color: '#9a9a9a' }}>
+              <span style={{ color: BRT.red }}>◉ Carousel order</span>
+              <span>{allCarouselFiles.length} slides · slot 1 = hero</span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+              {allCarouselFiles.map((f, i) => {
+                const isVid = f.type.startsWith('video/')
+                const key = `${f.name}|${f.size}|${f.lastModified}`
+                let src: string | null = null
+                if (isVid) {
+                  src = videoThumbs[key] ?? null
+                } else if (i === 0) {
+                  src = thumbnail
+                } else {
+                  const extraIdx = i - 1
+                  const imageIdxAmongExtras = carouselExtraFiles.slice(0, extraIdx).filter(x => x.type.startsWith('image/')).length
+                  src = carouselExtraFiles[extraIdx]?.type.startsWith('image/') ? (carouselExtras[imageIdxAmongExtras] ?? null) : null
+                }
+                return (
+                  <div
+                    key={`${key}-${i}`}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 4,
+                      flexShrink: 0,
+                      width: 76,
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: 76,
+                        height: 95,
+                        background: '#0a0a0a',
+                        border: `1px solid ${i === 0 ? BRT.red : BRT.borderBright}`,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {src ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BRT.dimmest, fontSize: 9, letterSpacing: '0.22em', fontWeight: 700 }}>
+                          {isVid ? '▶' : '…'}
+                        </div>
+                      )}
+                      <div style={{ position: 'absolute', top: 2, left: 2, background: 'rgba(0,0,0,0.7)', color: BRT.ink, fontSize: 9, fontWeight: 700, padding: '1px 4px', letterSpacing: '0.1em' }}>
+                        {i + 1}
+                      </div>
+                      {isVid && (
+                        <div style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.7)', color: BRT.red, fontSize: 9, fontWeight: 700, padding: '1px 4px' }}>
+                          ▶
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 3 }}>
+                      <button
+                        onClick={() => onReorderCarousel(i, i - 1)}
+                        disabled={i === 0}
+                        style={{
+                          padding: '2px 6px',
+                          background: 'transparent',
+                          border: `1px solid ${i === 0 ? BRT.dimmest : BRT.borderBright}`,
+                          color: i === 0 ? BRT.dimmest : BRT.ink,
+                          fontSize: 9,
+                          fontFamily: 'inherit',
+                          cursor: i === 0 ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        ◀
+                      </button>
+                      <button
+                        onClick={() => onReorderCarousel(i, i + 1)}
+                        disabled={i === allCarouselFiles.length - 1}
+                        style={{
+                          padding: '2px 6px',
+                          background: 'transparent',
+                          border: `1px solid ${i === allCarouselFiles.length - 1 ? BRT.dimmest : BRT.borderBright}`,
+                          color: i === allCarouselFiles.length - 1 ? BRT.dimmest : BRT.ink,
+                          fontSize: 9,
+                          fontFamily: 'inherit',
+                          cursor: i === allCarouselFiles.length - 1 ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        ▶
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Voice blend banner — always visible, including during generation.
             The user sees WHO is shaping the caption before they see the
@@ -1550,6 +1795,8 @@ export function PhaseVoice({
           </label>
         ) : null}
 
+        {null /* carousel order strip moved to top of column */}
+
         <div
           style={{
             display: 'flex',
@@ -1804,7 +2051,7 @@ export function PhaseVoice({
           <div style={{ fontSize: 9, letterSpacing: '0.28em', color: '#9a9a9a', fontWeight: 700, textTransform: 'uppercase' }}>
             ◉ Target
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Object.keys(PLATFORM_LABEL).length}, 1fr)`, gap: 4 }}>
             {(Object.keys(PLATFORM_LABEL) as Platform[]).map(p => (
               <button
                 key={p}
@@ -1832,7 +2079,7 @@ export function PhaseVoice({
           <div style={{ fontSize: 9, letterSpacing: '0.28em', color: '#9a9a9a', fontWeight: 700, textTransform: 'uppercase', marginTop: 6 }}>
             ◉ Also post to
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Object.keys(PLATFORM_LABEL).length - 1}, 1fr)`, gap: 4 }}>
             {(Object.keys(PLATFORM_LABEL) as Platform[])
               .filter(p => p !== platform)
               .map(p => {

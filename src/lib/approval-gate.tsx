@@ -513,9 +513,37 @@ function PostPreview({ config }: { config: GateConfig }) {
           <div style={{ fontSize: 18, color: '#a8a8a8', letterSpacing: 2 }}>⋯</div>
         </div>
 
-        {/* Media — aspect-correct, tag pills overlayed on bottom-left */}
+        {/* Media — aspect-correct, tag pills overlayed on bottom-left.
+            Carousel (media.length > 1): horizontal scroll-snap strip so the
+            user can swipe through every slide in the preview, same as IG. */}
         <div style={{ position: 'relative', width: '100%', paddingTop: aspectPT, background: '#000' }}>
-          {media[0] ? (
+          {media.length > 1 ? (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                overflowX: 'auto',
+                scrollSnapType: 'x mandatory',
+              }}
+            >
+              {media.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={src}
+                  alt={`Slide ${i + 1}`}
+                  style={{
+                    flex: '0 0 100%',
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    scrollSnapAlign: 'start',
+                  }}
+                />
+              ))}
+            </div>
+          ) : media[0] ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={media[0]}

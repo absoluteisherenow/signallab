@@ -2,11 +2,18 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { BRT } from '@/lib/design/brt'
+import { isMtsFile, transcodeMtsToMp4 } from '@/lib/ffmpeg-transcode'
 
 interface Props {
   onMedia: (files: File[]) => void
   voiceTrained?: boolean
+  onReject?: (message: string) => void
 }
+
+type TranscodeStatus =
+  | { kind: 'idle' }
+  | { kind: 'loading'; fileName: string }
+  | { kind: 'running'; fileName: string; percent: number; index: number; total: number }
 
 /**
  * PhaseDrop — Phase 1 of the chain. Full-body hero dropzone.
@@ -17,19 +24,63 @@ interface Props {
  * by focus rules, or get blocked when the trigger isn't in the event loop's
  * user-gesture stack. No programmatic `.click()` call, no re-entry guards.
  */
-export function PhaseDrop({ onMedia, voiceTrained = false }: Props) {
+export function PhaseDrop({ onMedia, voiceTrained = false, onReject }: Props) {
   const inputId = 'chain-phase-drop-input'
   const [drag, setDrag] = useState(false)
+  const [transcode, setTranscode] = useState<TranscodeStatus>({ kind: 'idle' })
   const dragDepthRef = useRef(0) // track nested dragenter/leave across children
 
-  const handleFiles = useCallback((files: FileList | null) => {
+  const handleFiles = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return
-    const arr = Array.from(files).filter((f) =>
-      /^image\/|^video\//.test(f.type)
-    )
-    if (arr.length === 0) return
+    const all = Array.from(files)
+
+    // MTS / M2TS: MPEG-TS camera containers. Chrome has no decoder, so we
+    // transcode in-browser via ffmpeg.wasm (remux H.264 stream, re-encode
+    // audio only — ~50× faster than full re-encode) before handing the
+    // resulting MP4 to the scan pipeline.
+    const mts = all.filter(isMtsFile)
+    const nonMts = all.filter((f) => !isMtsFile(f))
+
+    let converted: File[] = []
+    if (mts.length > 0) {
+      try {
+        for (let i = 0; i < mts.length; i++) {
+          const f = mts[i]
+          setTranscode({ kind: 'loading', fileName: f.name })
+          const mp4 = await transcodeMtsToMp4(f, (p) => {
+            if (p.stage === 'transcoding') {
+              setTranscode({
+                kind: 'running',
+                fileName: f.name,
+                percent: p.percent ?? 0,
+                index: i,
+                total: mts.length,
+              })
+            }
+          })
+          converted.push(mp4)
+        }
+      } catch (e) {
+        setTranscode({ kind: 'idle' })
+        onReject?.(
+          'MTS transcode failed: ' +
+            (e instanceof Error ? e.message : String(e)) +
+            '. Fallback: convert with ffmpeg CLI instead.',
+        )
+        return
+      } finally {
+        setTranscode({ kind: 'idle' })
+      }
+    }
+
+    const merged = [...nonMts, ...converted]
+    const arr = merged.filter((f) => /^image\/|^video\//.test(f.type))
+    if (arr.length === 0) {
+      onReject?.('No supported media in that drop. Use images or video (MP4 / MOV / WebM).')
+      return
+    }
     onMedia(arr)
-  }, [onMedia])
+  }, [onMedia, onReject])
 
   return (
     <label
@@ -156,6 +207,95 @@ export function PhaseDrop({ onMedia, voiceTrained = false }: Props) {
       >
         MP4 · MOV · PNG · JPG · or paste a link
       </div>
+
+      {transcode.kind !== 'idle' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0,0,0,0.72)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 14,
+            zIndex: 10,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.32em',
+              color: BRT.red,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+            }}
+          >
+            ◉ Transcoding MTS → MP4
+          </div>
+          <div
+            style={{
+              fontSize: 'clamp(48px, 8vw, 96px)',
+              fontWeight: 900,
+              lineHeight: 0.9,
+              letterSpacing: '-0.04em',
+              color: BRT.ink,
+            }}
+          >
+            {transcode.kind === 'loading'
+              ? 'LOADING'
+              : `${transcode.percent}%`}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              letterSpacing: '0.22em',
+              color: BRT.dimmest,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              maxWidth: '80%',
+              textAlign: 'center',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {transcode.kind === 'loading'
+              ? `Loading ffmpeg · ${transcode.fileName}`
+              : `${transcode.fileName} · ${transcode.index + 1} / ${transcode.total}`}
+          </div>
+          {transcode.kind === 'running' && (
+            <div
+              style={{
+                width: '60%',
+                height: 4,
+                background: 'rgba(255,255,255,0.08)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: `${transcode.percent}%`,
+                  height: '100%',
+                  background: BRT.red,
+                  transition: 'width .2s ease',
+                }}
+              />
+            </div>
+          )}
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.22em',
+              color: BRT.dimmest,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+            }}
+          >
+            H.264 remux · ~50× faster than re-encode
+          </div>
+        </div>
+      )}
 
       <div
         style={{
