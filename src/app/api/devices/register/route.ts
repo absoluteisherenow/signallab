@@ -43,7 +43,10 @@ export async function POST(req: NextRequest) {
   if (!ALLOWED_PLATFORMS.has(platform)) {
     return NextResponse.json({ error: `platform must be one of: ${Array.from(ALLOWED_PLATFORMS).join(', ')}` }, { status: 400 })
   }
-  if (!token || token.length < 32 || token.length > 400) {
+  // APNs tokens ~64 chars, FCM ~150-200. Web push endpoints are full URLs
+  // (Mozilla autopush runs 200+, Microsoft WNS up to ~500). Raise ceiling
+  // so web platform registrations don't get rejected.
+  if (!token || token.length < 32 || token.length > 2048) {
     return NextResponse.json({ error: 'token missing or wrong length' }, { status: 400 })
   }
 

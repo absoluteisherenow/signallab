@@ -66,3 +66,6 @@ android/.gradle/
 android/app/build/
 android/build/
 /.wrangler/
+
+# Generated service worker (see scripts/sw.template.js)
+/public/sw.js

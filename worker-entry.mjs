@@ -6,6 +6,7 @@
 // own fetch handler (so the route runs in the same isolate, with full env).
 
 import openNextWorker from "./.open-next/worker.js";
+import { captureError } from "./src/lib/sentry-worker.mjs";
 
 // ── Routes that run EVERY 5 minutes (high-frequency) ──────────────────────
 const EVERY_TICK_ROUTES = [
@@ -42,9 +43,38 @@ function shouldRunDaily(hourUTC) {
   return now.getUTCHours() === hourUTC && now.getUTCMinutes() < 5;
 }
 
+// Sentry tags that apply to every event from this worker. The release is
+// populated by the build (CF_PAGES_COMMIT_SHA / GITHUB_SHA) so we can slice
+// errors by deploy.
+const RELEASE =
+  (typeof globalThis !== "undefined" && (globalThis.CF_PAGES_COMMIT_SHA || globalThis.GITHUB_SHA)) ||
+  process.env.CF_PAGES_COMMIT_SHA ||
+  process.env.GITHUB_SHA ||
+  "unknown";
+
 export default {
-  // Forward all HTTP traffic to the OpenNext worker unchanged
-  fetch: openNextWorker.fetch.bind(openNextWorker),
+  // Forward all HTTP traffic to the OpenNext worker. Wrap in try/catch so
+  // runtime crashes are reported to Sentry (when SENTRY_DSN is set) before
+  // the response is returned. We still rethrow so CF serves its default 500.
+  async fetch(req, env, ctx) {
+    try {
+      return await openNextWorker.fetch(req, env, ctx);
+    } catch (err) {
+      if (env.SENTRY_DSN) {
+        const url = new URL(req.url);
+        ctx.waitUntil(
+          captureError(env.SENTRY_DSN, {
+            error: err,
+            environment: env.NEXT_PUBLIC_APP_URL?.includes("localhost") ? "development" : "production",
+            release: RELEASE,
+            tags: { handler: "fetch", method: req.method, path: url.pathname },
+            extra: { url: req.url },
+          })
+        );
+      }
+      throw err;
+    }
+  },
 
   // Cloudflare scheduled handler — fires on the cron triggers in wrangler.jsonc
   async scheduled(event, env, ctx) {
@@ -58,8 +88,8 @@ export default {
     ]);
 
     async function callRoute(path) {
+      const method = POST_ROUTES.has(path) ? "POST" : "GET";
       try {
-        const method = POST_ROUTES.has(path) ? "POST" : "GET";
         const req = new Request(`${base}${path}`, {
           method,
           headers: { "x-vercel-cron": "1", ...auth },
@@ -67,8 +97,31 @@ export default {
         const res = await openNextWorker.fetch(req, env, ctx);
         const text = await res.text().catch(() => "");
         console.log(`[cron] ${method} ${path} → ${res.status} ${text.slice(0, 200)}`);
+        // Non-2xx from a cron route is an error even if fetch didn't throw.
+        // Report so we don't silently drift (half of our cron failures are
+        // 500s from the handler, not thrown exceptions at this layer).
+        if (!res.ok && env.SENTRY_DSN) {
+          ctx.waitUntil(
+            captureError(env.SENTRY_DSN, {
+              error: new Error(`cron ${method} ${path} responded ${res.status}`),
+              level: res.status >= 500 ? "error" : "warning",
+              release: RELEASE,
+              tags: { handler: "scheduled", path, method, status: String(res.status) },
+              extra: { body: text.slice(0, 500) },
+            })
+          );
+        }
       } catch (err) {
         console.error(`[cron] ${path} failed:`, err);
+        if (env.SENTRY_DSN) {
+          ctx.waitUntil(
+            captureError(env.SENTRY_DSN, {
+              error: err,
+              release: RELEASE,
+              tags: { handler: "scheduled", path, method },
+            })
+          );
+        }
       }
     }
 

@@ -7,7 +7,7 @@
     "dev": "next dev",
     "check:outbound": "bash scripts/check-outbound-gated.sh",
     "check:brain": "bash scripts/check-brain-wired.sh",
-    "prebuild": "npm run check:outbound && npm run check:brain",
+    "prebuild": "npm run check:outbound && npm run check:brain && node scripts/generate-sw.mjs",
     "build": "next build",
     "postbuild": "rm -f .next/server/pages/*.html",
     "start": "next start",
