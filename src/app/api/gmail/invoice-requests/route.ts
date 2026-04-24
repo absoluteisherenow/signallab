@@ -685,8 +685,13 @@ async function handleInvoiceAmendment(
   subject: string,
   threadId: string,
 ): Promise<ProcessedThread> {
-  // Find the most recent invoice on the matched gig (or by title tokens if no
-  // gig match). Append amendment request to notes so user can re-send correctly.
+  // Find the most recent invoice to amend. Priority:
+  //   1. Exact gig match (when Claude gave us a gig_date + matchGig succeeded)
+  //   2. Title-token fallback — billing-card images often lack a date, so the
+  //      gig matcher returns null and we'd previously drop the amendment onto
+  //      nothing. Match on distinctive title/venue/city tokens against recent
+  //      invoices (last 180d) so "Invoice details update for Soho house" still
+  //      lands on the existing overdue Soho House invoice.
   let invoice: any = null
   if (matched?.id) {
     const { data } = await supabase
@@ -699,16 +704,49 @@ async function handleInvoiceAmendment(
       .maybeSingle()
     invoice = data
   }
+  if (!invoice) {
+    const tokens = [ex.venue, ex.city, ex.gig_title, subject]
+      .map(s => norm(s).split(' ').filter(t => t.length >= 4))
+      .flat()
+    const uniq = Array.from(new Set(tokens))
+    if (uniq.length) {
+      const since = new Date(Date.now() - 180 * 86400000).toISOString()
+      const { data: cands } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('created_at', since)
+        .in('status', ['draft', 'pending', 'overdue', 'sent'])
+        .order('created_at', { ascending: false })
+      let best: { inv: any; score: number } | null = null
+      for (const c of (cands || [])) {
+        const hay = norm(`${c.gig_title || ''} ${c.notes || ''}`)
+        const hits = uniq.filter(t => hay.includes(t)).length
+        if (hits >= 1 && (!best || hits > best.score)) best = { inv: c, score: hits }
+      }
+      if (best && best.score >= 1) invoice = best.inv
+    }
+  }
 
   const a = ex.amendment || ({} as any)
   const summary = a.summary || `${a.field || 'field'} → ${a.new_value || 'update'}`
   const block = `[Amendment requested — ${new Date().toISOString().slice(0, 10)}]\n${summary}`
 
   if (invoice) {
-    await supabase.from('invoices').update({
+    // Write structured billing fields so the PDF template renders the new
+    // entity/address on re-send. These columns were added specifically to
+    // support auto-amendment — without them we'd only be appending to notes.
+    const updates: Record<string, any> = {
       notes: appendToNotes(invoice.notes, block),
       status: 'draft',
-    }).eq('id', invoice.id).eq('user_id', userId)
+    }
+    if (ex.billing_entity) updates.billing_entity = ex.billing_entity
+    if (ex.billing_address) updates.billing_address = ex.billing_address
+    if (ex.vat_number) updates.vat_number = ex.vat_number
+    if (ex.recipient_email && !invoice.sent_to_promoter_email) {
+      updates.sent_to_promoter_email = ex.recipient_email
+    }
+    await supabase.from('invoices').update(updates).eq('id', invoice.id).eq('user_id', userId)
   }
   if (matched) {
     await supabase.from('gigs').update({

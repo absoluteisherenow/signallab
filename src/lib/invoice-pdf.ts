@@ -138,11 +138,27 @@ export async function buildInvoicePdf(id: string): Promise<Uint8Array | null> {
   }
   y -= 16
 
-  // Bill to
-  const promoterName = (invoice.notes || '').trim()
-  if (promoterName) {
+  // Bill to — prefer structured billing fields (populated by the Gmail
+  // amendment scraper), fall back to free-text notes for legacy invoices.
+  const billingLines: string[] = []
+  const be = (invoice.billing_entity || '').trim()
+  const ba = (invoice.billing_address || '').trim()
+  const vat = (invoice.vat_number || '').trim()
+  if (be) billingLines.push(be)
+  if (ba) {
+    for (const seg of ba.split(/\n|,\s*/)) {
+      const t = seg.trim()
+      if (t) billingLines.push(t)
+    }
+  }
+  if (vat) billingLines.push(`VAT: ${vat}`)
+  if (!billingLines.length) {
+    const legacy = (invoice.notes || '').trim()
+    if (legacy) billingLines.push(...legacy.split('\n').slice(0, 6))
+  }
+  if (billingLines.length) {
     y = section(page, 'BILL TO', y, margin, contentW, bold, dim)
-    for (const line of promoterName.split('\n').slice(0, 6)) {
+    for (const line of billingLines.slice(0, 8)) {
       page.drawText(truncate(line, 80), { x: margin, y: y - 12, size: 10, font, color: ink })
       y -= 14
     }
