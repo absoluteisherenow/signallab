@@ -811,7 +811,30 @@ export function PhaseVoice({
 
       let mediaUrl: string | null = null
       let carouselUrls: string[] | null = null
+      // R2 upload cache — keyed by {name|size|lastModified}. A failed IG
+      // publish no longer means re-uploading 500MB of video; we reuse the
+      // R2 URL from the previous attempt. Lives in sessionStorage so it
+      // survives a page hang but dies when the tab closes.
+      const UPLOAD_CACHE_KEY = 'signallab:r2UploadCache:v1'
+      const readCache = (): Record<string, string> => {
+        try {
+          const raw = window.sessionStorage.getItem(UPLOAD_CACHE_KEY)
+          return raw ? JSON.parse(raw) : {}
+        } catch { return {} }
+      }
+      const writeCache = (c: Record<string, string>) => {
+        try { window.sessionStorage.setItem(UPLOAD_CACHE_KEY, JSON.stringify(c)) } catch {}
+      }
+      const fingerprint = (f: File | Blob): string | null => {
+        if (f instanceof File) return `${f.name}|${f.size}|${f.lastModified}`
+        return null
+      }
       const uploadOne = async (f: File | Blob, filename?: string): Promise<string> => {
+        const fp = fingerprint(f)
+        if (fp) {
+          const cached = readCache()[fp]
+          if (cached) return cached
+        }
         const fd = new FormData()
         fd.append('file', f, filename)
         const r = await fetch('/api/upload', { method: 'POST', body: fd, redirect: 'error' })
@@ -826,6 +849,11 @@ export function PhaseVoice({
         }
         const j = await r.json() as { url?: string }
         if (!j.url) throw new Error('upload returned no url')
+        if (fp) {
+          const c = readCache()
+          c[fp] = j.url
+          writeCache(c)
+        }
         return j.url
       }
       let mediaItems: Array<{ url: string; is_video: boolean }> | null = null
@@ -879,7 +907,12 @@ export function PhaseVoice({
         thumb_offset: isVideo && coverOffsetMs != null ? coverOffsetMs : null,
       }
 
-      const result = await gatedSend<unknown, { success?: boolean; results?: Array<{ platform: string; ok: boolean; error?: string }> }>({
+      type FanoutResponse = {
+        success?: boolean
+        results?: Array<{ platform: string; ok: boolean; error?: string }>
+        job_id?: string
+      }
+      const result = await gatedSend<unknown, FanoutResponse>({
         endpoint: '/api/social/fanout/post',
         skipServerPreview: true,
         previewBody: fanoutBody,
@@ -902,15 +935,42 @@ export function PhaseVoice({
         }),
       })
 
-      // Close every silent-fail hole. Either we surface success, a platform
-      // error, a top-level error, or an explicit "nothing happened" so the
-      // user never clicks into a black box again.
+      // Async job pattern: POST returns {job_id}, we poll /status/{id} until
+      // the backend marks it done/failed. Phase label keeps the user anchored
+      // during the (up to 5-min) Meta processing window. If the backend
+      // fell back to sync mode (tests), `results` is already present.
+      let finalData: FanoutResponse | null = result.data
+      if (result.confirmed && finalData?.job_id && !finalData.results) {
+        const jobId = finalData.job_id
+        setPublishPhase('queued…')
+        const deadline = Date.now() + 10 * 60 * 1000
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 3000))
+          const sr = await fetch(`/api/social/fanout/status/${jobId}`)
+          if (!sr.ok) continue
+          const sj = (await sr.json()) as {
+            status?: string
+            phase?: string
+            result?: FanoutResponse
+            error?: string
+          }
+          if (sj.phase) setPublishPhase(sj.phase)
+          if (sj.status === 'done' || sj.status === 'failed') {
+            finalData = sj.result || (sj.error ? { success: false, results: [{ platform: 'instagram', ok: false, error: sj.error }] } : null)
+            break
+          }
+        }
+        if (!finalData || !finalData.results) {
+          setErr('publish timed out after 10 minutes — Meta may still process the carousel. Check Instagram before retrying.')
+          return
+        }
+      }
+
       if (!result.confirmed) {
         if (result.error) setErr(result.error)
-        // user cancelled the modal — stay quiet, intentional dismiss
       } else {
-        const fails = (result.data?.results || []).filter(r => !r.ok)
-        const wins = (result.data?.results || []).filter(r => r.ok)
+        const fails = (finalData?.results || []).filter(r => !r.ok)
+        const wins = (finalData?.results || []).filter(r => r.ok)
         if (fails.length && wins.length) {
           setErr(`partial: ${fails.map(f => `${f.platform}: ${f.error || 'failed'}`).join(' · ')}`)
           setPublishedMsg(`posted to ${wins.map(w => w.platform).join(' + ')}`)
@@ -919,7 +979,7 @@ export function PhaseVoice({
           setErr(fails.map(f => `${f.platform}: ${f.error || 'failed'}`).join(' · '))
         } else if (result.error) {
           setErr(result.error)
-        } else if (result.data?.success || wins.length) {
+        } else if (finalData?.success || wins.length) {
           setPublishedMsg(`posted to ${wins.length ? wins.map(w => w.platform).join(' + ') : targetLabel}`)
           clearDraftStorage()
         } else {

@@ -1,34 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireConfirmed } from '@/lib/require-confirmed'
+import { requireUser } from '@/lib/api-auth'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { PLATFORM_LIMITS } from '@/components/broadcast/chain/types'
 import { publishTikTok } from '@/lib/social-publish/tiktok'
 import { POST as instagramPost } from '@/app/api/social/instagram/post/route'
 import { POST as youtubePost } from '@/app/api/social/youtube/post/route'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 export const runtime = 'nodejs'
 
 /**
- * Fanout publish — gates once, then calls each platform's /post endpoint
- * server-side with the shared caption + media. Caption is auto-trimmed per
- * platform limit; YouTube auto-appends #Shorts downstream.
+ * Fanout publish — async job pattern.
  *
- * Body shape:
- *   {
- *     platforms: Platform[],          // ordered, primary first
- *     caption: string,                 // master caption
- *     media_url: string | null,        // R2 URL (already uploaded)
- *     is_video: boolean,
- *     user_tags, first_comment, hashtags, collaborators, location_id,
- *     alt_text, share_to_feed, thumb_offset,
- *     confirmed: true
- *   }
+ * The old single-request flow could spend 2–5 minutes waiting on Meta to
+ * finish transcoding carousel videos, which blew past the Cloudflare Worker
+ * wall-clock limit AND left the user staring at a frozen spinner with no
+ * feedback. Now:
+ *   1. Client POSTs the fanout body → we insert a `publish_jobs` row, kick
+ *      the heavy work off via `ctx.waitUntil`, return `{job_id}` immediately.
+ *   2. Client polls `/api/social/fanout/status/{id}` every few seconds,
+ *      reads `phase` (human string) + `status` (queued|working|done|failed).
+ *   3. When status = done, result holds the per-platform outcomes.
  *
- * Response: { success, results: [{ platform, ok, post_id?, error? }] }
+ * Backward-compat: pass `?sync=1` to block until completion (used by tests
+ * and scheduled-post callers that already expect sync semantics).
  */
+
+type FanoutPayload = {
+  platforms: Array<'instagram' | 'tiktok' | 'threads' | 'youtube'>
+  caption: string
+  media_url: string | null
+  image_urls: string[] | null
+  media_items: Array<{ url: string; is_video: boolean }> | null
+  is_video: boolean
+  user_tags: unknown
+  first_comment: string | null
+  hashtags: string[] | null
+  collaborators: string[] | null
+  location_id: string | null
+  alt_text: string | null
+  share_to_feed: boolean | null
+  thumb_offset: number | null
+  cookie: string
+  base_url: string
+}
+
+type FanoutResult = {
+  success: boolean
+  results: Array<{ platform: string; ok: boolean; post_id?: string; error?: string }>
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const gate = requireConfirmed(body)
   if (gate) return gate
+
+  const auth = await requireUser(req)
+  if (auth instanceof NextResponse) return auth
+  const { user, serviceClient } = auth
 
   const {
     platforms,
@@ -45,22 +75,7 @@ export async function POST(req: NextRequest) {
     alt_text,
     share_to_feed,
     thumb_offset,
-  } = body as {
-    platforms?: Array<'instagram' | 'tiktok' | 'threads' | 'youtube'>
-    caption?: string
-    media_url?: string | null
-    image_urls?: string[] | null
-    media_items?: Array<{ url: string; is_video: boolean }> | null
-    is_video?: boolean
-    user_tags?: unknown
-    first_comment?: string | null
-    hashtags?: string[] | null
-    collaborators?: string[] | null
-    location_id?: string | null
-    alt_text?: string | null
-    share_to_feed?: boolean
-    thumb_offset?: number | null
-  }
+  } = body as Partial<FanoutPayload>
 
   if (!platforms || !platforms.length) {
     return NextResponse.json({ error: 'platforms required' }, { status: 400 })
@@ -69,15 +84,111 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'caption required' }, { status: 400 })
   }
 
-  const results: Array<{ platform: string; ok: boolean; post_id?: string; error?: string }> = []
+  const payload: FanoutPayload = {
+    platforms,
+    caption,
+    media_url: media_url ?? null,
+    image_urls: image_urls ?? null,
+    media_items: media_items ?? null,
+    is_video: !!is_video,
+    user_tags: user_tags ?? null,
+    first_comment: first_comment ?? null,
+    hashtags: hashtags ?? null,
+    collaborators: collaborators ?? null,
+    location_id: location_id ?? null,
+    alt_text: alt_text ?? null,
+    share_to_feed: share_to_feed ?? null,
+    thumb_offset: thumb_offset ?? null,
+    cookie: req.headers.get('cookie') || '',
+    base_url: new URL(req.url).origin,
+  }
+
+  // Sync mode — legacy callers (scheduled-post cron). Runs inline, returns
+  // the final result. Not recommended for user-facing paths because the
+  // Worker can time out mid-publish.
+  const isSync = new URL(req.url).searchParams.get('sync') === '1'
+  if (isSync) {
+    const result = await runFanout(payload)
+    return NextResponse.json(result)
+  }
+
+  // Async mode — insert row, kick off ctx.waitUntil, return job id.
+  const { data: job, error } = await serviceClient
+    .from('publish_jobs')
+    .insert({
+      user_id: user.id,
+      status: 'queued',
+      phase: 'queued',
+      payload: { ...payload, cookie: '[redacted]' }, // don't persist cookies
+    })
+    .select('id')
+    .single()
+  if (error || !job) {
+    return NextResponse.json({ error: error?.message || 'failed to queue job' }, { status: 500 })
+  }
+
+  const jobId = (job as { id: string }).id
+  const cfCtx = await getCloudflareContext({ async: true })
+  cfCtx.ctx.waitUntil(runFanoutJob(jobId, payload, serviceClient))
+
+  return NextResponse.json({ job_id: jobId })
+}
+
+async function runFanoutJob(
+  jobId: string,
+  payload: FanoutPayload,
+  serviceClient: SupabaseClient,
+) {
+  const setPhase = async (status: string, phase: string) => {
+    await serviceClient
+      .from('publish_jobs')
+      .update({ status, phase, updated_at: new Date().toISOString() })
+      .eq('id', jobId)
+  }
+  try {
+    await setPhase('working', 'publishing to platforms…')
+    const result = await runFanout(payload, (p) => { void setPhase('working', p) })
+    await serviceClient
+      .from('publish_jobs')
+      .update({
+        status: result.success ? 'done' : (result.results.some(r => r.ok) ? 'done' : 'failed'),
+        phase: result.success ? 'published' : 'finished with errors',
+        result,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', jobId)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await serviceClient
+      .from('publish_jobs')
+      .update({ status: 'failed', phase: 'failed', error: msg, updated_at: new Date().toISOString() })
+      .eq('id', jobId)
+  }
+}
+
+async function runFanout(
+  payload: FanoutPayload,
+  onPhase?: (phase: string) => void,
+): Promise<FanoutResult> {
+  const {
+    platforms, caption, media_url, image_urls, media_items, is_video,
+    user_tags, first_comment, hashtags, collaborators, location_id,
+    alt_text, share_to_feed, thumb_offset, cookie, base_url,
+  } = payload
+
+  const results: FanoutResult['results'] = []
 
   for (const platform of platforms) {
+    onPhase?.(`publishing to ${platform}…`)
     const limit = PLATFORM_LIMITS[platform] ?? 2200
-    const trimmedCaption = caption.length > limit ? caption.slice(0, limit) : caption
+    let trimmedCaption = caption
+    if (caption.length > limit) {
+      const head = caption.slice(0, limit - 1)
+      const lastSpace = head.lastIndexOf(' ')
+      const cut = lastSpace > limit * 0.7 ? head.slice(0, lastSpace) : head
+      trimmedCaption = cut.replace(/[\s,;:.!?-]+$/, '') + '…'
+    }
 
-    // TikTok: call the publish function directly. Cloudflare Workers blocks
-    // same-zone HTTP loopback (returns 522) so we can NOT fetch our own
-    // /api/social/tiktok/post endpoint here — has to be in-process.
     if (platform === 'tiktok') {
       const r = await publishTikTok({
         caption: trimmedCaption,
@@ -102,7 +213,6 @@ export async function POST(req: NextRequest) {
         confirmed: true,
       }
     } else {
-      // Instagram + Threads share the IG Graph endpoint.
       endpoint = '/api/social/instagram/post'
       const firstCollab = Array.isArray(collaborators) && collaborators.length
         ? (collaborators[0] || '').replace(/^@/, '').trim() || null
@@ -122,8 +232,6 @@ export async function POST(req: NextRequest) {
         confirmed: true,
       }
       if (hasMixedCarousel) {
-        // Mixed carousel wins over reel path — if the user queued multiple
-        // slides (video or not), we publish as CAROUSEL not as single reel.
         postBody.media_items = media_items
         postBody.post_format = 'post'
       } else if (is_video) {
@@ -138,18 +246,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Call the platform's POST handler in-process. Same-zone loopback
-    // `fetch('/api/social/instagram/post')` returns 522 on Cloudflare Workers,
-    // which is why the old behaviour silently failed for IG/Threads/YouTube —
-    // only TikTok (already inlined) worked. Direct function invocation skips
-    // the network hop and preserves cookies via the constructed Request.
     const handler = endpoint === '/api/social/instagram/post' ? instagramPost : youtubePost
+    const mixedHasVideo = Array.isArray(media_items) && media_items.some(m => m.is_video)
+    if (platform === 'instagram' && (mixedHasVideo || is_video)) {
+      onPhase?.('Meta is processing video (up to 5 min)…')
+    } else if (platform === 'instagram') {
+      onPhase?.('creating Instagram post…')
+    }
     try {
-      const subReq = new Request(new URL(endpoint, req.url).toString(), {
+      const subReq = new Request(new URL(endpoint, base_url).toString(), {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          cookie: req.headers.get('cookie') || '',
+          cookie,
         },
         body: JSON.stringify(postBody),
       }) as NextRequest
@@ -172,5 +281,5 @@ export async function POST(req: NextRequest) {
   }
 
   const allOk = results.every(r => r.ok)
-  return NextResponse.json({ success: allOk, results })
+  return { success: allOk, results }
 }

@@ -6,8 +6,10 @@
 // the AC-3 audio into AAC. That's ~50× faster than re-encoding video — H.264
 // is already MP4-compatible, only the container needs swapping.
 //
-// ffmpeg.wasm core is lazy-loaded from unpkg CDN on first use so the
-// ~30 MB wasm doesn't land in every page's bundle.
+// ffmpeg.wasm core is lazy-loaded from /public/ffmpeg/ on first use so the
+// ~30 MB wasm doesn't land in every page's bundle. We self-host (was: unpkg
+// CDN) because unpkg has sporadic outages and a single blip at posting time
+// was killing the drop flow.
 
 let ffmpegInstance: unknown = null
 let loadingPromise: Promise<unknown> | null = null
@@ -22,7 +24,9 @@ async function getFfmpeg() {
     // Single-thread build: works without COOP/COEP headers. Multi-thread
     // would need Cross-Origin-Opener-Policy + Cross-Origin-Embedder-Policy
     // set on every response, which is a much bigger platform change.
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+    // Self-hosted under /public/ffmpeg/ so we don't depend on unpkg being up
+    // at posting time. Served as a static asset by Cloudflare Workers.
+    const baseURL = '/ffmpeg'
     await ffmpeg.load({
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
