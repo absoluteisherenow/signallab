@@ -51,7 +51,7 @@ const FORM_ROWS: { key: string; label: string; placeholder: string }[][] = [
     { key: 'running_order', label: 'Running order', placeholder: 'e.g. DJ A 22:00, NM 00:00, DJ B 02:00' },
   ],
   [
-    { key: 'green_room', label: 'Green room / changing room', placeholder: 'e.g. Yes — basement behind stage' },
+    { key: 'green_room', label: 'Green room', placeholder: 'e.g. Yes — basement behind stage' },
   ],
   [
     { key: 'guest_list_spots', label: 'Guest list spots', placeholder: 'e.g. 4' },
