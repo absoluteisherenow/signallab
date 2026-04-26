@@ -116,7 +116,8 @@ export default function AdvancePage() {
     }
   }
 
-  const allConfirmed = techConfirmed && hospoConfirmed
+  // Only require a confirm if the rider block actually rendered
+  const allConfirmed = (!techRider || techConfirmed) && (!hospitalityRider || hospoConfirmed)
   const hasRequiredFields = form.set_time && form.local_contact_name
 
   // ── SUBMITTED STATE ──

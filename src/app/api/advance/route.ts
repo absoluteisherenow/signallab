@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+
+// Public route — promoter accesses with gig link, no auth. Use service-role to bypass RLS.
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function GET(req: NextRequest) {
   try {
