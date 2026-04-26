@@ -106,7 +106,7 @@ export default function ClipInboxPage() {
         breadcrumb={[{ label: 'Home', href: '/' }, { label: 'Clip Inbox' }]}
         section="CONTENT"
         title="Clip Inbox"
-        subtitle="Triage raw footage. Shortlist, reject, draft. No AI until you click."
+        subtitle="Triage raw footage. Shortlist, reject, draft. Nothing ships until you click."
         tabs={FILTERS.map(f => ({
           label: f.label,
           active: filter === f.value,

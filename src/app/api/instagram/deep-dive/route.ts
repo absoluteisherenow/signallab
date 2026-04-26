@@ -82,12 +82,15 @@ export async function POST(req: NextRequest) {
     const mediaData = await mediaRes.json()
     const posts: any[] = mediaData.data || []
 
-    // 4. Fetch private insights for each post (saves, reach, impressions)
+    // 4. Fetch private insights for each post (saves, reach).
+    // NOTE: `impressions` is DEAD in IG Graph v25 — requesting it makes the
+    // whole insights call fail. `video_views` is also gone for non-Reels.
+    // See memory: rule_meta_api_compliance.md. Stick to reach + saved + reels-only views.
     const insightMetrics: Record<string, string[]> = {
-      IMAGE: ['impressions', 'reach', 'saved'],
-      VIDEO: ['impressions', 'reach', 'saved', 'video_views'],
-      CAROUSEL_ALBUM: ['impressions', 'reach', 'saved'],
-      REELS: ['impressions', 'reach', 'saved', 'video_views'],
+      IMAGE: ['reach', 'saved'],
+      VIDEO: ['reach', 'saved'],
+      CAROUSEL_ALBUM: ['reach', 'saved'],
+      REELS: ['reach', 'saved', 'ig_reels_video_view_total_time', 'ig_reels_avg_watch_time'],
     }
 
     const enrichedPosts: any[] = []
@@ -95,13 +98,13 @@ export async function POST(req: NextRequest) {
       const batch = posts.slice(i, i + 10)
       const results = await Promise.allSettled(
         batch.map(async (post) => {
-          const metrics = insightMetrics[post.media_type] || ['impressions', 'reach', 'saved']
+          const metrics = insightMetrics[post.media_type] || ['reach', 'saved']
           try {
             const res = await fetchIG(
               `https://graph.instagram.com/v25.0/${post.id}/insights?metric=${metrics.join(',')}&access_token=${access_token}`,
               5000
             )
-            if (!res.ok) return { ...post, saves: 0, reach: 0, impressions: 0 }
+            if (!res.ok) return { ...post, saves: 0, reach: 0 }
             const data = await res.json()
             const byName: Record<string, number> = {}
             ;(data.data || []).forEach((m: any) => { byName[m.name] = m.values?.[0]?.value ?? m.value ?? 0 })
@@ -109,11 +112,11 @@ export async function POST(req: NextRequest) {
               ...post,
               saves: byName.saved ?? 0,
               reach: byName.reach ?? 0,
-              impressions: byName.impressions ?? 0,
-              video_views: byName.video_views ?? undefined,
+              avg_watch_time_ms: byName.ig_reels_avg_watch_time ?? undefined,
+              total_watch_time_ms: byName.ig_reels_video_view_total_time ?? undefined,
             }
           } catch {
-            return { ...post, saves: 0, reach: 0, impressions: 0 }
+            return { ...post, saves: 0, reach: 0 }
           }
         })
       )
@@ -140,7 +143,7 @@ export async function POST(req: NextRequest) {
       return [
         `${i + 1}. "${p.caption || '(no caption)'}"`,
         `   ${p.like_count || 0} likes, ${p.comments_count || 0} comments, ${p.saves} saves`,
-        `   Reach: ${p.reach}, Impressions: ${p.impressions}${p.video_views ? `, Views: ${p.video_views}` : ''}`,
+        `   Reach: ${p.reach}${p.avg_watch_time_ms ? `, Avg watch: ${Math.round(p.avg_watch_time_ms / 1000)}s` : ''}`,
         `   Type: ${p.media_type} | Engagement score: ${realScore}`,
         `   Posted: ${p.timestamp}`,
       ].join('\n')

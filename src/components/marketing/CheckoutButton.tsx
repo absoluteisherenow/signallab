@@ -10,7 +10,7 @@ export default function CheckoutButton({
   featured,
   children,
 }: {
-  tier: 'creator' | 'artist' | 'pro'
+  tier: 'creator' | 'artist' | 'pro' | 'road'
   featured?: boolean
   children: React.ReactNode
 }) {

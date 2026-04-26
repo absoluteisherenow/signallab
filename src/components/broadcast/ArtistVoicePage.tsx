@@ -205,7 +205,7 @@ export function ArtistVoicePage() {
             </div>
             <div style={{ color: '#9a9a9a', fontSize: 12, lineHeight: 1.45, maxWidth: 440 }}>
               Align to artists you lean into, plus yourself. Every caption runs through this blend —{' '}
-              <strong style={{ color: BRT.ink, fontWeight: 700 }}>nothing ships sounding like AI.</strong>
+              <strong style={{ color: BRT.ink, fontWeight: 700 }}>nothing ships in someone else's voice.</strong>
             </div>
           </div>
           <div
@@ -446,7 +446,7 @@ export function ArtistVoicePage() {
           {/* Drift panel */}
           <Panel
             borderColor={BRT.borderBright}
-            label="Same prompt · unaligned AI"
+            label="Same prompt · unaligned voice"
             labelColor="#5a5a5a"
             status={drift ? { text: '● Blocked', color: BRT.red } : null}
           >
@@ -467,7 +467,7 @@ export function ArtistVoicePage() {
                   }}
                 >
                   <span style={{ fontSize: 10, letterSpacing: '0.28em', color: BRT.red, fontWeight: 700, textTransform: 'uppercase' }}>
-                    Blocked pre-send · AI drift
+                    Blocked pre-send · voice drift
                   </span>
                 </div>
               </>

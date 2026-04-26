@@ -23,11 +23,12 @@ export function isCheckoutEnabled(): boolean {
       process.env.STRIPE_WEBHOOK_SECRET &&
       process.env.STRIPE_PRICE_CREATOR &&
       process.env.STRIPE_PRICE_ARTIST &&
-      process.env.STRIPE_PRICE_PRO
+      process.env.STRIPE_PRICE_PRO &&
+      process.env.STRIPE_PRICE_ROAD
   )
 }
 
-export type Tier = 'free' | 'creator' | 'artist' | 'pro' | 'management'
+export type Tier = 'free' | 'creator' | 'artist' | 'pro' | 'road' | 'management'
 
 // Price ID → tier name mapping. Anthony creates the Products + Prices in the
 // Stripe Dashboard, copies the price IDs into env, and the webhook resolves
@@ -37,6 +38,7 @@ export function tierFromPriceId(priceId: string | null | undefined): Tier {
   if (priceId === process.env.STRIPE_PRICE_CREATOR) return 'creator'
   if (priceId === process.env.STRIPE_PRICE_ARTIST) return 'artist'
   if (priceId === process.env.STRIPE_PRICE_PRO) return 'pro'
+  if (priceId === process.env.STRIPE_PRICE_ROAD) return 'road'
   return 'free'
 }
 
@@ -45,6 +47,7 @@ export function priceIdForTier(tier: Tier): string | null {
     case 'creator':    return process.env.STRIPE_PRICE_CREATOR    || null
     case 'artist':     return process.env.STRIPE_PRICE_ARTIST     || null
     case 'pro':        return process.env.STRIPE_PRICE_PRO        || null
+    case 'road':       return process.env.STRIPE_PRICE_ROAD       || null
     default:           return null
   }
 }

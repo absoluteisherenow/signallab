@@ -26,12 +26,16 @@ export async function getUserTier(userId: string): Promise<Tier> {
 }
 
 // Tier ranking — higher number = more access. Used for "user has at least X" checks.
+// Road sits above Pro (heavy touring volume) but below Management (multi-artist
+// bespoke). Use `tierAtLeast(actual, 'pro')` to gate Pro+ features — Road and
+// Management both pass.
 const RANK: Record<Tier, number> = {
   free: 0,
   creator: 1,
   artist: 2,
   pro: 3,
-  management: 4,
+  road: 4,
+  management: 5,
 }
 
 export function tierAtLeast(actual: Tier, required: Tier): boolean {

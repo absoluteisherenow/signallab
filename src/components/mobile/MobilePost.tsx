@@ -245,7 +245,7 @@ export default function MobilePost() {
     const v = runVoiceCheck(caption)
     if (!v.em_dash.ok) errs.push('em-dash or en-dash found')
     if (v.human.detail && v.human.detail.length) {
-      errs.push(...v.human.detail.map(d => 'AI tell: ' + d))
+      errs.push(...v.human.detail.map(d => 'Voice tell: ' + d))
     }
     if (when === 'schedule') {
       if (!scheduledAt) {

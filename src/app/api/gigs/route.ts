@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createNotification } from '@/lib/notifications'
 import { requireUser } from '@/lib/api-auth'
+import { canAddGig } from '@/lib/gigTiers'
 
 // All handlers below run as the signed-in user — RLS policies (user_owns_row_*)
 // scope reads/writes to that user's rows. Service-role usage was removed so
@@ -27,6 +28,22 @@ export async function POST(req: NextRequest) {
   if (gate instanceof NextResponse) return gate
   const { user, supabase } = gate
   try {
+    // Tier gate — block before insert if the user is at their gig cap.
+    const cap = await canAddGig(user.id)
+    if (!cap.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'gig_cap_reached',
+          message: cap.upgradeMessage,
+          tier: cap.tier,
+          used: cap.used,
+          capLabel: cap.capLabel,
+          upgradeTo: cap.upgradeTo,
+        },
+        { status: 402 }
+      )
+    }
     const body = await req.json()
     const { data, error } = await supabase
       .from('gigs')

@@ -442,7 +442,7 @@ export function BrainVerdictCard(props: Props) {
       ) : !loading ? (
         <div style={{ fontSize: 11, color: BRT.dim, marginTop: 10 }}>
           Run a brain check before publishing. Validates against every active rule for this
-          platform + scans for fabrications, AI tells, and narrative-thread contradictions.
+          platform + scans for fabrications, voice tells, and narrative-thread contradictions.
         </div>
       ) : null}
     </div>
