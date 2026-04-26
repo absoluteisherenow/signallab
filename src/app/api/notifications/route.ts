@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { requireUser } from '@/lib/api-auth'
 
 const MISSING_TABLE = '42P01'
 
 export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { searchParams } = new URL(req.url)
     const limit = parseInt(searchParams.get('limit') || '50')
@@ -26,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (error?.code === MISSING_TABLE) return NextResponse.json({ notifications: [], unread: 0 })
     if (error) throw error
 
-    const unread = (data || []).filter(n => !n.read).length
+    const unread = (data || []).filter((n: any) => !n.read).length
     return NextResponse.json({ notifications: data || [], unread })
   } catch (err: any) {
     return NextResponse.json({ notifications: [], unread: 0, error: err.message })
@@ -34,11 +32,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase } = gate
   try {
     const body = await req.json()
     const { data, error } = await supabase
       .from('notifications')
       .insert([{
+        user_id: user.id,
         type: body.type || 'system',
         title: body.title,
         message: body.message || null,
@@ -59,6 +61,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH — mark one or all as read
 export async function PATCH(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { id, all } = await req.json()
     let error

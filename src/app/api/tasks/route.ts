@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/api-auth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   const { data, error } = await supabase
     .from('tasks')
     .select('*')
@@ -16,11 +14,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase } = gate
   const body = await req.json()
   if (!body.title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
   const { data, error } = await supabase
     .from('tasks')
     .insert([{
+      user_id: user.id,
       title: body.title.trim(),
       status: 'open',
       priority: body.priority || null,

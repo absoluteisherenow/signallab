@@ -1,29 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/api-auth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// NOTE: media_scans.user_id is TEXT (legacy schema). RLS policy casts auth.uid()::text.
 
-// GET /api/media/scans?userId=xxx&limit=50
-// Returns scan history for the user, newest first
+// GET /api/media/scans?limit=50
+// Returns scan history for the AUTHED user, newest first
 export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
-    const userId = req.nextUrl.searchParams.get('userId')
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50', 10)
 
-    let query = supabase
+    const { data, error } = await supabase
       .from('media_scans')
       .select('id, file_name, composite_score, result, caption, thumbnail_url, created_at')
       .order('created_at', { ascending: false })
       .limit(limit)
-
-    if (userId && userId !== 'dev-user') {
-      query = query.eq('user_id', userId)
-    }
-
-    const { data, error } = await query
     if (error) throw error
 
     return NextResponse.json({ scans: data || [] })
@@ -32,12 +25,13 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/media/scans
-// Saves a completed scan result to media_scans
+// POST /api/media/scans — saves a completed scan
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase } = gate
   try {
     const {
-      userId,
       file_name,
       file_size,
       mime_type,
@@ -51,7 +45,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from('media_scans')
       .insert({
-        user_id: userId || null,
+        user_id: user.id, // TEXT col — uuid auto-coerces fine
         file_name: file_name || null,
         file_size: file_size || null,
         file_type: mime_type || null,
@@ -78,8 +72,10 @@ export async function POST(req: NextRequest) {
 }
 
 // DELETE /api/media/scans?id=xxx
-// Deletes a single scan record
 export async function DELETE(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'No id provided' }, { status: 400 })

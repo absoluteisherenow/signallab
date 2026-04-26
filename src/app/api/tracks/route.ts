@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/api-auth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-// GET — fetch all tracks in the user's library
-export async function GET() {
+// GET — fetch all tracks in the user's library (RLS-scoped)
+export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { data, error } = await supabase
       .from('dj_tracks')
@@ -24,6 +22,9 @@ export async function GET() {
 
 // DELETE — remove a track
 export async function DELETE(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { id } = await req.json()
     const { error } = await supabase.from('dj_tracks').delete().eq('id', id)
@@ -36,8 +37,12 @@ export async function DELETE(req: NextRequest) {
 
 // PATCH — update a track's fields
 export async function PATCH(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { id, ...fields } = await req.json()
+    delete (fields as any).user_id
     const { data, error } = await supabase.from('dj_tracks').update(fields).eq('id', id).select().single()
     if (error) throw error
     return NextResponse.json({ track: data })
@@ -48,25 +53,15 @@ export async function PATCH(req: NextRequest) {
 
 // POST — import tracks (from Rekordbox or manual add)
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase } = gate
   try {
     const body = await req.json()
     const tracks = Array.isArray(body.tracks) ? body.tracks : [body]
 
-    // Get user_id from auth if available
-    const authHeader = req.headers.get('authorization')
-    let userId: string | null = null
-    if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-      userId = user?.id || null
-    }
-    // Fallback: get the first user's ID (single-user app)
-    if (!userId) {
-      const { data: users } = await supabase.from('dj_tracks').select('user_id').limit(1)
-      userId = users?.[0]?.user_id || null
-    }
-
     const rows = tracks.map((t: any) => ({
-      ...(userId ? { user_id: userId } : {}),
+      user_id: user.id,
       title: t.title || t.name || '',
       artist: t.artist || '',
       bpm: t.bpm || 0,

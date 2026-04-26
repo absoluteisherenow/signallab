@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { requireUser } from '@/lib/api-auth'
 
 // POST — save a crate capture (image + extracted tracks)
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase } = gate
   try {
     const body = await req.json()
     const { image_url, source, tracks, raw_response } = body
@@ -15,18 +13,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'image_url required' }, { status: 400 })
     }
 
-    // Attach user_id via auth header if present (matches /api/tracks pattern)
-    const authHeader = req.headers.get('authorization')
-    let userId: string | null = null
-    if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-      userId = user?.id || null
-    }
-
     const { data, error } = await supabase
       .from('crate_captures')
       .insert({
-        ...(userId ? { user_id: userId } : {}),
+        user_id: user.id,
         image_url,
         source: source || 'other',
         tracks: tracks || [],

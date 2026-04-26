@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/api-auth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// ── /api/expenses ──────────────────────────────────────────────────────────
+// Auth-gated. RLS (user_owns_row_*) scopes to authed user; user_id passed
+// explicitly on insert.
 
 export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { searchParams } = new URL(req.url)
     const from = searchParams.get('from')
@@ -30,11 +32,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase } = gate
   try {
     const body = await req.json()
     const { data, error } = await supabase
       .from('expenses')
       .insert([{
+        user_id: user.id,
         date: body.date,
         description: body.description,
         category: body.category || 'Other',
@@ -54,6 +60,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const body = await req.json()
     const { id, ...fields } = body
@@ -83,6 +92,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')

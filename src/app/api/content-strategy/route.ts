@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/api-auth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-// GET — load saved strategies
-export async function GET() {
+// GET — load saved strategies (RLS-scoped)
+export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   const { data, error } = await supabase
     .from('content_strategies')
     .select('*')
@@ -20,12 +18,15 @@ export async function GET() {
 
 // POST — save a strategy from Signal Voice or other source
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase } = gate
   const body = await req.json()
   const { source = 'signal_voice', query, answer, phases, always_on } = body
 
   const { data, error } = await supabase
     .from('content_strategies')
-    .insert({ source, query, answer, phases, always_on })
+    .insert({ user_id: user.id, source, query, answer, phases, always_on })
     .select()
     .single()
 
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
 
 // DELETE — remove a saved strategy
 export async function DELETE(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   const { id } = await req.json()
   if (!id) return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 })
 

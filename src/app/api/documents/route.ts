@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { requireUser } from '@/lib/api-auth'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const BUCKET = 'documents'
 
-async function ensureBucket() {
-  const { data: buckets } = await supabase.storage.listBuckets()
+async function ensureBucket(svc: SupabaseClient) {
+  const { data: buckets } = await svc.storage.listBuckets()
   const exists = buckets?.some(b => b.name === BUCKET)
   if (!exists) {
-    await supabase.storage.createBucket(BUCKET, { public: true })
+    await svc.storage.createBucket(BUCKET, { public: true })
   }
 }
 
 export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { searchParams } = new URL(req.url)
     const type = searchParams.get('type')
@@ -38,6 +37,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase, serviceClient } = gate
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
@@ -50,14 +52,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 })
     }
 
-    // Ensure bucket exists
-    await ensureBucket()
+    // Ensure bucket exists (service client — bucket admin)
+    await ensureBucket(serviceClient)
 
     const fileId = crypto.randomUUID()
-    const filePath = `${fileId}/${file.name}`
+    const filePath = `${user.id}/${fileId}/${file.name}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await serviceClient.storage
       .from(BUCKET)
       .upload(filePath, buffer, {
         contentType: file.type || 'application/octet-stream',
@@ -66,13 +68,14 @@ export async function POST(req: NextRequest) {
 
     if (uploadError) throw uploadError
 
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = serviceClient.storage
       .from(BUCKET)
       .getPublicUrl(filePath)
 
     const { data, error } = await supabase
       .from('documents')
       .insert([{
+        user_id: user.id,
         name: file.name,
         type,
         file_url: urlData.publicUrl,
@@ -99,6 +102,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase, serviceClient } = gate
   try {
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
@@ -121,7 +127,7 @@ export async function DELETE(req: NextRequest) {
       const url = new URL(doc.file_url)
       const pathParts = url.pathname.split(`/storage/v1/object/public/${BUCKET}/`)
       if (pathParts[1]) {
-        await supabase.storage.from(BUCKET).remove([decodeURIComponent(pathParts[1])])
+        await serviceClient.storage.from(BUCKET).remove([decodeURIComponent(pathParts[1])])
       }
     }
 

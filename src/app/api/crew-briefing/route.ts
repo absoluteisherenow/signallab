@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/api-auth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-// GET: Fetch briefing drafts for a gig
+// GET: Fetch briefing drafts for a gig (RLS-scoped to user)
 export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   const gigId = req.nextUrl.searchParams.get('gigId')
   if (!gigId) return NextResponse.json({ error: 'gigId required' }, { status: 400 })
 
