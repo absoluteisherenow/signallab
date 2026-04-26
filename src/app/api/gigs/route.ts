@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireUser } from '@/lib/api-auth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// All handlers below run as the signed-in user — RLS policies (user_owns_row_*)
+// scope reads/writes to that user's rows. Service-role usage was removed so
+// public signups can't see Anthony's data.
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { data, error } = await supabase
       .from('gigs')
@@ -21,11 +23,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase } = gate
   try {
     const body = await req.json()
     const { data, error } = await supabase
       .from('gigs')
       .insert([{
+        user_id: user.id,
         title: body.title,
         venue: body.venue,
         location: body.location,
@@ -49,6 +55,7 @@ export async function POST(req: NextRequest) {
         message: `${gig.venue} · ${new Date(gig.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
         href: `/gigs/${gig.id}`,
         gig_id: gig.id,
+        user_id: user.id,
       })
 
       // Fire gig-to-content bridge for confirmed gigs (fire and forget — don't block)
@@ -59,7 +66,7 @@ export async function POST(req: NextRequest) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ gigId: gig.id }),
         }).catch(async (error) => {
-          await createNotification({ type: 'cron_error', title: 'Gig content generation failed', message: error instanceof Error ? error.message : 'Unknown error' })
+          await createNotification({ type: 'cron_error', title: 'Gig content generation failed', message: error instanceof Error ? error.message : 'Unknown error', user_id: user.id })
         })
       }
 
@@ -75,6 +82,7 @@ export async function POST(req: NextRequest) {
           const gigDate = new Date(gig.date)
           const dueDate = new Date(gigDate.getTime() + 30 * 86400000) // 30 days after gig
           const { data: newInvoice } = await supabase.from('invoices').insert([{
+            user_id: user.id,
             gig_id: gig.id,
             gig_title: gig.title,
             amount: gig.fee,
@@ -91,6 +99,7 @@ export async function POST(req: NextRequest) {
               message: `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
               href: `/api/invoices/${newInvoice[0].id}`,
               gig_id: gig.id,
+              user_id: user.id,
             })
           }
         }
@@ -103,9 +112,15 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const body = await req.json()
     const { id, ...updates } = body
+    // Strip user_id from updates if a client tries to spoof it — RLS would
+    // reject anyway, but be explicit.
+    delete (updates as any).user_id
     const { data, error } = await supabase
       .from('gigs')
       .update(updates)
@@ -119,6 +134,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { id } = await req.json()
     const { error } = await supabase.from('gigs').delete().eq('id', id)

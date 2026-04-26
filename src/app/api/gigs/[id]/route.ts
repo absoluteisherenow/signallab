@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireUser } from '@/lib/api-auth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { data, error } = await supabase
       .from('gigs')
@@ -22,6 +20,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { user, supabase } = gate
   try {
     const body = await req.json()
 
@@ -74,7 +75,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           href: `/gigs/${params.id}`,
           gig_id: params.id,
           metadata: { old_time: current.time, new_time: body.time },
-          // sendEmail removed — approve before send
+          user_id: user.id,
         })
       }
 
@@ -87,7 +88,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           href: `/gigs/${params.id}`,
           gig_id: params.id,
           metadata: { old_date: current.date, new_date: body.date },
-          // sendEmail removed — approve before send
+          user_id: user.id,
         })
       }
 
@@ -99,7 +100,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           message: `${current.venue} · ${new Date(current.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
           href: `/gigs/${params.id}`,
           gig_id: params.id,
-          // sendEmail removed — approve before send
+          user_id: user.id,
         })
       }
     }
@@ -110,7 +111,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase } = gate
   try {
     const { error } = await supabase.from('gigs').delete().eq('id', params.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
