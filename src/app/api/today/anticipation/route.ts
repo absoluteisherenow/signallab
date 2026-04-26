@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
       lab: 'Broadcast',
       title: `${topScans.length} fresh image${topScans.length === 1 ? '' : 's'} scored 70+ — ready to schedule`,
       detail: 'Highest-scoring shots from the last 24h. One click into Broadcast closes the loop.',
-      href: '/broadcast',
+      href: '/broadcast/media?verdict=POST&since=24h',
       priority: 8,
     })
   }
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
       lab: 'Broadcast',
       title: `${drafts.length} caption drafts sitting unapproved`,
       detail: 'Review and approve in Broadcast so the publish cron can take them live on schedule.',
-      href: '/broadcast',
+      href: '/broadcast/calendar?status=draft',
       priority: 6,
     })
   }
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
       lab: 'Operator',
       title: `${mediaMissing.length} scheduled post${mediaMissing.length === 1 ? '' : 's'} missing media`,
       detail: 'Publish cron will skip these without a media_url. Attach visuals or cancel.',
-      href: '/broadcast',
+      href: '/broadcast/calendar?status=scheduled&missing=media',
       priority: 9,
     })
   }
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
       lab: 'Grow',
       title: `"${release.title || 'release'}" drops in ${daysOut}d — announce window open`,
       detail: 'Teaser + announce assets slot in now. Curator push goes out in parallel.',
-      href: '/broadcast',
+      href: `/releases/${release.id}`,
       priority: 7,
     })
   }

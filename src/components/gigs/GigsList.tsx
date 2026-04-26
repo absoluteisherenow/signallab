@@ -188,6 +188,8 @@ export function GigsList() {
   const [showEmailInput, setShowEmailInput] = useState<string | null>(null)
   const [promoterEmail, setPromoterEmail] = useState('')
   const [sending, setSending] = useState<string | null>(null)
+  // Advance email preview state — HARD RULE: preview-then-confirm.
+  const [advancePreview, setAdvancePreview] = useState<{ gig: Gig; email: string; subject: string; html: string } | null>(null)
   const [toast, setToast] = useState('')
 
   useEffect(() => {
@@ -221,6 +223,7 @@ export function GigsList() {
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
+  // Preview-then-confirm. HARD RULE: nothing outbound fires without explicit go.
   async function sendAdvance(gig: Gig, email: string) {
     if (!email) return
     setSending(gig.id)
@@ -231,10 +234,29 @@ export function GigsList() {
         body: JSON.stringify({ gigId: gig.id, gigTitle: gig.title, venue: gig.venue, date: gig.date, promoterEmail: email }),
       })
       const data = await res.json()
-      if (data.success || data.id) {
+      if (data.preview) {
+        setAdvancePreview({ gig, email, subject: data.subject, html: data.html })
+      } else showToast('Error: ' + (data.error || 'Failed'))
+    } catch { showToast('Failed to load preview') }
+    finally { setSending(null) }
+  }
+
+  async function confirmAdvanceSend() {
+    if (!advancePreview) return
+    const { gig, email } = advancePreview
+    setSending(gig.id)
+    try {
+      const res = await fetch('/api/advance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gigId: gig.id, gigTitle: gig.title, venue: gig.venue, date: gig.date, promoterEmail: email, confirmed: true }),
+      })
+      const data = await res.json()
+      if (data.success) {
         setAdvanceStatus(prev => ({ ...prev, [gig.id]: 'sent' }))
         setShowEmailInput(null)
         setPromoterEmail('')
+        setAdvancePreview(null)
         showToast(`Advance request sent to ${email}`)
       } else showToast('Error: ' + (data.error || 'Failed'))
     } catch { showToast('Failed to send') }
@@ -415,7 +437,7 @@ export function GigsList() {
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} style={{ background: promoterEmail ? f.gold : 'transparent', color: promoterEmail ? '#050505' : f.dimmer, border: `1px solid ${promoterEmail ? f.gold : f.border}`, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   {sending === gig.id && <ScanPulse size="sm" color="#050505" />}
-                                  {sending === gig.id ? 'Sending...' : 'Send →'}
+                                  {sending === gig.id ? 'Loading preview...' : 'Preview email →'}
                                 </button>
                                 <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} style={{ background: 'transparent', color: f.dimmer, border: `1px solid ${f.border}`, fontFamily: f.font, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 16px', cursor: 'pointer' }}>Cancel</button>
                               </div>
@@ -454,6 +476,31 @@ export function GigsList() {
         </div>
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+
+      {/* Advance email preview modal — HARD RULE: preview before send */}
+      {advancePreview && (
+        <div onClick={() => setAdvancePreview(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: f.bg, border: `1px solid ${f.border}`, maxWidth: 720, width: '100%', maxHeight: '90vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '20px 24px', borderBottom: `1px solid ${f.mid}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: '0.2em', color: f.gold, textTransform: 'uppercase', marginBottom: 6 }}>Preview · review before send</div>
+                <div style={{ fontSize: 13, color: f.text, fontFamily: f.font }}>TO: {advancePreview.email}</div>
+                <div style={{ fontSize: 12, color: f.dim, fontFamily: f.font, marginTop: 2 }}>SUBJECT: {advancePreview.subject}</div>
+              </div>
+              <button onClick={() => setAdvancePreview(null)} style={{ background: 'transparent', border: 'none', color: f.dim, fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: 0, background: '#050505' }}>
+              <div dangerouslySetInnerHTML={{ __html: advancePreview.html }} />
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: `1px solid ${f.mid}`, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setAdvancePreview(null)} style={{ background: 'transparent', border: `1px solid ${f.border}`, color: f.text, fontFamily: f.font, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 18px', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={confirmAdvanceSend} disabled={sending === advancePreview.gig.id} style={{ background: f.gold, color: '#050505', border: `1px solid ${f.gold}`, fontFamily: f.font, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 22px', cursor: sending ? 'wait' : 'pointer', opacity: sending === advancePreview.gig.id ? 0.6 : 1 }}>
+                {sending === advancePreview.gig.id ? 'Sending...' : 'Approve & send →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>{/* end inner padding */}
     </div>

@@ -97,21 +97,38 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    const { gigId, gigTitle, venue, date, promoterEmail, riderType } = await req.json()
+    const { gigId, gigTitle, venue, date, promoterEmail, riderType, confirmed } = await req.json()
     if (!promoterEmail) return NextResponse.json({ error: 'No promoter email' }, { status: 400 })
+
+    const formUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'}/advance/${gigId}`
+    const subject = `Advance sheet request — ${gigTitle} at ${venue}`
+    const html = `<div style="font-family:monospace;background:#050505;color:#f2f2f2;padding:40px"><div style="color:#ff2a1a;margin-bottom:24px">NIGHT MANOEUVRES — ADVANCE REQUEST</div><h2>${gigTitle}</h2><p style="color:#909090">${venue} · ${date}</p><p>Please complete the advance form for this show.</p><a href="${formUrl}" style="display:inline-block;background:#ff2a1a;color:#050505;padding:14px 28px;text-decoration:none">Complete advance form</a><a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:6px;margin-top:40px;padding-top:20px;border-top:1px solid #1d1d1d;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#909090;text-decoration:none"><svg width="12" height="12" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" stroke-width="1.5" opacity="0.4"/><polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Powered by Signal Lab OS</a></div>`
+
+    // ── Step 1: PREVIEW (default) — return rendered email for user approval.
+    // HARD RULE: nothing outbound fires without explicit confirmed:true gate.
+    if (!confirmed) {
+      return NextResponse.json({
+        preview: true,
+        to: promoterEmail,
+        subject,
+        html,
+        message: 'Review this email. Call again with confirmed:true to send.',
+      })
+    }
+
+    // ── Step 2: CONFIRMED — actually send.
+    const resend = new Resend(process.env.RESEND_API_KEY)
 
     // Store rider type on the advance request so the form shows the right preset
     if (riderType) {
       await supabase.from('advance_requests').upsert({ gig_id: gigId, rider_type: riderType, completed: false }, { onConflict: 'gig_id' })
     }
 
-    const formUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'}/advance/${gigId}`
     await resend.emails.send({
       from: 'NIGHT manoeuvres <onboarding@resend.dev>',
       to: promoterEmail,
-      subject: `Advance sheet request — ${gigTitle} at ${venue}`,
-      html: `<div style="font-family:monospace;background:#050505;color:#f2f2f2;padding:40px"><div style="color:#ff2a1a;margin-bottom:24px">NIGHT MANOEUVRES — ADVANCE REQUEST</div><h2>${gigTitle}</h2><p style="color:#909090">${venue} · ${date}</p><p>Please complete the advance form for this show.</p><a href="${formUrl}" style="display:inline-block;background:#ff2a1a;color:#050505;padding:14px 28px;text-decoration:none">Complete advance form</a><a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:6px;margin-top:40px;padding-top:20px;border-top:1px solid #1d1d1d;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#909090;text-decoration:none"><svg width="12" height="12" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" stroke-width="1.5" opacity="0.4"/><polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Powered by Signal Lab OS</a></div>`,
+      subject,
+      html,
     })
 
     // Create in-app notification

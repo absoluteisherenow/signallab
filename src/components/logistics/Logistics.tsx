@@ -89,6 +89,8 @@ export default function Logistics() {
   const [promoterEmail, setPromoterEmail] = useState('')
   const [showEmailInput, setShowEmailInput] = useState<string | null>(null)
   const [sending, setSending] = useState<string | null>(null)
+  // Advance email preview state — HARD RULE: preview-then-confirm.
+  const [advancePreview, setAdvancePreview] = useState<{ gig: Gig; email: string; subject: string; html: string } | null>(null)
   const [advanceStatus, setAdvanceStatus] = useState<Record<string, string>>({})
   const [toast, setToast] = useState('')
   const [artistLocation, setArtistLocation] = useState<string>('')
@@ -187,7 +189,9 @@ export default function Logistics() {
     setTravelBookings(prev => ({ ...prev, [gigId]: (prev[gigId] || []).filter(b => b.id !== bookingId) }))
   }
 
-  async function sendAdvance(gig: Gig, email: string) {
+  // Preview-then-confirm flow. HARD RULE: nothing outbound sends without
+  // Anthony seeing a full rendered preview + explicit go.
+  async function previewAdvance(gig: Gig, email: string) {
     if (!email) return
     setSending(gig.id)
     try {
@@ -203,10 +207,41 @@ export default function Logistics() {
         }),
       })
       const data = await res.json()
-      if (data.success || data.id) {
+      if (data.preview) {
+        setAdvancePreview({ gig, email, subject: data.subject, html: data.html })
+      } else {
+        showToast('Error: ' + (data.error || 'Failed to generate preview'))
+      }
+    } catch {
+      showToast('Failed to generate preview')
+    } finally {
+      setSending(null)
+    }
+  }
+
+  async function confirmAdvanceSend() {
+    if (!advancePreview) return
+    const { gig, email } = advancePreview
+    setSending(gig.id)
+    try {
+      const res = await fetch('/api/advance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gigId: gig.id,
+          gigTitle: gig.title,
+          venue: gig.venue,
+          date: gig.date,
+          promoterEmail: email,
+          confirmed: true,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
         setAdvanceStatus(prev => ({ ...prev, [gig.id]: 'sent' }))
         setShowEmailInput(null)
         setPromoterEmail('')
+        setAdvancePreview(null)
         showToast(`Advance request sent to ${email}`)
       } else {
         showToast('Error: ' + (data.error || 'Failed to send'))
@@ -487,12 +522,12 @@ export default function Logistics() {
                                 style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: '13px', padding: '10px 14px', outline: 'none' }}
                               />
                               <div style={{ display: 'flex', gap: '8px' }}>
-                                <button onClick={() => sendAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} className="btn-primary" style={{
+                                <button onClick={() => previewAdvance(gig, promoterEmail)} disabled={sending === gig.id || !promoterEmail} className="btn-primary" style={{
                                   fontSize: '10px', padding: '10px 20px', opacity: !promoterEmail ? 0.4 : 1, cursor: !promoterEmail ? 'not-allowed' : 'pointer',
                                   display: 'flex', alignItems: 'center', gap: '8px',
                                 }}>
                                   {sending === gig.id && <ScanPulse size="sm" color="var(--bg)" />}
-                                  {sending === gig.id ? 'Sending...' : 'Send →'}
+                                  {sending === gig.id ? 'Loading preview...' : 'Preview email →'}
                                 </button>
                                 <button onClick={() => { setShowEmailInput(null); setPromoterEmail('') }} className="btn-secondary" style={{ fontSize: '10px', padding: '10px 16px' }}>
                                   Cancel
@@ -525,6 +560,10 @@ export default function Logistics() {
                         <Link href="/business/finances"
                           style={{ fontSize: '12px', color: 'var(--text-dimmer)', textDecoration: 'none', padding: '12px 16px', border: '1px solid var(--border-dim)', display: 'block', transition: 'all 0.15s' }}>
                           View invoices →
+                        </Link>
+                        <Link href={`/advance/${gig.id}`} target="_blank"
+                          style={{ fontSize: '12px', color: 'var(--text-dimmer)', textDecoration: 'none', padding: '12px 16px', border: '1px solid var(--border-dim)', display: 'block', transition: 'all 0.15s' }}>
+                          Preview advance form →
                         </Link>
                       </div>
                     </div>
@@ -811,6 +850,44 @@ export default function Logistics() {
         <div className="toast">
           <div className="toast-label">Gigs</div>
           {toast}
+        </div>
+      )}
+
+      {/* Advance email preview modal — HARD RULE: preview before send */}
+      {advancePreview && (
+        <div onClick={() => setAdvancePreview(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--bg)', border: '1px solid var(--border)', maxWidth: 720, width: '100%',
+            maxHeight: '90vh', overflow: 'auto', display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: 6 }}>Preview · review before send</div>
+                <div style={{ fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>
+                  TO: {advancePreview.email}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                  SUBJECT: {advancePreview.subject}
+                </div>
+              </div>
+              <button onClick={() => setAdvancePreview(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: 0, background: '#050505' }}>
+              <div dangerouslySetInnerHTML={{ __html: advancePreview.html }} />
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-dim)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setAdvancePreview(null)} className="btn-secondary" style={{ fontSize: 11, padding: '10px 18px' }}>
+                Cancel
+              </button>
+              <button onClick={confirmAdvanceSend} disabled={sending === advancePreview.gig.id} className="btn-primary" style={{ fontSize: 11, padding: '10px 22px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {sending === advancePreview.gig.id && <ScanPulse size="sm" color="var(--bg)" />}
+                {sending === advancePreview.gig.id ? 'Sending...' : 'Approve & send →'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

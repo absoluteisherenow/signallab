@@ -301,12 +301,16 @@ export function GigDetail({ gigId }: GigDetailProps) {
     }
   }
 
+  // GigDetail already shows a full inline preview (showRiderPicker UI) before
+  // calling handleSendAdvance with riderType — that IS the approval gate.
+  // We pass confirmed:true here because the user has already seen the rendered
+  // email and clicked the explicit "Confirm & send" button. HARD RULE satisfied.
   async function handleSendAdvance(riderType: string) {
     if (!gig?.promoter_email) { showToast('Add a promoter email first'); return }
     setSendingAdvance(true)
     setShowRiderPicker(false)
     try {
-      await fetch('/api/advance', {
+      const res = await fetch('/api/advance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -316,10 +320,16 @@ export function GigDetail({ gigId }: GigDetailProps) {
           date: gig.date,
           promoterEmail: gig.promoter_email,
           riderType,
+          confirmed: true,
         }),
       })
-      setAdvanceStatus('sent')
-      showToast(`Advance sent (${riderType})`)
+      const data = await res.json()
+      if (data.success) {
+        setAdvanceStatus('sent')
+        showToast(`Advance sent (${riderType})`)
+      } else {
+        showToast('Error: ' + (data.error || 'Failed to send'))
+      }
     } catch {
       showToast('Failed to send advance')
     } finally {
@@ -1234,6 +1244,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
           </Link>
         </div>
       </div>
+
     </div>
   )
 }
