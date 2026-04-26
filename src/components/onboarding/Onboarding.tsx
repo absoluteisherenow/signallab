@@ -46,23 +46,20 @@ async function saveProfile(profile: Record<string, unknown>) {
 
 async function saveGigs(gigs: { title: string; venue: string; location: string; date: string; status: string }[]) {
   if (!gigs.length) return 0
-  // Fetch existing gigs to avoid duplicates
-  const existing = await fetch('/api/gigs').then(r => r.json()).catch(() => ({ gigs: [] }))
-  const existingSet = new Set(
-    (existing.gigs || []).map((g: { venue: string; date: string }) => `${g.venue}::${g.date}`)
-  )
-  const newGigs = gigs.filter(g => !existingSet.has(`${g.venue}::${g.date}`))
-  if (!newGigs.length) return 0
-  const results = await Promise.allSettled(
-    newGigs.map(gig =>
-      fetch('/api/gigs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(gig),
-      })
-    )
-  )
-  return results.filter(r => r.status === 'fulfilled').length
+  // Trusted one-shot onboarding import — bypasses the tier gig cap because the
+  // user hasn't picked a tier yet and these are public-record upcoming shows
+  // from RA/Spotify discovery, not new bookings.
+  try {
+    const res = await fetch('/api/onboarding/save-gigs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gigs }),
+    })
+    const json = await res.json().catch(() => ({}))
+    return json?.inserted || 0
+  } catch {
+    return 0
+  }
 }
 
 // ── Animated wrapper for step transitions ──

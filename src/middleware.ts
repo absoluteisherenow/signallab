@@ -9,6 +9,9 @@ const PUBLIC_PATHS = [
   '/upload',    // public media upload links (pre-show briefs)
   '/privacy',   // public privacy policy (required for Meta App Review)
   '/terms',     // public terms of service (required for TikTok App Review)
+  '/billing-terms', // public subscription terms
+  '/pricing',   // public pricing page (live Checkout CTAs)
+  '/help',      // public help / FAQ / contact
   '/go',        // promo landing pages for DJs (reaction-gated download)
   '/brt',       // brutalist marketing landing (preview)
   '/nm-pitch',  // NM visual identity pitch doc (shareable, no login required)
@@ -16,7 +19,7 @@ const PUBLIC_PATHS = [
 ]
 
 // Legacy marketing URLs → canonical /waitlist
-const LEGACY_MARKETING_REDIRECTS = ['/join', '/landing', '/landing/pricing', '/pricing']
+const LEGACY_MARKETING_REDIRECTS = ['/join', '/landing', '/landing/pricing']
 
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
@@ -78,6 +81,7 @@ export function middleware(req: NextRequest) {
     || pathname.startsWith('/api/upload')     // public file upload (photographer content)
     || pathname.startsWith('/api/media/scan') // auto-scan after upload (server-side)
     || pathname.startsWith('/api/gl')         // public guest-list submission endpoints
+    || pathname === '/api/billing/webhook'    // Stripe webhook — verified by signature
     || pathname.startsWith('/_next')
     || pathname === '/signal-genius.html'   // M4L jweb — public
     || pathname === '/mockup.html'

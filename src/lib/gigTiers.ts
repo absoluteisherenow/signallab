@@ -74,12 +74,16 @@ export async function canAddGig(userId: string): Promise<GigGate> {
 
   let used = 0
   if (cap.lifetime != null) {
+    // Lifetime cap = total gigs ever created on this account. Onboarding
+    // bulk-import bypasses this via /api/onboarding/save-gigs.
     const { count } = await supabase
       .from('gigs')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
     used = count || 0
   } else if (cap.monthly != null && cap.monthly !== Number.POSITIVE_INFINITY) {
+    // Monthly cap = gigs created in the current calendar month (UTC).
+    // Resets on the 1st.
     const monthStart = new Date()
     monthStart.setUTCDate(1)
     monthStart.setUTCHours(0, 0, 0, 0)
