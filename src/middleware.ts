@@ -98,6 +98,12 @@ export function middleware(req: NextRequest) {
     req.cookies.get(`sb-${projectRef}-auth-token.0`)?.value
 
   if (!token) {
+    // API calls: return 401 JSON so client-side fetch() can handle it cleanly.
+    // A 307 redirect to /login means fetch follows to an HTML page and any
+    // `await res.json()` on the client throws "Unexpected end of JSON input".
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+    }
     const loginUrl = new URL('/login', req.url)
     loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
