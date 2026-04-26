@@ -23,6 +23,9 @@ const FORM_ROWS: { key: string; label: string; placeholder: string }[][] = [
     { key: 'local_contact_phone', label: 'Promoter contact', placeholder: '+44 7700 000000' },
   ],
   [
+    { key: 'local_contact_email', label: 'Promoter email', placeholder: 'email@domain.com' },
+  ],
+  [
     { key: 'driver_name', label: 'Driver name', placeholder: 'Name' },
     { key: 'driver_contact', label: 'Driver contact', placeholder: '+44 7700 000000' },
   ],
@@ -35,6 +38,9 @@ const FORM_ROWS: { key: string; label: string; placeholder: string }[][] = [
     { key: 'videographer_contact', label: 'Videographer contact', placeholder: '+44 7700 000000' },
   ],
   [
+    { key: 'videographer_email', label: 'Videographer email', placeholder: 'email@domain.com' },
+  ],
+  [
     { key: 'sound_tech_name', label: 'Sound tech name', placeholder: 'Name' },
     { key: 'sound_tech_contact', label: 'Sound tech contact', placeholder: '+44 7700 000000' },
   ],
@@ -43,6 +49,13 @@ const FORM_ROWS: { key: string; label: string; placeholder: string }[][] = [
   ],
   [
     { key: 'running_order', label: 'Running order', placeholder: 'e.g. DJ A 22:00, NM 00:00, DJ B 02:00' },
+  ],
+  [
+    { key: 'green_room', label: 'Green room / changing room', placeholder: 'e.g. Yes — basement behind stage' },
+  ],
+  [
+    { key: 'guest_list_spots', label: 'Guest list spots', placeholder: 'e.g. 4' },
+    { key: 'guest_list_method', label: 'Send guest list how / by when', placeholder: 'e.g. email by Friday' },
   ],
   [
     { key: 'additional_notes', label: 'Anything else', placeholder: 'Optional' },

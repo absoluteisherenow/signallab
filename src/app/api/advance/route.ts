@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     let prefill: Record<string, string> = {}
     if (gigId) {
       const [gigRes, settingsRes, advanceRes, travelRes] = await Promise.all([
-        supabase.from('gigs').select('title, venue, date, location, al_name, al_phone, driver_name, driver_phone, promoter_name, promoter_phone').eq('id', gigId).single(),
+        supabase.from('gigs').select('title, venue, date, location, al_name, al_phone, al_email, driver_name, driver_phone, promoter_email, promoter_phone, photographer_name, photographer_handle, hotel_name').eq('id', gigId).single(),
         supabase.from('artist_settings').select('tech_rider, hospitality_rider, tech_rider_presets, profile').single(),
         supabase.from('advance_requests').select('*').eq('gig_id', gigId).maybeSingle(),
         supabase.from('travel_bookings').select('*').eq('gig_id', gigId),
@@ -42,9 +42,10 @@ export async function GET(req: NextRequest) {
       const adv = advanceRes?.data as Record<string, any> | null
       if (adv) {
         const KEYS = [
-          'local_contact_name','local_contact_phone','driver_name','driver_contact',
-          'artist_liaison_name','artist_liaison_contact','videographer_name','videographer_contact',
+          'local_contact_name','local_contact_phone','local_contact_email','driver_name','driver_contact',
+          'artist_liaison_name','artist_liaison_contact','videographer_name','videographer_contact','videographer_email',
           'sound_tech_name','sound_tech_contact','set_time','running_order','additional_notes',
+          'green_room','guest_list_spots','guest_list_method',
           'hotel_name','hotel_address','hotel_checkin_date','hotel_checkin_time','hotel_reference',
           'transfer_driver_name','transfer_driver_phone','transfer_pickup_location','transfer_pickup_time',
         ]
@@ -52,10 +53,19 @@ export async function GET(req: NextRequest) {
       }
       const g = gig as Record<string, any> | null
       if (g) {
-        if (!prefill.local_contact_name && (g.promoter_name || g.al_name)) prefill.local_contact_name = g.promoter_name || g.al_name
-        if (!prefill.local_contact_phone && (g.promoter_phone || g.al_phone)) prefill.local_contact_phone = g.promoter_phone || g.al_phone
+        // Promoter (local contact) — promoter_email/phone live on gigs; name comes from AL fallback only if no promoter contacts at all
+        if (!prefill.local_contact_phone && g.promoter_phone) prefill.local_contact_phone = g.promoter_phone
+        if (!prefill.local_contact_email && g.promoter_email) prefill.local_contact_email = g.promoter_email
+        // Artist liaison
+        if (!prefill.artist_liaison_name && g.al_name) prefill.artist_liaison_name = g.al_name
+        if (!prefill.artist_liaison_contact && g.al_phone) prefill.artist_liaison_contact = g.al_phone
+        // Driver
         if (!prefill.driver_name && g.driver_name) prefill.driver_name = g.driver_name
         if (!prefill.driver_contact && g.driver_phone) prefill.driver_contact = g.driver_phone
+        // Videographer (photographer field on gigs)
+        if (!prefill.videographer_name && g.photographer_name) prefill.videographer_name = g.photographer_name
+        // Hotel — if gig already has it stored, surface to form (auto-shows accom block)
+        if (!prefill.hotel_name && g.hotel_name) prefill.hotel_name = g.hotel_name
       }
       const travel = travelRes.data || []
       const hotel = travel.find((t: any) => t.type === 'hotel')
