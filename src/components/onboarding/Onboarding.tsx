@@ -31,15 +31,22 @@ type Discovery = {
 }
 
 async function saveProfile(profile: Record<string, unknown>) {
+  const { defaultCurrencyForCountry } = await import('@/lib/currency')
   const existing = await fetch('/api/settings').then(r => r.json()).catch(() => ({}))
   const current = existing.settings || {}
+  // Derive default currency from country — Creator/Artist tiers are locked to
+  // this; Pro+ can override per gig/invoice. Only set if not already chosen,
+  // so users who later move country don't get their picked currency overwritten.
+  const default_currency = current.default_currency
+    || defaultCurrencyForCountry(profile.country as string | null | undefined)
   await fetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       profile: { ...current.profile, ...profile },
-      team: current.team || [],
+      team: current.team || {},
       advance: current.advance || {},
+      default_currency,
     }),
   })
 }

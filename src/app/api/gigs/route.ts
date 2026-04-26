@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createNotification } from '@/lib/notifications'
 import { requireUser } from '@/lib/api-auth'
 import { canAddGig } from '@/lib/gigTiers'
+import { tierAllowsMultiCurrency, defaultCurrencyForCountry, type SupportedCurrency } from '@/lib/currency'
+import { getUserTier } from '@/lib/tier'
+
+// Lock currency for non-multi-currency tiers to artist_settings.default_currency
+// (falling back to country-derived default, then EUR). Pro+ keeps client value.
+async function resolveCurrency(userId: string, supabase: any, requested?: string): Promise<SupportedCurrency> {
+  const tier = await getUserTier(userId)
+  if (tierAllowsMultiCurrency(tier) && requested) return requested as SupportedCurrency
+  const { data: settings } = await supabase
+    .from('artist_settings')
+    .select('default_currency, profile')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (settings?.default_currency) return settings.default_currency as SupportedCurrency
+  return defaultCurrencyForCountry((settings?.profile as any)?.country)
+}
 
 // All handlers below run as the signed-in user — RLS policies (user_owns_row_*)
 // scope reads/writes to that user's rows. Service-role usage was removed so
@@ -45,6 +61,7 @@ export async function POST(req: NextRequest) {
       )
     }
     const body = await req.json()
+    const currency = await resolveCurrency(user.id, supabase, body.currency)
     const { data, error } = await supabase
       .from('gigs')
       .insert([{
@@ -55,7 +72,7 @@ export async function POST(req: NextRequest) {
         date: body.date,
         time: body.time,
         fee: parseInt(body.fee) || 0,
-        currency: body.currency || 'EUR',
+        currency,
         audience: parseInt(body.audience) || 0,
         status: body.status || 'pending',
         promoter_email: body.promoter_email || null,
@@ -131,13 +148,17 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const gate = await requireUser(req)
   if (gate instanceof NextResponse) return gate
-  const { supabase } = gate
+  const { user, supabase } = gate
   try {
     const body = await req.json()
     const { id, ...updates } = body
     // Strip user_id from updates if a client tries to spoof it — RLS would
     // reject anyway, but be explicit.
     delete (updates as any).user_id
+    // Tier-gate currency on update too
+    if (updates.currency !== undefined) {
+      updates.currency = await resolveCurrency(user.id, supabase, updates.currency)
+    }
     const { data, error } = await supabase
       .from('gigs')
       .update(updates)

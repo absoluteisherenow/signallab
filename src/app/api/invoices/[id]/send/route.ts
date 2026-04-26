@@ -79,7 +79,7 @@ async function buildEmailData(id: string, userId: string, toOverride?: string) {
   // Scoped load — invoice must belong to this user.
   const [{ data: invoice }, { data: settings }] = await Promise.all([
     supabase.from('invoices').select('*').eq('id', id).eq('user_id', userId).single(),
-    supabase.from('artist_settings').select('profile, payment').eq('user_id', userId).maybeSingle(),
+    supabase.from('artist_settings').select('profile, payment, team').eq('user_id', userId).maybeSingle(),
   ])
   if (!invoice) return null
 
@@ -215,7 +215,24 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
 </body>
 </html>`
 
-  return { invoice, artistName, artistFirstName, invoiceNumber, invoiceUrl, dueDate, promoterName, promoterEmail, venue, subject, greeting, html }
+  // Team auto-CC defaults — manager + booking agent + accountant. The team
+  // column is an array of { role, name, email, phone } from the existing
+  // /business/settings UI. We auto-CC any role matching manager / agent /
+  // booking agent / accountant. Surfaced to the caller so the preview can
+  // show the auto-CCs with a remove control before send.
+  const teamRaw = settings?.team
+  const teamArray: Array<{ role?: string; email?: string }> = Array.isArray(teamRaw)
+    ? teamRaw
+    : []
+  const CC_ROLES = /^(manager|agent|booking agent|accountant)$/i
+  const autoCc = Array.from(new Set(
+    teamArray
+      .filter(t => t?.role && CC_ROLES.test(t.role.trim()) && t?.email && t.email.trim().includes('@'))
+      .map(t => t.email!.trim())
+  ))
+  const dedupedAutoCc = autoCc
+
+  return { invoice, artistName, artistFirstName, invoiceNumber, invoiceUrl, dueDate, promoterName, promoterEmail, venue, subject, greeting, html, autoCc: dedupedAutoCc }
 }
 
 // GET — preview the email HTML in browser
@@ -249,11 +266,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { to, cc, confirmed, mode: rawMode } = await req.json().catch(() => ({} as any))
     const mode: 'link' | 'attach' | 'both' = rawMode === 'attach' || rawMode === 'both' ? rawMode : 'link'
     const toAddr = normaliseAddresses(to)
-    const ccAddr = normaliseAddresses(cc)
+    let ccAddr = normaliseAddresses(cc)
     const data = await buildEmailData(params.id, userId, toAddr || undefined)
     if (!data) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
-    const { artistName, invoiceUrl, invoice, dueDate, promoterEmail, subject, greeting, invoiceNumber } = data
+    const { artistName, invoiceUrl, invoice, dueDate, promoterEmail, subject, greeting, invoiceNumber, autoCc } = data
+    // If caller passed no CC, fall back to team auto-CC (manager + agent +
+    // accountant from artist_settings.team). Caller can pass an explicit empty
+    // string to opt out — `to` is normalised to '' rather than undefined here.
+    if (!ccAddr && autoCc.length && cc === undefined) {
+      ccAddr = autoCc.join(', ')
+    }
     const finalTo = toAddr || promoterEmail
 
     // Gmail API returns cryptic 400 on empty To — surface a human message
@@ -287,6 +310,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         preview: true,
         to: finalTo,
         cc: ccAddr || undefined,
+        autoCc, // surfaced separately so UI can show "auto-CC'd: …" with a remove control
         subject,
         html,
         greeting,

@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BlurredAmount } from '@/components/ui/BlurredAmount'
 import { PulseLoader } from '@/components/ui/PulseLoader'
+import { tierAllowsMultiCurrency, type SupportedCurrency } from '@/lib/currency'
+import type { Tier } from '@/lib/stripe'
 
 interface Gig {
   id: string
@@ -123,6 +125,9 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const [showAddTravel, setShowAddTravel] = useState(false)
   const [addingTravel, setAddingTravel] = useState(false)
   const [travelType, setTravelType] = useState<'flight' | 'hotel' | 'train'>('flight')
+  const [tier, setTier] = useState<Tier>('free')
+  const [defaultCurrency, setDefaultCurrency] = useState<SupportedCurrency | null>(null)
+  const multiCurrency = tierAllowsMultiCurrency(tier)
 
   // Guest list state
   const [glSlug, setGlSlug] = useState<string | null>(null)
@@ -145,13 +150,25 @@ export function GigDetail({ gigId }: GigDetailProps) {
   }
 
   useEffect(() => {
+    // Tier + default currency for multi-currency gating
+    Promise.all([
+      fetch('/api/billing/status').then(r => r.json()).catch(() => ({})),
+      fetch('/api/settings').then(r => r.json()).catch(() => ({})),
+    ]).then(([billing, settings]) => {
+      if (billing?.tier) setTier(billing.tier as Tier)
+      const dc = settings?.settings?.default_currency
+      if (dc) setDefaultCurrency(dc as SupportedCurrency)
+    })
+
     fetch(`/api/gigs/${gigId}`)
       .then(r => r.json())
       .then(d => {
         if (d.gig) {
           const g = d.gig
-          // Auto-correct currency from location on load
-          if (g.location) g.currency = currencyFromLocation(g.location)
+          // Pro+ may keep what's saved (multi-currency); locked tiers fall back to default or location-derived
+          if (!multiCurrency) {
+            g.currency = defaultCurrency || (g.location ? currencyFromLocation(g.location) : g.currency)
+          }
           setGig(g)
           if (g.artwork_url) setArtworkPreview(g.artwork_url)
         }
@@ -190,6 +207,14 @@ export function GigDetail({ gigId }: GigDetailProps) {
       })
       .catch(() => {})
   }, [gigId])
+
+  // Once tier + default_currency settle, lock currency for non-multi-currency tiers
+  useEffect(() => {
+    if (!gig || multiCurrency || !defaultCurrency) return
+    if (gig.currency !== defaultCurrency) {
+      setGig({ ...gig, currency: defaultCurrency })
+    }
+  }, [tier, defaultCurrency, multiCurrency, gig])
 
   function showToast(msg: string) {
     setToast(msg)
@@ -238,9 +263,9 @@ export function GigDetail({ gigId }: GigDetailProps) {
     setSaving(true)
     const fd = new FormData(e.currentTarget)
     const updates = Object.fromEntries(fd.entries()) as Record<string, any>
-    // Auto-detect currency from location — always override
-    if (updates.location) {
-      updates.currency = currencyFromLocation(updates.location)
+    // Locked tiers: force default_currency (or fall back to location); Pro+ keeps user pick
+    if (!multiCurrency) {
+      updates.currency = defaultCurrency || (updates.location ? currencyFromLocation(updates.location) : updates.currency)
     }
     // Strip @ from handle fields
     for (const k of ['venue_handle', 'promoter_handle', 'photographer_handle']) {
@@ -543,7 +568,11 @@ export function GigDetail({ gigId }: GigDetailProps) {
                 <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px' }}>Financials</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <Field label="Fee" value={gig.fee} edit={editing} name="fee" type="number" />
-                  <Field label="Currency" value={gig.currency} edit={editing} name="currency" options={['EUR', 'GBP', 'USD', 'CHF', 'AUD', 'CAD', 'JPY']} />
+                  {multiCurrency ? (
+                    <Field label="Currency" value={gig.currency} edit={editing} name="currency" options={['EUR', 'GBP', 'USD', 'CHF', 'AUD', 'CAD', 'JPY']} />
+                  ) : (
+                    <Field label="Currency" value={gig.currency} edit={false} name="currency" />
+                  )}
                   <Field label="Capacity" value={gig.audience} edit={editing} name="audience" type="number" />
                 </div>
               </div>

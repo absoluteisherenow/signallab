@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/api-auth'
 
+// GET is intentionally public — promoters open invoice links without an account.
+// Service-role is fine for the read because we look up by invoice id only and
+// scope artist_settings to invoice.user_id (no cross-tenant leak).
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -9,11 +13,11 @@ const supabase = createClient(
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const printMode = req.nextUrl.searchParams.get('print') === '1'
   try {
-    const [{ data: invoice, error: invErr }, { data: settings }] = await Promise.all([
-      supabase.from('invoices').select('*').eq('id', params.id).single(),
-      supabase.from('artist_settings').select('profile, payment').single(),
-    ])
+    const { data: invoice, error: invErr } = await supabase
+      .from('invoices').select('*').eq('id', params.id).single()
     if (invErr || !invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    const { data: settings } = await supabase
+      .from('artist_settings').select('profile, payment').eq('user_id', invoice.user_id).maybeSingle()
 
     // Pull promoter info from linked gig if available
     let promoterName = invoice.notes || ''
@@ -295,6 +299,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase: userClient } = gate
   try {
     const body = await req.json()
     const updates: Record<string, any> = {}
@@ -304,7 +311,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (body.amount !== undefined) updates.amount = body.amount
     if (body.notes !== undefined) updates.notes = body.notes
 
-    const { data, error } = await supabase
+    const { data, error } = await userClient
       .from('invoices')
       .update(updates)
       .eq('id', params.id)
@@ -317,8 +324,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const { supabase: userClient } = gate
   try {
-    const { error } = await supabase.from('invoices').delete().eq('id', params.id)
+    const { error } = await userClient.from('invoices').delete().eq('id', params.id)
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (err: any) {
