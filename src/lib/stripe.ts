@@ -13,7 +13,13 @@ export function getStripe(): Stripe {
   if (!key) {
     throw new Error('STRIPE_SECRET_KEY not set — checkout is disabled')
   }
-  _stripe = new Stripe(key, { apiVersion: '2025-03-31.basil' as any })
+  // Cloudflare Workers runtime — Stripe SDK must use fetch-based HTTP client.
+  // The default Node http/https client doesn't work in Workers and surfaces as
+  // "An error occurred with our connection to Stripe. Request was retried 2 times."
+  _stripe = new Stripe(key, {
+    apiVersion: '2025-03-31.basil' as any,
+    httpClient: Stripe.createFetchHttpClient(),
+  })
   return _stripe
 }
 
