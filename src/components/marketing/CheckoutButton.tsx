@@ -35,9 +35,15 @@ export default function CheckoutButton({
         setLoading(false)
         return
       }
-      const json = await res.json()
+      // Read body as text first so we can surface non-JSON responses
+      // (HTML error pages, empty bodies, redirects) instead of crashing
+      // with "Unexpected end of JSON input".
+      const text = await res.text()
+      let json: any = null
+      try { json = text ? JSON.parse(text) : null } catch { /* not JSON */ }
       if (!res.ok || !json?.url) {
-        setError(json?.error || 'Could not start checkout')
+        const snippet = text ? text.slice(0, 200) : '(empty body)'
+        setError(json?.error || `HTTP ${res.status}: ${snippet}`)
         setLoading(false)
         return
       }
