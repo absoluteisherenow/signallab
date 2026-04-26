@@ -228,7 +228,18 @@ export default function Onboarding() {
     ])
 
     setLaunchPhase(3)
-    setTimeout(() => router.push('/dashboard'), 400)
+    // Fresh signups land on /pricing to pick a tier — they have tier='free'
+    // until checkout completes, so paid surfaces would be locked anyway.
+    // Existing users (re-running onboarding) keep going to dashboard.
+    setTimeout(async () => {
+      try {
+        const r = await fetch('/api/billing/status').then(x => x.json()).catch(() => null)
+        const hasPaidTier = r?.tier && r.tier !== 'free'
+        router.push(hasPaidTier ? '/dashboard' : '/pricing?welcome=1')
+      } catch {
+        router.push('/pricing?welcome=1')
+      }
+    }, 400)
   }, [fixingInsta, customHandle, discovery, artistName, aligned, router])
 
   const gigCount = discovery?.upcomingGigs?.length || 0
