@@ -242,6 +242,7 @@ export async function buildInvoicePdf(id: string): Promise<Uint8Array | null> {
   const footerLines = [
     `Please use ${invoiceNumber} as your payment reference.`,
     `Please pay in ${currency} only.${currency !== 'GBP' && currency !== 'EUR' ? ' Any foreign exchange charges will be charged back to the payee.' : ''}`,
+    email ? `Please email a remittance advice to ${email} once payment is sent.` : 'Please email a remittance advice to us once payment is sent.',
     `${artistName}  |  ${address}`,
     email ? email : '',
     vatNumber ? `${isAUD ? 'ABN' : 'VAT'}: ${vatNumber}` : '',

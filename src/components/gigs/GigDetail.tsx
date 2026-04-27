@@ -380,6 +380,36 @@ export function GigDetail({ gigId }: GigDetailProps) {
     }
   }
 
+  // SMS-approval path: send a signed link to ARTIST_PHONE. Anthony taps,
+  // previews, and approves on the approval page. Same end-state as
+  // handleSendAdvance — just routed via SMS for on-the-go approval.
+  async function handleSendAdvanceViaSms(riderType: string) {
+    if (!gig?.promoter_email) { showToast('Add a promoter email first'); return }
+    setSendingAdvance(true)
+    setShowRiderPicker(false)
+    try {
+      const res = await fetch(`/api/advance/${gig.id}/sms-approval`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ riderType }),
+      })
+      const data = await res.json() as { sms?: { sent?: boolean; success?: boolean; reason?: string }; href?: string; error?: string }
+      const ok = data?.sms?.sent || data?.sms?.success
+      if (ok) {
+        showToast('SMS sent — tap link on phone to approve')
+      } else if (data.href) {
+        showToast('SMS not configured. Approval link in console.')
+        console.log('Advance approval link:', data.href)
+      } else {
+        showToast('Error: ' + (data.error || 'SMS failed'))
+      }
+    } catch {
+      showToast('Failed to trigger SMS approval')
+    } finally {
+      setSendingAdvance(false)
+    }
+  }
+
   async function confirmRider() {
     if (!gig) return
     const updatedNotes = (gig.notes || '').replace('RIDER STATUS: needs confirmation', 'RIDER STATUS: confirmed')
@@ -1265,6 +1295,11 @@ export function GigDetail({ gigId }: GigDetailProps) {
                       <button onClick={() => setShowRiderPicker(false)}
                         style={{ flex: 1, background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 16px', cursor: 'pointer' }}>
                         Cancel
+                      </button>
+                      <button onClick={() => handleSendAdvanceViaSms(riderType)}
+                        disabled={sendingAdvance}
+                        style={{ flex: 1, background: 'none', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 16px', cursor: 'pointer' }}>
+                        {sendingAdvance ? 'Texting…' : 'SMS approval'}
                       </button>
                       <button onClick={() => { handleSendAdvance(riderType); setShowRiderPicker(false) }}
                         disabled={sendingAdvance}

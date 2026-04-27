@@ -199,6 +199,7 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
 <p style="margin:16px 0 0;font-size:14px;color:#050505;font-weight:500">${artistFirstName}</p>
 <div class="footer">
   Reference: ${invoiceNumber}<br>
+  Please email a remittance advice to advancingabsolute@gmail.com once payment is sent.<br>
   ${payment.address ? payment.address.replace(/\n/g, ' · ') + '<br>' : ''}
   ${payment.vat_number ? `VAT / Tax: ${payment.vat_number}<br>` : ''}
 </div>
