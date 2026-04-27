@@ -46,8 +46,14 @@ type LaunchPrefill = {
 //   after 7 days we'll have real NM cost-per-follower by country to refine on.
 //   If IN turns out to cost-deliver followers that don't convert to profile
 //   visits we drop it on the next rotation.
+// Stage 1 — follower-growth always-on. OUTCOME_ENGAGEMENT optimises for the
+// people Meta predicts will engage AND follow on IG, not just watch a video.
+// Geo locked to NM-relevant Tier-1 markets — earlier prefill included IN/MX
+// as "market-building bets" but THRUPLAY optimisation routed 98% of spend to
+// IN cheap video views with zero follows. India returned 0 follows over 7
+// days at £11/day. Drop until a real tour is booked there.
 const STAGE_1_PREFILL: LaunchPrefill = {
-  objective: 'OUTCOME_AWARENESS',
+  objective: 'OUTCOME_ENGAGEMENT',
   intent: 'growth_stage_1',
   name: `Stage 1 always-on — ${new Date().toISOString().slice(0, 10)}`,
   phase_label: 'stage_1_always_on',
@@ -55,8 +61,8 @@ const STAGE_1_PREFILL: LaunchPrefill = {
   age_min: 22,
   age_max: 45,
   daily_budget_gbp: 3,
-  countries: 'GB, IE, AU, GR, NL, DE, BE, US, MX, IN',
-  hypothesis: 'Engagement-objective boost on highest-save-rate NM post across proven (GB/AU/GR), Tier-1 test (IE/NL/DE/BE/US), and booking-target markets (MX/IN) builds profile-visit → follower velocity while seeding audience where NM wants to tour next.',
+  countries: 'GB, IE, NL, DE, BE, FR, ES, IT, AU, US',
+  hypothesis: 'Engagement objective with POST_ENGAGEMENT optimisation on highest-save-rate NM post in NM-relevant Tier-1 markets builds profile-visit → follower velocity. Geo restricted to where the audience actually books NM and shares the music.',
 }
 
 // Release burst anchored to skillPrompts L506 "RELEASE: £10-30/day minimum
@@ -66,7 +72,7 @@ const STAGE_1_PREFILL: LaunchPrefill = {
 // the country list in sync avoids "pool has engagers from X but we're not
 // targeting X in the burst" gotchas.
 const STAGE_2_PREFILL: LaunchPrefill = {
-  objective: 'OUTCOME_AWARENESS',
+  objective: 'OUTCOME_ENGAGEMENT',
   intent: 'growth_stage_2',
   name: `Stage 2 release burst — ${new Date().toISOString().slice(0, 10)}`,
   phase_label: 'stage_2_release_burst',
@@ -74,8 +80,8 @@ const STAGE_2_PREFILL: LaunchPrefill = {
   age_min: 22,
   age_max: 45,
   daily_budget_gbp: 10,
-  countries: 'GB, IE, AU, GR, NL, DE, BE, US, MX, IN',
-  hypothesis: 'Retargeting the warm pool around a release beats cold reach on cost per follower.',
+  countries: 'GB, IE, NL, DE, BE, FR, ES, IT, AU, US',
+  hypothesis: 'Retargeting the warm pool around a release with engagement objective beats cold reach on cost per follower.',
 }
 
 // ─── Types mirror /api/growth/overview response ─────────────────────────────

@@ -36,6 +36,10 @@ export type ScalingInput = {
   hours_since_launch: number | null
   days_since_creative_swap: number | null
 
+  // Spend + follow attribution (used by zero_follows_after_7d rule)
+  total_spend_gbp: number | null
+  follows_count: number | null
+
   // Campaign context (for one-click actions)
   active_campaign_meta_ids: string[]
 }
@@ -64,7 +68,39 @@ export function evaluateScalingRules(input: ScalingInput): RuleResult[] {
   // Rule 7 — Days since creative swap > 10 → rotate creative
   results.push(creativeRotationDue(input))
 
+  // Rule 8 — Zero follows after 7 days at meaningful spend → pause + rethink.
+  // Catches the Awareness-objective failure mode that burned £11 on India bot
+  // traffic before someone noticed. The objective is the wrong tool when the
+  // goal is followers — flag it loud rather than silently keep running.
+  results.push(zeroFollowsAfter7d(input))
+
   return results
+}
+
+function zeroFollowsAfter7d(i: ScalingInput): RuleResult {
+  const MIN_SPEND_GBP = 5
+  const HOURS_THRESHOLD = 168 // 7 days
+  if (i.hours_since_launch == null || i.total_spend_gbp == null || i.follows_count == null) {
+    return base('zero_follows_after_7d', '0 follows after 7d → pause', '0 follows + spend ≥ £5 + ≥ 168h running', 'insufficient_data', null, null)
+  }
+  if (i.hours_since_launch < HOURS_THRESHOLD) {
+    return base('zero_follows_after_7d', '0 follows after 7d → pause', '0 follows + spend ≥ £5 + ≥ 168h running', 'safe', i.follows_count, `Too early (${Math.round(i.hours_since_launch)}h). Wait until 168h.`)
+  }
+  if (i.total_spend_gbp < MIN_SPEND_GBP) {
+    return base('zero_follows_after_7d', '0 follows after 7d → pause', '0 follows + spend ≥ £5 + ≥ 168h running', 'safe', i.follows_count, `Spend (£${i.total_spend_gbp.toFixed(2)}) under £${MIN_SPEND_GBP} threshold — too little signal.`)
+  }
+  if (i.follows_count > 0) {
+    return base('zero_follows_after_7d', '0 follows after 7d → pause', '0 follows + spend ≥ £5 + ≥ 168h running', 'safe', i.follows_count, `${i.follows_count} follows after ${Math.round(i.hours_since_launch / 24)}d — campaign is producing.`)
+  }
+  // 0 follows, ≥7d running, ≥£5 spent → action
+  return base(
+    'zero_follows_after_7d',
+    '0 follows after 7d → pause',
+    '0 follows + spend ≥ £5 + ≥ 168h running',
+    'action',
+    0,
+    `Zero follows after ${Math.round(i.hours_since_launch / 24)}d at £${i.total_spend_gbp.toFixed(2)} spend. Objective is wrong tool for the goal — pause, switch to OUTCOME_ENGAGEMENT (POST_ENGAGEMENT optimisation), tighten geo to NM Tier-1 markets.`,
+  )
 }
 
 /**

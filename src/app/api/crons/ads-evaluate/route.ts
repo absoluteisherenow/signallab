@@ -212,6 +212,11 @@ export async function GET(req: NextRequest) {
         cost_per_follower_gbp: costPerFollower,
         hours_since_launch: hoursSinceLaunch,
         days_since_creative_swap: null,
+        // Wire spend + follows for zero_follows_after_7d. follows_count uses
+        // followers_delta (Meta-attributed) when available, else 0 — the rule
+        // explicitly handles 0 + spend + 7d as the action condition.
+        total_spend_gbp: snap?.spend ?? null,
+        follows_count: snap?.followers_delta ?? 0,
         active_campaign_meta_ids: c.meta_campaign_id ? [c.meta_campaign_id] : [],
       }
 
@@ -249,6 +254,16 @@ export async function GET(req: NextRequest) {
           .map(r => `• ${r.label}: ${r.recommendation ?? 'review'}`)
           .slice(0, 3)
           .join('\n')
+        // SMS triggered explicitly — ads_action isn't a critical type by
+        // default (would over-SMS on every minor scale verdict), but a real
+        // pivot/pause signal warrants a text. zero_follows_after_7d catches
+        // the Awareness-objective failure that would otherwise burn budget
+        // silently for weeks.
+        const isCritical = actionRules.some(r =>
+          r.id === 'zero_follows_after_7d' ||
+          r.id === 'vtr_kill_rotate' ||
+          r.id === 'cpm_audience_rotate'
+        )
         await createNotification({
           user_id: c.user_id,
           type: 'ads_action',
@@ -260,6 +275,7 @@ export async function GET(req: NextRequest) {
             meta_campaign_id: c.meta_campaign_id,
             rule_ids: actionRules.map(r => r.id),
           },
+          sendSms: isCritical,
         })
         summary.action_notifications_fired++
       }

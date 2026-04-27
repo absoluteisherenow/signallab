@@ -295,11 +295,13 @@ export function buildPreview(input: LaunchInput): LaunchPreview {
 }
 
 function optimizationGoalFor(obj: MetaObjective, intent: LaunchIntent): string {
+  // Follower-growth funnel uses OUTCOME_ENGAGEMENT with POST_ENGAGEMENT.
+  // Earlier mapping pointed Stage 1 at OUTCOME_AWARENESS + THRUPLAY (video views) —
+  // wrong tool for the goal. THRUPLAY pays Meta to find video-watchers, not
+  // followers. The first 7-day run produced 75k reach, 98% in IN, zero follows.
+  // Engagement objective optimises for users likely to engage AND follow.
   if (obj === 'OUTCOME_ENGAGEMENT') return 'POST_ENGAGEMENT'
-  if (obj === 'OUTCOME_AWARENESS') {
-    // Stage 1 of follower funnel = video views optimisation per the plan
-    return intent === 'growth_stage_1' ? 'THRUPLAY' : 'REACH'
-  }
+  if (obj === 'OUTCOME_AWARENESS') return 'REACH'
   if (obj === 'OUTCOME_TRAFFIC') return 'LINK_CLICKS'
   if (obj === 'OUTCOME_LEADS') return 'LEAD_GENERATION'
   return 'POST_ENGAGEMENT'
