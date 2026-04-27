@@ -129,6 +129,14 @@ export async function GET(req: NextRequest) {
   const unauth = requireCronAuth(req, 'weekly-money')
   if (unauth) return unauth
 
+  // Cron-worker fires this daily on the 05:00 UTC slot. Gate to Mondays only
+  // here so the upstream worker stays simple. Override with ?force=1 for tests.
+  const url = new URL(req.url)
+  if (url.searchParams.get('force') !== '1') {
+    const dow = new Date().getUTCDay() // 0=Sun, 1=Mon
+    if (dow !== 1) return NextResponse.json({ ran: false, reason: 'not_monday', dow })
+  }
+
   // All tenants with at least one invoice. user_id NULL legacy rows excluded.
   const { data: tenants } = await supabase
     .from('invoices')

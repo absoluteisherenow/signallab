@@ -95,6 +95,10 @@ const JOBS: Record<string, CronJob[]> = {
     { path: '/api/crons/contact-gaps',     method: 'GET', label: 'contact-gaps' },
     { path: '/api/crons/ads-snapshot',     method: 'GET', label: 'ads-snapshot' },
     { path: '/api/crons/morning-brief',    method: 'GET', label: 'morning-brief' },
+    // Daily morning: scan gigs needing advance + nudge artist via SMS approval link.
+    { path: '/api/crons/advance-ready',    method: 'GET', label: 'advance-ready' },
+    // Weekly money review — route gates internally to Mondays only.
+    { path: '/api/crons/weekly-money',     method: 'GET', label: 'weekly-money' },
   ],
   '0 11 * * *': [
     { path: '/api/crons/invoice-backfill', method: 'POST', label: 'invoice-backfill' },
