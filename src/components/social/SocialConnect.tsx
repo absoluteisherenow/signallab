@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 
 interface SocialAccount {
   id: string
-  platform: 'instagram' | 'twitter' | 'tiktok'
+  platform: 'instagram' | 'twitter' | 'tiktok' | 'youtube'
   handle: string
   token_expiry: number | null
   expiring_soon: boolean
@@ -34,6 +34,14 @@ const PLATFORMS = [
     icon: '▶',
     color: '#909090',
     authPath: '/api/social/tiktok/auth',
+  },
+  {
+    id: 'youtube' as const,
+    label: 'YouTube Shorts',
+    description: 'Upload vertical clips · auto-tagged #Shorts',
+    icon: '▷',
+    color: '#909090',
+    authPath: '/api/social/youtube/auth',
   },
 ]
 
