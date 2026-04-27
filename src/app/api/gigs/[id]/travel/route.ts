@@ -31,6 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     arrival_at: body.arrival_at || null,
     check_in: body.check_in || null,
     check_out: body.check_out || null,
+    rooms: body.rooms ? parseInt(body.rooms, 10) : (body.type === 'hotel' ? 1 : null),
     reference: body.reference || null,
     cost: body.cost ? parseFloat(body.cost) : null,
     currency: body.currency || 'EUR',

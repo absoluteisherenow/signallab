@@ -1,7 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { createNotification } from '@/lib/notifications'
+import { requireUser } from '@/lib/api-auth'
+import { getGmailClients } from '@/lib/gmail-accounts'
+
+// HARD RULE (memory: rule_invoice_from_address): all artist outbound — invoices
+// AND advances — sends via Gmail OAuth from the user's connected Gmail. No
+// Resend, no onboarding@resend.dev, no silent fallbacks.
+function makeRFC2822(to: string, from: string, subject: string, html: string, cc?: string): string {
+  const altBoundary = `alt_${Date.now()}`
+  const headers = [
+    `To: ${to}`,
+    ...(cc ? [`Cc: ${cc}`] : []),
+    `From: ${from}`,
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+  ]
+  const body = [
+    `--${altBoundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: base64`,
+    ``,
+    Buffer.from(html).toString('base64'),
+    `--${altBoundary}--`,
+  ].join('\r\n')
+  const msg = [...headers, ``, body].join('\r\n')
+  return Buffer.from(msg).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
 
 // Public route — promoter accesses with gig link, no auth. Use service-role to bypass RLS.
 const supabase = createClient(
@@ -79,6 +105,8 @@ export async function GET(req: NextRequest) {
         if (!prefill.hotel_name && hotel.name) prefill.hotel_name = hotel.name
         if (!prefill.hotel_address && hotel.from_location) prefill.hotel_address = hotel.from_location
         if (!prefill.hotel_checkin_date && hotel.check_in) prefill.hotel_checkin_date = String(hotel.check_in).slice(0, 10)
+        if (!prefill.hotel_checkout_date && hotel.check_out) prefill.hotel_checkout_date = String(hotel.check_out).slice(0, 10)
+        if (!prefill.hotel_rooms && hotel.rooms) prefill.hotel_rooms = String(hotel.rooms)
         if (!prefill.hotel_reference && hotel.reference) prefill.hotel_reference = hotel.reference
       }
       const transfer = travel.find((t: any) => t.source === 'advance' && (t.type === 'train' || t.type === 'transfer')) || travel.find((t: any) => t.type === 'transfer')
@@ -96,8 +124,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireUser(req)
+  if (gate instanceof NextResponse) return gate
+  const userId = gate.user.id
   try {
-    const { gigId, gigTitle, venue, date, promoterEmail, riderType, confirmed } = await req.json()
+    const { gigId, gigTitle, venue, date, promoterEmail, riderType, confirmed, cc } = await req.json()
     if (!promoterEmail) return NextResponse.json({ error: 'No promoter email' }, { status: 400 })
 
     const formUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://signallabos.com'}/advance/${gigId}`
@@ -116,31 +147,37 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // ── Step 2: CONFIRMED — actually send.
-    const resend = new Resend(process.env.RESEND_API_KEY)
+    // ── Step 2: CONFIRMED — send via Gmail OAuth (the artist's connected
+    // Gmail), not Resend. Same path as invoices.
+    const clients = await getGmailClients(userId)
+    if (!clients.length) {
+      return NextResponse.json({
+        error: 'Gmail not connected. Connect your Gmail in Settings to send advances.',
+      }, { status: 400 })
+    }
 
     // Store rider type on the advance request so the form shows the right preset
     if (riderType) {
       await supabase.from('advance_requests').upsert({ gig_id: gigId, rider_type: riderType, completed: false }, { onConflict: 'gig_id' })
     }
 
-    await resend.emails.send({
-      from: 'NIGHT manoeuvres <onboarding@resend.dev>',
-      to: promoterEmail,
-      subject,
-      html,
-    })
+    const { gmail, email: fromEmail } = clients[0]
+    const fromHeader = `Night Manoeuvres <${fromEmail}>`
+    const ccAddr = typeof cc === 'string' ? cc.trim() : Array.isArray(cc) ? cc.filter(Boolean).join(', ') : ''
+    const raw = makeRFC2822(promoterEmail, fromHeader, subject, html, ccAddr || undefined)
+    await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
 
     // Create in-app notification
     await createNotification({
+      user_id: userId,
       type: 'advance_sent',
       title: `Advance sent — ${gigTitle}`,
-      message: `Request sent to ${promoterEmail}`,
+      message: `Sent from ${fromEmail} to ${promoterEmail}`,
       href: `/gigs/${gigId}`,
       gig_id: gigId,
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, sentFrom: fromEmail })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
@@ -176,9 +213,21 @@ export async function PUT(req: NextRequest) {
             name: data.hotel_name,
             from_location: data.hotel_address || null,
             check_in: data.hotel_checkin_date || null,
+            check_out: data.hotel_checkout_date || null,
+            rooms: data.hotel_rooms ? parseInt(String(data.hotel_rooms), 10) : 1,
             reference: data.hotel_reference || null,
             source: 'advance',
           }])
+        } else {
+          // Sync subsequent edits back to the existing advance-sourced row
+          await supabase.from('travel_bookings').update({
+            name: data.hotel_name,
+            from_location: data.hotel_address || null,
+            check_in: data.hotel_checkin_date || null,
+            check_out: data.hotel_checkout_date || null,
+            rooms: data.hotel_rooms ? parseInt(String(data.hotel_rooms), 10) : 1,
+            reference: data.hotel_reference || null,
+          }).eq('id', existing.data.id)
         }
       }
 

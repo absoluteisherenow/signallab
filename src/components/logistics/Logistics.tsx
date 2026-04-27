@@ -19,6 +19,7 @@ interface TravelBooking {
   arrival_at: string | null
   check_in: string | null
   check_out: string | null
+  rooms: number | null
   reference: string | null
   cost: number | null
   currency: string
@@ -625,7 +626,7 @@ export default function Logistics() {
                                       )}
                                       {b.type === 'hotel' && (
                                         <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>
-                                          {fmtDate(b.check_in)} → {fmtDate(b.check_out)}
+                                          {fmtDate(b.check_in)} → {fmtDate(b.check_out)}{b.rooms && b.rooms > 1 ? ` · ${b.rooms} rooms` : ''}
                                         </div>
                                       )}
                                       {b.reference && (
@@ -696,9 +697,10 @@ export default function Logistics() {
                                 ) : (
                                   <>
                                     <input value={travelForm.name || ''} onChange={e => setTravelForm(p => ({ ...p, name: e.target.value }))} placeholder="Hotel name" style={inlineInput} />
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: '7px' }}>
                                       <input value={travelForm.check_in || ''} onChange={e => setTravelForm(p => ({ ...p, check_in: e.target.value }))} placeholder="Check in (YYYY-MM-DD)" style={inlineInput} />
                                       <input value={travelForm.check_out || ''} onChange={e => setTravelForm(p => ({ ...p, check_out: e.target.value }))} placeholder="Check out" style={inlineInput} />
+                                      <input type="number" min={1} value={travelForm.rooms ?? ''} onChange={e => setTravelForm(p => ({ ...p, rooms: e.target.value }))} placeholder="Rooms" style={inlineInput} />
                                     </div>
                                   </>
                                 )}

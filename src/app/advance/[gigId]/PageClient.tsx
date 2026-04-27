@@ -309,12 +309,42 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Check-out date
+                      </div>
+                      <input
+                        type="date"
+                        value={form.hotel_checkout_date || ''}
+                        onChange={e => setForm(p => ({ ...p, hotel_checkout_date: e.target.value }))}
+                        style={{ ...inputStyle, colorScheme: 'dark' }}
+                        onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                        onBlur={e => e.target.style.borderColor = '#222222'}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
                         Check-in time
                       </div>
                       <input
                         value={form.hotel_checkin_time || ''}
                         onChange={e => setForm(p => ({ ...p, hotel_checkin_time: e.target.value }))}
                         placeholder="e.g. 14:00"
+                        style={inputStyle}
+                        onFocus={e => e.target.style.borderColor = '#ff2a1a'}
+                        onBlur={e => e.target.style.borderColor = '#222222'}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', letterSpacing: '0.12em', color: '#b0ada6', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Number of rooms
+                      </div>
+                      <input
+                        type="number"
+                        min={1}
+                        value={form.hotel_rooms || ''}
+                        onChange={e => setForm(p => ({ ...p, hotel_rooms: e.target.value }))}
+                        placeholder="e.g. 2"
                         style={inputStyle}
                         onFocus={e => e.target.style.borderColor = '#ff2a1a'}
                         onBlur={e => e.target.style.borderColor = '#222222'}
