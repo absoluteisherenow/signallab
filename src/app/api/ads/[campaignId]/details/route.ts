@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ camp
   const timeout = (ms: number) => AbortSignal.timeout(ms)
 
   try {
-    const [campaignRes, dailyRes, ageGenderRes, placementRes, adsRes] = await Promise.all([
+    const [campaignRes, dailyRes, ageGenderRes, placementRes, countryRes, adsRes] = await Promise.all([
       // Campaign meta + lifetime insights (with frequency)
       fetch(
         `${base}/${campaignId}?fields=name,status,objective,start_time,stop_time,daily_budget,lifetime_budget,insights.metric_type(total_value){spend,impressions,reach,frequency,clicks,cpc,cpm,ctr,actions}&access_token=${token}`,
@@ -55,6 +55,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ camp
       // Placement breakdown
       fetch(
         `${base}/${campaignId}/insights?fields=spend,reach,impressions&breakdowns=publisher_platform,platform_position&date_preset=maximum&metric_type=total_value&access_token=${token}`,
+        { signal: timeout(8000) }
+      ),
+      // Country breakdown
+      fetch(
+        `${base}/${campaignId}/insights?fields=spend,reach,impressions,actions&breakdowns=country&date_preset=maximum&metric_type=total_value&access_token=${token}`,
         { signal: timeout(8000) }
       ),
       // Ads under campaign with creative + per-ad insights + rankings
@@ -98,6 +103,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ camp
       reach: parseInt(d.reach || '0'),
       impressions: parseInt(d.impressions || '0'),
     }))
+
+    // Country breakdown — pulls follows + profile visits per country so we
+    // can see where new fans are coming from. action_types we care about:
+    //   onsite_conversion.ig_account_follow → follows attributed to ad
+    //   link_click                          → profile visits proxy
+    const countryJson = countryRes.ok ? await countryRes.json() : { data: [] }
+    const countries = (countryJson.data ?? []).map((d: any) => {
+      const actions = Array.isArray(d.actions) ? d.actions : []
+      const follows = parseInt(actions.find((a: any) => a.action_type === 'onsite_conversion.ig_account_follow')?.value || '0')
+      const visits = parseInt(actions.find((a: any) => a.action_type === 'link_click')?.value || '0')
+      return {
+        country: d.country,
+        spend: parseFloat(d.spend || '0'),
+        reach: parseInt(d.reach || '0'),
+        impressions: parseInt(d.impressions || '0'),
+        follows,
+        visits,
+      }
+    })
 
     const adsJson = adsRes.ok ? await adsRes.json() : { data: [] }
     const ads = (adsJson.data ?? []).map((a: any) => {
@@ -159,6 +183,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ camp
       daily,
       ageGender,
       placements,
+      countries,
       ads,
       health,
     })

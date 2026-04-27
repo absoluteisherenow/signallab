@@ -14,6 +14,7 @@ interface CampaignDetails {
   daily: { date: string; reach: number; spend: number; impressions: number; cpm: number }[]
   ageGender: { age: string; gender: string; reach: number; impressions: number; spend: number }[]
   placements: { platform: string; position: string; reach: number; impressions: number; spend: number }[]
+  countries?: { country: string; reach: number; impressions: number; spend: number; follows: number; visits: number }[]
   ads: {
     id: string
     name: string
@@ -485,9 +486,13 @@ const SIGNAL_COLOR: Record<'good' | 'ok' | 'bad' | 'neutral', string> = {
 }
 
 function CampaignDetailsPanel({ details }: { details: CampaignDetails }) {
-  const { health, daily, ads, ageGender, placements } = details
+  const { health, daily, ads, ageGender, placements, countries } = details
   const grade = GRADE_COLOR[health.grade]
   const maxReach = Math.max(1, ...daily.map(d => d.reach))
+
+  // Sum follows + visits across countries for top-line attribution
+  const totalFollows = (countries || []).reduce((s, c) => s + (c.follows || 0), 0)
+  const totalVisits = (countries || []).reduce((s, c) => s + (c.visits || 0), 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -598,6 +603,48 @@ function CampaignDetailsPanel({ details }: { details: CampaignDetails }) {
             impressions: ag.impressions,
           }))}
         />
+      )}
+
+      {/* ── Country split + follow attribution ── */}
+      {countries && countries.length > 0 && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)' }}>
+              Where new fans are coming from
+            </div>
+            <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-dimmer, #b0b0b0)' }}>
+              <span><b style={{ color: '#44cc66' }}>{totalFollows.toLocaleString()}</b> follows</span>
+              <span><b style={{ color: 'var(--text, #f2f2f2)' }}>{totalVisits.toLocaleString()}</b> profile visits</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {[...countries].sort((a, b) => (b.follows - a.follows) || (b.reach - a.reach)).slice(0, 10).map(c => (
+              <div key={c.country} style={{
+                display: 'grid',
+                gridTemplateColumns: '60px 1fr 70px 70px 70px',
+                gap: 10,
+                alignItems: 'center',
+                fontSize: 11,
+                padding: '6px 0',
+                borderBottom: '1px solid var(--border-dim, #1d1d1d)',
+              }}>
+                <span style={{ letterSpacing: '0.08em', color: 'var(--text, #f2f2f2)', fontWeight: 600 }}>{c.country}</span>
+                <div style={{ height: 4, background: 'rgba(255,255,255,0.04)' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${Math.min(100, (c.reach / Math.max(1, ...countries.map(x => x.reach))) * 100)}%`,
+                    background: 'rgba(255,42,26,0.55)',
+                  }} />
+                </div>
+                <span style={{ textAlign: 'right', color: 'var(--text-dimmer, #b0b0b0)' }}>{c.reach.toLocaleString()} reach</span>
+                <span style={{ textAlign: 'right', color: 'var(--text-dimmer, #b0b0b0)' }}>{c.visits.toLocaleString()} visits</span>
+                <span style={{ textAlign: 'right', color: c.follows > 0 ? '#44cc66' : 'var(--text-dimmest, #909090)', fontWeight: c.follows > 0 ? 700 : 400 }}>
+                  {c.follows > 0 ? `+${c.follows.toLocaleString()}` : '—'} follows
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )
