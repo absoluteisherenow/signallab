@@ -29,6 +29,9 @@ interface ConnectedAccount {
   id: string
   email: string
   label: string
+  needs_reauth?: boolean
+  last_error_at?: string | null
+  last_error?: string | null
 }
 
 interface BankAccount {
@@ -719,20 +722,43 @@ export default function Settings() {
               {connectedAccounts.length === 0 && (
                 <div style={{ fontSize: '11px', color: 'var(--text-dimmer)' }}>No accounts connected yet.</div>
               )}
-              {connectedAccounts.map(account => (
-                <div key={account.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dim)' }}>
-                  <div>
-                    <div style={{ fontSize: '12px', color: 'var(--text)' }}>{account.email}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', letterSpacing: '0.08em', marginTop: '2px' }}>{account.label}</div>
+              {connectedAccounts.map(account => {
+                const dead = !!account.needs_reauth
+                return (
+                  <div key={account.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: dead ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${dead ? 'rgba(239,68,68,0.45)' : 'var(--border-dim)'}` }}>
+                    <div>
+                      <div style={{ fontSize: '12px', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {account.email}
+                        {dead && (
+                          <span style={{ fontSize: '9px', letterSpacing: '0.14em', color: '#ef4444', border: '1px solid #ef4444', padding: '1px 6px', textTransform: 'uppercase' }}>
+                            Token revoked
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', letterSpacing: '0.08em', marginTop: '2px' }}>{account.label}</div>
+                      {dead && (
+                        <div style={{ fontSize: '10px', color: '#ef4444', marginTop: '4px' }}>
+                          Sign in again to restore inbox scanning{account.last_error_at ? ` — last failed ${new Date(account.last_error_at).toLocaleDateString()}` : ''}.
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {dead && (
+                        <a href={`/api/gmail/auth?label=${encodeURIComponent(account.label || 'Primary')}`}
+                          style={{ background: '#ef4444', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                          Reconnect →
+                        </a>
+                      )}
+                      <button onClick={() => disconnectAccount(account.id)}
+                        style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}>
+                        Disconnect
+                      </button>
+                    </div>
                   </div>
-                  <button onClick={() => disconnectAccount(account.id)}
-                    style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text-dimmer)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer', transition: 'all 0.15s' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmer)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-dim)' }}>
-                    Disconnect
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
             {!showAddAccount ? (
               <button onClick={() => setShowAddAccount(true)}

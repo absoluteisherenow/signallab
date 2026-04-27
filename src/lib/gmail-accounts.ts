@@ -10,6 +10,9 @@ export interface ConnectedAccount {
   id: string
   email: string
   label: string
+  needs_reauth?: boolean
+  last_error_at?: string | null
+  last_error?: string | null
 }
 
 // ── Raw fetch Gmail client ──────────────────────────────────────────────────
@@ -275,7 +278,7 @@ export async function listConnectedAccounts(userId: string): Promise<ConnectedAc
   if (!userId) throw new Error('listConnectedAccounts: userId required')
   const { data } = await supabase
     .from('connected_email_accounts')
-    .select('id, email, label, created_at')
+    .select('id, email, label, created_at, needs_reauth, last_error_at, last_error')
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
   return (data || []) as ConnectedAccount[]
