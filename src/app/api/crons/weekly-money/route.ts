@@ -30,6 +30,7 @@ interface InvoiceRow {
   due_date: string | null
   sent_to_promoter_at: string | null
   paid_at: string | null
+  payment_detected_at: string | null
 }
 
 function fmtMoney(amount: number | null, currency: string | null): string {
@@ -50,23 +51,26 @@ async function runForUser(userId: string) {
 
   const { data: invoices } = await supabase
     .from('invoices')
-    .select('id, user_id, gig_title, amount, currency, status, due_date, sent_to_promoter_at, paid_at')
+    .select('id, user_id, gig_title, amount, currency, status, due_date, sent_to_promoter_at, paid_at, payment_detected_at')
     .eq('user_id', userId)
     .returns<InvoiceRow[]>()
 
   if (!invoices || !invoices.length) return null
 
-  const looksPaid = invoices.filter(i => i.status === 'looks_paid')
+  // "Looks paid" = remittance scraper detected a payment but Anthony hasn't
+  // confirmed yet (paid_at not set). These are the highest-priority taps.
+  const looksPaid = invoices.filter(i => i.payment_detected_at && !i.paid_at && i.status !== 'paid')
+  const looksPaidIds = new Set(looksPaid.map(i => i.id))
   const overdue = invoices.filter(i =>
+    !looksPaidIds.has(i.id) &&
     i.status !== 'paid' &&
-    i.status !== 'looks_paid' &&
     i.sent_to_promoter_at &&
     i.due_date &&
     i.due_date < todayStr
   )
   const waiting = invoices.filter(i =>
+    !looksPaidIds.has(i.id) &&
     i.status !== 'paid' &&
-    i.status !== 'looks_paid' &&
     i.sent_to_promoter_at &&
     i.due_date &&
     i.due_date >= todayStr &&

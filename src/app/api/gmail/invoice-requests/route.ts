@@ -787,8 +787,10 @@ async function handlePaymentConfirmation(
   subject: string,
   threadId: string,
 ): Promise<ProcessedThread> {
-  // Find invoice on matched gig that's not yet paid. Mark paid only if a gig
-  // match exists — never mark paid without ground truth.
+  // DETECT-ONLY. Per feedback_never_bypass_guards + feedback_approve_before_send:
+  // we never auto-flip paid_at / status='paid'. We write to the dedicated
+  // payment_detected_* columns and surface a notification asking Anthony to
+  // confirm. Confirmation flips paid_at via the regular /api/invoices/[id] PATCH.
   let invoice: any = null
   if (matched?.id) {
     const { data } = await supabase
@@ -797,6 +799,7 @@ async function handlePaymentConfirmation(
       .eq('user_id', userId)
       .eq('gig_id', matched.id)
       .neq('status', 'paid')
+      .is('payment_detected_at', null) // skip if we've already detected on this invoice
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -805,19 +808,23 @@ async function handlePaymentConfirmation(
 
   if (invoice) {
     await supabase.from('invoices').update({
-      status: 'paid',
-      paid_at: new Date().toISOString(),
+      payment_detected_at: new Date().toISOString(),
+      payment_detected_amount: ex.payment?.amount_paid ?? null,
+      payment_detected_currency: ex.currency || invoice.currency || null,
+      payment_detected_thread_id: threadId,
     }).eq('id', invoice.id).eq('user_id', userId)
   }
 
   await createNotification({
     user_id: userId,
     type: 'payment_received',
-    title: `Payment received — ${ex.gig_title || matched?.title || subject.slice(0, 40)}`,
+    title: invoice
+      ? `Looks paid — ${invoice.gig_title || ex.gig_title || subject.slice(0, 40)}`
+      : `Payment email — no invoice match`,
     message: invoice
-      ? `Marked paid: ${invoice.currency} ${invoice.amount}`
+      ? `${invoice.currency} ${invoice.amount} looks paid (${ex.payment?.invoice_reference || 'remittance match'}). Tap to confirm.`
       : `No invoice match found — review manually`,
-    href: '/business/finances',
+    href: invoice ? `/invoices?detected=${invoice.id}` : '/business/finances',
     gig_id: matched?.id || undefined,
     sendSms: !!invoice,
   })
@@ -830,7 +837,7 @@ async function handlePaymentConfirmation(
     invoiceId: invoice?.id || null,
     gigBackfilled: false,
     kind: 'payment_confirmation',
-    action: invoice ? `Marked paid — ${invoice.gig_title}` : 'Payment email, no invoice matched',
+    action: invoice ? `Detected payment — ${invoice.gig_title} (awaiting confirm)` : 'Payment email, no invoice matched',
   }
 }
 
