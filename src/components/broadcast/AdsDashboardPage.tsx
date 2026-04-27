@@ -15,6 +15,8 @@ interface CampaignDetails {
   ageGender: { age: string; gender: string; reach: number; impressions: number; spend: number }[]
   placements: { platform: string; position: string; reach: number; impressions: number; spend: number }[]
   countries?: { country: string; reach: number; impressions: number; spend: number; follows: number; visits: number }[]
+  regions?: { country: string; region: string; reach: number; impressions: number; spend: number; follows: number; visits: number }[]
+  video?: { plays: number; p25: number; p50: number; p75: number; p100: number; avg_time_ms: number } | null
   ads: {
     id: string
     name: string
@@ -486,13 +488,17 @@ const SIGNAL_COLOR: Record<'good' | 'ok' | 'bad' | 'neutral', string> = {
 }
 
 function CampaignDetailsPanel({ details }: { details: CampaignDetails }) {
-  const { health, daily, ads, ageGender, placements, countries } = details
+  const { health, daily, ads, ageGender, placements, countries, regions, video, insights } = details
   const grade = GRADE_COLOR[health.grade]
   const maxReach = Math.max(1, ...daily.map(d => d.reach))
 
   // Sum follows + visits across countries for top-line attribution
   const totalFollows = (countries || []).reduce((s, c) => s + (c.follows || 0), 0)
   const totalVisits = (countries || []).reduce((s, c) => s + (c.visits || 0), 0)
+  const totalSpend = parseFloat(insights?.spend || '0')
+  // Cost per follow / per profile visit — only meaningful when we have both.
+  const costPerFollow = totalFollows > 0 ? totalSpend / totalFollows : null
+  const costPerVisit = totalVisits > 0 ? totalSpend / totalVisits : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -593,6 +599,35 @@ function CampaignDetailsPanel({ details }: { details: CampaignDetails }) {
         />
       )}
 
+      {/* ── Region/city split ── */}
+      {regions && regions.length > 0 && (
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 10 }}>
+            Top cities/regions (touring intel)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {regions.slice(0, 12).map((r, i) => (
+              <div key={i} style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 80px 70px 70px',
+                gap: 10,
+                alignItems: 'center',
+                fontSize: 11,
+                padding: '6px 0',
+                borderBottom: '1px solid var(--border-dim, #1d1d1d)',
+              }}>
+                <span style={{ color: 'var(--text, #f2f2f2)' }}>{r.region} <span style={{ color: 'var(--text-dimmest, #909090)' }}>{r.country}</span></span>
+                <span style={{ textAlign: 'right', color: 'var(--text-dimmer, #b0b0b0)' }}>{r.reach.toLocaleString()} reach</span>
+                <span style={{ textAlign: 'right', color: 'var(--text-dimmer, #b0b0b0)' }}>{r.visits.toLocaleString()} visits</span>
+                <span style={{ textAlign: 'right', color: r.follows > 0 ? '#44cc66' : 'var(--text-dimmest, #909090)', fontWeight: r.follows > 0 ? 700 : 400 }}>
+                  {r.follows > 0 ? `+${r.follows}` : '—'} follows
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Age + gender split ── */}
       {ageGender.length > 0 && (
         <BreakdownBlock
@@ -603,6 +638,59 @@ function CampaignDetailsPanel({ details }: { details: CampaignDetails }) {
             impressions: ag.impressions,
           }))}
         />
+      )}
+
+      {/* ── Cost per follow / per visit ── */}
+      {(costPerFollow !== null || costPerVisit !== null) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+          {costPerFollow !== null && (
+            <div style={{ background: 'rgba(68,204,102,0.06)', border: '1px solid rgba(68,204,102,0.25)', padding: '12px 14px' }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 6 }}>Cost per follow</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#44cc66' }}><BlurredAmount value={costPerFollow} currency="GBP" /></div>
+              <div style={{ fontSize: 10, color: 'var(--text-dimmer, #b0b0b0)', marginTop: 4 }}>{totalFollows.toLocaleString()} follows · <BlurredAmount value={totalSpend} currency="GBP" /> spend</div>
+            </div>
+          )}
+          {costPerVisit !== null && (
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim, #1d1d1d)', padding: '12px 14px' }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 6 }}>Cost per profile visit</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text, #f2f2f2)' }}><BlurredAmount value={costPerVisit} currency="GBP" /></div>
+              <div style={{ fontSize: 10, color: 'var(--text-dimmer, #b0b0b0)', marginTop: 4 }}>{totalVisits.toLocaleString()} visits</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Video hook strength ── */}
+      {video && video.plays > 0 && (
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 10 }}>
+            Hook strength — how far people watch
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+            {[
+              { label: 'Plays', value: video.plays, pct: 100 },
+              { label: '25%', value: video.p25, pct: video.plays > 0 ? (video.p25 / video.plays) * 100 : 0 },
+              { label: '50%', value: video.p50, pct: video.plays > 0 ? (video.p50 / video.plays) * 100 : 0 },
+              { label: '75%', value: video.p75, pct: video.plays > 0 ? (video.p75 / video.plays) * 100 : 0 },
+              { label: '100%', value: video.p100, pct: video.plays > 0 ? (video.p100 / video.plays) * 100 : 0 },
+            ].map((s, i) => (
+              <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim, #1d1d1d)', padding: '10px 8px', textAlign: 'center' }}>
+                <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 4 }}>{s.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text, #f2f2f2)' }}>{s.value.toLocaleString()}</div>
+                {i > 0 && (
+                  <div style={{ fontSize: 9, color: s.pct >= 50 ? '#44cc66' : s.pct >= 25 ? '#e6b800' : '#ff6b6b', marginTop: 2 }}>
+                    {s.pct.toFixed(0)}%
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {video.avg_time_ms > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--text-dimmer, #b0b0b0)', marginTop: 8 }}>
+              Avg watch time: <b style={{ color: 'var(--text, #f2f2f2)' }}>{(video.avg_time_ms / 1000).toFixed(1)}s</b>
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── Country split + follow attribution ── */}

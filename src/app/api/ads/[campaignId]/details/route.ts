@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ camp
   const timeout = (ms: number) => AbortSignal.timeout(ms)
 
   try {
-    const [campaignRes, dailyRes, ageGenderRes, placementRes, countryRes, adsRes] = await Promise.all([
+    const [campaignRes, dailyRes, ageGenderRes, placementRes, countryRes, regionRes, videoRes, adsRes] = await Promise.all([
       // Campaign meta + lifetime insights (with frequency)
       fetch(
         `${base}/${campaignId}?fields=name,status,objective,start_time,stop_time,daily_budget,lifetime_budget,insights.metric_type(total_value){spend,impressions,reach,frequency,clicks,cpc,cpm,ctr,actions}&access_token=${token}`,
@@ -60,6 +60,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ camp
       // Country breakdown
       fetch(
         `${base}/${campaignId}/insights?fields=spend,reach,impressions,actions&breakdowns=country&date_preset=maximum&metric_type=total_value&access_token=${token}`,
+        { signal: timeout(8000) }
+      ),
+      // Region/city breakdown — Meta calls this "region" (state/county/city
+      // depending on country). UK = cities, US = states. Use country+region
+      // pair so the same region name across countries doesn't collide.
+      fetch(
+        `${base}/${campaignId}/insights?fields=spend,reach,impressions,actions&breakdowns=country,region&date_preset=maximum&metric_type=total_value&access_token=${token}`,
+        { signal: timeout(8000) }
+      ),
+      // Video watch metrics — hook strength signals. p25/50/75/100 = % of viewers
+      // who reached that point. avg_time_watched = ms. Lifetime totals.
+      fetch(
+        `${base}/${campaignId}/insights?fields=video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_avg_time_watched_actions,video_play_actions&date_preset=maximum&metric_type=total_value&access_token=${token}`,
         { signal: timeout(8000) }
       ),
       // Ads under campaign with creative + per-ad insights + rankings
@@ -108,20 +121,55 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ camp
     // can see where new fans are coming from. action_types we care about:
     //   onsite_conversion.ig_account_follow → follows attributed to ad
     //   link_click                          → profile visits proxy
-    const countryJson = countryRes.ok ? await countryRes.json() : { data: [] }
-    const countries = (countryJson.data ?? []).map((d: any) => {
+    const extractFollows = (d: any): number => {
       const actions = Array.isArray(d.actions) ? d.actions : []
-      const follows = parseInt(actions.find((a: any) => a.action_type === 'onsite_conversion.ig_account_follow')?.value || '0')
-      const visits = parseInt(actions.find((a: any) => a.action_type === 'link_click')?.value || '0')
-      return {
+      return parseInt(actions.find((a: any) => a.action_type === 'onsite_conversion.ig_account_follow')?.value || '0')
+    }
+    const extractVisits = (d: any): number => {
+      const actions = Array.isArray(d.actions) ? d.actions : []
+      return parseInt(actions.find((a: any) => a.action_type === 'link_click')?.value || '0')
+    }
+
+    const countryJson = countryRes.ok ? await countryRes.json() : { data: [] }
+    const countries = (countryJson.data ?? []).map((d: any) => ({
+      country: d.country,
+      spend: parseFloat(d.spend || '0'),
+      reach: parseInt(d.reach || '0'),
+      impressions: parseInt(d.impressions || '0'),
+      follows: extractFollows(d),
+      visits: extractVisits(d),
+    }))
+
+    // Region/city breakdown — informs touring intel. Limit to top 25 by reach
+    // so the response stays small.
+    const regionJson = regionRes.ok ? await regionRes.json() : { data: [] }
+    const regions = (regionJson.data ?? [])
+      .map((d: any) => ({
         country: d.country,
+        region: d.region || 'Unknown',
         spend: parseFloat(d.spend || '0'),
         reach: parseInt(d.reach || '0'),
         impressions: parseInt(d.impressions || '0'),
-        follows,
-        visits,
-      }
-    })
+        follows: extractFollows(d),
+        visits: extractVisits(d),
+      }))
+      .sort((a: any, b: any) => b.reach - a.reach)
+      .slice(0, 25)
+
+    // Video metrics — only meaningful when the creative is video. p25/50/75/100
+    // are arrays keyed by action_type=video_view. Sum into single ints.
+    const videoJson = videoRes.ok ? await videoRes.json() : { data: [] }
+    const videoRow = videoJson.data?.[0]
+    const sumActionArr = (arr: any[] | undefined): number =>
+      Array.isArray(arr) ? arr.reduce((s, a) => s + (parseInt(a.value) || 0), 0) : 0
+    const video = videoRow ? {
+      plays: sumActionArr(videoRow.video_play_actions),
+      p25: sumActionArr(videoRow.video_p25_watched_actions),
+      p50: sumActionArr(videoRow.video_p50_watched_actions),
+      p75: sumActionArr(videoRow.video_p75_watched_actions),
+      p100: sumActionArr(videoRow.video_p100_watched_actions),
+      avg_time_ms: sumActionArr(videoRow.video_avg_time_watched_actions),
+    } : null
 
     const adsJson = adsRes.ok ? await adsRes.json() : { data: [] }
     const ads = (adsJson.data ?? []).map((a: any) => {
@@ -184,6 +232,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ camp
       ageGender,
       placements,
       countries,
+      regions,
+      video,
       ads,
       health,
     })
