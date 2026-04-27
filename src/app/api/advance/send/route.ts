@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     const clients = await getGmailClients(userId)
     if (!clients.length) {
       return NextResponse.json({
-        error: 'Gmail not connected. Reconnect advancingabsolute@gmail.com in Settings to send advances.',
+        error: 'Gmail not connected. Connect your Gmail in Settings to send advances.',
       }, { status: 400 })
     }
     const { gmail, email: fromEmail } = clients[0]
