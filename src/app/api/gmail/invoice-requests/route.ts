@@ -824,7 +824,7 @@ async function handlePaymentConfirmation(
     message: invoice
       ? `${invoice.currency} ${invoice.amount} looks paid (${ex.payment?.invoice_reference || 'remittance match'}). Tap to confirm.`
       : `No invoice match found — review manually`,
-    href: invoice ? `/invoices?detected=${invoice.id}` : '/business/finances',
+    href: invoice ? `/business/finances?detected=${invoice.id}` : '/business/finances',
     gig_id: matched?.id || undefined,
     sendSms: !!invoice,
   })

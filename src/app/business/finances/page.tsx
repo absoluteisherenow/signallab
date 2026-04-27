@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { BlurredAmount } from '@/components/ui/BlurredAmount'
 import { useGatedSend } from '@/lib/outbound'
@@ -21,6 +21,10 @@ interface Invoice {
   wht_rate?: number
   sent_to_promoter_at?: string | null
   sent_to_promoter_email?: string | null
+  payment_detected_at?: string | null
+  payment_detected_amount?: number | null
+  payment_detected_currency?: string | null
+  payment_detected_thread_id?: string | null
 }
 
 interface Gig {
@@ -81,6 +85,9 @@ function getNextThreeMonths(): { key: string; label: string }[] {
 }
 
 export default function Finances() {
+  const searchParams = useSearchParams()
+  const detectedId = searchParams?.get('detected') || null
+  const detectedRowRef = useRef<HTMLDivElement | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [gigs, setGigs] = useState<Gig[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -126,6 +133,16 @@ export default function Finances() {
       fetchExpenses()
     }
   }, [financeTab])
+
+  // Scroll the highlighted row into view after invoices load. Notification-link
+  // path: /business/finances?detected=<invoiceId> from the remittance scanner.
+  useEffect(() => {
+    if (!detectedId || !invoices.length) return
+    const t = setTimeout(() => {
+      detectedRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 100)
+    return () => clearTimeout(t)
+  }, [detectedId, invoices.length])
 
   async function fetchInvoices() {
     setLoading(true)
@@ -701,8 +718,23 @@ export default function Finances() {
               invoices.map((inv, i) => {
                 const whtAmount = inv.wht_rate ? Math.round(inv.amount * (inv.wht_rate / 100)) : 0
                 const netAmount = inv.amount - whtAmount
+                const looksPaid = !!inv.payment_detected_at && !inv.paid_at && inv.status !== 'paid'
+                const highlight = detectedId === inv.id
                 return (
-                  <div key={inv.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px 60px', gap: '0', padding: '16px 24px', borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none', alignItems: 'center', opacity: inv.status === 'paid' ? 0.5 : inv.sent_to_promoter_at ? 1 : 0.65 }}>
+                  <div
+                    key={inv.id}
+                    ref={highlight ? detectedRowRef : undefined}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 1fr 80px 110px 80px 100px 80px 120px 80px 80px 60px',
+                      gap: '0',
+                      padding: '16px 24px',
+                      borderBottom: i < invoices.length - 1 ? '1px solid var(--border-dim)' : 'none',
+                      borderLeft: highlight ? '3px solid var(--gold)' : looksPaid ? '3px solid rgba(61,107,74,0.6)' : '3px solid transparent',
+                      background: highlight ? 'rgba(255,42,26,0.04)' : 'transparent',
+                      alignItems: 'center',
+                      opacity: inv.status === 'paid' ? 0.5 : inv.sent_to_promoter_at ? 1 : 0.65,
+                    }}>
                     <div>
                       <div style={{ fontSize: '13px', color: 'var(--text)' }}>{inv.gig_title}</div>
                       {inv.artist_name && <div style={{ fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '3px' }}>{inv.artist_name}</div>}
@@ -730,6 +762,13 @@ export default function Finances() {
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--green)', border: '1px solid rgba(61,107,74,0.35)', padding: '3px 7px', alignSelf: 'flex-start' }}>
                             ● Sent {new Date(inv.sent_to_promoter_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                           </div>
+                          {looksPaid && (
+                            <div
+                              title={`Remittance email detected ${new Date(inv.payment_detected_at!).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}${inv.payment_detected_amount ? ` · ${inv.payment_detected_currency || inv.currency} ${inv.payment_detected_amount}` : ''}`}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(255,42,26,0.45)', padding: '3px 7px', alignSelf: 'flex-start' }}>
+                              ◐ Looks paid — confirm →
+                            </div>
+                          )}
                           {inv.sent_to_promoter_email && (
                             <div style={{ fontSize: '9px', color: 'var(--text-dimmer)', wordBreak: 'break-all', lineHeight: 1.3 }} title={inv.sent_to_promoter_email}>
                               {inv.sent_to_promoter_email}
