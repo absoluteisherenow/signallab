@@ -646,14 +646,14 @@ function CampaignDetailsPanel({ details }: { details: CampaignDetails }) {
           {costPerFollow !== null && (
             <div style={{ background: 'rgba(68,204,102,0.06)', border: '1px solid rgba(68,204,102,0.25)', padding: '12px 14px' }}>
               <div style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 6 }}>Cost per follow</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#44cc66' }}><BlurredAmount value={costPerFollow} currency="GBP" /></div>
-              <div style={{ fontSize: 10, color: 'var(--text-dimmer, #b0b0b0)', marginTop: 4 }}>{totalFollows.toLocaleString()} follows · <BlurredAmount value={totalSpend} currency="GBP" /> spend</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#44cc66' }}><BlurredAmount>£{costPerFollow.toFixed(2)}</BlurredAmount></div>
+              <div style={{ fontSize: 10, color: 'var(--text-dimmer, #b0b0b0)', marginTop: 4 }}>{totalFollows.toLocaleString()} follows · <BlurredAmount>£{totalSpend.toFixed(2)}</BlurredAmount> spend</div>
             </div>
           )}
           {costPerVisit !== null && (
             <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim, #1d1d1d)', padding: '12px 14px' }}>
               <div style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dimmest, #909090)', marginBottom: 6 }}>Cost per profile visit</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text, #f2f2f2)' }}><BlurredAmount value={costPerVisit} currency="GBP" /></div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text, #f2f2f2)' }}><BlurredAmount>£{costPerVisit.toFixed(2)}</BlurredAmount></div>
               <div style={{ fontSize: 10, color: 'var(--text-dimmer, #b0b0b0)', marginTop: 4 }}>{totalVisits.toLocaleString()} visits</div>
             </div>
           )}
