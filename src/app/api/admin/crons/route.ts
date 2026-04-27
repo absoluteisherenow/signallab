@@ -41,6 +41,10 @@ const EXPECTED_CADENCE_MIN: Record<string, number> = {
   'ads-evaluate': 24 * 60,
   'ads-reminders': 24 * 60,
   'night-before': 24 * 60,
+  'morning-brief': 24 * 60,
+  'advance-ready': 24 * 60,
+  // weekly-money fires daily but gates internally to Mondays — give it 8d grace.
+  'weekly-money': 8 * 24 * 60,
 }
 
 export async function GET(req: NextRequest) {

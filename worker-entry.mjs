@@ -33,6 +33,8 @@ const DAILY_ROUTES = [
   { path: "/api/crons/sync-performance",  hour: 9  },  // 10:00 BST — sync IG performance
   { path: "/api/crons/check-comments",    hour: 12 },  // 13:00 BST — check IG comments
   { path: "/api/crons/push-cleanup",      hour: 3  },  // 04:00 BST — TTL purge pending_push_messages
+  { path: "/api/crons/vendor-ops",        hour: 7  },  // 08:00 BST — vendor ops scan (Sentry/Stripe/CF/etc.)
+  { path: "/api/crons/vendor-ops",        hour: 17 },  // 18:00 BST — vendor ops scan (evening pass)
 ];
 
 function isTopOfHour() {
