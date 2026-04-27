@@ -105,7 +105,7 @@ export default function MobileAdvanceSheet({
             date: g.date || '',
             promoterEmail,
             promoterName: g.promoter_name || '',
-            artistName: 'Night Manoeuvres',
+            artistName: 'NIGHT manoeuvres',
             location: g.location || '',
           }),
         }).then(r => r.json())
@@ -186,7 +186,7 @@ export default function MobileAdvanceSheet({
           <MetaGrid
             rows={[
               { label: 'TO', value: to || '—' },
-              { label: 'FROM', value: phase === 'readonly' ? 'Night Manoeuvres' : 'advance@signallabos.com' },
+              { label: 'FROM', value: phase === 'readonly' ? 'NIGHT manoeuvres' : 'advance@signallabos.com' },
               { label: 'SUBJECT', value: subject || '—' },
               ...(phase === 'readonly' && existing?.sent_at
                 ? [{ label: 'SENT', value: new Date(existing.sent_at).toLocaleString('en-GB') }]

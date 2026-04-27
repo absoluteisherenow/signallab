@@ -102,7 +102,7 @@ export default function PromoClient() {
         <div style={styles.header}>
           <img
             src="/nm-logo-bw-sm.png"
-            alt="Night Manoeuvres"
+            alt="NIGHT manoeuvres"
             style={{ height: 120, display: 'block', margin: '0 auto', filter: 'invert(1) sepia(0.15) saturate(0.6) brightness(0.92)', opacity: 0.9 }}
           />
           {data.contact_name && (
@@ -181,7 +181,7 @@ export default function PromoClient() {
             <span style={styles.footerText}>Powered by</span>
             <svg width={20} height={20} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.5 }}>
               <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" strokeWidth="1.5" opacity="0.25" />
-              <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32" stroke="#ff2a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
             <span style={styles.footerBrand}>Signal Lab OS</span>
           </a>

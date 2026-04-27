@@ -144,16 +144,44 @@ export default function Onboarding() {
   // Step 3
   const [launchPhase, setLaunchPhase] = useState(0) // 0=entering, 1=text, 2=flash, 3=redirect
 
-  // ── Curtain sequence ──
+  // ── Resume from localStorage if mid-flow ──
+  const STORAGE_KEY = 'sl_onboarding_state'
   const curtainRan = useRef(false)
   useEffect(() => {
     if (curtainRan.current) return
     curtainRan.current = true
+
+    // Resume if we have saved progress past step 0
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
+      if (raw) {
+        const saved = JSON.parse(raw)
+        if (saved && typeof saved.step === 'number' && saved.step > 0 && saved.step < 3) {
+          if (saved.artistName) setArtistName(saved.artistName)
+          if (Array.isArray(saved.aligned)) setAligned(saved.aligned)
+          if (saved.customHandle) setCustomHandle(saved.customHandle)
+          setCurtainPhase(3)
+          setStep(saved.step)
+          return
+        }
+      }
+    } catch {}
+
+    // Otherwise run normal curtain
     setTimeout(() => setCurtainPhase(1), 300)
     setTimeout(() => setCurtainPhase(2), 1200)
     setTimeout(() => setCurtainPhase(3), 2200)
     setTimeout(() => setStep(0), 2800)
   })
+
+  // Persist progress on state changes (only when actively in flow)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (step < 0 || step >= 3) return
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, artistName, aligned, customHandle }))
+    } catch {}
+  }, [step, artistName, aligned, customHandle])
 
   // Auto-discover as they type
   useEffect(() => {
@@ -187,6 +215,9 @@ export default function Onboarding() {
   const finish = useCallback(async () => {
     setStep(3)
     setLaunchPhase(0)
+
+    // Clear resume state — flow is committing
+    try { if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY) } catch {}
 
     const instaHandle = fixingInsta
       ? customHandle.replace('@', '').trim() || null
@@ -974,7 +1005,7 @@ export default function Onboarding() {
               Let&apos;s go
             </button>
             <button
-              onClick={finish}
+              onClick={() => { setAligned([]); finish() }}
               style={{
                 background: 'none',
                 border: 'none',
@@ -988,7 +1019,7 @@ export default function Onboarding() {
                 marginTop: '4px',
               }}
             >
-              Skip
+              Skip — I'll add references later
             </button>
 
             {/* Progress */}

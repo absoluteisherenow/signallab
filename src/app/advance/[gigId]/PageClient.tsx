@@ -104,7 +104,7 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
   if (submitted) return (
     <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
       <div style={{ textAlign: 'center', color: '#f2f2f2', padding: '24px' }}>
-        <img src="/nm-emblem.png" alt="Night Manoeuvres" style={{ width: '80px', height: '80px', marginBottom: '40px', objectFit: 'contain' }} />
+        <img src="/nm-emblem.png" alt="NIGHT manoeuvres" style={{ width: '80px', height: '80px', marginBottom: '40px', objectFit: 'contain' }} />
         <div style={{ color: '#ff2a1a', fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '20px' }}>Advance confirmed</div>
         <div style={{ fontSize: '28px', fontWeight: 300, marginBottom: '16px', lineHeight: 1.3 }}>Thank you</div>
         {gig && (
@@ -124,7 +124,7 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
 
         {/* NM Emblem */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '48px' }}>
-          <img src="/nm-emblem.png" alt="Night Manoeuvres" style={{ width: '100px', height: '100px', objectFit: 'contain', display: 'block' }} />
+          <img src="/nm-emblem.png" alt="NIGHT manoeuvres" style={{ width: '100px', height: '100px', objectFit: 'contain', display: 'block' }} />
         </div>
 
         {/* Header */}
@@ -445,7 +445,7 @@ export default function AdvancePageClient({ params }: { params: { gigId: string 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" strokeWidth="1.5" opacity="0.25"/>
-                <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32" stroke="#ff2a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </svg>
               <span style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontWeight: 200, fontSize: '10px', color: '#ff2a1a', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Signal Lab OS</span>
             </div>

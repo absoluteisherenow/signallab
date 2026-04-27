@@ -63,7 +63,7 @@ export function MusicBuddy() {
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 180,
-          system: `You are a concise music production buddy for Night Manoeuvres, an electronic music artist based in Dublin. ${soundCtx} Answer in 1–3 short conversational sentences. Be specific and practical — name plugins, frequencies, techniques. No markdown, no bullet points, no headers. Just talk.`,
+          system: `You are a concise music production buddy for NIGHT manoeuvres, an electronic music artist based in Dublin. ${soundCtx} Answer in 1–3 short conversational sentences. Be specific and practical — name plugins, frequencies, techniques. No markdown, no bullet points, no headers. Just talk.`,
           messages: [{ role: 'user', content: q }],
         }),
       })

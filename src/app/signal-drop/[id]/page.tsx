@@ -66,7 +66,7 @@ export default function DropDetailPage({ params }: { params: Promise<{ id: strin
 
   const b = stats.blast
   const metaLine = [
-    b.track_artist || 'Night Manoeuvres',
+    b.track_artist || 'NIGHT manoeuvres',
     b.track_label,
     new Date(b.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }),
   ].filter(Boolean).join(' · ')

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Signal Lab OS — Pulse Line Icon Mark (light background variant) -->
-  <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#070706" stroke-width="1.5" opacity="0.15"/>
-  <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32"
-    stroke="#070706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Signal Lab — Canonical Pulse Mark (v3, red, framed, for light backgrounds) -->
+  <rect x="6" y="6" width="52" height="52" rx="10" fill="none" stroke="#ff2a1a" stroke-width="1.5" opacity="0.85"/>
+  <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32"
+    stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

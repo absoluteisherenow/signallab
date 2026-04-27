@@ -196,7 +196,7 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <div style={styles.label}>Signal Lab</div>
+          <div style={styles.label}>Signal Lab OS</div>
           <h1 style={styles.title}>Gig not found</h1>
           <p style={styles.subtitle}>This upload link may have expired or the gig has been removed.</p>
         </div>
@@ -382,7 +382,7 @@ export default function UploadPageClient({ params }: { params: { gigId: string }
 
         {/* Footer */}
         <div style={styles.footer}>
-          Signal Lab &middot; Night Manoeuvres
+          Signal Lab OS &middot; NIGHT manoeuvres
         </div>
       </div>
     </div>

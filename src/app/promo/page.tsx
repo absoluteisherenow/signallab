@@ -12,6 +12,7 @@ import { useMobile } from '@/hooks/useMobile'
 import { ReleasesTab } from '@/components/promo/ReleasesTab'
 import { DJPromoTab } from '@/components/promo/DJPromoTab'
 import { GuestListTab } from '@/components/promo/GuestListTab'
+import { PromoNextAction } from '@/components/promo/PromoNextAction'
 
 export default function PromoPage() {
   return (
@@ -74,6 +75,8 @@ function PromoInner() {
           ))}
         </div>
       </div>
+
+      <PromoNextAction s={s} mobile={mobile} onSwitchTab={setTab} />
 
       {tab === 'releases' && <ReleasesTab s={s} mobile={mobile} onSendPromo={(url, releaseId) => { setInitialPromoUrl(url); setInitialReleaseId(releaseId ?? null); setTab('promo') }} />}
       {tab === 'promo' && <DJPromoTab s={s} initialUrl={initialPromoUrl} initialReleaseId={initialReleaseId} onUrlConsumed={() => { setInitialPromoUrl(''); setInitialReleaseId(null) }} />}

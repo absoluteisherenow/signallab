@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mock A — Subtle bands</title>
+<link rel="stylesheet" href="/mockups/_shared.css">
+<style>
+  /* OPTION A — SUBTLE BANDS
+     Each major band gets a 1px hairline border + padding. No fill. */
+  .band-noticed,
+  .band-labs,
+  .band-nextgig,
+  .band-todo {
+    border: 1px solid var(--border-dim);
+    padding: 16px 18px;
+  }
+  .band-noticed { padding-top: 12px; }
+  /* Tighten labs h2 so border doesn't hug an oversized heading */
+  .labs-h { margin: 0 0 12px; }
+  /* Re-space main content columns inside their bands */
+  .main-grid { gap: 24px; }
+  /* Make the sections breathe between each other */
+  .top-row { margin-bottom: 20px; }
+  .band-labs { margin-top: 8px; }
+  .main-grid { margin-top: 20px; }
+  .next-post { /* already a card — soften so it doesn't double-box */
+    border-color: var(--border-dim);
+  }
+  .lab-tile { /* already cards — keep as-is */ }
+</style>
+</head>
+<body>
+<div class="mock-banner">
+  <span class="self">A — SUBTLE BANDS</span>
+  <a href="/mockups/today-a.html">A</a>
+  <a href="/mockups/today-b.html">B</a>
+  <a href="/mockups/today-c.html">C</a>
+  <a href="/today">Live</a>
+</div>
+<div id="root" style="padding-top:32px;"></div>
+<script>
+  fetch('/mockups/_body.html').then(r => r.text()).then(t => {
+    document.getElementById('root').innerHTML = t;
+  });
+</script>
+</body>
+</html>

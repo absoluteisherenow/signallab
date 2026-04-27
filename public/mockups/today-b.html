@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mock B — Panel cards</title>
+<link rel="stylesheet" href="/mockups/_shared.css">
+<style>
+  /* OPTION B — PANEL CARDS
+     Each band gets a 1px border + panel background fill — same treatment
+     as the lab tiles, applied to every section. */
+  .band-noticed,
+  .band-labs,
+  .band-nextgig,
+  .band-todo {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 20px 22px;
+  }
+  .band-noticed { padding-top: 16px; }
+  .labs-h { margin: 0 0 14px; }
+  /* Lab tiles inside the panel — drop their borders so we don't double-box */
+  .band-labs .lab-tile {
+    border: 1px solid var(--border-dim);
+    background: var(--bg);
+  }
+  /* Spacing between cards */
+  .top-row { margin-bottom: 20px; gap: 16px; }
+  .band-labs { margin-top: 8px; }
+  .main-grid { gap: 16px; margin-top: 16px; }
+  /* Demote inner thin lines so the outer card carries the structure */
+  .noticed-row { border-top-color: rgba(255,255,255,0.04); }
+  .noticed-row:last-child { border-bottom-color: rgba(255,255,255,0.04); }
+</style>
+</head>
+<body>
+<div class="mock-banner">
+  <a href="/mockups/today-a.html">A</a>
+  <span class="self">B — PANEL CARDS</span>
+  <a href="/mockups/today-b.html">B</a>
+  <a href="/mockups/today-c.html">C</a>
+  <a href="/today">Live</a>
+</div>
+<div id="root" style="padding-top:32px;"></div>
+<script>
+  fetch('/mockups/_body.html').then(r => r.text()).then(t => {
+    document.getElementById('root').innerHTML = t;
+  });
+</script>
+</body>
+</html>

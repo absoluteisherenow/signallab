@@ -45,7 +45,6 @@ export async function GET(req: NextRequest) {
     draftPostsRes,
     stalePostsRes,
     releaseSoonRes,
-    cronErrorsRes,
   ] = await Promise.all([
     sb.from('gigs')
       .select('id, title, venue, date')
@@ -75,12 +74,6 @@ export async function GET(req: NextRequest) {
       .lte('release_date', in14d.slice(0, 10))
       .order('release_date', { ascending: true })
       .limit(1),
-    // Cron errors in last 7 days — operator signal
-    sb.from('cron_runs')
-      .select('name, status, started_at')
-      .eq('status', 'error')
-      .gte('started_at', past7dISO)
-      .limit(5),
   ])
 
   const notices: Notice[] = []
@@ -118,7 +111,7 @@ export async function GET(req: NextRequest) {
       lab: 'Broadcast',
       title: `${drafts.length} caption drafts sitting unapproved`,
       detail: 'Review and approve in Broadcast so the publish cron can take them live on schedule.',
-      href: '/broadcast/calendar?status=draft',
+      href: '/broadcast/drafts',
       priority: 6,
     })
   }
@@ -149,18 +142,11 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // Cron errors — operator visibility
-  const cronErrors = (cronErrorsRes.data || []) as Array<{ name: string; started_at: string }>
-  if (cronErrors.length > 0) {
-    const names = Array.from(new Set(cronErrors.map(c => c.name))).slice(0, 3).join(', ')
-    notices.push({
-      lab: 'Operator',
-      title: `${cronErrors.length} cron error${cronErrors.length === 1 ? '' : 's'} in the last 7d — ${names}`,
-      detail: 'Automations silently misfiring cascade fast. Check admin → crons.',
-      href: '/admin/crons',
-      priority: 5,
-    })
-  }
+  // (Cron error notices were removed — they pointed to the gated /admin/crons
+  //  surface, so users hit a forbidden page. Operator-level signals belong on
+  //  the admin dashboard, not the artist's daily brief. If we want a
+  //  user-friendly version later it should be specific + actionable, e.g.
+  //  "1 of your scheduled posts failed to publish — retry?")
 
   // Cap at 3 — keep the surface tight. Higher priority first.
   const top = notices.sort((a, b) => b.priority - a.priority).slice(0, 3)

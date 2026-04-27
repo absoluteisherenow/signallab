@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
       // Travel bookings for upcoming gigs
       supabase
         .from('travel_bookings')
-        .select('id, gig_id'),
+        .select('id, gig_id, type'),
 
       // Incomplete advances
       supabase
@@ -132,11 +132,13 @@ export async function GET(req: NextRequest) {
         .order('scheduled_at', { ascending: true })
         .limit(1),
 
-      // Open tasks
+      // Open tasks — starred first so the artist's "this is the one" pin floats
+      // to the top regardless of when it was added.
       supabase
         .from('tasks')
-        .select('id, title, status, priority, created_at')
+        .select('id, title, status, priority, starred, created_at')
         .neq('status', 'completed')
+        .order('starred', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(20),
     ])
@@ -160,22 +162,26 @@ export async function GET(req: NextRequest) {
     }> = []
 
     // Posts needing approval
+    // Drafts have their own focused review surface — sending the user to the
+    // calendar buried the action behind a date grid, so attention rows now
+    // deep-link to /broadcast/drafts.
     if (pendingPosts.length > 0) {
       needsAttention.push({
         type: 'post_approval',
         count: pendingPosts.length,
         label: `${pendingPosts.length} post${pendingPosts.length === 1 ? '' : 's'} need${pendingPosts.length === 1 ? 's' : ''} approval`,
-        href: '/broadcast/calendar',
+        href: '/broadcast/drafts',
       })
     }
 
-    // Overdue invoices
+    // Overdue invoices — link straight to the overdue filter so the row
+    // lands on the action, not the dashboard above it.
     if (overdueInvoices.length > 0) {
       needsAttention.push({
         type: 'overdue_invoice',
         count: overdueInvoices.length,
         label: `${overdueInvoices.length} overdue invoice${overdueInvoices.length === 1 ? '' : 's'}`,
-        href: '/business/finances',
+        href: '/business/finances?status=overdue',
       })
     }
 
@@ -198,12 +204,19 @@ export async function GET(req: NextRequest) {
     )
     const missingAdvanceCount =
       gigsWithoutAdvance.length + gigsWithIncompleteAdvance.length
+    // If there's exactly one offender, deep-link straight to that gig's
+    // detail page (with the right section anchor). The user's complaint
+    // was that "1 gig missing advance" sent them to the gig list — making
+    // them click again to find which gig. Anchor lands them in the right
+    // accordion section.
+    const missingAdvanceGigs = [...gigsWithoutAdvance, ...gigsWithIncompleteAdvance]
     if (missingAdvanceCount > 0) {
+      const singleGig = missingAdvanceCount === 1 ? missingAdvanceGigs[0] : null
       needsAttention.push({
         type: 'missing_advance',
         count: missingAdvanceCount,
         label: `${missingAdvanceCount} gig${missingAdvanceCount === 1 ? '' : 's'} missing advance info`,
-        href: '/gigs',
+        href: singleGig ? `/gigs/${singleGig.id}#advance` : '/gigs?missing=advance',
       })
     }
 
@@ -216,11 +229,12 @@ export async function GET(req: NextRequest) {
         !bookedGigIds.has(g.id)
     )
     if (gigsNeedingTravel.length > 0) {
+      const singleGig = gigsNeedingTravel.length === 1 ? gigsNeedingTravel[0] : null
       needsAttention.push({
         type: 'unbooked_travel',
         count: gigsNeedingTravel.length,
         label: `${gigsNeedingTravel.length} upcoming gig${gigsNeedingTravel.length === 1 ? '' : 's'} without travel booked`,
-        href: '/gigs',
+        href: singleGig ? `/gigs/${singleGig.id}#travel` : '/gigs?missing=travel',
       })
     }
 
@@ -280,15 +294,21 @@ export async function GET(req: NextRequest) {
 
     const nextScheduledPost = nextScheduledPostResult.data?.[0] ?? null
 
-    // Derive advance + travel + set_time status for next gig
-    let nextGigPrep: { advance_done: boolean; travel_booked: boolean; set_time_confirmed: boolean } | null = null
+    // Derive advance + travel + set_time status for next gig.
+    // Travel splits into hotel + transport so a hotel-only booking doesn't
+    // falsely mark "travel ✓". Ground transfers ride on whichever transport
+    // row they belong to and don't drive the pill state on their own.
+    // Hometown gigs (location matches "london") need neither pill.
+    let nextGigPrep: { advance_done: boolean; hotel_booked: boolean; transport_booked: boolean; ground_booked: boolean; is_hometown: boolean; set_time_confirmed: boolean } | null = null
     if (nextGig) {
       const hasCompletedAdvance = (advancesResult.data ?? []).some(
         (a) => a.gig_id === nextGig.id && a.status === 'completed'
       )
-      const hasTravelBooked = travelBookings.some(
-        (t) => t.gig_id === nextGig.id
-      )
+      const gigTravel = travelBookings.filter(t => t.gig_id === nextGig.id)
+      const hotelBooked = gigTravel.some(t => t.type === 'hotel')
+      const transportBooked = gigTravel.some(t => t.type === 'flight' || t.type === 'train')
+      const groundBooked = gigTravel.some(t => t.type === 'ground')
+      const isHometown = (nextGig.location || '').toLowerCase().includes('london')
       let hasSetTime = false
       try {
         const { data: gigDetail } = await supabase
@@ -298,7 +318,7 @@ export async function GET(req: NextRequest) {
           .single()
         hasSetTime = !!gigDetail?.set_time
       } catch {}
-      nextGigPrep = { advance_done: hasCompletedAdvance, travel_booked: hasTravelBooked, set_time_confirmed: hasSetTime }
+      nextGigPrep = { advance_done: hasCompletedAdvance, hotel_booked: hotelBooked, transport_booked: transportBooked, ground_booked: groundBooked, is_hometown: isHometown, set_time_confirmed: hasSetTime }
     }
 
     return NextResponse.json({

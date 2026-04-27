@@ -71,7 +71,7 @@ export default function SignalDropIndex() {
                   </div>
                   <div style={cardTitle}>{d.track_title || 'Untitled drop'}</div>
                   <div style={cardMeta}>
-                    {d.track_artist || 'Night Manoeuvres'}
+                    {d.track_artist || 'NIGHT manoeuvres'}
                     {d.track_label && <> · {d.track_label}</>}
                   </div>
                   <div style={cardStats}>

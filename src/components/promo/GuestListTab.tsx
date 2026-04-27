@@ -20,6 +20,12 @@ export function GuestListTab({ s, mobile }: Props) {
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'upcoming' | 'all'>('upcoming')
+  const [toast, setToast] = useState('')
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2200)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -59,9 +65,33 @@ export function GuestListTab({ s, mobile }: Props) {
     } catch {}
   }
 
-  function copyLink(slug: string) {
+  async function copyLink(slug: string) {
     if (typeof window === 'undefined') return
-    navigator.clipboard.writeText(`${window.location.origin}/gl/${slug}`)
+    const url = `${window.location.origin}/gl/${slug}`
+    let copied = false
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url)
+        copied = true
+      } else {
+        const ta = document.createElement('textarea')
+        ta.value = url
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        copied = document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
+    } catch (err) {
+      console.warn('[GuestListTab] copyLink failed:', err)
+    }
+    if (copied) {
+      showToast('Link copied')
+    } else {
+      showToast('Copy failed — see prompt')
+      window.prompt('Copy this link:', url)
+    }
   }
 
   function shareWhatsapp(slug: string, gigTitle?: string) {
@@ -86,6 +116,11 @@ export function GuestListTab({ s, mobile }: Props) {
 
   return (
     <div style={{ padding: mobile ? '20px 16px 80px' : '32px 48px 80px' }}>
+      {toast && (
+        <div style={{ position: 'fixed', top: '32px', right: '32px', background: '#1a1811', border: `1px solid ${s.gold}`, color: s.gold, padding: '12px 20px', fontSize: '11px', letterSpacing: '0.15em', zIndex: 1000, fontFamily: s.font, whiteSpace: 'nowrap' }}>
+          {toast}
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: '24px', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: s.dimmer }}>
           <div><span style={{ color: s.text, fontSize: '13px', letterSpacing: '0.04em', marginRight: '6px' }}>{totalResponses}</span>responses</div>
@@ -125,16 +160,28 @@ export function GuestListTab({ s, mobile }: Props) {
               <div style={{ fontSize: '10px', color: s.dimmer, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 10px', border: `1px solid ${s.border}` }}>
                 {g.responses.length} {g.responses.length === 1 ? 'response' : 'responses'}
               </div>
-              <button onClick={() => copyLink(g.invite.slug)} style={{
-                fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase',
-                background: 'transparent', color: s.gold, border: `1px solid ${s.gold}`,
-                padding: '6px 12px', cursor: 'pointer', fontFamily: s.font,
-              }}>Copy link</button>
-              <button onClick={() => shareWhatsapp(g.invite.slug, g.gig?.title)} style={{
-                fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase',
-                background: 'transparent', color: s.text, border: `1px solid ${s.borderMid}`,
-                padding: '6px 12px', cursor: 'pointer', fontFamily: s.font,
-              }}>Share</button>
+              <a href={`/gl/${g.invite.slug}`} target="_blank" rel="noopener noreferrer"
+                title={typeof window !== 'undefined' ? `${window.location.origin}/gl/${g.invite.slug}` : ''}
+                style={{
+                  fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase',
+                  background: 'transparent', color: s.dim, border: `1px solid ${s.borderMid}`,
+                  padding: '6px 12px', cursor: 'pointer', fontFamily: s.font, textDecoration: 'none',
+                  display: 'inline-flex', alignItems: 'center',
+                }}>Preview ↗</a>
+              <button onClick={() => copyLink(g.invite.slug)}
+                title={typeof window !== 'undefined' ? `Copy ${window.location.origin}/gl/${g.invite.slug}` : 'Copy link'}
+                style={{
+                  fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase',
+                  background: 'transparent', color: s.gold, border: `1px solid ${s.gold}`,
+                  padding: '6px 12px', cursor: 'pointer', fontFamily: s.font,
+                }}>Copy link</button>
+              <button onClick={() => shareWhatsapp(g.invite.slug, g.gig?.title)}
+                title="Share on WhatsApp"
+                style={{
+                  fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase',
+                  background: 'transparent', color: s.text, border: `1px solid ${s.borderMid}`,
+                  padding: '6px 12px', cursor: 'pointer', fontFamily: s.font,
+                }}>Share</button>
             </div>
           </div>
 

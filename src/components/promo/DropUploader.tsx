@@ -45,7 +45,7 @@ export default function DropUploader({ contacts }: { contacts: Contact[] }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [tracks, setTracks] = useState<StagedTrack[]>([])
   const [dropTitle, setDropTitle] = useState('')
-  const [dropArtist, setDropArtist] = useState('Night Manoeuvres')
+  const [dropArtist, setDropArtist] = useState('NIGHT manoeuvres')
   const [dropLabel, setDropLabel] = useState('')
   const [message, setMessage] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())

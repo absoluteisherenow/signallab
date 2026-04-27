@@ -223,7 +223,7 @@ export async function GET() {
             type: 'system',
             title: `This week's content plan is ready`,
             message: `${saved} posts drafted. Review in Broadcast →`,
-            href: '/broadcast/calendar',
+            href: '/broadcast/plan',
           })
         }
 

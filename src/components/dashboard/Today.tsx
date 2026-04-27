@@ -39,6 +39,7 @@ interface TaskItem {
   title: string
   status: string
   priority: string | null
+  starred?: boolean
   created_at: string
 }
 
@@ -61,7 +62,10 @@ interface NextScheduledPost {
 
 interface NextGigPrep {
   advance_done: boolean
-  travel_booked: boolean
+  hotel_booked: boolean
+  transport_booked: boolean
+  ground_booked: boolean
+  is_hometown: boolean
   set_time_confirmed: boolean
 }
 
@@ -76,6 +80,28 @@ interface TodayBrief {
   next_scheduled_post: NextScheduledPost | null
   recent_activity: ActivityItem[]
   tasks: TaskItem[]
+}
+
+interface AnticipationNotice {
+  lab: 'Set' | 'Broadcast' | 'Grow' | 'Operator'
+  title: string
+  detail: string
+  href: string
+  priority: number
+}
+
+/** Single unified row rendered in the consolidated "What needs you" column.
+ *  Merges legacy `needs_attention` items (post_approval, overdue_invoice etc)
+ *  with `anticipation` notices so the artist sees one ranked list instead of
+ *  three competing surfaces. */
+interface AttnRow {
+  key: string
+  rank: number
+  tag: string
+  title: string
+  detail: string
+  href: string
+  urgent: boolean
 }
 
 /* ── Helpers ── */
@@ -141,6 +167,57 @@ function gigCountdown(dateStr: string): string {
   return `IN ${days} DAYS`
 }
 
+/** Merge `needs_attention` + `anticipation notices` into one ranked list.
+ *  Urgency priority: overdue_invoice > unbooked_travel > missing_advance >
+ *  notices (by their server-assigned priority) > post_approval. The cap of
+ *  6 keeps the column scannable without scroll. */
+function mergeAttention(
+  needs: AttentionItem[],
+  notices: AnticipationNotice[]
+): AttnRow[] {
+  const tagFor: Record<string, string> = {
+    overdue_invoice: 'Finance',
+    post_approval: 'Broadcast',
+    missing_advance: 'Tour',
+    unbooked_travel: 'Tour',
+  }
+  const detailFor: Record<string, string> = {
+    overdue_invoice: 'Past due. Chase or write off.',
+    post_approval: 'Review in Broadcast so the publish cron takes them live.',
+    missing_advance: 'Confirm logistics with the promoter before show day.',
+    unbooked_travel: 'Book hotel + transport before prices climb.',
+  }
+  const urgencyWeight: Record<string, number> = {
+    overdue_invoice: 100,
+    unbooked_travel: 80,
+    missing_advance: 70,
+    post_approval: 30,
+  }
+  const fromNeeds: AttnRow[] = needs.map((n) => ({
+    key: `need-${n.type}`,
+    rank: 0,
+    tag: (tagFor[n.type] || 'Operator').toUpperCase(),
+    title: n.label,
+    detail: detailFor[n.type] || '',
+    href: n.href,
+    urgent: n.type === 'overdue_invoice' || n.type === 'unbooked_travel',
+  })).map((row, i) => ({ ...row, _w: urgencyWeight[needs[i].type] || 50 } as AttnRow & { _w: number }))
+
+  const fromNotices: AttnRow[] = notices.map((n) => ({
+    key: `notice-${n.lab}-${n.title}`,
+    rank: 0,
+    tag: n.lab.toUpperCase(),
+    title: n.title,
+    detail: n.detail,
+    href: n.href,
+    urgent: n.priority >= 9,
+  })).map((row, i) => ({ ...row, _w: notices[i].priority * 5 } as AttnRow & { _w: number }))
+
+  const all = [...fromNeeds, ...fromNotices] as Array<AttnRow & { _w: number }>
+  all.sort((a, b) => b._w - a._w)
+  return all.slice(0, 6).map((row, i) => ({ ...row, rank: i + 1 }))
+}
+
 /* ── Skeleton ── */
 
 function Skeleton() {
@@ -161,19 +238,23 @@ function Skeleton() {
 
 /* ── Main component ── */
 
-interface AnticipationNotice {
-  lab: 'Set' | 'Broadcast' | 'Grow' | 'Operator'
-  title: string
-  detail: string
-  href: string
-  priority: number
-}
-
 export function Today() {
   const router = useRouter()
   const [data, setData] = useState<TodayBrief | null>(null)
   const [error, setError] = useState(false)
   const [notices, setNotices] = useState<AnticipationNotice[]>([])
+  // Local optimistic state for task checkbox + star toggles. Mirrors the
+  // server fields onto each row id so the UI updates instantly while the
+  // PATCH is in flight.
+  const [taskOverrides, setTaskOverrides] = useState<Record<string, { done?: boolean; starred?: boolean; title?: string }>>({})
+  // Inline edit state — clicking a todo title swaps it for an input. Blur or
+  // Enter commits via PATCH; Esc cancels. Saves the artist a navigation to
+  // /tasks for trivial typos / wording tweaks.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingText, setEditingText] = useState('')
+  // Quick-add inline at top of the column. Empty string = not active.
+  const [addingTask, setAddingTask] = useState(false)
+  const [newTaskText, setNewTaskText] = useState('')
 
   useEffect(() => {
     fetch('/api/today/brief')
@@ -184,8 +265,9 @@ export function Today() {
       .then(setData)
       .catch(() => setError(true))
 
-    // Anticipation: cross-lab "things I noticed" strip. Runs separately so a
-    // slow query here never blocks the main dashboard render.
+    // Anticipation: cross-lab "things I noticed" feed. Runs separately so a
+    // slow query here never blocks the main dashboard render. Result is
+    // merged into the unified attention column below.
     fetch('/api/today/anticipation')
       .then(r => r.ok ? r.json() : { notices: [] })
       .then(j => setNotices(j.notices || []))
@@ -207,8 +289,85 @@ export function Today() {
   const dateString = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
   const nextGig = data.next_gig
   const overdueCount = data.needs_attention.find((n) => n.type === 'overdue_invoice')?.count ?? 0
+  const attentionRows = mergeAttention(data.needs_attention, notices)
 
-  // Build context line like old dashboard
+  // Personal todo column: starred first, then most-recent. Done items stay
+  // visible in the list (line-through + dimmed) until next page load — the
+  // satisfying tick-off moment is the whole point of the checkbox. Server
+  // filters status='completed' on next /api/today/brief fetch so they fall
+  // away naturally on refresh. Cap at 8 visible so the column never scrolls.
+  const visibleTasks = data.tasks
+    .map(t => ({ ...t, ...(taskOverrides[t.id] || {}) }))
+    .sort((a, b) => {
+      // Done items sink to the bottom; among the rest, starred float to top
+      const aDone = !!a.done, bDone = !!b.done
+      if (aDone !== bDone) return aDone ? 1 : -1
+      return Number(!!b.starred) - Number(!!a.starred)
+    })
+    .slice(0, 8)
+
+  async function toggleTaskDone(id: string, current: boolean) {
+    setTaskOverrides(o => ({ ...o, [id]: { ...o[id], done: !current } }))
+    try {
+      await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: !current ? 'completed' : 'open' }),
+      })
+    } catch {
+      // Roll back on error so the UI reflects reality
+      setTaskOverrides(o => ({ ...o, [id]: { ...o[id], done: current } }))
+    }
+  }
+  async function toggleTaskStar(id: string, current: boolean) {
+    setTaskOverrides(o => ({ ...o, [id]: { ...o[id], starred: !current } }))
+    try {
+      await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ starred: !current }),
+      })
+    } catch {
+      setTaskOverrides(o => ({ ...o, [id]: { ...o[id], starred: current } }))
+    }
+  }
+  async function commitEdit(id: string, original: string) {
+    const next = editingText.trim()
+    setEditingId(null)
+    if (!next || next === original) return
+    setTaskOverrides(o => ({ ...o, [id]: { ...o[id], title: next } }))
+    try {
+      await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: next }),
+      })
+    } catch {
+      // Revert on failure
+      setTaskOverrides(o => ({ ...o, [id]: { ...o[id], title: original } }))
+    }
+  }
+  async function commitNewTask() {
+    const title = newTaskText.trim()
+    setAddingTask(false)
+    setNewTaskText('')
+    if (!title) return
+    try {
+      const r = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (j?.task) {
+        // Splice the new row into local state so it shows instantly without
+        // a full /api/today/brief refetch.
+        setData(d => d ? { ...d, tasks: [j.task, ...d.tasks] } : d)
+      }
+    } catch {}
+  }
+
+  // Build context line — single status string under the greeting
   const contextParts: string[] = [dateString]
   if (nextGig) {
     const h = hoursUntil(nextGig.date)
@@ -221,7 +380,7 @@ export function Today() {
 
   return (
     <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxWidth: '100%' }}>
-      {/* ── Header: Greeting + Quick Actions + Week Strip ── */}
+      {/* ── Header: Greeting + My To Do (left) | Quick Actions + Week + Next Post (right) ── */}
       <div style={{ padding: '4px 24px 0', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', marginBottom: 0 }}>
           <div style={{ flex: 1, minWidth: 0, paddingRight: 24, display: 'flex', flexDirection: 'column' }}>
@@ -239,34 +398,110 @@ export function Today() {
               {contextLine}
             </p>
 
-            {/* Cross-lab anticipation — "things I noticed" strip. Only renders
-                when the backend surfaced at least one notice, so an empty state
-                doesn't push the ticker off-screen. */}
-            {notices.length > 0 && (
-              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--text-dimmer)' }}>Noticed</div>
-                {notices.map((n, i) => (
-                  <Link
-                    key={i}
-                    href={n.href}
-                    style={{
-                      display: 'flex', gap: 10, alignItems: 'baseline',
-                      padding: '6px 0', borderTop: i === 0 ? '1px solid var(--border-dim)' : 'none',
-                      borderBottom: '1px solid var(--border-dim)',
-                      textDecoration: 'none', color: 'inherit',
-                    }}
-                  >
-                    <span style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 700, color: 'var(--gold)', width: 72, flexShrink: 0 }}>
-                      {n.lab.toUpperCase()} LAB
-                    </span>
-                    <span style={{ fontSize: 12, color: 'var(--text)' }}>{n.title}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-dimmest)', marginLeft: 'auto' }}>{n.detail}</span>
+            {/* My To Do — moved up here so nothing important sits below the
+                fold. 2-col grid mirrors the right rail's vertical footprint.
+                Star toggles + checkboxes make the list read instantly as
+                "your hand-written list" vs the system attention column. */}
+            {visibleTasks.length > 0 && (
+              <section className="band band-todo" style={{ marginTop: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 900 }}>
+                    My To Do
+                  </div>
+                  <Link href="/tasks" style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none', fontWeight: 700 }}>
+                    All {data.tasks.filter(t => !taskOverrides[t.id]?.done).length} &rarr;
                   </Link>
-                ))}
-              </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
+                  {visibleTasks.map((task) => {
+                    const starred = !!task.starred
+                    const done = !!task.done
+                    return (
+                      <div
+                        key={task.id}
+                        className={`todo-pill${starred ? ' starred' : ''}${done ? ' done' : ''}`}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '14px 1fr auto',
+                          gap: 8,
+                          alignItems: 'center',
+                          padding: '8px 10px',
+                          borderLeft: `2px solid ${done ? 'var(--text-dimmest)' : starred ? 'var(--gold)' : 'rgba(255,255,255,0.15)'}`,
+                          color: done ? 'var(--text-dimmest)' : 'var(--text)',
+                          fontSize: 11,
+                          lineHeight: 1.35,
+                          transition: 'border-color 140ms ease, background 140ms ease, color 140ms ease',
+                        }}
+                      >
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleTaskDone(task.id, done) }}
+                          aria-label={done ? 'Mark incomplete' : 'Mark complete'}
+                          style={{
+                            width: 14, height: 14, padding: 0,
+                            border: `1.5px solid ${done ? 'var(--text-dimmest)' : starred ? 'var(--gold)' : 'var(--text-dimmer)'}`,
+                            background: done ? 'var(--text-dimmest)' : 'transparent',
+                            cursor: 'pointer',
+                            position: 'relative',
+                          }}
+                        >
+                          {done && (
+                            <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#050505', lineHeight: 1 }}>
+                              {'\u2713'}
+                            </span>
+                          )}
+                        </button>
+                        {editingId === task.id ? (
+                          <input
+                            autoFocus
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            onBlur={() => commitEdit(task.id, task.title)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() }
+                              if (e.key === 'Escape') { setEditingId(null) }
+                            }}
+                            style={{
+                              fontFamily: 'inherit', fontSize: 11, color: 'var(--text)',
+                              background: 'transparent', border: 'none', outline: 'none',
+                              padding: 0, margin: 0, width: '100%',
+                              borderBottom: '1px solid var(--gold)',
+                            }}
+                          />
+                        ) : (
+                          <span
+                            onClick={() => { setEditingId(task.id); setEditingText(task.title) }}
+                            title="Click to edit"
+                            style={{
+                              cursor: 'text',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              textDecoration: done ? 'line-through' : 'none',
+                            }}
+                          >
+                            {task.title}
+                          </span>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleTaskStar(task.id, starred) }}
+                          aria-label={starred ? 'Unstar' : 'Star'}
+                          style={{
+                            background: 'transparent', border: 'none',
+                            color: starred ? 'var(--gold)' : 'var(--text-dimmest)',
+                            fontSize: 12, cursor: 'pointer', padding: 0, lineHeight: 1,
+                            opacity: done ? 0.4 : 1,
+                          }}
+                        >
+                          {starred ? '\u2605' : '\u2606'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
             )}
 
-            {/* Activity ticker — single row, scrolling */}
+            {/* Activity ticker — single row, scrolling, pinned to bottom of column */}
             {data.recent_activity && data.recent_activity.length > 0 && (
               <div style={{
                 marginTop: 'auto',
@@ -278,8 +513,9 @@ export function Today() {
                 position: 'relative',
                 maskImage: 'linear-gradient(to right, transparent, black 4%, black 96%, transparent)',
                 WebkitMaskImage: 'linear-gradient(to right, transparent, black 4%, black 96%, transparent)',
-              }}>
-                <div style={{
+              }}
+              className="ticker-wrap">
+                <div className="ticker-inner" style={{
                   display: 'inline-flex',
                   gap: 48,
                   whiteSpace: 'nowrap',
@@ -376,7 +612,7 @@ export function Today() {
               ))}
             </div>
 
-            {/* Next Post preview tile — fills the vertical space under the week strip */}
+            {/* Next Post preview tile */}
             {data.next_scheduled_post && (
               <Link
                 href="/broadcast/calendar"
@@ -411,7 +647,13 @@ export function Today() {
                     </div>
                   </div>
                   <div style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmest)', fontWeight: 700, marginTop: 4 }}>
-                    {new Date(data.next_scheduled_post.scheduled_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).toUpperCase()} &middot; {data.next_scheduled_post.platform.toUpperCase()}
+                    {(() => {
+                      const when = new Date(data.next_scheduled_post.scheduled_at)
+                      const time = when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                      const days = daysUntil(data.next_scheduled_post.scheduled_at)
+                      const rel = days === 0 ? 'TODAY' : days === 1 ? 'TOMORROW' : days < 7 ? `IN ${days} DAYS` : when.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
+                      return `${rel} · ${time} · ${data.next_scheduled_post.platform.toUpperCase()}`
+                    })()}
                   </div>
                 </div>
               </Link>
@@ -425,11 +667,55 @@ export function Today() {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
+        .ticker-wrap:hover .ticker-inner,
+        .ticker-wrap:focus-within .ticker-inner { animation-play-state: paused; }
+
+        /* DIM-ON-REST treatment (Mock C/D).
+           Each band sits at 0.55 brightness so the page rests calm. Hover or
+           keyboard-focus inside a band brightens it to full. The next-gig
+           hero stays always-lit so the page has one anchor point. Urgent
+           items inside a dim band keep full opacity so red registers at a
+           glance. */
+        .band {
+          transition: opacity 180ms ease;
+          opacity: 0.55;
+        }
+        .band:hover, .band:focus-within { opacity: 1; }
+        .band-anchor { opacity: 1; }
+        .attn-row.urgent .attn-title,
+        .attn-row.urgent .attn-tag { opacity: 1; }
+
+        /* Two-level lab tile hover: hovering the band pushes siblings to 0.6
+           so the focused tile pops without needing a heavy accent. The gold
+           border + dark fill apply to the inner <a> (which is the bordered
+           element) — applying to the motion.div wrapper had no visible
+           effect since the wrapper has no border. */
+        .band-labs:hover .lab-tile,
+        .band-labs:focus-within .lab-tile { opacity: 0.6; transition: opacity 140ms ease; }
+        .band-labs .lab-tile:hover { opacity: 1 !important; }
+        .band-labs .lab-tile:hover a { border-color: var(--gold) !important; background: #161313 !important; }
+
+        /* Personal todo hover affordance */
+        .band-todo .todo-pill:hover { border-left-color: var(--gold) !important; background: rgba(255,255,255,0.02); }
+
+        /* Attention row hover — gold left bar + faint background lift so the
+           target reads as "click to action" not "click to a generic page".
+           Each row's href is now action-specific (e.g. single missing-advance
+           gig deep-links to /gigs/X#advance, not /gigs). */
+        .band-attn .attn-row { position: relative; padding-left: 12px !important; transition: background 140ms ease; }
+        .band-attn .attn-row::before {
+          content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+          width: 2px; background: transparent; transition: background 140ms ease;
+        }
+        .band-attn .attn-row:hover { background: rgba(255,255,255,0.025); }
+        .band-attn .attn-row:hover::before { background: var(--gold); }
+        .band-attn .attn-row.urgent::before { background: var(--gold); opacity: 0.6; }
+        .band-attn .attn-row.urgent:hover::before { opacity: 1; }
       `}</style>
 
       {/* ── The Labs ── */}
       <div style={{ padding: '0 24px 0', flexShrink: 0 }}>
-        <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 900, margin: '0 0 4px', letterSpacing: '-0.03em', textTransform: 'uppercase' }}>
+        <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 900, margin: '0 0 4px', letterSpacing: '-0.03em', textTransform: 'uppercase', textAlign: 'center' }}>
           The Labs
         </h2>
 
@@ -437,6 +723,7 @@ export function Today() {
           variants={staggerContainer}
           initial="hidden"
           animate="visible"
+          className="band band-labs"
           style={{ display: 'flex', gap: 8, overflow: 'hidden' }}
         >
           {[
@@ -446,7 +733,7 @@ export function Today() {
             { label: 'Tracks', stat: `${data.stats.tracks} tracks`, href: '/setlab' },
             { label: 'Releases', stat: `${data.stats.releases} releases`, href: '/promo' },
           ].map((card) => (
-            <motion.div key={card.label} variants={staggerItem} style={{ flex: 1, minWidth: 0 }}>
+            <motion.div key={card.label} variants={staggerItem} className="lab-tile" style={{ flex: 1, minWidth: 0 }}>
               <Link
                 href={card.href}
                 style={{
@@ -461,8 +748,6 @@ export function Today() {
                   overflow: 'hidden',
                   transition: 'border-color 0.15s, background 0.15s',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = '#161616' }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.background = 'var(--panel)' }}
               >
                 <div style={{ fontSize: 'clamp(20px, 2.8vw, 42px)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.03em', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {card.label}
@@ -476,10 +761,9 @@ export function Today() {
         </motion.div>
       </div>
 
-      {/* ── Next Gig (left) + To Do / Needs Attention (right) ── */}
+      {/* ── Next Gig (left, always-lit anchor) + What needs you (right, single ranked column) ── */}
       <div style={{ padding: '2px 24px 0', display: 'flex', gap: 32, flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {/* Left: Next Gig — HUGE venue + city, post preview, prep checklist */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="band-anchor" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {nextGig ? (
             <>
               <Link href={`/gigs/${nextGig.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
@@ -521,14 +805,23 @@ export function Today() {
                       <span style={{ fontSize: 10, padding: '2px 8px', border: `1px solid ${data.next_gig_prep.advance_done ? 'rgba(255,255,255,0.15)' : 'var(--gold)'}`, fontWeight: 700, color: data.next_gig_prep.advance_done ? 'var(--text-dimmer)' : 'var(--gold)' }}>
                         {data.next_gig_prep.advance_done ? 'ADVANCE \u2713' : 'ADVANCE NEEDED'}
                       </span>
-                      <span style={{ fontSize: 10, padding: '2px 8px', border: `1px solid ${data.next_gig_prep.travel_booked ? 'rgba(255,255,255,0.15)' : 'var(--gold)'}`, fontWeight: 700, color: data.next_gig_prep.travel_booked ? 'var(--text-dimmer)' : 'var(--gold)' }}>
-                        {data.next_gig_prep.travel_booked ? 'TRAVEL \u2713' : 'TRAVEL NEEDED'}
-                      </span>
+                      {!data.next_gig_prep.is_hometown && (
+                        <>
+                          <span style={{ fontSize: 10, padding: '2px 8px', border: `1px solid ${data.next_gig_prep.hotel_booked ? 'rgba(255,255,255,0.15)' : 'var(--gold)'}`, fontWeight: 700, color: data.next_gig_prep.hotel_booked ? 'var(--text-dimmer)' : 'var(--gold)' }}>
+                            {data.next_gig_prep.hotel_booked ? 'HOTEL \u2713' : 'HOTEL NEEDED'}
+                          </span>
+                          <span style={{ fontSize: 10, padding: '2px 8px', border: `1px solid ${data.next_gig_prep.transport_booked ? 'rgba(255,255,255,0.15)' : 'var(--gold)'}`, fontWeight: 700, color: data.next_gig_prep.transport_booked ? 'var(--text-dimmer)' : 'var(--gold)' }}>
+                            {data.next_gig_prep.transport_booked ? 'TRANSPORT \u2713' : 'TRANSPORT NEEDED'}
+                          </span>
+                          <span style={{ fontSize: 10, padding: '2px 8px', border: `1px solid ${data.next_gig_prep.ground_booked ? 'rgba(255,255,255,0.15)' : 'var(--gold)'}`, fontWeight: 700, color: data.next_gig_prep.ground_booked ? 'var(--text-dimmer)' : 'var(--gold)' }}>
+                            {data.next_gig_prep.ground_booked ? 'GROUND \u2713' : 'GROUND NEEDED'}
+                          </span>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
               </Link>
-
             </>
           ) : (
             <div>
@@ -581,64 +874,64 @@ export function Today() {
               </div>
             </div>
           )}
-
         </div>
 
-        {/* Right: To Do + Needs Attention */}
-        <div style={{ flex: 0.4, minWidth: 220, maxWidth: 340, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          {/* TO DO */}
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexShrink: 0 }}>
-              <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 900 }}>
-                To Do
-              </div>
-              <Link href="/tasks" style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', textDecoration: 'none', fontWeight: 700 }}>All {data.tasks.length} &rarr;</Link>
+        {/* Right: single unified "What needs you" column. Replaces the old
+            three-surface stack (top-of-page Noticed band + right-rail
+            Needs Attention sub-section + right-rail attention pills). */}
+        <aside className="band band-attn" style={{ flex: 0.4, minWidth: 240, maxWidth: 360, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexShrink: 0 }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 900 }}>
+              What needs you
             </div>
-            {data.tasks.length === 0 && (
-              <div style={{ fontSize: 11, color: 'var(--text-dimmest)' }}>No open tasks</div>
+            {attentionRows.length > 0 && (
+              <span style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', fontWeight: 700 }}>
+                {attentionRows.length} item{attentionRows.length === 1 ? '' : 's'}
+              </span>
             )}
-            <motion.div variants={staggerContainer} initial="hidden" animate="visible" style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
-              {data.tasks.map((task) => (
-                <motion.div
-                  key={task.id}
-                  variants={staggerItem}
-                  onClick={() => router.push('/tasks')}
-                  style={{ padding: '8px 10px', borderLeft: '2px solid var(--border)', marginBottom: 4, cursor: 'pointer', fontSize: 11, color: 'var(--text-dimmer)', transition: 'border-color 0.15s', lineHeight: 1.4 }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderLeftColor = 'var(--gold)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderLeftColor = 'var(--border)')}
-                >
-                  {task.title}
-                </motion.div>
-              ))}
-            </motion.div>
           </div>
-
-          {/* NEEDS ATTENTION */}
-          {data.needs_attention.length > 0 && (
-            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border-dim)' }}>
-              <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 900, marginBottom: 8 }}>
-                Needs Attention
-              </div>
-              <motion.div variants={staggerContainer} initial="hidden" animate="visible">
-                {data.needs_attention.map((item) => (
-                  <motion.div
-                    key={item.type}
-                    variants={staggerItem}
-                    onClick={() => router.push(item.href)}
-                    style={{ padding: '6px 10px', borderLeft: '2px solid var(--gold)', marginBottom: 3, cursor: 'pointer', fontSize: 11, color: 'var(--gold)', transition: 'opacity 0.15s' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                  >
-                    {item.label}
-                  </motion.div>
-                ))}
-              </motion.div>
+          {attentionRows.length === 0 ? (
+            <div style={{ fontSize: 11, color: 'var(--text-dimmest)' }}>Nothing urgent. Go make something.</div>
+          ) : (
+            <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
+              {attentionRows.map((row) => (
+                <Link
+                  key={row.key}
+                  href={row.href}
+                  className={`attn-row${row.urgent ? ' urgent' : ''}`}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '20px 1fr',
+                    gap: 10,
+                    padding: '10px 0',
+                    borderTop: '1px solid var(--border-dim)',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    alignItems: 'start',
+                  }}
+                >
+                  <div style={{ fontSize: 10, fontWeight: 800, color: row.urgent ? 'var(--gold)' : 'var(--text-dimmest)', paddingTop: 2, fontFamily: 'var(--font-mono)' }}>
+                    {String(row.rank).padStart(2, '0')}
+                  </div>
+                  <div>
+                    <div className="attn-tag" style={{ fontSize: 9, letterSpacing: '0.18em', fontWeight: 700, color: row.urgent ? 'var(--gold)' : 'var(--text-dimmer)', textTransform: 'uppercase', marginBottom: 3 }}>
+                      {row.tag}
+                    </div>
+                    <div className="attn-title" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.35, fontWeight: 600 }}>
+                      {row.title}
+                    </div>
+                    {row.detail && (
+                      <div style={{ fontSize: 11, color: 'var(--text-dimmest)', marginTop: 3, lineHeight: 1.4 }}>
+                        {row.detail}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              ))}
             </div>
           )}
-
-        </div>
+        </aside>
       </div>
-
     </div>
   )
 }

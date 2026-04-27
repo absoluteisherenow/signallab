@@ -169,7 +169,7 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
   <div style="display:flex;align-items:center;gap:12px">
     <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#050505" stroke-width="1.2" opacity="0.12"/>
-      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#050505" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32" stroke="#050505" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </svg>
     <div class="artist">${artistName}</div>
   </div>
@@ -206,7 +206,7 @@ body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0505
   <a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none">
     <svg width="16" height="16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
       <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" stroke-width="1.5" opacity="0.25"/>
-      <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32" stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </svg>
     <span style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:200;font-size:10px;color:#ff2a1a;letter-spacing:0.12em;text-transform:uppercase;vertical-align:middle">Signal Lab OS</span>
   </a>

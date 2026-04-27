@@ -82,7 +82,7 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center font-mono text-center px-6">
         <div>
-          <div className="text-[10px] tracking-[.3em] uppercase text-[#909090] mb-4">Night Manoeuvres</div>
+          <div className="text-[10px] tracking-[.3em] uppercase text-[#909090] mb-4">NIGHT manoeuvres</div>
           <div className="text-[13px] tracking-[.06em] text-[#909090]">This link is no longer active.</div>
         </div>
       </div>
@@ -93,7 +93,7 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center font-mono px-6">
         <div className="max-w-sm w-full text-center">
-          <div className="text-[9px] tracking-[.35em] uppercase text-[#909090] mb-8">Night Manoeuvres</div>
+          <div className="text-[9px] tracking-[.35em] uppercase text-[#909090] mb-8">NIGHT manoeuvres</div>
           <div className="w-12 h-px bg-[#ff2a1a] mx-auto mb-8" />
           <div className="text-[15px] tracking-[.04em] text-[#f2f2f2] mb-3">you're in.</div>
           <div className="text-[11px] tracking-[.06em] text-[#909090] leading-relaxed mb-8">
@@ -131,7 +131,7 @@ export default function ClaimPageClient({ params }: { params: { slug: string } }
     <div className="min-h-screen bg-[#050505] flex items-center justify-center font-mono px-6">
       <div className="max-w-sm w-full">
         <div className="text-center mb-10">
-          <div className="text-[9px] tracking-[.35em] uppercase text-[#909090] mb-6">Night Manoeuvres</div>
+          <div className="text-[9px] tracking-[.35em] uppercase text-[#909090] mb-6">NIGHT manoeuvres</div>
           <div className="w-12 h-px bg-[#ff2a1a] mx-auto mb-6" />
           <div className="text-[15px] tracking-[.04em] text-[#f2f2f2] mb-3">
             {campaign?.campaign_name || 'claim your download'}

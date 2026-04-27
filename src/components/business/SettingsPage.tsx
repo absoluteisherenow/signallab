@@ -23,7 +23,7 @@ export function SettingsPage() {
   }
 
   const [settings, setSettings] = useState({
-    artistName: 'Night Manoeuvres',
+    artistName: 'NIGHT manoeuvres',
     email: 'contact@nightmanoeuvres.com',
     phone: '+49 30 1234 5678',
     currency: 'EUR',

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mock D — Consolidated (one attention surface)</title>
+<link rel="stylesheet" href="/mockups/_shared.css">
+<style>
+  /* OPTION D — CONSOLIDATED
+     Built on Mock C's dim-on-rest treatment. The structural change: there
+     is now ONE place for "things that need you" instead of three.
+
+     Killed:
+     - Top-of-page "Noticed" band (was duplicating the right-rail attention list)
+     - Separate "Needs Attention" sub-section under To Do (was duplicating again)
+
+     Kept:
+     - Brief = one-line context only
+     - Anticipation/attention items merged into a single ranked column on the right
+     - Personal To Do stays distinct (artist-authored notes, not system signals)
+     - Next Gig prep pills stay (gig-specific, not a todo list)
+     - The Labs strip stays
+  */
+  .top-row { margin-bottom: 56px; gap: 32px; }
+  .band-labs { margin-top: 56px; }
+  .main-grid { margin-top: 56px; gap: 56px; }
+
+  .band-labs,
+  .band-nextgig,
+  .band-attention,
+  .band-todo {
+    transition: opacity 180ms ease;
+    opacity: 0.42;
+  }
+  .band-labs:hover,
+  .band-nextgig:hover,
+  .band-attention:hover,
+  .band-todo:hover,
+  .band-labs:focus-within,
+  .band-nextgig:focus-within,
+  .band-attention:focus-within,
+  .band-todo:focus-within {
+    opacity: 1;
+  }
+  /* Next-gig hero stays always lit — single anchor point */
+  .band-nextgig { opacity: 1; }
+  /* Urgency cues stay full-strength inside dim bands */
+  .attn-row.urgent .attn-title { opacity: 1; }
+
+  /* Two-level lab tile hover */
+  .band-labs .lab-tile {
+    transition: border-color 180ms ease, background 180ms ease;
+  }
+  .band-labs:hover .lab-tile,
+  .band-labs:focus-within .lab-tile { opacity: 0.6; }
+  .band-labs .lab-tile:hover { opacity: 1; border-color: var(--gold); background: #161313; }
+
+  /* Attention column — single ranked list */
+  .attn-list { display: flex; flex-direction: column; gap: 0; }
+  .attn-row {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 10px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border-dim);
+    align-items: start;
+  }
+  .attn-row:last-child { border-bottom: 1px solid var(--border-dim); }
+  .attn-rank { font-size: 10px; font-weight: 800; color: var(--text-dimmest); padding-top: 2px; font-family: 'SF Mono', monospace; }
+  .attn-row.urgent .attn-rank { color: var(--gold); }
+  .attn-tag { font-size: 9px; letter-spacing: 0.18em; font-weight: 700; color: var(--text-dimmer); text-transform: uppercase; margin-bottom: 4px; }
+  .attn-row.urgent .attn-tag { color: var(--gold); }
+  .attn-title { font-size: 12px; color: var(--text); line-height: 1.35; font-weight: 600; }
+  .attn-detail { font-size: 11px; color: var(--text-dimmest); margin-top: 3px; line-height: 1.4; }
+
+  /* Personal todo — moved up into the void beside greeting/week strip so
+     nothing important sits below the fold. Two-column grid so 6 items fit
+     in the same vertical space the right rail occupies. */
+  .band-todo-top { margin-top: 18px; }
+  .todo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+  /* Make personal items grabbable: checkbox left, optional star, brighter text.
+     The point: this column should read as "your hand-written list" the
+     instant your eye lands, distinct from the numbered system column. */
+  .todo-grid .todo-item {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    border-left: 2px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 140ms ease, background 140ms ease;
+  }
+  .todo-grid .todo-item:hover { border-left-color: var(--gold); background: rgba(255,255,255,0.02); }
+  .todo-grid .todo-item .check {
+    width: 14px; height: 14px;
+    border: 1.5px solid var(--text-dimmer);
+    display: inline-block;
+  }
+  .todo-grid .todo-item.starred { border-left-color: var(--gold); }
+  .todo-grid .todo-item.starred .check { border-color: var(--gold); }
+  .todo-grid .todo-item .star {
+    color: var(--gold);
+    font-size: 12px;
+    line-height: 1;
+  }
+  .todo-grid .todo-item.done .check {
+    background: var(--text-dimmer);
+    border-color: var(--text-dimmer);
+  }
+  .todo-grid .todo-item.done { color: var(--text-dimmest); text-decoration: line-through; }
+
+  /* Diff badge — call out what changed vs C */
+  .diff-callout {
+    position: fixed; right: 16px; bottom: 16px;
+    background: #050505; border: 1px solid var(--gold);
+    padding: 12px 14px; font-size: 10px; letter-spacing: 0.1em;
+    color: var(--text-dim); max-width: 260px; line-height: 1.5;
+  }
+  .diff-callout strong { color: var(--gold); display: block; margin-bottom: 6px; letter-spacing: 0.18em; }
+</style>
+</head>
+<body>
+<div class="mock-banner">
+  <a href="/mockups/today-a.html">A</a>
+  <a href="/mockups/today-b.html">B</a>
+  <a href="/mockups/today-c.html">C</a>
+  <span class="self">D — CONSOLIDATED</span>
+  <a href="/today">Live</a>
+</div>
+
+<div style="padding-top:32px;">
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-dot"></span> Signal Lab <span style="color:var(--gold)">OS</span></div>
+    <nav class="nav">
+      <a href="#" class="active">Today</a>
+      <a href="#">Broadcast Lab</a>
+      <a href="#">Grow Lab</a>
+      <a href="#">Tour Lab</a>
+      <a href="#">Set Lab</a>
+      <a href="#">Sonix Lab</a>
+      <a href="#">Promo Lab</a>
+    </nav>
+  </aside>
+
+  <main class="page">
+    <div class="top-row">
+      <div style="flex:1; min-width:0;">
+        <h1 class="greet">Good morning.</h1>
+        <p class="context">Monday 27 April · 17d to AVISSINIAS SQUARE · 7 things need you</p>
+
+        <section class="band-todo band-todo-top">
+          <div class="col-h">My To Do <span class="all">All 7 →</span></div>
+          <div class="todo-grid">
+            <div class="todo-item starred"><span class="check"></span><span>SEND MARKETING PLAN TO ARCHIE</span><span class="star">★</span></div>
+            <div class="todo-item"><span class="check"></span><span>GET FULL BRIEF FOR NDR FILMING</span><span></span></div>
+            <div class="todo-item"><span class="check"></span><span>FILM 5 TRACK PIECE</span><span></span></div>
+            <div class="todo-item"><span class="check"></span><span>SEND PROMO OUT TO 20 PEOPLE</span><span></span></div>
+            <div class="todo-item"><span class="check"></span><span>FILM LIVE PRESET BUILD</span><span></span></div>
+            <div class="todo-item done"><span class="check"></span><span>SORT VINYL FOR TONIGHT</span><span></span></div>
+          </div>
+        </section>
+      </div>
+
+      <div style="flex-shrink:0; width:560px;">
+        <div class="actions">
+          <a href="#">+ Gig</a>
+          <a href="#">+ Post</a>
+          <a href="#">+ Invoice</a>
+          <a href="#">+ Release</a>
+          <a href="#">+ Task</a>
+        </div>
+        <div class="week">
+          <div class="day today"><div class="d">MON</div><div class="n">27</div></div>
+          <div class="day"><div class="d">TUE</div><div class="n">28</div></div>
+          <div class="day"><div class="d">WED</div><div class="n">29</div></div>
+          <div class="day"><div class="d">THU</div><div class="n">30</div></div>
+          <div class="day"><div class="d">FRI</div><div class="n">1</div></div>
+          <div class="day"><div class="d">SAT</div><div class="n">2</div></div>
+          <div class="day"><div class="d">SUN</div><div class="n">3</div></div>
+        </div>
+        <div class="next-post">
+          <div class="thumb"></div>
+          <div style="flex:1;">
+            <div class="meta-eyebrow">Next Post</div>
+            <div class="caption">athens. 14 may. avissinias square.</div>
+            <div class="when">TOMORROW · 11:00 · INSTAGRAM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="band-labs">
+      <h2 class="labs-h">The Labs</h2>
+      <div class="lab-tiles">
+        <div class="lab-tile"><div class="label">Gigs</div><div class="stat">2 confirmed</div></div>
+        <div class="lab-tile"><div class="label">Content</div><div class="stat">62 queued</div></div>
+        <div class="lab-tile"><div class="label">Sets</div><div class="stat">0 sets</div></div>
+        <div class="lab-tile"><div class="label">Tracks</div><div class="stat">180 tracks</div></div>
+        <div class="lab-tile"><div class="label">Releases</div><div class="stat">2 releases</div></div>
+      </div>
+    </section>
+
+    <div class="main-grid">
+      <section class="band-nextgig">
+        <div class="next-gig-eyebrow">Next Gig · in 17 days</div>
+        <h2 class="next-gig-venue">Avissinias Square</h2>
+        <h3 class="next-gig-city">Athens</h3>
+        <div class="gig-pills">
+          <span class="date-l">THU, 14 MAY</span>
+          <span class="pill dim">CONFIRMED</span>
+          <span class="pill warn">SET TIME NEEDED</span>
+          <span class="pill warn">ADVANCE NEEDED</span>
+          <span class="pill dim">HOTEL ✓</span>
+          <span class="pill warn">TRANSPORT NEEDED</span>
+          <span class="pill warn">GROUND NEEDED</span>
+        </div>
+
+        <div class="then">
+          <div class="then-label">Then</div>
+          <div class="then-row"><span class="d">12 JUN</span><span class="v">Vespers Club</span><span class="l">London, United Kingdom</span></div>
+        </div>
+      </section>
+
+      <aside>
+        <section class="band-attention">
+          <div class="col-h">What needs you <span class="all">All 7 →</span></div>
+          <div class="attn-list">
+            <div class="attn-row urgent">
+              <div class="attn-rank">01</div>
+              <div>
+                <div class="attn-tag">Finance</div>
+                <div class="attn-title">4 overdue invoices</div>
+                <div class="attn-detail">Total £—— sitting past due. Chase or write off.</div>
+              </div>
+            </div>
+            <div class="attn-row urgent">
+              <div class="attn-rank">02</div>
+              <div>
+                <div class="attn-tag">Operator</div>
+                <div class="attn-title">3 scheduled posts missing media</div>
+                <div class="attn-detail">Publish cron will skip these. Attach visuals or cancel.</div>
+              </div>
+            </div>
+            <div class="attn-row">
+              <div class="attn-rank">03</div>
+              <div>
+                <div class="attn-tag">Tour</div>
+                <div class="attn-title">Avissinias Square — set time + transport</div>
+                <div class="attn-detail">Confirm slot with promoter, book flight + driver.</div>
+              </div>
+            </div>
+            <div class="attn-row">
+              <div class="attn-rank">04</div>
+              <div>
+                <div class="attn-tag">Broadcast</div>
+                <div class="attn-title">10 caption drafts unapproved</div>
+                <div class="attn-detail">Review → approve so the publish cron takes them live.</div>
+              </div>
+            </div>
+            <div class="attn-row">
+              <div class="attn-rank">05</div>
+              <div>
+                <div class="attn-tag">Broadcast</div>
+                <div class="attn-title">7 fresh shots scored 70+</div>
+                <div class="attn-detail">Top of last 24h. One click into Broadcast closes the loop.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </aside>
+    </div>
+  </main>
+</div>
+</div>
+
+<div class="diff-callout">
+  <strong>What changed vs C</strong>
+  My To Do moved up beside the week strip (was below fold). Top "Noticed" band killed. "Needs Attention" sub-section killed. Both merged into single ranked "What needs you" list. Nothing requires scroll.
+</div>
+
+</body>
+</html>

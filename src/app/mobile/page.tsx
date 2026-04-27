@@ -36,7 +36,7 @@ export default function MobilePage() {
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '14px' }}>
           <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
-            <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32" stroke="#ff2a1a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
           <div style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1 }}>
             Signal Lab Mobile

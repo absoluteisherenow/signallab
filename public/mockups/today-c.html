@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mock C — Whitespace + dim-on-rest</title>
+<link rel="stylesheet" href="/mockups/_shared.css">
+<style>
+  /* OPTION C — WHITESPACE + DIM-ON-REST
+     No new borders. Each band rests at ~50% brightness; hovering or
+     focusing within a band brightens it to 100%. The eye fills in the
+     territory from the white-space + opacity contrast alone. */
+  .top-row { margin-bottom: 64px; gap: 32px; }
+  .band-labs { margin-top: 56px; }
+  .main-grid { margin-top: 56px; gap: 56px; }
+
+  .band-noticed,
+  .band-labs,
+  .band-nextgig,
+  .band-todo {
+    transition: opacity 180ms ease;
+    opacity: 0.42;
+  }
+  .band-noticed:hover,
+  .band-labs:hover,
+  .band-nextgig:hover,
+  .band-todo:hover,
+  .band-noticed:focus-within,
+  .band-labs:focus-within,
+  .band-nextgig:focus-within,
+  .band-todo:focus-within {
+    opacity: 1;
+  }
+  /* The next-gig hero is the answer to "what's next" — keep it always lit
+     so the page has one anchor point. */
+  .band-nextgig { opacity: 1; }
+  /* Urgency cues stay full-strength even when band is dim — overdue stuff
+     should still register at a glance. */
+  .attention-item { opacity: 1; }
+
+  /* Two-level hover hierarchy inside The Labs band:
+     1. Hovering the band brightens the whole row to 100% (above)
+     2. Hovering a single tile pushes it one step further — gold border,
+        subtle background lift — so the focused tile reads as "selected"
+        while siblings sit at neutral 100%. */
+  .band-labs .lab-tile {
+    transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+  }
+  .band-labs:hover .lab-tile,
+  .band-labs:focus-within .lab-tile {
+    /* When the band is active, dim non-hovered siblings slightly so the
+       hovered tile pops without needing a heavy accent. */
+    opacity: 0.6;
+  }
+  .band-labs:hover .lab-tile:hover,
+  .band-labs:focus-within .lab-tile:focus-within,
+  .band-labs .lab-tile:hover {
+    opacity: 1;
+    border-color: var(--gold);
+    background: #161313;
+  }
+</style>
+</head>
+<body>
+<div class="mock-banner">
+  <a href="/mockups/today-a.html">A</a>
+  <a href="/mockups/today-b.html">B</a>
+  <span class="self">C — WHITESPACE + DIM</span>
+  <a href="/mockups/today-d.html">D</a>
+  <a href="/today">Live</a>
+</div>
+<div id="root" style="padding-top:32px;"></div>
+<script>
+  fetch('/mockups/_body.html').then(r => r.text()).then(t => {
+    document.getElementById('root').innerHTML = t;
+  });
+</script>
+</body>
+</html>

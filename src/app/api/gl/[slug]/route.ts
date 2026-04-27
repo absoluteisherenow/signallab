@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendSms } from '@/lib/sms'
+import { queueOrSendGigSms } from '@/lib/smsGate'
 
 /**
  * Public guest-list endpoints (no auth). Used by /gl/<slug> signup form.
@@ -132,11 +132,13 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
         const venue = gig?.venue || 'the show'
         const dateLabel = fmtGigDate(gig?.date || '')
         const where = `${venue} ${dateLabel}`.trim()
-        const smsResult = await sendSms({
+        const smsResult = await queueOrSendGigSms({
+          gigId: invite.gig_id,
           to: phone,
-          body: `Night Manoeuvres. Discount ticket for ${where}: ${ticketUrl}. See you there.`,
+          body: `NIGHT manoeuvres. Discount ticket for ${where}: ${ticketUrl}. See you there.`,
+          templateKind: 'discount',
         })
-        if (!smsResult.success) console.warn('GL ticket SMS failed:', smsResult.error)
+        if (!smsResult.sent && !smsResult.queued) console.warn('GL ticket SMS failed:', smsResult.error)
       }
     } catch (e: any) {
       console.warn('GL SMS error:', e?.message || e)

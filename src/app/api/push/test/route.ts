@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   // back to a generic payload (see sw.template.js push handler).
   await sb.from('pending_push_messages').insert({
     user_id: user.id,
-    title: body.title || 'Signal Lab',
+    title: body.title || 'Signal Lab OS',
     body: body.body || 'Test notification',
     href: body.href || '/',
   }).select().single().then(() => null, () => null)

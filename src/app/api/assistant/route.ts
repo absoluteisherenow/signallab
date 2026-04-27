@@ -419,7 +419,7 @@ export async function POST(req: NextRequest) {
     : null
 
   // Separate own posts from reference artist posts using artist_name
-  const ownArtistName = (profile.name as string) || 'Night Manoeuvres'
+  const ownArtistName = (profile.name as string) || 'NIGHT manoeuvres'
   const nmPosts = topPosts.filter((p: any) => p.artist_name === ownArtistName || (!p.artist_name && (!p.context || p.context === null)))
   const competitorPosts = topPosts.filter((p: any) => p.artist_name && p.artist_name !== ownArtistName)
 

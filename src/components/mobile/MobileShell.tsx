@@ -220,7 +220,10 @@ export default function MobileShell() {
               body: JSON.stringify({ tracks: [{ artist: track.artist, title: track.title, label: data.label || '', source: 'shazam' }] }),
             }).catch(() => {})
             setListenPhase('identified')
-            autoDismissRef.current = setTimeout(() => closeListen(), 2400)
+            // 6s gives time to read artist+title without feeling rushed.
+            // Progress bar below makes the countdown visible (ADHD: clear
+            // time signal, no surprise dismissal).
+            autoDismissRef.current = setTimeout(() => closeListen(), 6000)
           } else {
             setListenPhase('not_found')
             autoDismissRef.current = setTimeout(() => closeListen(), 2000)
@@ -331,11 +334,14 @@ export default function MobileShell() {
                 </div>
               )}
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {/* Single eyebrow combines countdown + absolute date so they
+                    don't repeat across two lines (audit: "30 APR" + "IN 4 DAYS"
+                    were saying the same thing). */}
                 <div style={{
                   fontSize: '9px', fontWeight: 700, letterSpacing: '0.24em',
                   color: COLOR.red, textTransform: 'uppercase',
                 }}>
-                  NEXT · {strip.days}
+                  NEXT · {strip.days} · {strip.date}
                 </div>
                 <div style={{
                   fontSize: '14px', fontWeight: 700, letterSpacing: '0.04em',
@@ -343,9 +349,6 @@ export default function MobileShell() {
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {strip.venue}
-                </div>
-                <div style={{ fontSize: '11px', fontWeight: 500, color: COLOR.dimmer }}>
-                  {strip.date}
                 </div>
                 {(() => {
                   const g = nextGig as any
@@ -481,9 +484,15 @@ function ListenModal({
           <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: COLOR.text, marginBottom: 6, lineHeight: 1.2 }}>
             {result.title}
           </div>
-          <div style={{ fontSize: 14, fontWeight: 500, color: COLOR.dim }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: COLOR.dim, marginBottom: 24 }}>
             {result.artist}
           </div>
+          {/* Visible 6s countdown — replaces the silent 2.4s auto-dismiss
+              that disappeared before slower readers could parse the result. */}
+          <div style={{ width: 220, height: 2, background: 'rgba(255,255,255,0.08)', margin: '0 auto', overflow: 'hidden' }}>
+            <div style={{ height: '100%', background: COLOR.red, animation: 'shazam-countdown 6s linear forwards' }} />
+          </div>
+          <style>{`@keyframes shazam-countdown { from { width: 100%; } to { width: 0%; } }`}</style>
         </div>
       )}
 

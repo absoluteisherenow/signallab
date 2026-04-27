@@ -575,7 +575,7 @@ export function SignalGenius() {
         contextBlock += `\n\nPromo blasts (${c.promoBlasts.length} total):`
         c.promoBlasts.slice(0, 10).forEach((b: any) => {
           const clickRate = b.contact_count > 0 ? Math.round((b.unique_opens || 0) / b.contact_count * 100) : 0
-          contextBlock += `\n- "${b.track_title}" by ${b.track_artist || 'Night Manoeuvres'}${b.track_label ? ` on ${b.track_label}` : ''} — sent to ${b.contact_count || b.sent_count || 0} contacts · ${b.unique_opens || 0} opens (${clickRate}%) · Track URL: ${b.track_url || 'n/a'} · ${b.created_at?.slice(0, 10) || ''}`
+          contextBlock += `\n- "${b.track_title}" by ${b.track_artist || 'NIGHT manoeuvres'}${b.track_label ? ` on ${b.track_label}` : ''} — sent to ${b.contact_count || b.sent_count || 0} contacts · ${b.unique_opens || 0} opens (${clickRate}%) · Track URL: ${b.track_url || 'n/a'} · ${b.created_at?.slice(0, 10) || ''}`
         })
       }
       if (c.promoReactions?.length > 0) {
@@ -1008,7 +1008,7 @@ Rules:
             boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
           }}
         >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ff2a1a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
             <line x1="12" y1="19" x2="12" y2="23" />
@@ -1045,7 +1045,7 @@ Rules:
           title="Signal"
         >
           <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
-            <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32" stroke="#ff2a1a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
         </motion.button>
       ) : (
@@ -1075,7 +1075,7 @@ Rules:
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <svg width="18" height="18" viewBox="0 0 64 64" fill="none">
-            <polyline points="8,32 18,32 24,18 30,46 36,14 42,42 48,26 54,32 62,32" stroke="var(--gold)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32" stroke="#ff2a1a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
           <div style={{ fontSize: '11px', letterSpacing: '0.22em', fontWeight: 700, textTransform: 'uppercase', color: 'var(--gold)' }}>
             Signal

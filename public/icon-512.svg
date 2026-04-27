@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="0" fill="#0a0908"/>
-  <polyline points="112,256 176,256 208,160 240,352 272,128 304,320 336,224 368,256 416,256"
-    stroke="#b08d57" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Signal Lab — Canonical Pulse Mark, 512px PWA icon -->
+  <rect width="512" height="512" rx="0" fill="#050505"/>
+  <rect x="48" y="48" width="416" height="416" rx="80" fill="none" stroke="#ff2a1a" stroke-width="12" opacity="0.85"/>
+  <polyline points="96,256 176,256 208,144 256,368 288,208 320,272 352,240 400,256"
+    stroke="#ff2a1a" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

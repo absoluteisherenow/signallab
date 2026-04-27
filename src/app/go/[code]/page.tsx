@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .single()
 
   if (!link) {
-    return { title: 'Night Manoeuvres' }
+    return { title: 'NIGHT manoeuvres' }
   }
 
   const { data: blast } = await supabase
@@ -33,8 +33,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .single()
 
   const title = blast?.track_title
-    ? `${blast.track_title} — ${blast.track_artist || 'Night Manoeuvres'}`
-    : 'Night Manoeuvres'
+    ? `${blast.track_title} — ${blast.track_artist || 'NIGHT manoeuvres'}`
+    : 'NIGHT manoeuvres'
 
   const description = blast?.track_label
     ? `New release on ${blast.track_label}. Listen now.`
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       type: 'music.song',
-      siteName: 'Night Manoeuvres',
+      siteName: 'NIGHT manoeuvres',
       images: [`${siteUrl}/nm-logo-bw-sm.png`],
     },
     twitter: {
@@ -123,7 +123,7 @@ export default async function PromoPage({ params }: Props) {
         <DropPlayer
           tracks={hydrated}
           dropTitle={blastRes.data?.track_title || 'Untitled'}
-          dropArtist={blastRes.data?.track_artist || 'Night Manoeuvres'}
+          dropArtist={blastRes.data?.track_artist || 'NIGHT manoeuvres'}
           dropLabel={blastRes.data?.track_label || null}
           message={blastRes.data?.message || null}
           recipientName={contactRes.data?.name || null}

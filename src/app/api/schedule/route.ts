@@ -166,17 +166,27 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-// GET accepts optional ?post_group_id=... to fetch a batch, otherwise returns all.
+// GET accepts optional ?post_group_id=... to fetch a batch, ?status=draft to
+// filter, otherwise returns all. Uses the service client + requireUser so RLS
+// doesn't silently blank the response (anon-key reads were returning [] for
+// every signed-in caller, which is why /broadcast/drafts looked empty even
+// when the anticipation surface counted 3 drafts).
 export async function GET(req: NextRequest) {
   try {
+    const gate = await requireUser(req)
+    if (gate instanceof NextResponse) return gate
+    const { serviceClient: sb } = gate
+
     const { searchParams } = new URL(req.url)
     const groupId = searchParams.get('post_group_id')
+    const status = searchParams.get('status')
 
-    const q = supabase
+    const q = sb
       .from('scheduled_posts')
       .select('*')
       .order('scheduled_at', { ascending: true })
     if (groupId) q.eq('post_group_id', groupId)
+    if (status) q.eq('status', status)
 
     const { data, error } = await q
     if (error) throw error

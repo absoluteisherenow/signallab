@@ -246,7 +246,7 @@ ${gig.notes ? `Notes: ${gig.notes}` : ''}
 
 Log in to Signal Lab OS to view full details, upload contracts, and send advance requests.
 
-Night Manoeuvres
+NIGHT manoeuvres
 Signal Lab OS — signallabos.com
       `.trim()
 

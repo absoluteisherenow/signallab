@@ -17,10 +17,10 @@ const S = {
   bg: '#050505',
   panel: '#0e0e0e',
   panelAlt: '#141414',
-  border: '#1d1d1d',
+  border: '#3a3a3a',
   text: '#f2f2f2',
   dim: '#b0b0b0',
-  dimmer: '#6a6a6a',
+  dimmer: '#7a7a7a',
   accent: '#ff2a1a',
   font: "'Helvetica Neue', Helvetica, Arial, sans-serif",
 }
@@ -32,8 +32,9 @@ const inputStyle: React.CSSProperties = {
   color: S.text,
   fontFamily: S.font,
   fontSize: '14px',
-  padding: '12px 14px',
+  padding: '14px 14px',
   outline: 'none',
+  transition: 'border-color 120ms ease, box-shadow 120ms ease',
 }
 
 const labelStyle: React.CSSProperties = {
@@ -134,13 +135,13 @@ export default function GuestListPage() {
   }
 
   if (loading) {
-    return <div style={wrapperStyle}><div style={{ color: S.dim, fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>Loading…</div></div>
+    return <div style={wrapperStyle}><div role="status" aria-live="polite" style={{ color: S.dim, fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>Loading…</div></div>
   }
 
   if (notFound) {
     return (
       <div style={wrapperStyle}>
-        <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
+        <div role="status" aria-live="polite" style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
           <div style={{ fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', color: S.accent, marginBottom: '12px' }}>
             Not found
           </div>
@@ -155,13 +156,13 @@ export default function GuestListPage() {
   if (submitted) {
     return (
       <div style={{ ...wrapperStyle, alignItems: 'center', padding: '20px', minHeight: '100dvh' }}>
-        <div style={{ maxWidth: '520px', width: '100%', textAlign: 'center' }}>
+        <div role="status" aria-live="polite" style={{ maxWidth: '520px', width: '100%', textAlign: 'center' }}>
           <div style={{ fontSize: '12px', letterSpacing: '0.24em', textTransform: 'uppercase', color: S.accent, marginBottom: '32px' }}>
             Submitted
           </div>
-          <div style={{ fontSize: '28px', color: S.text, marginBottom: '24px', fontWeight: 300, lineHeight: 1.25 }}>
+          <h1 style={{ fontSize: '28px', color: S.text, marginBottom: '24px', fontWeight: 300, lineHeight: 1.25, margin: '0 0 24px' }}>
             Thanks {firstName.trim() || 'mate'}.
-          </div>
+          </h1>
           <div style={{ fontSize: '18px', color: S.dim, lineHeight: 1.5, fontWeight: 300 }}>
             You'll get a text once NIGHT manoeuvres has confirmed you on the guest list.
           </div>
@@ -172,6 +173,12 @@ export default function GuestListPage() {
 
   return (
     <div style={wrapperStyle}>
+      <style>{`
+        .gl-input:focus, .gl-input:focus-visible {
+          border-color: ${S.accent};
+          box-shadow: 0 0 0 1px ${S.accent};
+        }
+      `}</style>
       <div style={{ maxWidth: '480px', width: '100%' }}>
         {/* Gig header */}
         <div style={{ marginBottom: '32px' }}>
@@ -183,13 +190,13 @@ export default function GuestListPage() {
               {gig.artwork_url && (
                 <img
                   src={gig.artwork_url}
-                  alt=""
+                  alt={`${gig.title} — gig artwork`}
                   style={{ width: '100%', height: 'auto', display: 'block', marginBottom: 20, border: `1px solid ${S.border}` }}
                 />
               )}
-              <div style={{ fontSize: '22px', color: S.text, lineHeight: 1.2, marginBottom: '8px', fontWeight: 300 }}>
+              <h1 style={{ fontSize: '22px', color: S.text, lineHeight: 1.2, marginBottom: '8px', fontWeight: 300, margin: '0 0 8px' }}>
                 {gig.title}
-              </div>
+              </h1>
               <div style={{ fontSize: '12px', color: S.dim, letterSpacing: '0.06em' }}>
                 {gig.venue}{gig.venue && gig.date ? ' · ' : ''}{fmtDate(gig.date)}
               </div>
@@ -205,21 +212,21 @@ export default function GuestListPage() {
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', gap: '12px' }}>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>First name</label>
-              <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
-                placeholder="First" required maxLength={40} style={inputStyle} />
+              <label htmlFor="gl-firstname" style={labelStyle}>First name</label>
+              <input id="gl-firstname" className="gl-input" type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
+                placeholder="First" required maxLength={40} autoComplete="given-name" style={inputStyle} />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Second name</label>
-              <input type="text" value={lastName} onChange={e => setLastName(e.target.value)}
-                placeholder="Last" required maxLength={40} style={inputStyle} />
+              <label htmlFor="gl-lastname" style={labelStyle}>Second name</label>
+              <input id="gl-lastname" className="gl-input" type="text" value={lastName} onChange={e => setLastName(e.target.value)}
+                placeholder="Last" required maxLength={40} autoComplete="family-name" style={inputStyle} />
             </div>
           </div>
 
           {bothOffered && (
             <div>
-              <label style={labelStyle}>I'm…</label>
-              <select value={response} onChange={e => setResponse(e.target.value as any)} style={{ ...inputStyle, appearance: 'none' }}>
+              <label htmlFor="gl-response" style={labelStyle}>I'm…</label>
+              <select id="gl-response" className="gl-input" value={response} onChange={e => setResponse(e.target.value as any)} style={{ ...inputStyle, appearance: 'none' }}>
                 <option value="coming">Discount ticket</option>
                 <option value="guestlist">Asking for guest list</option>
               </select>
@@ -230,7 +237,7 @@ export default function GuestListPage() {
             <div>
               <label style={labelStyle}>Requesting</label>
               <div style={{
-                fontSize: '13px', color: S.text, padding: '12px 14px',
+                fontSize: '13px', color: S.text, padding: '14px 14px',
                 border: `1px solid ${S.border}`, background: S.panel, letterSpacing: '0.02em',
               }}>
                 {singleOfferLabel}
@@ -239,15 +246,15 @@ export default function GuestListPage() {
           )}
 
           <div>
-            <label style={labelStyle}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@email.com" required maxLength={120} style={inputStyle} />
+            <label htmlFor="gl-email" style={labelStyle}>Email</label>
+            <input id="gl-email" className="gl-input" type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@email.com" required maxLength={120} autoComplete="email" style={inputStyle} />
           </div>
 
           <div>
-            <label style={labelStyle}>Phone</label>
+            <label htmlFor="gl-phone" style={labelStyle}>Phone</label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <select value={phoneCode} onChange={e => setPhoneCode(e.target.value)}
+              <select aria-label="Country code" className="gl-input" value={phoneCode} onChange={e => setPhoneCode(e.target.value)}
                 style={{ ...inputStyle, width: '110px', appearance: 'none', flexShrink: 0 }}>
                 <option value="+44">UK +44</option>
                 <option value="+1">US/CA +1</option>
@@ -282,25 +289,25 @@ export default function GuestListPage() {
                 <option value="+52">MX +52</option>
                 <option value="+55">BR +55</option>
               </select>
-              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                placeholder="7700 000000" required maxLength={20} style={{ ...inputStyle, flex: 1 }} />
+              <input id="gl-phone" className="gl-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                placeholder="7700 000000" required maxLength={20} autoComplete="tel-national" style={{ ...inputStyle, flex: 1 }} />
             </div>
           </div>
 
           <div>
-            <label style={labelStyle}>City <span style={{ color: S.dimmer, textTransform: 'none', letterSpacing: 0, fontSize: '10px' }}>(optional)</span></label>
-            <input type="text" value={city} onChange={e => setCity(e.target.value)}
-              placeholder="e.g. Athens" maxLength={80} style={inputStyle} />
+            <label htmlFor="gl-city" style={labelStyle}>Where you're based <span style={{ color: S.dimmer, textTransform: 'none', letterSpacing: 0, fontSize: '10px' }}>(optional)</span></label>
+            <input id="gl-city" className="gl-input" type="text" value={city} onChange={e => setCity(e.target.value)}
+              placeholder="e.g. London" maxLength={80} autoComplete="address-level2" style={inputStyle} />
           </div>
 
           {error && (
-            <div style={{ fontSize: '12px', color: S.accent, letterSpacing: '0.04em' }}>
+            <div role="alert" aria-live="assertive" style={{ fontSize: '12px', color: S.accent, letterSpacing: '0.04em' }}>
               {error}
             </div>
           )}
 
           <div style={{ fontSize: '11px', color: S.dimmer, lineHeight: 1.6, letterSpacing: '0.02em' }}>
-            By sending you agree to be added to the Night Manoeuvres mailing list.
+            By sending you agree to be added to the NIGHT manoeuvres mailing list.
           </div>
 
           <button type="submit" disabled={submitting || !firstName.trim() || !lastName.trim()}

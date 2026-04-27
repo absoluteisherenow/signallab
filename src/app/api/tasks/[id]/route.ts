@@ -12,6 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.priority !== undefined) patch.priority = body.priority
   if (body.notes !== undefined) patch.notes = body.notes
   if (body.due_at !== undefined) patch.due_at = body.due_at
+  if (body.starred !== undefined) patch.starred = body.starred
   const { data, error } = await supabase
     .from('tasks')
     .update(patch)

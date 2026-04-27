@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BlurredAmount } from '@/components/ui/BlurredAmount'
 import { PulseLoader } from '@/components/ui/PulseLoader'
+import { SmsApprovalGate } from '@/components/gigs/SmsApprovalGate'
 import { tierAllowsMultiCurrency, type SupportedCurrency } from '@/lib/currency'
 import type { Tier } from '@/lib/stripe'
 
@@ -28,7 +29,7 @@ interface Gig {
 
 interface TravelBooking {
   id: string
-  type: 'flight' | 'train' | 'hotel'
+  type: 'flight' | 'train' | 'hotel' | 'ground'
   name: string | null
   flight_number: string | null
   from_location: string | null
@@ -114,6 +115,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const [advanceRiderType, setAdvanceRiderType] = useState<string | null>(null)
   const [sendingAdvance, setSendingAdvance] = useState(false)
   const [showRiderPicker, setShowRiderPicker] = useState(false)
+  const [showAdvancePreview, setShowAdvancePreview] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [artworkTab, setArtworkTab] = useState<'ra' | 'upload'>('upload')
   const [artworkPreview, setArtworkPreview] = useState<string | null>(null)
@@ -124,7 +126,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const [travelBookings, setTravelBookings] = useState<TravelBooking[]>([])
   const [showAddTravel, setShowAddTravel] = useState(false)
   const [addingTravel, setAddingTravel] = useState(false)
-  const [travelType, setTravelType] = useState<'flight' | 'hotel' | 'train'>('flight')
+  const [travelType, setTravelType] = useState<'flight' | 'hotel' | 'train' | 'ground'>('flight')
   const [tier, setTier] = useState<Tier>('free')
   const [defaultCurrency, setDefaultCurrency] = useState<SupportedCurrency | null>(null)
   const multiCurrency = tierAllowsMultiCurrency(tier)
@@ -135,6 +137,17 @@ export function GigDetail({ gigId }: GigDetailProps) {
   const [glLoading, setGlLoading] = useState(false)
   const [glCreating, setGlCreating] = useState(false)
   const [glCopied, setGlCopied] = useState(false)
+
+  // Accordion: open one section at a time. Default to null (all collapsed)
+  // so the page lands on a single, scannable summary.
+  // Honour URL hash on mount so deep-links like /gigs/X#advance from /today
+  // attention rows open straight to the right section instead of forcing
+  // another click.
+  const [expandedSection, setExpandedSection] = useState<'travel' | 'advance' | 'guestlist' | null>(() => {
+    if (typeof window === 'undefined') return null
+    const h = window.location.hash.slice(1)
+    return h === 'travel' || h === 'advance' || h === 'guestlist' ? h : null
+  })
 
   // Parse rider sections from notes
   function parseRider(notes: string | null): { tech: string | null; hospitality: string | null; confirmed: boolean } | null {
@@ -249,12 +262,42 @@ export function GigDetail({ gigId }: GigDetailProps) {
     } catch {}
   }
 
-  function copyGlLink() {
-    if (!glSlug) return
+  async function copyGlLink() {
+    console.log('[copyGlLink] clicked, glSlug=', glSlug)
+    if (!glSlug) {
+      showToast('No guest-list slug yet — create one first')
+      return
+    }
     const url = `${window.location.origin}/gl/${glSlug}`
-    navigator.clipboard.writeText(url)
-    setGlCopied(true)
-    setTimeout(() => setGlCopied(false), 2000)
+    console.log('[copyGlLink] url=', url)
+    let copied = false
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url)
+        copied = true
+      } else {
+        // Fallback for older browsers / non-secure contexts
+        const ta = document.createElement('textarea')
+        ta.value = url
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        copied = document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
+    } catch (err) {
+      console.warn('Copy link failed:', err)
+    }
+    if (copied) {
+      setGlCopied(true)
+      showToast('Link copied')
+      setTimeout(() => setGlCopied(false), 2000)
+    } else {
+      // Last resort — show the URL in a prompt the user can manually copy
+      showToast('Copy failed — see address bar')
+      window.prompt('Copy this link:', url)
+    }
   }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
@@ -756,16 +799,31 @@ export function GigDetail({ gigId }: GigDetailProps) {
         </form>
 
         {/* Travel & Logistics */}
-        <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Travel & Logistics</div>
-            {travelBookings.length > 0 && !showAddTravel && (
+        <div className="card" style={{ padding: expandedSection === 'travel' ? '32px' : '0', marginBottom: '20px' }}>
+          <button
+            type="button"
+            onClick={() => setExpandedSection(expandedSection === 'travel' ? null : 'travel')}
+            aria-expanded={expandedSection === 'travel'}
+            style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: expandedSection === 'travel' ? '0 0 24px 0' : '24px 28px', textAlign: 'left', fontFamily: 'var(--font-mono)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', minWidth: 0 }}>
+              <span style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Travel</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {travelBookings.length === 0 ? '0 booked' : `${travelBookings.length} booked`}
+              </span>
+            </div>
+            <span style={{ fontSize: '14px', color: 'var(--text-dimmer)', transform: expandedSection === 'travel' ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 120ms ease', display: 'inline-block' }}>›</span>
+          </button>
+          {expandedSection === 'travel' && (
+          <>
+          {travelBookings.length > 0 && !showAddTravel && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
               <button type="button" onClick={() => setShowAddTravel(true)}
                 style={{ background: 'linear-gradient(180deg, #3a2e1c 0%, #2a200e 100%)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '10px 18px', cursor: 'pointer' }}>
                 + Add
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {travelBookings.length === 0 && !showAddTravel && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -909,6 +967,35 @@ export function GigDetail({ gigId }: GigDetailProps) {
                     </div>
                   )}
 
+                  {b.type === 'ground' && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                        <span style={{ fontSize: '14px' }}>🚗</span>
+                        <span style={{ fontSize: '13px', color: 'var(--text)' }}>{b.name || 'Ground transfer'}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        {(b.from_location || b.to_location) && (
+                          <div>
+                            <div style={s.label}>Pickup → Drop-off</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{b.from_location || '—'} → {b.to_location || '—'}</div>
+                          </div>
+                        )}
+                        {b.departure_at && (
+                          <div>
+                            <div style={s.label}>Pickup time</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)' }}>{formatDateTime(b.departure_at)}</div>
+                          </div>
+                        )}
+                        {b.reference && (
+                          <div>
+                            <div style={s.label}>Reference</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{b.reference}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {b.cost != null && (
                     <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-dim)' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-dimmer)', letterSpacing: '0.1em' }}><BlurredAmount>{currencySymbol(b.currency)}{b.cost.toLocaleString()}</BlurredAmount></span>
@@ -922,7 +1009,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
           {showAddTravel && (
             <form onSubmit={handleAddTravel}>
               <div style={{ display: 'flex', gap: '0', marginBottom: '20px' }}>
-                {(['flight', 'hotel', 'train'] as const).map(t => (
+                {(['flight', 'train', 'hotel', 'ground'] as const).map(t => (
                   <button key={t} type="button" onClick={() => setTravelType(t)}
                     style={{
                       flex: 1, padding: '10px 16px', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase',
@@ -931,7 +1018,7 @@ export function GigDetail({ gigId }: GigDetailProps) {
                       color: travelType === t ? 'var(--gold)' : 'var(--text-dimmer)',
                       cursor: 'pointer', fontFamily: 'var(--font-mono)',
                     }}>
-                    {t === 'flight' ? '✈ Flight' : t === 'hotel' ? '🏨 Hotel' : '🚂 Train'}
+                    {t === 'flight' ? '✈ Flight' : t === 'hotel' ? '🏨 Hotel' : t === 'train' ? '🚂 Train' : '🚗 Ground'}
                   </button>
                 ))}
               </div>
@@ -1031,6 +1118,35 @@ export function GigDetail({ gigId }: GigDetailProps) {
                     </div>
                   </>
                 )}
+
+                {travelType === 'ground' && (
+                  <>
+                    <div>
+                      <div style={s.label}>Driver / company</div>
+                      <input name="name" placeholder="e.g. Blacklane" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Pickup</div>
+                      <input name="from_location" placeholder="e.g. ATH Airport — Arrivals" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Drop-off</div>
+                      <input name="to_location" placeholder="e.g. Hotel Grande Bretagne" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Pickup time</div>
+                      <input name="departure_at" type="datetime-local" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Reference</div>
+                      <input name="reference" placeholder="Booking ref / driver name" style={s.input} />
+                    </div>
+                    <div>
+                      <div style={s.label}>Cost</div>
+                      <input name="cost" type="number" step="0.01" placeholder="0.00" style={s.input} />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -1045,18 +1161,28 @@ export function GigDetail({ gigId }: GigDetailProps) {
               </div>
             </form>
           )}
+          </>
+          )}
         </div>
 
         {/* Advance section */}
-        <div className="card" style={{ padding: '32px', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Advance</div>
-            {advanceStatus && (
-              <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: advanceStatus === 'complete' ? 'var(--green)' : 'var(--gold)', background: advanceStatus === 'complete' ? 'rgba(242,242,242,0.1)' : 'rgba(255,42,26,0.1)', padding: '4px 12px' }}>
-                {advanceStatus === 'complete' ? '✓ Complete' : '⟳ Sent'}
+        <div className="card" style={{ padding: expandedSection === 'advance' ? '32px' : '0', marginBottom: '20px' }}>
+          <button
+            type="button"
+            onClick={() => setExpandedSection(expandedSection === 'advance' ? null : 'advance')}
+            aria-expanded={expandedSection === 'advance'}
+            style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: expandedSection === 'advance' ? '0 0 20px 0' : '24px 28px', textAlign: 'left', fontFamily: 'var(--font-mono)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', minWidth: 0 }}>
+              <span style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Advance</span>
+              <span style={{ fontSize: '12px', color: advanceStatus === 'complete' ? 'var(--green)' : 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {advanceStatus === 'complete' ? '✓ Complete' : advanceStatus === 'sent' ? 'Sent — awaiting reply' : 'Not sent'}
               </span>
-            )}
-          </div>
+            </div>
+            <span style={{ fontSize: '14px', color: 'var(--text-dimmer)', transform: expandedSection === 'advance' ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 120ms ease', display: 'inline-block' }}>›</span>
+          </button>
+          {expandedSection === 'advance' && (
+          <>
           {!advanceStatus ? (
             <div>
               {!showRiderPicker ? (
@@ -1100,18 +1226,40 @@ export function GigDetail({ gigId }: GigDetailProps) {
                         <div style={{ marginTop: '32px', paddingTop: '16px', borderTop: '1px solid #1d1d1d', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#6a6760', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           <svg width="12" height="12" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" strokeWidth="1.5" opacity="0.4"/>
-                            <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                            <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32" stroke="#ff2a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
                           </svg>
                           Powered by Signal Lab OS
                         </div>
                       </div>
                     </div>
 
-                    {/* Link footer — exact URL the promoter clicks */}
-                    <div style={{ background: '#0a0a09', border: '1px solid var(--border-dim)', padding: '12px 16px', marginBottom: '16px', fontSize: '10px', lineHeight: '1.6' }}>
-                      <div style={{ color: 'var(--text-dimmer)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px', fontSize: '9px' }}>Button links to</div>
-                      <div style={{ color: 'var(--gold)', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '11px' }}>{formUrl}</div>
-                      <a href={formUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '8px', color: 'var(--text-dimmer)', fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', textDecoration: 'underline' }}>Test the link →</a>
+                    {/* Preview toggle + link footer — single block. Button on
+                        top reveals the iframe; URL sits below as reference,
+                        with a discreet new-tab link. Cleaner than an always-on
+                        iframe pushing everything else off screen. */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                        <button
+                          onClick={() => setShowAdvancePreview(v => !v)}
+                          style={{ background: 'none', border: '1px solid var(--border-dim)', color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}>
+                          {showAdvancePreview ? 'Hide preview' : 'Preview what they see'}
+                        </button>
+                        <a href={formUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-dimmer)', fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', textDecoration: 'underline' }}>Open in new tab →</a>
+                      </div>
+                      {showAdvancePreview && (
+                        <div style={{ position: 'relative', border: '1px solid var(--border-dim)', background: '#050505', height: 520, overflow: 'hidden', marginBottom: 8 }}>
+                          <iframe
+                            src={formUrl}
+                            title="Advance form preview"
+                            style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+                            sandbox="allow-same-origin allow-scripts"
+                          />
+                        </div>
+                      )}
+                      <div style={{ background: '#0a0a09', border: '1px solid var(--border-dim)', padding: '8px 12px', fontSize: 10, lineHeight: 1.5 }}>
+                        <span style={{ color: 'var(--text-dimmer)', letterSpacing: '0.12em', textTransform: 'uppercase', fontSize: 9, marginRight: 8 }}>URL</span>
+                        <span style={{ color: 'var(--gold)', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 10 }}>{formUrl}</span>
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button onClick={() => setShowRiderPicker(false)}
@@ -1151,11 +1299,37 @@ export function GigDetail({ gigId }: GigDetailProps) {
               </div>
             </div>
           )}
+          </>
+          )}
         </div>
 
         {/* Guest List */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={s.label}>Guest List</div>
+        <div className="card" style={{ padding: expandedSection === 'guestlist' ? '32px' : '0', marginBottom: '24px' }}>
+          {(() => {
+            const confirmedCount = glResponses.filter(r => r.confirmed).length
+            const status = !glSlug
+              ? 'Not created'
+              : glResponses.length === 0
+                ? 'Created — 0 responses'
+                : `${glResponses.length} response${glResponses.length === 1 ? '' : 's'} · ${confirmedCount} confirmed`
+            const statusColor = !glSlug ? 'var(--text-dim)' : confirmedCount === glResponses.length && glResponses.length > 0 ? 'var(--green)' : 'var(--text-dim)'
+            return (
+              <button
+                type="button"
+                onClick={() => setExpandedSection(expandedSection === 'guestlist' ? null : 'guestlist')}
+                aria-expanded={expandedSection === 'guestlist'}
+                style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: expandedSection === 'guestlist' ? '0 0 16px 0' : '24px 28px', textAlign: 'left', fontFamily: 'var(--font-mono)' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', minWidth: 0 }}>
+                  <span style={{ fontSize: '10px', letterSpacing: '0.22em', color: 'var(--gold)', textTransform: 'uppercase' }}>Guest list</span>
+                  <span style={{ fontSize: '12px', color: statusColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{status}</span>
+                </div>
+                <span style={{ fontSize: '14px', color: 'var(--text-dimmer)', transform: expandedSection === 'guestlist' ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 120ms ease', display: 'inline-block' }}>›</span>
+              </button>
+            )
+          })()}
+          {expandedSection === 'guestlist' && (
+          <>
           {!glSlug ? (
             <button onClick={createGuestList} disabled={glCreating}
               style={{ marginTop: '8px', background: 'none', border: '1px solid var(--border-dim)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '12px 20px', cursor: 'pointer', opacity: glCreating ? 0.5 : 1 }}>
@@ -1167,15 +1341,15 @@ export function GigDetail({ gigId }: GigDetailProps) {
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px' }}>
                 <button onClick={copyGlLink}
                   style={{ background: 'none', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', padding: '10px 16px', cursor: 'pointer' }}>
-                  {glCopied ? 'Copied' : 'Copy link'}
+                  {glCopied ? 'Copied' : 'Copy link v2'}
                 </button>
                 <a href={`https://wa.me/?text=${encodeURIComponent(`You're invited! ${window.location.origin}/gl/${glSlug}`)}`} target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '10px 16px', textDecoration: 'none' }}>
                   Share via WhatsApp
                 </a>
-                <Link href={`/gl/${glSlug}`}
+                <Link href={`/gl/${glSlug}`} target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dimmer)', border: '1px solid var(--border-dim)', padding: '10px 16px', textDecoration: 'none' }}>
-                  View page
+                  Preview
                 </Link>
               </div>
 
@@ -1220,7 +1394,11 @@ export function GigDetail({ gigId }: GigDetailProps) {
                   No responses yet. Share the link with your mates.
                 </div>
               )}
+
+              <SmsApprovalGate gigId={gig.id} />
             </div>
+          )}
+          </>
           )}
         </div>
 

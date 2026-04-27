@@ -53,18 +53,18 @@ export function PulseLoader({ label, size = 'md', className }: PulseLoaderProps)
           xmlns="http://www.w3.org/2000/svg"
         >
           <rect
-            x="8"
-            y="8"
-            width="48"
-            height="48"
-            rx="12"
+            x="6"
+            y="6"
+            width="52"
+            height="52"
+            rx="10"
             fill="none"
             stroke="#ff2a1a"
             strokeWidth="1.25"
-            opacity="0.35"
+            opacity="0.85"
           />
           <polyline
-            points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32"
+            points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32"
             stroke="#ff2a1a"
             strokeWidth={d.stroke}
             strokeLinecap="round"

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Signal Lab — Pulse Mark, canonical. Peak → trough → recovery beat → baseline. -->
+  <rect width="64" height="64" fill="#050505"/>
+  <rect x="6" y="6" width="52" height="52" rx="10" fill="none" stroke="#ff2a1a" stroke-width="1.5" opacity="0.85"/>
+  <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32"
+    stroke="#ff2a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

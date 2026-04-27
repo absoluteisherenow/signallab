@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     .then(r => r, () => ({ data: null }) as { data: null })
 
   if (!data) {
-    return NextResponse.json({ title: 'Signal Lab', body: 'New activity', href: '/' })
+    return NextResponse.json({ title: 'Signal Lab OS', body: 'New activity', href: '/' })
   }
 
   // Mark consumed so the next push doesn't re-show the same message.

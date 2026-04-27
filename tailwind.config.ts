@@ -14,7 +14,7 @@ const config: Config = {
         'night-gray': '#0e0d0b',
         'night-dark-gray': '#2e2c29',
         'night-light': '#f0ebe2',
-        'night-gold': '#b08d57',
+        'night-gold': '#ff2a1a',
         'night-dim': '#52504c',
       },
       fontFamily: {

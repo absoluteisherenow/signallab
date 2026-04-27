@@ -99,7 +99,7 @@ export async function createNotification(opts: CreateNotificationOptions) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY)
       await resend.emails.send({
-        from: 'Signal Lab <notifications@signallabos.com>',
+        from: 'Signal Lab OS <notifications@signallabos.com>',
         to: process.env.ARTIST_EMAIL,
         subject: title,
         html: `

@@ -66,7 +66,7 @@ export function PushOptIn() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Signal Lab', body: 'Push works ✓', href: '/today' }),
+        body: JSON.stringify({ title: 'Signal Lab OS', body: 'Push works ✓', href: '/today' }),
       })
       const body = await res.json()
       if (!res.ok) setMsg(body.error || `test failed: ${res.status}`)

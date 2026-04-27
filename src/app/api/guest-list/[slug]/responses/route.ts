@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/api-auth'
-import { sendSms } from '@/lib/sms'
+import { queueOrSendGigSms } from '@/lib/smsGate'
 
 function fmtGigDate(iso: string) {
   if (!iso) return ''
@@ -98,10 +98,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
         const venue = gig?.venue || 'the show'
         const dateLabel = fmtGigDate(gig?.date || '')
         const where = `${venue} ${dateLabel}`.trim()
-        await sendSms({
-          to: before.phone,
-          body: `Night Manoeuvres. You're on the guest list for ${where}. See you there.`,
-        })
+        if (inviteFull?.gig_id) {
+          await queueOrSendGigSms({
+            gigId: inviteFull.gig_id,
+            to: before.phone,
+            body: `NIGHT manoeuvres. You're on the guest list for ${where}. See you there.`,
+            templateKind: 'guestlist',
+          })
+        }
       } catch (e: any) {
         console.warn('GL confirm SMS error:', e?.message || e)
       }

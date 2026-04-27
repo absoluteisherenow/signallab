@@ -1,11 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 48" fill="none">
-  <!-- Signal Lab OS — Full Logo Lockup (icon + wordmark), centred -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 48" fill="none">
+  <!-- Signal Lab — Full Logo Lockup (canonical pulse + wordmark) -->
   <g transform="translate(18, 0)">
-    <!-- Icon -->
-    <rect x="4" y="4" width="40" height="40" rx="10" fill="none" stroke="#b08d57" stroke-width="1.2" opacity="0.25"/>
-    <polyline points="10,24 16,24 19,15 23,33 27,11 31,31 34,21 37,24 40,24"
-      stroke="#b08d57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- Icon (scaled v3 pulse: 48x48, frame at 4-44, polyline scaled from 64-grid: 12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32 → ×0.75 = 9,24 16.5,24 19.5,13.5 24,34.5 27,19.5 30,25.5 33,22.5 37.5,24) -->
+    <rect x="4" y="4" width="40" height="40" rx="8" fill="none" stroke="#ff2a1a" stroke-width="1.2" opacity="0.85"/>
+    <polyline points="9,24 16.5,24 19.5,13.5 24,34.5 27,19.5 30,25.5 33,22.5 37.5,24"
+      stroke="#ff2a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     <!-- Wordmark — Signal Lab OS -->
-    <text x="56" y="30" font-family="Unbounded, sans-serif" font-weight="200" font-size="22" fill="#f0ebe2" letter-spacing="1">Signal Lab <tspan fill="#8a8780" font-family="DM Mono, monospace" font-weight="300" font-size="14" dx="4" letter-spacing="2">OS</tspan></text>
+    <text x="56" y="30" font-family="Unbounded, sans-serif" font-weight="200" font-size="22" letter-spacing="1">
+      <tspan fill="#f0ebe2">Signal Lab </tspan><tspan fill="#ff2a1a">OS</tspan>
+    </text>
   </g>
 </svg>

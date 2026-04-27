@@ -249,7 +249,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     ${hideBranding ? '' : `<a href="https://signallabos.com/waitlist" style="display:inline-flex;align-items:center;gap:10px;color:rgba(242,242,242,0.7);text-decoration:none;font-size:13px;letter-spacing:0.12em;text-transform:uppercase;font-weight:500">
       <svg width="22" height="22" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
         <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke="#ff2a1a" stroke-width="1.8" opacity="0.6"/>
-        <polyline points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32" stroke="#ff2a1a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <polyline points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32" stroke="#ff2a1a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
       Powered by Signal Lab OS
     </a>`}

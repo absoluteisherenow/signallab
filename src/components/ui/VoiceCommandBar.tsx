@@ -115,7 +115,7 @@ export function VoiceCommandBar() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        title="Search Signal Lab (⌘.)"
+        title="Search Signal Lab OS (⌘.)"
         style={{
           position: 'fixed',
           bottom: '96px',

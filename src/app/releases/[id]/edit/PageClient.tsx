@@ -122,7 +122,7 @@ export default function EditReleaseClient({ params }: { params: { id: string } }
             <div>
               <label style={labelStyle}>Artist</label>
               <input value={form.artist} onChange={e => update('artist', e.target.value)}
-                placeholder="e.g. Night Manoeuvres, or collab artist" style={inputStyle} />
+                placeholder="e.g. NIGHT manoeuvres, or collab artist" style={inputStyle} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>

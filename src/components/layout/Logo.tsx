@@ -16,9 +16,9 @@ export function LogoIcon({ size = 32, color = '#ff2a1a', className }: LogoIconPr
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      <rect x="8" y="8" width="48" height="48" rx="12" fill="none" stroke={color} strokeWidth="1.5" opacity="0.25" />
+      <rect x="6" y="6" width="52" height="52" rx="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.85" />
       <polyline
-        points="14,32 22,32 26,20 30,44 34,16 38,40 42,28 46,32 52,32"
+        points="12,32 22,32 26,18 32,46 36,26 40,34 44,30 50,32"
         stroke={color}
         strokeWidth="2.5"
         strokeLinecap="round"

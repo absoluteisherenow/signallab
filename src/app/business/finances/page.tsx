@@ -664,7 +664,7 @@ export default function Finances() {
                   <div style={labelStyle}>Artist alias</div>
                   <input value={newInvoice.artist_name}
                     onChange={e => setNewInvoice(p => ({ ...p, artist_name: e.target.value }))}
-                    placeholder="ABSOLUTE. / Night Manoeuvres" style={inputStyle} />
+                    placeholder="ABSOLUTE. / NIGHT manoeuvres" style={inputStyle} />
                   <div style={{ fontSize: '9px', color: 'var(--text-dimmer)', marginTop: '5px', letterSpacing: '0.06em' }}>Leave blank to use profile name</div>
                 </div>
                 <div>

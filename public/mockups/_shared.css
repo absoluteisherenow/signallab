@@ -1,0 +1,91 @@
+/* Shared base — matches signallabos /today aesthetic */
+:root {
+  --bg: #050505;
+  --panel: #0d0d0d;
+  --border: rgba(255,255,255,0.15);
+  --border-dim: rgba(255,255,255,0.08);
+  --text: #f2f2f2;
+  --text-dim: #a8a8a8;
+  --text-dimmer: #6a6a6a;
+  --text-dimmest: #4a4a4a;
+  --gold: #ff2a1a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Helvetica Neue', Arial, sans-serif; }
+body { font-feature-settings: 'tnum'; }
+.mono { font-family: 'SF Mono', 'Courier New', monospace; }
+
+.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.sidebar { padding: 24px 20px; border-right: 1px solid var(--border-dim); font-size: 13px; }
+.sidebar .brand { font-weight: 700; margin-bottom: 32px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.sidebar .brand-dot { width: 18px; height: 18px; border: 1px solid var(--gold); display: inline-block; }
+.sidebar .nav { display: flex; flex-direction: column; gap: 10px; color: var(--text-dimmer); }
+.sidebar .nav a { color: inherit; text-decoration: none; }
+.sidebar .nav a.active { color: var(--gold); }
+
+.page { padding: 16px 24px 40px; }
+
+/* Top header row: greeting + actions/week */
+.top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 12px; }
+.greet { font-size: clamp(36px, 5vw, 60px); font-weight: 900; letter-spacing: -0.03em; line-height: 0.95; margin: 0; text-transform: uppercase; }
+.context { font-size: 12px; color: var(--text-dimmer); margin-top: 4px; }
+
+.actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-bottom: 8px; }
+.actions a { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); padding: 8px 18px; border: 1px solid var(--border); text-decoration: none; }
+
+.week { display: flex; gap: 2px; margin-bottom: 8px; }
+.week .day { flex: 1; min-width: 50px; text-align: center; padding: 6px 0 8px; color: var(--text-dimmer); }
+.week .day.today { background: var(--gold); color: #050505; }
+.week .day .d { font-size: 10px; letter-spacing: 0.12em; font-weight: 700; }
+.week .day .n { font-size: 18px; font-weight: 800; }
+
+.next-post { display: flex; gap: 12px; padding: 10px; border: 1px solid var(--border-dim); background: var(--panel); }
+.next-post .thumb { width: 88px; height: 88px; background: #161616; }
+.next-post .meta-eyebrow { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); font-weight: 700; margin-bottom: 4px; }
+.next-post .caption { font-size: 12px; color: var(--text); line-height: 1.4; }
+.next-post .when { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dimmest); font-weight: 700; margin-top: 6px; }
+
+/* Noticed band */
+.noticed-label { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dimmer); margin-bottom: 4px; }
+.noticed-row { display: flex; align-items: baseline; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border-dim); }
+.noticed-row:last-child { border-bottom: 1px solid var(--border-dim); }
+.noticed-tag { font-size: 9px; letter-spacing: 0.2em; font-weight: 700; color: var(--gold); width: 96px; flex-shrink: 0; }
+.noticed-title { font-size: 12px; color: var(--text); flex: 1; }
+.noticed-detail { font-size: 11px; color: var(--text-dimmest); }
+
+/* The Labs section */
+.labs-h { font-size: clamp(28px, 4vw, 48px); font-weight: 900; margin: 16px 0 8px; letter-spacing: -0.03em; text-transform: uppercase; }
+.lab-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.lab-tile { padding: 16px 10px; border: 1px solid var(--border); background: var(--panel); text-align: center; }
+.lab-tile .label { font-size: clamp(20px, 2.8vw, 42px); font-weight: 900; letter-spacing: -0.03em; text-transform: uppercase; }
+.lab-tile .stat { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dimmest); font-weight: 700; }
+
+/* Main grid */
+.main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 32px; margin-top: 16px; }
+.next-gig-eyebrow { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); font-weight: 700; margin-bottom: 8px; }
+.next-gig-venue { font-size: clamp(48px, 8vw, 120px); font-weight: 900; line-height: 0.88; margin: 0; letter-spacing: -0.04em; text-transform: uppercase; }
+.next-gig-city { font-size: clamp(28px, 4vw, 56px); font-weight: 900; line-height: 0.92; margin: 4px 0 14px; letter-spacing: -0.03em; text-transform: uppercase; color: var(--text-dimmer); }
+.gig-pills { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.gig-pills .date-l { font-size: 12px; color: var(--text-dimmer); text-transform: uppercase; letter-spacing: 0.08em; padding-right: 4px; }
+.gig-pills .pill { font-size: 10px; padding: 2px 8px; border: 1px solid var(--border); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.gig-pills .pill.warn { border-color: var(--gold); color: var(--gold); }
+.gig-pills .pill.dim { color: var(--text-dimmer); }
+
+.then { margin-top: 24px; }
+.then-label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--text-dimmest); font-weight: 700; margin-bottom: 8px; }
+.then-row { display: grid; grid-template-columns: 72px 1fr auto; align-items: baseline; gap: 16px; padding: 10px 0; border-top: 1px solid var(--border-dim); }
+.then-row .d { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--gold); }
+.then-row .v { font-size: 14px; font-weight: 700; text-transform: uppercase; }
+.then-row .l { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dimmer); }
+
+/* Right column */
+.col-h { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 900; margin-bottom: 8px; display: flex; justify-content: space-between; }
+.col-h .all { font-size: 9px; color: var(--text-dimmer); font-weight: 700; }
+.todo-item { padding: 8px 10px; border-left: 2px solid var(--border); margin-bottom: 4px; font-size: 11px; color: var(--text-dimmer); }
+.attention { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-dim); }
+.attention-item { padding: 6px 10px; border-left: 2px solid var(--gold); margin-bottom: 3px; font-size: 11px; color: var(--gold); }
+
+/* Mockup banner */
+.mock-banner { position: fixed; top: 0; left: 0; right: 0; background: var(--gold); color: #050505; text-align: center; padding: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; z-index: 100; }
+.mock-banner a { color: #050505; text-decoration: underline; margin: 0 8px; }
+.mock-banner .self { background: #050505; color: var(--gold); padding: 2px 8px; }

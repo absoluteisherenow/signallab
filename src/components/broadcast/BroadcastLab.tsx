@@ -675,14 +675,14 @@ export function BroadcastLab() {
         setIgSyncResult({ error: data.error })
         // If no account connected or token expired, redirect to settings
         if (data.error && (data.error.includes('No Instagram') || data.error.includes('expired') || data.error.includes('Missing'))) {
-          showToast('Redirecting to connect Instagram...', 'Signal Lab')
+          showToast('Redirecting to connect Instagram...', 'Signal Lab OS')
           setTimeout(() => { window.location.href = '/business/settings' }, 600)
         } else {
           showToast(data.error || 'Sync failed', 'Error')
         }
       } else {
         setIgSyncResult({ synced: data.synced })
-        showToast(`${data.synced} posts synced · running deep dive...`, 'Signal Lab')
+        showToast(`${data.synced} posts synced · running deep dive...`, 'Signal Lab OS')
         // Auto-trigger deep dive on own account
         fetch('/api/instagram/deep-dive', { method: 'POST' })
           .then(r => r.json())
