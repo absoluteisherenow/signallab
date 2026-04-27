@@ -183,6 +183,8 @@ export async function GET(req: NextRequest) {
     engagement_rate: totalImpressions > 0 ? totalEngagement / totalImpressions : null,
     cost_per_follower_gbp:
       totalFollowersDelta > 0 && totalSpend > 0 ? totalSpend / totalFollowersDelta : null,
+    total_spend_gbp: totalSpend,
+    follows_count: totalFollowersDelta,
     hours_since_launch: hoursSinceLaunch,
     days_since_creative_swap: null, // populated once we track creative swaps
     active_campaign_meta_ids: (activeCampaigns ?? [])
